@@ -68,7 +68,7 @@ export default function ChangePasswordPage() {
           {mustChangePassword && (
             <Alert
               variant="destructive"
-              className="border-amber-400 bg-amber-500/10 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm"
+              className="flex border-amber-400 bg-amber-500/10 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200 shadow-sm"
             >
               <div className="flex items-start gap-3">
                 <ShieldAlert className="size-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
