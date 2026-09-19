@@ -2628,9 +2628,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-closing.tsx": {
-    "mtime": 1789310594.0718184,
-    "seen": 1789552086.3609078,
-    "ast_hash": "966ecc181334d6a3a0859c09f4fccd2a",
+    "mtime": 1789833645.450917,
+    "seen": 1789834102.5817354,
+    "ast_hash": "3f2b713b82b6fe27634ccf8dea718ac1",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-helpers.tsx": {
@@ -5778,9 +5778,9 @@
     "semantic_hash": ""
   },
   "Frontend/services/contract-completion-api.ts": {
-    "mtime": 1789209621.788483,
-    "seen": 1789210401.1998074,
-    "ast_hash": "8ba3df42e1ec5eba4f88542da4ea8656",
+    "mtime": 1789832907.5301504,
+    "seen": 1789834102.5819187,
+    "ast_hash": "1ae4c86772dbdad075af157a8a8109d5",
     "semantic_hash": ""
   },
   "graphify-out/memory/query_20260831_155404_thay_date_input_trong_contract_signing_panel_tsx_b.md": {
@@ -5922,9 +5922,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Integration/Phase12LibreOfficeReleaseGateTests.cs": {
-    "mtime": 1789815054.3553627,
-    "seen": 1789815612.7642436,
-    "ast_hash": "0db8e69bfbaaecf4cb496692852258cc",
+    "mtime": 1789833707.312704,
+    "seen": 1789834102.5816352,
+    "ast_hash": "362b23165c90cc8b324b0b57dbeb3c5c",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Integration/Phase12SqlServerReleaseGateTests.cs": {
@@ -7584,9 +7584,21 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/Contract/ContractAcceptanceServicePhase7Tests.cs": {
-    "mtime": 1789818500.9365673,
-    "seen": 1789818659.291125,
-    "ast_hash": "dd505adda814951e89ce1e304c39c70d",
+    "mtime": 1789833762.2562082,
+    "seen": 1789834102.5816104,
+    "ast_hash": "471f15f5ac12610da7c4e3f893d74d30",
+    "semantic_hash": ""
+  },
+  "Frontend/components/contracts/contract-acceptance-records.tsx": {
+    "mtime": 1789833657.5526161,
+    "seen": 1789834102.5817266,
+    "ast_hash": "acb7f49dce8e69f664bc0b319a9f05b9",
+    "semantic_hash": ""
+  },
+  "Frontend/services/contract-acceptance-api.ts": {
+    "mtime": 1789832904.9963567,
+    "seen": 1789834102.5819118,
+    "ast_hash": "faae97b4225ef4197158c2368e2b37c5",
     "semantic_hash": ""
   }
 }

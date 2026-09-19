@@ -99,6 +99,13 @@ public sealed class ContractAcceptanceServicePhase7Tests
             x.ActionType == ContractAuditActionTypes.AcceptanceRecordFinalized);
         Assert.Contains(audit.EmployeeRequests, x =>
             x.ActionType == ContractAuditActionTypes.AcceptanceEvidenceUploaded);
+        var auditedStrings = audit.EmployeeRequests
+            .SelectMany(request => request.NewValues ?? [])
+            .Where(value => value.StringValue is not null)
+            .Select(value => value.StringValue!);
+        Assert.DoesNotContain(auditedStrings, value =>
+            value.Contains("Đã hoàn thành công việc", StringComparison.Ordinal)
+            || value.Contains("contract-rich-text", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -188,6 +195,39 @@ public sealed class ContractAcceptanceServicePhase7Tests
                 new() { RowVersion = draft.RowVersion }, EmployeeId));
         Assert.Equal("ContractSignDateRequired", exception.Code);
         Assert.Empty(storage.SavedKeys);
+    }
+
+    [Fact]
+    public async Task SignedEvidence_WhenRowVersionIsStale_DeletesUploadedFile()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        var finalized = await service.FinalizeAsync(
+            ContractId, draft.AcceptanceRecordId,
+            new() { RowVersion = draft.RowVersion }, EmployeeId);
+        var deletedBefore = storage.DeletedKeys.Count;
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
+            service.UploadSignedEvidenceAsync(
+                ContractId,
+                finalized.AcceptanceRecordId,
+                new()
+                {
+                    RowVersion = Convert.ToBase64String([9, 8, 7, 6]),
+                    File = FormFile(
+                        "signed.pdf", "application/pdf", "%PDF-stale")
+                },
+                EmployeeId));
+
+        Assert.Equal(deletedBefore + 1, storage.DeletedKeys.Count);
+        Assert.Empty(db.TblContractAcceptanceEvidences);
+        var row = await db.TblContractAcceptanceRecords.AsNoTracking()
+            .SingleAsync();
+        Assert.Equal((byte)AcceptanceRecordStatus.Finalized, row.Status);
     }
 
     private static DbDtctechContext CreateContext()

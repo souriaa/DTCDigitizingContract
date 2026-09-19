@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Eye,
-  FileCheck2,
   Loader2,
   RotateCcw,
   WalletCards,
@@ -46,6 +45,7 @@ import {
   ContractPaymentStatus,
 } from "@/services/contract-completion-api";
 import { formatDateTime } from "@/lib/format-date-time";
+import { ContractAcceptanceRecords } from "@/components/contracts/contract-acceptance-records";
 
 interface Props {
   contract: ContractDetailResponse;
@@ -77,7 +77,6 @@ export function ContractClosing({
   );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [acceptanceFile, setAcceptanceFile] = useState<File>();
   const [paymentDate, setPaymentDate] = useState<Date>();
   const [amount, setAmount] = useState(0);
   const [method, setMethod] = useState("");
@@ -111,7 +110,8 @@ export function ContractClosing({
     [contract.contractId],
   );
   useEffect(() => {
-    void load();
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
   }, [load]);
 
   const mutate = async (action: () => Promise<unknown>, success: string) => {
@@ -252,8 +252,6 @@ export function ContractClosing({
         </CardContent>
       </Card>
     );
-  const acceptanceEditable =
-    canManageAcceptance && contract.status === ContractStatus.Signed;
   const paymentEditable =
     canManagePayment && contract.status === ContractStatus.Signed;
   const hasStructuredPayment = detail.paymentMilestones.length > 0;
@@ -345,63 +343,16 @@ export function ContractClosing({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileCheck2 className="size-5" />
-            Biên bản nghiệm thu
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {detail.acceptanceEvidence ? (
-            <div className="rounded-lg border p-3 text-sm">
-              <b>{detail.acceptanceEvidence.fileName}</b>
-              <p className="text-muted-foreground">
-                Tải bởi{" "}
-                {detail.acceptanceEvidence.uploadedByEmployeeName ??
-                  `#${detail.acceptanceEvidence.uploadedByEmployeeId}`}{" "}
-                ·{" "}
-                {new Date(detail.acceptanceEvidence.uploadedAt).toLocaleString(
-                  "vi-VN",
-                )}
-              </p>
-            </div>
-          ) : acceptanceEditable ? (
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => setAcceptanceFile(e.target.files?.[0])}
-              />
-              <Button
-                disabled={!acceptanceFile || busy}
-                onClick={() =>
-                  acceptanceFile &&
-                  mutate(
-                    () =>
-                      contractCompletionApi.uploadAcceptance(
-                        contract.contractId,
-                        {
-                          file: acceptanceFile,
-                          currentVersionId: detail.versionId,
-                          contractRowVersion: detail.contractRowVersion,
-                          versionRowVersion: detail.versionRowVersion,
-                        },
-                      ),
-                    "Đã tải biên bản nghiệm thu.",
-                  )
-                }
-              >
-                Tải lên
-              </Button>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Chưa có biên bản nghiệm thu.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <ContractAcceptanceRecords
+        contract={contract}
+        paymentMilestones={detail.paymentMilestones}
+        signedActive={detail.readiness.signed}
+        canManage={canManageAcceptance}
+        onChanged={async () => {
+          await load(false);
+          await onContractRefetch();
+        }}
+      />
 
       <Card>
         <CardHeader>
