@@ -4,6 +4,7 @@ using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace ContractManagement.Domains.Services.Contract;
 
@@ -14,72 +15,103 @@ public partial class ContractService
         int employeeId)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var (contract, version) = await LoadWritableAppendixStateAsync(
-            contractId, versionId, employeeId, request.VersionRowVersion);
-        var source = await _dbContext.TblContractTemplateAppendices
-            .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.TemplateAppendixId ==
-                    request.TemplateAppendixId
-                && x.TemplateVersionId == version.TemplateVersionId)
-            ?? throw new ArgumentException(
-                "Phụ lục không thuộc template version của hợp đồng.");
-        if (source.IsRequired)
-            throw new InvalidOperationException(
-                "Phụ lục bắt buộc phải được tạo cùng hợp đồng.");
-        if (await _dbContext.TblContractAppendices.AnyAsync(x =>
-                x.VersionId == versionId
-                && x.SourceTemplateAppendixId == source.TemplateAppendixId))
-            throw new InvalidOperationException("Phụ lục đã tồn tại trong version.");
-
-        var sourceTerms = await _dbContext.TblContractTemplateAppendixTerms
-            .AsNoTracking()
-            .Where(x => x.TemplateAppendixId == source.TemplateAppendixId)
-            .OrderBy(x => x.DisplayOrder)
-            .ThenBy(x => x.TemplateAppendixTermId)
-            .ToListAsync();
-        if (sourceTerms.Count == 0)
-            throw new InvalidOperationException("Phụ lục template chưa có điều khoản.");
-
-        var now = DateTime.UtcNow;
-        var displayOrder = (await _dbContext.TblContractAppendices
-            .Where(x => x.VersionId == versionId)
-            .Select(x => (int?)x.DisplayOrder)
-            .MaxAsync() ?? 0) + 1;
-        var row = new TblContractAppendix
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            ContractId = contractId,
-            VersionId = versionId,
-            SourceTemplateAppendixId = source.TemplateAppendixId,
-            AppendixCode = source.AppendixCode,
-            AppendixName = source.AppendixName,
-            AppendixNameEn = source.AppendixNameEn,
-            AppendixDescription = source.AppendixDescription,
-            IsRequired = false,
-            DisplayOrder = displayOrder,
-            CreatedEmployeeId = employeeId,
-            CreatedDate = now
-        };
-        _dbContext.TblContractAppendices.Add(row);
-        await _dbContext.SaveChangesAsync();
-        _dbContext.TblContractAppendixTerms.AddRange(sourceTerms.Select(term =>
-            new TblContractAppendixTerm
+            await using var transaction = await _dbContext.Database
+                .BeginTransactionAsync(IsolationLevel.Serializable);
+            try
             {
-                AppendixId = row.AppendixId,
-                SourceTemplateAppendixTermId = term.TemplateAppendixTermId,
-                TermCode = term.TermCode,
-                TermTitle = term.TermTitle,
-                TermTitleEn = term.TermTitleEn,
-                TermContent = term.TermContent,
-                TermContentEn = term.TermContentEn,
-                DisplayOrder = term.DisplayOrder,
-                CreatedEmployeeId = employeeId,
-                CreatedDate = now
-            }));
-        await TouchAppendixAggregateAsync(contract, version, employeeId, now);
-        await StageAppendixAuditAsync(contractId, versionId, row.AppendixId,
-            employeeId, now, ContractAuditActionTypes.ContractAppendixSelected);
-        await _dbContext.SaveChangesAsync();
-        return await LoadContractAppendixAsync(row.AppendixId);
+                var (contract, version) = await LoadWritableAppendixStateAsync(
+                    contractId, versionId, employeeId,
+                    request.VersionRowVersion);
+                var source = await _dbContext.TblContractTemplateAppendices
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(x => x.TemplateAppendixId ==
+                            request.TemplateAppendixId
+                        && x.TemplateVersionId == version.TemplateVersionId)
+                    ?? throw new ArgumentException(
+                        "Phụ lục không thuộc template version của hợp đồng.");
+                if (source.IsRequired)
+                    throw new InvalidOperationException(
+                        "Phụ lục bắt buộc phải được tạo cùng hợp đồng.");
+                if (await _dbContext.TblContractAppendices.AnyAsync(x =>
+                        x.VersionId == versionId
+                        && x.SourceTemplateAppendixId ==
+                            source.TemplateAppendixId))
+                    throw new InvalidOperationException(
+                        "Phụ lục đã tồn tại trong version.");
+
+                var sourceTerms = await _dbContext
+                    .TblContractTemplateAppendixTerms
+                    .AsNoTracking()
+                    .Where(x => x.TemplateAppendixId ==
+                        source.TemplateAppendixId)
+                    .OrderBy(x => x.DisplayOrder)
+                    .ThenBy(x => x.TemplateAppendixTermId)
+                    .ToListAsync();
+                if (sourceTerms.Count == 0)
+                    throw new InvalidOperationException(
+                        "Phụ lục template chưa có điều khoản.");
+
+                var now = DateTime.UtcNow;
+                var displayOrder = (await _dbContext.TblContractAppendices
+                    .Where(x => x.VersionId == versionId)
+                    .Select(x => (int?)x.DisplayOrder)
+                    .MaxAsync() ?? 0) + 1;
+                var row = new TblContractAppendix
+                {
+                    ContractId = contractId,
+                    VersionId = versionId,
+                    SourceTemplateAppendixId = source.TemplateAppendixId,
+                    AppendixCode = source.AppendixCode,
+                    AppendixName = source.AppendixName,
+                    AppendixNameEn = source.AppendixNameEn,
+                    AppendixDescription = source.AppendixDescription,
+                    IsRequired = false,
+                    DisplayOrder = displayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                _dbContext.TblContractAppendices.Add(row);
+                await _dbContext.SaveChangesAsync();
+
+                _dbContext.TblContractAppendixTerms.AddRange(
+                    sourceTerms.Select(term =>
+                        new TblContractAppendixTerm
+                        {
+                            AppendixId = row.AppendixId,
+                            SourceTemplateAppendixTermId =
+                                term.TemplateAppendixTermId,
+                            TermCode = term.TermCode,
+                            TermTitle = term.TermTitle,
+                            TermTitleEn = term.TermTitleEn,
+                            TermContent = term.TermContent,
+                            TermContentEn = term.TermContentEn,
+                            DisplayOrder = term.DisplayOrder,
+                            CreatedEmployeeId = employeeId,
+                            CreatedDate = now
+                        }));
+                await TouchAppendixAggregateAsync(
+                    contract, version, employeeId, now);
+                await StageAppendixAuditAsync(
+                    contractId,
+                    versionId,
+                    row.AppendixId,
+                    employeeId,
+                    now,
+                    ContractAuditActionTypes.ContractAppendixSelected);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return await LoadContractAppendixAsync(row.AppendixId);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
+        });
     }
 
     public async Task DeleteAppendixAsync(

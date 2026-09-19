@@ -12,9 +12,6 @@ public interface IContractCompletionService
     Task<IReadOnlyList<ContractPaymentMilestoneResponse>> GetPaymentMilestonesAsync(
         int contractId, int versionId, int employeeId,
         CancellationToken cancellationToken = default);
-    Task<ContractAcceptanceEvidenceResponse> UploadAcceptanceAsync(
-        int contractId, UploadContractAcceptanceEvidenceRequest request,
-        int employeeId, CancellationToken cancellationToken = default);
     Task<ContractPaymentResponse> AddPaymentAsync(
         int contractId, AddContractPaymentRequest request,
         int employeeId, CancellationToken cancellationToken = default);

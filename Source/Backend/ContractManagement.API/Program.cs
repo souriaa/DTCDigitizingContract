@@ -344,6 +344,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IContractCompletionService,
     ContractCompletionService>();
+builder.Services.AddScoped<
+    IContractAcceptanceService,
+    ContractAcceptanceService>();
 builder.Services.AddSingleton<
     IContractPaymentDueDateService,
     ContractPaymentDueDateService>();

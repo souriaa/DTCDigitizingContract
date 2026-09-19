@@ -71,63 +71,6 @@ public sealed class ContractCompletionServicePhase10Tests
     }
 
     [Fact]
-    public async Task UploadAcceptance_PersistsFileEvidenceAndAudit()
-    {
-        await using var context = CreateContext();
-        await SeedAsync(context, ContractStatus.Signed);
-        var storage = new TrackingPrivateStorage();
-
-        var response = await CreateService(context, storage)
-            .UploadAcceptanceAsync(
-                ContractId,
-                AcceptanceRequest(VersionId),
-                TechnicalId);
-
-        var evidence = await context.TblContractAcceptanceEvidences
-            .AsNoTracking()
-            .SingleAsync();
-        var file = await context.TblFileStorages
-            .AsNoTracking()
-            .SingleAsync(candidate => candidate.FileId == evidence.FileId);
-        var audit = await context.TblContractAudits
-            .AsNoTracking()
-            .SingleAsync(candidate => candidate.ActionType ==
-                ContractAuditActionTypes.AcceptanceEvidenceUploaded);
-
-        Assert.Equal(evidence.AcceptanceEvidenceId, response.AcceptanceEvidenceId);
-        Assert.Equal("ContractAcceptanceEvidence", file.ObjectType);
-        Assert.Equal(ContractId, file.ObjectId);
-        Assert.Equal(64, file.Sha256?.Length);
-        Assert.Equal(ContractAuditSubjectTypes.AcceptanceEvidence, audit.SubjectType);
-        Assert.Equal(evidence.AcceptanceEvidenceId, audit.SubjectId);
-        Assert.Equal(TechnicalId, audit.ActorEmployeeId);
-        Assert.Single(storage.SavedKeys);
-        Assert.Empty(storage.DeletedKeys);
-    }
-
-    [Fact]
-    public async Task UploadAcceptance_StateChanged_DeletesStagedFileAndDoesNotPersistMetadata()
-    {
-        await using var context = CreateContext();
-        await SeedAsync(context, ContractStatus.Signed);
-        var storage = new TrackingPrivateStorage();
-
-        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            CreateService(context, storage).UploadAcceptanceAsync(
-                ContractId,
-                AcceptanceRequest(VersionId + 1),
-                TechnicalId));
-
-        Assert.Equal("CompletionStateChanged", exception.Code);
-        Assert.Single(storage.SavedKeys);
-        Assert.Single(storage.DeletedKeys);
-        Assert.Empty(context.TblContractAcceptanceEvidences);
-        Assert.DoesNotContain(
-            context.TblFileStorages,
-            candidate => candidate.ObjectType == "ContractAcceptanceEvidence");
-    }
-
-    [Fact]
     public async Task Payments_PartialThenFull_RecalculateReadinessAndAuditEachEntry()
     {
         await using var context = CreateContext();
@@ -696,11 +639,6 @@ public sealed class ContractCompletionServicePhase10Tests
             .AsNoTracking()
             .SingleAsync();
 
-        var acceptance = await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            service.UploadAcceptanceAsync(
-                ContractId,
-                AcceptanceRequest(VersionId),
-                TechnicalId));
         var addPayment = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.AddPaymentAsync(
                 ContractId,
@@ -715,12 +653,11 @@ public sealed class ContractCompletionServicePhase10Tests
         var completeAgain = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.CompleteAsync(ContractId, CompleteRequest(), ManagerId));
 
-        Assert.Equal("ContractMustBeSigned", acceptance.Code);
         Assert.Equal("ContractMustBeSigned", addPayment.Code);
         Assert.Equal("ContractMustBeSigned", voidPayment.Code);
         Assert.Equal("ContractNotReadyForCompletion", completeAgain.Code);
-        Assert.Single(storage.SavedKeys);
-        Assert.Single(storage.DeletedKeys);
+        Assert.Empty(storage.SavedKeys);
+        Assert.Empty(storage.DeletedKeys);
         Assert.Single(context.TblContractPaymentLedgers);
     }
 
@@ -732,18 +669,12 @@ public sealed class ContractCompletionServicePhase10Tests
         var storage = new TrackingPrivateStorage();
         var service = CreateService(context, storage);
 
-        var acceptance = await Assert.ThrowsAsync<RbacOperationException>(() =>
-            service.UploadAcceptanceAsync(
-                ContractId,
-                AcceptanceRequest(VersionId),
-                OwnerId));
         var payment = await Assert.ThrowsAsync<RbacOperationException>(() =>
             service.AddPaymentAsync(
                 ContractId,
                 PaymentRequest(100m, "unauthorized"),
                 OwnerId));
 
-        Assert.Equal(AuthorizationErrorCodes.PermissionDenied, acceptance.Code);
         Assert.Equal(AuthorizationErrorCodes.PermissionDenied, payment.Code);
         Assert.Empty(storage.SavedKeys);
         Assert.Empty(context.TblContractAcceptanceEvidences);
@@ -985,15 +916,6 @@ public sealed class ContractCompletionServicePhase10Tests
             FileSize = 100,
             UploadedByUserId = OwnerId,
             UploadedDate = DateTime.UtcNow
-        };
-
-    private static UploadContractAcceptanceEvidenceRequest AcceptanceRequest(
-        int versionId) => new()
-        {
-            File = FormFile("acceptance.pdf", "application/pdf"),
-            CurrentVersionId = versionId,
-            ContractRowVersion = Encode(InitialRowVersion),
-            VersionRowVersion = Encode(InitialRowVersion)
         };
 
     private static AddContractPaymentRequest PaymentRequest(

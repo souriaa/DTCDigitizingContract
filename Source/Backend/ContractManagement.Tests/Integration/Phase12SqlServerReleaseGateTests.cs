@@ -1,5 +1,8 @@
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Security;
+using ContractManagement.API.Domains.DTOs.Requests.Contract;
+using ContractManagement.Common.Enums;
+using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Services.Contract;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
@@ -97,6 +100,160 @@ public sealed class Phase12SqlServerReleaseGateTests
         {
             await DropQaDatabaseAsync(connectionA, databaseA);
             await DropQaDatabaseAsync(connectionB, databaseB);
+        }
+    }
+
+    [Phase12SqlServerFact]
+    [Trait("Category", "Phase12SqlServer")]
+    public async Task AddAppendix_WhenSecondStageFails_RollsBackParentAndTerms()
+    {
+        var baseConnection = Environment.GetEnvironmentVariable(
+            ConnectionVariable)!;
+        var databaseName =
+            $"ContractManagement_Phase12_QA_Appendix_{Guid.NewGuid():N}";
+        var connectionString = WithDatabase(baseConnection, databaseName);
+
+        try
+        {
+            int contractId;
+            int versionId;
+            int templateAppendixId;
+            int employeeId;
+            string versionRowVersion;
+            await using (var seed = CreateContext(connectionString))
+            {
+                await seed.Database.MigrateAsync();
+                var employee = Employee(
+                    "PH12-APPENDIX-OWNER", EmployeeType.Sale);
+                seed.TblEmployees.Add(employee);
+                await seed.SaveChangesAsync();
+
+                var customer = new TblCustomer
+                {
+                    CustomerCode = "PH12-APPENDIX-CUSTOMER",
+                    CustomerFullName = "Phase 12 Appendix Customer",
+                    Status = 1
+                };
+                var template = new TblContractTemplate
+                {
+                    TemplateCode = "PH12-APPENDIX-TEMPLATE",
+                    TemplateName = "Phase 12 Appendix Template",
+                    DocumentType =
+                        (byte)TemplateDocumentType.SoftwareSupplyContract,
+                    LanguageMode =
+                        (byte)ContractLanguageMode.Vietnamese,
+                    IsActive = true,
+                    CreatedEmployeeId = employee.EmployeeId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                seed.TblCustomers.Add(customer);
+                seed.TblContractTemplates.Add(template);
+                await seed.SaveChangesAsync();
+
+                var templateVersion = new TblContractTemplateVersion
+                {
+                    TemplateId = template.TemplateId,
+                    VersionNo = 1,
+                    Status = (byte)TemplateVersionStatus.Draft,
+                    ValidationStatus =
+                        (byte)TemplateValidationStatus.NotValidated,
+                    CreatedEmployeeId = employee.EmployeeId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                seed.TblContractTemplateVersions.Add(templateVersion);
+                await seed.SaveChangesAsync();
+
+                var sourceAppendix = new TblContractTemplateAppendix
+                {
+                    TemplateVersionId = templateVersion.TemplateVersionId,
+                    AppendixCode = "PL-ROLLBACK",
+                    AppendixName = "Phụ lục kiểm tra rollback",
+                    IsRequired = false,
+                    IsSelectedByDefault = false,
+                    DisplayOrder = 1,
+                    CreatedEmployeeId = employee.EmployeeId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                seed.TblContractTemplateAppendices.Add(sourceAppendix);
+                await seed.SaveChangesAsync();
+                seed.TblContractTemplateAppendixTerms.Add(
+                    new TblContractTemplateAppendixTerm
+                    {
+                        TemplateAppendixId =
+                            sourceAppendix.TemplateAppendixId,
+                        TermCode = "PL-RB-01",
+                        TermTitle = "Điều khoản rollback",
+                        DisplayOrder = 1,
+                        CreatedEmployeeId = employee.EmployeeId,
+                        CreatedDate = DateTime.UtcNow
+                    });
+
+                var contract = new TblContract
+                {
+                    CustomerId = customer.CustomerId,
+                    EmployeeId = employee.EmployeeId,
+                    ContractType = (byte)ContractType.SoftwareSupply,
+                    TemplateVersionId = templateVersion.TemplateVersionId,
+                    ContractCode = "PH12-APPENDIX-ROLLBACK",
+                    ContractName = "Phase 12 Appendix Rollback",
+                    Status = (byte)ContractStatus.Draft,
+                    CurrencyCode = "VND",
+                    LanguageMode =
+                        (byte)ContractLanguageMode.Vietnamese,
+                    CreatedEmployeeId = employee.EmployeeId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                seed.TblContracts.Add(contract);
+                await seed.SaveChangesAsync();
+                var version = new TblContractVersion
+                {
+                    ContractId = contract.ContractId,
+                    VersionNo = 1,
+                    TemplateVersionId = templateVersion.TemplateVersionId,
+                    CurrencyCode = "VND",
+                    IsLocked = false,
+                    CreatedEmployeeId = employee.EmployeeId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                seed.TblContractVersions.Add(version);
+                await seed.SaveChangesAsync();
+                contract.CurrentVersionId = version.VersionId;
+                await seed.SaveChangesAsync();
+
+                contractId = contract.ContractId;
+                versionId = version.VersionId;
+                templateAppendixId = sourceAppendix.TemplateAppendixId;
+                employeeId = employee.EmployeeId;
+                versionRowVersion = Convert.ToBase64String(
+                    version.RowVersion);
+            }
+
+            await using (var action = CreateContext(connectionString))
+            {
+                var service = new ContractService(
+                    action,
+                    new ThrowingAuditWriter());
+                var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => service.AddAppendixAsync(
+                        contractId,
+                        versionId,
+                        new AddContractAppendixRequest
+                        {
+                            TemplateAppendixId = templateAppendixId,
+                            VersionRowVersion = versionRowVersion
+                        },
+                        employeeId));
+                Assert.Equal("Simulated audit staging failure.", failure.Message);
+            }
+
+            await using var verify = CreateContext(connectionString);
+            Assert.False(await verify.TblContractAppendices.AnyAsync(x =>
+                x.ContractId == contractId && x.VersionId == versionId));
+            Assert.Empty(await verify.TblContractAppendixTerms.ToListAsync());
+        }
+        finally
+        {
+            await DropQaDatabaseAsync(connectionString, databaseName);
         }
     }
 
@@ -354,5 +511,18 @@ public sealed class Phase12SqlServerReleaseGateTests
                 Skip = $"Set {ConnectionVariable} to run the real SQL Server release gate.";
             }
         }
+    }
+
+    private sealed class ThrowingAuditWriter : IContractAuditWriter
+    {
+        public void StageAudits(
+            IReadOnlyCollection<ContractAuditWriteRequest> requests) =>
+            throw new InvalidOperationException(
+                "Simulated audit staging failure.");
+
+        public void StageEmployeeAudits(
+            IReadOnlyCollection<EmployeeContractAuditWriteRequest> requests) =>
+            throw new InvalidOperationException(
+                "Simulated audit staging failure.");
     }
 }

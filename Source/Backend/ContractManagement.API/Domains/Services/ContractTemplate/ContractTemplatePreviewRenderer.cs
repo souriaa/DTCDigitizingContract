@@ -241,7 +241,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
     }
 
-    private static int GetAvailableWidthDxa(W.Paragraph paragraph)
+    internal static int GetAvailableWidthDxa(W.Paragraph paragraph)
     {
         var containingCell = paragraph.Ancestors<W.TableCell>().FirstOrDefault();
         if (containingCell is not null)
@@ -411,7 +411,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             "Nội dung điều khoản có định dạng rich text không hợp lệ.",
             availableWidthDxa);
 
-    private static IEnumerable<OpenXmlElement> CreateRichTextElements(
+    internal static IEnumerable<OpenXmlElement> CreateRichTextElements(
         string? value,
         string failureCode,
         string failureMessage,

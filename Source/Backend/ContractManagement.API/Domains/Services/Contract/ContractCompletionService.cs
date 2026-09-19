@@ -16,7 +16,6 @@ namespace ContractManagement.Domains.Services.Contract;
 
 public sealed class ContractCompletionService : IContractCompletionService
 {
-    private const string AcceptanceObjectType = "ContractAcceptanceEvidence";
     private const string PaymentObjectType = "ContractPaymentEvidence";
     private static readonly TimeSpan BusinessUtcOffset = TimeSpan.FromHours(7);
     private readonly DbDtctechContext _db;
@@ -58,75 +57,6 @@ public sealed class ContractCompletionService : IContractCompletionService
         if (detail.VersionId != versionId)
             throw new KeyNotFoundException("Không tìm thấy version hợp đồng hiện hành.");
         return detail.PaymentMilestones;
-    }
-
-    public async Task<ContractAcceptanceEvidenceResponse> UploadAcceptanceAsync(
-        int contractId, UploadContractAcceptanceEvidenceRequest request,
-        int employeeId, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        if (request.File is null || request.File.Length <= 0) throw Rule("AcceptanceFileRequired", "Vui lòng chọn biên bản nghiệm thu.");
-        await _authorization.EnsureCanManageAcceptanceAsync(
-            contractId,
-            employeeId,
-            cancellationToken);
-        var stored = await SaveFileAsync(request.File, AcceptanceObjectType, contractId, cancellationToken);
-        try
-        {
-            return await ExecuteInTransactionAsync(async () =>
-            {
-                var (contract, version) = await LoadWritableStateAsync(contractId, request.CurrentVersionId,
-                    request.ContractRowVersion, request.VersionRowVersion, cancellationToken);
-                EnsureSigned(contract, version);
-                var acceptanceRecord = await _db.TblContractAcceptanceRecords
-                    .SingleOrDefaultAsync(x => x.ContractId == contractId
-                        && x.ContractVersionId == version.VersionId
-                        && x.Status == (byte)AcceptanceRecordStatus.Finalized,
-                        cancellationToken)
-                    ?? throw Rule("AcceptanceRecordRequired",
-                        "Phải finalize biên bản nghiệm thu trước khi tải bản ký.",
-                        StatusCodes.Status409Conflict);
-                if (await _db.TblContractAcceptanceEvidences.AnyAsync(
-                        x => x.AcceptanceRecordId == acceptanceRecord.AcceptanceRecordId,
-                        cancellationToken))
-                    throw Rule("AcceptanceEvidenceExists", "Biên bản nghiệm thu này đã có bản ký.", StatusCodes.Status409Conflict);
-
-                var metadata = CreateFile(stored, AcceptanceObjectType, contractId, employeeId);
-                _db.TblFileStorages.Add(metadata);
-                await _db.SaveChangesAsync(cancellationToken);
-                var evidence = new TblContractAcceptanceEvidence
-                {
-                    AcceptanceRecordId = acceptanceRecord.AcceptanceRecordId,
-                    FileId = metadata.FileId,
-                    UploadedByEmployeeId = employeeId, UploadedAt = DateTime.UtcNow
-                };
-                _db.TblContractAcceptanceEvidences.Add(evidence);
-                acceptanceRecord.Status = (byte)AcceptanceRecordStatus.Signed;
-                acceptanceRecord.SignedAt = evidence.UploadedAt;
-                acceptanceRecord.SignedByEmployeeId = employeeId;
-                acceptanceRecord.UpdatedDate = evidence.UploadedAt;
-                acceptanceRecord.UpdatedEmployeeId = employeeId;
-                await _db.SaveChangesAsync(cancellationToken);
-                await ActivateMilestonesAsync(version.VersionId,
-                    PaymentDueAnchor.AcceptanceCompleted, evidence.UploadedAt.Date,
-                    employeeId, cancellationToken);
-                _audit.StageEmployeeAudits([new(contractId, version.VersionId, employeeId,
-                    ContractAuditActionTypes.AcceptanceEvidenceUploaded, ContractAuditResults.Succeeded,
-                    evidence.UploadedAt, SubjectType: ContractAuditSubjectTypes.AcceptanceEvidence,
-                    SubjectId: evidence.AcceptanceEvidenceId,
-                    NewValues: ContractAuditValues.Create(("AcceptanceEvidenceId", evidence.AcceptanceEvidenceId),
-                        ("FileId", metadata.FileId), ("FileType", metadata.FileType),
-                        ("Sha256", metadata.Sha256), ("CurrentVersionId", version.VersionId))) ]);
-                await _db.SaveChangesAsync(cancellationToken);
-                return await LoadAcceptanceAsync(evidence.AcceptanceEvidenceId, cancellationToken);
-            }, cancellationToken);
-        }
-        catch
-        {
-            _db.ChangeTracker.Clear();
-            await _files.DeleteAsync(stored.TenantCode, stored.StorageKey, cancellationToken);
-            throw;
-        }
     }
 
     public async Task<ContractPaymentResponse> AddPaymentAsync(int contractId,

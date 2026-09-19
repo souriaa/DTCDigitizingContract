@@ -1,3 +1,5 @@
+using ContractManagement.API.Common.Enums;
+using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.Domains.Services.ContractTemplate;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -31,6 +33,67 @@ public sealed class Phase12LibreOfficeReleaseGateTests
         Assert.True(pdf.AsSpan(0, 5).SequenceEqual("%PDF-"u8));
     }
 
+    [Phase12LibreOfficeFact]
+    [Trait("Category", "Phase12LibreOffice")]
+    public async Task RealLibreOffice_ConvertsRenderedAppendixPackageToValidPdf()
+    {
+        var executablePath = Environment.GetEnvironmentVariable(
+            ExecutableVariable)!;
+        var renderer = new ContractTemplatePreviewRenderer();
+        var appendixDefinition = ContractPlaceholderCatalog.SystemDefinitions
+            .Single(definition => definition.Key == "CONTRACT_APPENDICES");
+        var renderData = new ContractTemplateRenderData(
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            [],
+            [],
+            new ContractTemplateRenderSignature("BÊN A", "Đại diện A"),
+            new ContractTemplateRenderSignature("BÊN B", "Đại diện B"),
+            string.Empty)
+        {
+            Definitions = [appendixDefinition],
+            Appendices =
+            [
+                new ContractTemplateRenderAppendix(
+                    1,
+                    "PL-01",
+                    "Phạm vi triển khai",
+                    null,
+                    "Căn cứ Hợp đồng số HD-01 giữa Bên A và Bên B về việc Cung cấp phần mềm.",
+                    null,
+                    [new ContractTemplateRenderAppendixTerm(
+                        1,
+                        "Nội dung phụ lục",
+                        null,
+                        null,
+                        null)])
+            ]
+        };
+        var docx = renderer.Render(
+            CreateAppendixSourceDocument(),
+            ContractLanguageMode.Vietnamese,
+            renderData);
+        using (var document = WordprocessingDocument.Open(
+                   new MemoryStream(docx), false))
+        {
+            Assert.Contains(
+                "PHỤ LỤC PL-01: Phạm vi triển khai",
+                document.MainDocumentPart!.Document!.InnerText);
+        }
+
+        var pdfRenderer = new LibreOfficeContractTemplatePdfRenderer(
+            Options.Create(new TemplatePdfRenderingOptions
+            {
+                ExecutablePath = executablePath,
+                TimeoutSeconds = 60,
+                MaxOutputBytes = 25 * 1024 * 1024
+            }));
+
+        var pdf = await pdfRenderer.ConvertPreviewToPdfAsync(docx);
+
+        Assert.True(pdf.Length > 5);
+        Assert.True(pdf.AsSpan(0, 5).SequenceEqual("%PDF-"u8));
+    }
+
     private static byte[] CreateDocument()
     {
         using var stream = new MemoryStream();
@@ -45,6 +108,26 @@ public sealed class Phase12LibreOfficeReleaseGateTests
                     new Paragraph(
                         new Run(
                             new Text("Phase 12 LibreOffice release gate")))));
+            main.Document.Save();
+        }
+
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateAppendixSourceDocument()
+    {
+        using var stream = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(
+                   stream,
+                   DocumentFormat.OpenXml.WordprocessingDocumentType.Document,
+                   autoSave: true))
+        {
+            var main = document.AddMainDocumentPart();
+            main.Document = new Document(
+                new Body(
+                    new Paragraph(new Run(new Text("HỢP ĐỒNG GỐC"))),
+                    new Paragraph(new Run(new Text(
+                        "{{CONTRACT_APPENDICES}}")))));
             main.Document.Save();
         }
 

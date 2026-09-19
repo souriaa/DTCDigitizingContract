@@ -45,7 +45,7 @@ export function ContractAppendices({
   );
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<number | null>(null);
-  const [newTerm, setNewTerm] = useState({ code: "", title: "" });
+  const [newTerm, setNewTerm] = useState({ code: "", title: "", titleEn: "" });
 
   const run = async (key: string, action: () => Promise<unknown>) => {
     try {
@@ -97,6 +97,10 @@ export function ContractAppendices({
       toast.error("Nhập mã và tiêu đề điều khoản mới.");
       return;
     }
+    if (contract.languageMode === 2 && !newTerm.titleEn.trim()) {
+      toast.error("Hợp đồng song ngữ cần tiêu đề điều khoản tiếng Anh.");
+      return;
+    }
     void run(`add-${appendix.appendixId}`, async () => {
       await contractApi.addAppendixTerm(
         contract.contractId,
@@ -105,13 +109,14 @@ export function ContractAppendices({
         {
           termCode: newTerm.code.trim(),
           termTitle: newTerm.title.trim(),
+          termTitleEn: newTerm.titleEn.trim() || null,
           displayOrder: appendix.terms.length + 1,
           versionRowVersion: contract.currentVersion.rowVersion,
           appendixRowVersion: appendix.rowVersion,
         },
       );
       setAddingTo(null);
-      setNewTerm({ code: "", title: "" });
+      setNewTerm({ code: "", title: "", titleEn: "" });
       toast.success("Đã thêm điều khoản phụ lục.");
     });
   };
@@ -323,6 +328,18 @@ export function ContractAppendices({
                     onChange={(event) => setNewTerm((current) => ({ ...current, title: event.target.value }))}
                   />
                 </div>
+                {contract.languageMode === 2 && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Tiêu đề tiếng Anh</Label>
+                    <Input
+                      value={newTerm.titleEn}
+                      onChange={(event) => setNewTerm((current) => ({
+                        ...current,
+                        titleEn: event.target.value,
+                      }))}
+                    />
+                  </div>
+                )}
                 <div className="flex gap-2 sm:col-span-2">
                   <Button size="sm" onClick={() => addTerm(appendix)}>
                     <Plus className="size-4" /> Thêm
