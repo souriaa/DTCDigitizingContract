@@ -120,6 +120,11 @@ internal static class AppendixAcceptanceModelConfiguration
             });
             entity.HasIndex(x => new { x.ContractId, x.AcceptanceCode }).IsUnique();
             entity.HasIndex(x => new { x.ContractVersionId, x.Status });
+            entity.HasIndex(x => x.ContractVersionId)
+                .IsUnique()
+                .HasFilter("[Status] IN (0, 1)")
+                .HasDatabaseName(
+                    "UX_tbl_ContractAcceptanceRecord_ActiveVersion");
             entity.Property(x => x.AcceptanceCode).HasMaxLength(100).IsUnicode(false);
             entity.Property(x => x.AcceptanceDate).HasColumnType("date");
             entity.Property(x => x.Location).HasMaxLength(500);

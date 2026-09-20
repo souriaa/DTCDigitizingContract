@@ -620,6 +620,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("ContractId", "AcceptanceCode")
                         .IsUnique();
 
+                    b.HasIndex("ContractVersionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_tbl_ContractAcceptanceRecord_ActiveVersion")
+                        .HasFilter("[Status] IN (0, 1)");
+
                     b.HasIndex("ContractVersionId", "Status");
 
                     b.ToTable("tbl_ContractAcceptanceRecord", null, t =>

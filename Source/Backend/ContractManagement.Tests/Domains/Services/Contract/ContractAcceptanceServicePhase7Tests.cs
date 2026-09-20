@@ -204,6 +204,80 @@ public sealed class ContractAcceptanceServicePhase7Tests
         Assert.Equal("AcceptanceAppendixSelectionInvalid", exception.Code);
     }
 
+    [Theory]
+    [InlineData(AcceptanceRecordStatus.Draft)]
+    [InlineData(AcceptanceRecordStatus.Finalized)]
+    public async Task Create_RejectsWhenAnotherRecordIsInProgress(
+        AcceptanceRecordStatus status)
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        db.TblContractAcceptanceRecords.Add(
+            AcceptanceRecord(900, status, AcceptanceKind.Partial));
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(
+                ContractId, CreateRequest(), EmployeeId));
+
+        Assert.Equal("AcceptanceRecordInProgress", exception.Code);
+    }
+
+    [Fact]
+    public async Task Create_RejectsAfterSignedFinalAcceptance()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Signed, AcceptanceKind.Final));
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(
+                ContractId, CreateRequest(), EmployeeId));
+
+        Assert.Equal("AcceptanceFinalAlreadySigned", exception.Code);
+    }
+
+    [Fact]
+    public async Task Create_AfterSignedPartial_AllowsOnlyRemainingMilestone()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Signed, AcceptanceKind.Partial));
+        db.TblContractAcceptanceMilestones.Add(
+            new TblContractAcceptanceMilestone
+            {
+                AcceptanceRecordId = 900,
+                PaymentMilestoneId = MilestoneId
+            });
+        await db.SaveChangesAsync();
+        var service = CreateService(db, storage);
+
+        var reusedException = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => service.CreateAsync(
+                ContractId, CreateRequest(), EmployeeId));
+        Assert.Equal("AcceptanceMilestoneAlreadyFinalized",
+            reusedException.Code);
+
+        var request = CreateRequest();
+        request.AcceptanceCode = "BBNT-002";
+        request.PaymentMilestoneIds = [MilestoneId + 1];
+        var draft = await service.CreateAsync(
+            ContractId, request, EmployeeId);
+
+        Assert.Equal(AcceptanceRecordStatus.Draft, draft.Status);
+        Assert.Equal([MilestoneId + 1],
+            draft.Milestones.Select(x => x.PaymentMilestoneId));
+        var summaries = await service.ListAsync(ContractId, EmployeeId);
+        Assert.Contains(summaries, x => x.AcceptanceRecordId == 900
+            && x.PaymentMilestoneIds.SequenceEqual([MilestoneId]));
+    }
+
     [Fact]
     public async Task Mutations_EnforceRbac_AndRowVersion()
     {
@@ -344,6 +418,24 @@ public sealed class ContractAcceptanceServicePhase7Tests
         PaymentMilestoneIds = [MilestoneId],
         ContractRowVersion = Convert.ToBase64String(InitialVersion),
         VersionRowVersion = Convert.ToBase64String(InitialVersion)
+    };
+
+    private static TblContractAcceptanceRecord AcceptanceRecord(
+        int id, AcceptanceRecordStatus status, AcceptanceKind kind) => new()
+    {
+        AcceptanceRecordId = id,
+        ContractId = ContractId,
+        ContractVersionId = VersionId,
+        TemplateVersionId = TemplateVersionId,
+        AcceptanceCode = $"BBNT-{id}",
+        AcceptanceDate = new DateTime(2026, 9, 18),
+        Location = "Hà Nội",
+        AcceptanceKind = (byte)kind,
+        Status = (byte)status,
+        CreatedEmployeeId = EmployeeId,
+        CreatedDate = new DateTime(2026, 9, 18, 8, 0, 0,
+            DateTimeKind.Utc),
+        RowVersion = InitialVersion.ToArray()
     };
 
     private static async Task SeedAsync(

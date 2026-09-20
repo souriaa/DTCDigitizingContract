@@ -452,8 +452,37 @@ export function ContractAcceptanceRecords({
     );
 
   const isDraft = selected?.status === AcceptanceRecordStatus.Draft;
+  const currentVersionRecords = records.filter(
+    (record) => record.contractVersionId === contract.currentVersion.versionId,
+  );
+  const activeRecord = currentVersionRecords.find(
+    (record) =>
+      record.status === AcceptanceRecordStatus.Draft ||
+      record.status === AcceptanceRecordStatus.Finalized,
+  );
+  const signedFinalRecord = currentVersionRecords.find(
+    (record) =>
+      record.status === AcceptanceRecordStatus.Signed &&
+      record.acceptanceKind === AcceptanceKind.Final,
+  );
+  const unavailableMilestoneIds = new Set(
+    currentVersionRecords
+      .filter(
+        (record) =>
+          record.status === AcceptanceRecordStatus.Finalized ||
+          record.status === AcceptanceRecordStatus.Signed,
+      )
+      .flatMap((record) => record.paymentMilestoneIds),
+  );
+  const availablePaymentMilestones = paymentMilestones.filter(
+    (milestone) => !unavailableMilestoneIds.has(milestone.paymentMilestoneId),
+  );
   const canCreate =
-    canManage && contract.status === ContractStatus.Signed && signedActive;
+    canManage &&
+    contract.status === ContractStatus.Signed &&
+    signedActive &&
+    !activeRecord &&
+    !signedFinalRecord;
   const customer = selected?.parties.find(
     (party) => party.partyRole === AcceptancePartyRole.Customer,
   );
@@ -489,6 +518,33 @@ export function ContractAcceptanceRecords({
               </AlertDescription>
             </Alert>
           )}
+        {canManage && signedActive && activeRecord && (
+          <Alert>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Đang có biên bản {STATUS[activeRecord.status].toLowerCase()}.
+                Hãy hoàn tất hoặc hủy biên bản này trước khi tạo mới.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void openRecord(activeRecord.acceptanceRecordId)}
+                disabled={busy}
+              >
+                Mở biên bản
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {canManage && signedActive && !activeRecord && signedFinalRecord && (
+          <Alert>
+            <AlertDescription>
+              Hợp đồng đã có biên bản nghiệm thu toàn bộ đã ký, không thể tạo
+              thêm biên bản nghiệm thu.
+            </AlertDescription>
+          </Alert>
+        )}
         {templates.length === 0 && canCreate && (
           <Alert>
             <AlertDescription>
@@ -528,7 +584,9 @@ export function ContractAcceptanceRecords({
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(record.acceptanceDate).toLocaleDateString("vi-VN")}{" "}
+                    {new Date(record.acceptanceDate).toLocaleDateString(
+                      "vi-VN",
+                    )}{" "}
                     · Version {record.versionNo}
                   </p>
                 </button>
@@ -538,7 +596,8 @@ export function ContractAcceptanceRecords({
             {records.length > 0 && (
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">
-                  {records.length} biên bản · Trang {recordPage}/{totalRecordPages}
+                  {records.length} biên bản · Trang {recordPage}/
+                  {totalRecordPages}
                 </p>
                 <div className="flex items-center gap-2">
                   <Select
@@ -607,7 +666,7 @@ export function ContractAcceptanceRecords({
                   disabled={busy}
                   onClick={() => void openDocument("pdf", !isDraft)}
                 >
-                  <Eye className="mr-2 size-4" /> Xem PDF
+                  <Eye className="mr-2 size-4" /> PDF
                 </Button>
                 <Button
                   variant="outline"
@@ -1115,11 +1174,6 @@ export function ContractAcceptanceRecords({
                     ))}
                   </CollapsibleContent>
                 </Collapsible>
-                {selected.snapshotHash && (
-                  <p className="break-all text-xs text-muted-foreground">
-                    Snapshot SHA-256: {selected.snapshotHash}
-                  </p>
-                )}
               </div>
             )}
 
@@ -1351,7 +1405,7 @@ export function ContractAcceptanceRecords({
                 </Select>
               </div>
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
-                paymentMilestones.map((milestone) => (
+                availablePaymentMilestones.map((milestone) => (
                   <label
                     key={milestone.paymentMilestoneId}
                     className="flex items-center gap-3 rounded-md border p-3 text-sm"
@@ -1378,6 +1432,13 @@ export function ContractAcceptanceRecords({
                     {milestone.milestoneCode} — {milestone.titleVi}
                   </label>
                 ))}
+              {createForm.acceptanceKind === AcceptanceKind.Partial &&
+                availablePaymentMilestones.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Không còn milestone nào chưa thuộc biên bản đã chốt hoặc đã
+                    ký.
+                  </p>
+                )}
               <Alert>
                 <AlertDescription>
                   Sau khi tạo Draft, hệ thống snapshot hai bên và sections từ

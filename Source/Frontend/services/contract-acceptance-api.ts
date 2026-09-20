@@ -41,6 +41,7 @@ export interface ContractAcceptanceRecordSummary {
   acceptanceDate: string;
   acceptanceKind: AcceptanceKind;
   status: AcceptanceRecordStatus;
+  paymentMilestoneIds: number[];
   rowVersion: string;
 }
 

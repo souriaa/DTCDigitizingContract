@@ -111,6 +111,7 @@ export interface ContractTemplateFilterRequest {
   page?: number;
   pageSize?: number;
   keyword?: string;
+  documentType?: TemplateDocumentType;
 }
 
 export interface CreateContractTemplateRequest {

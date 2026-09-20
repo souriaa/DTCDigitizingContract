@@ -12,6 +12,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
 import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
 import {
@@ -70,7 +71,7 @@ interface ContractTermCardProps {
     value: string | boolean,
   ) => void;
   onKindChange?: (value: ContractTermKind) => void;
-  onMove?: (direction: -1 | 1) => void;
+  onMove?: (direction: -1 | 1) => void | boolean | Promise<void | boolean>;
   onRemove?: () => void;
   children?: ReactNode;
 }
@@ -96,6 +97,24 @@ export function ContractTermCard({
   onRemove,
   children,
 }: ContractTermCardProps) {
+  const handleMove = async (direction: -1 | 1) => {
+    if (!onMove) return;
+    try {
+      const result = await onMove(direction);
+      if (result === false) {
+        toast.error("Đổi thứ tự thất bại");
+        return;
+      }
+      toast.success("Đổi thứ tự thành công");
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Đổi thứ tự thất bại",
+      );
+    }
+  };
+
   return (
     <Collapsible defaultOpen={defaultOpen}>
       <Card className={cn("p-4 shadow-xs", className)}>
@@ -119,9 +138,7 @@ export function ContractTermCard({
                   ) : (
                     <LockKeyhole className="mr-1 size-3" />
                   )}
-                  {term.isNegotiable
-                    ? "Có thể đàm phán"
-                    : "Điều khoản cố định"}
+                  {term.isNegotiable ? "Có thể đàm phán" : "Điều khoản cố định"}
                 </Badge>
               )}
               <span className="font-mono text-xs text-muted-foreground">
@@ -143,7 +160,7 @@ export function ContractTermCard({
                   size="icon"
                   aria-label="Chuyển điều khoản lên"
                   disabled={!canMoveUp}
-                  onClick={() => onMove(-1)}
+                  onClick={() => handleMove(-1)}
                 >
                   <ArrowUp className="size-4" />
                 </Button>
@@ -153,7 +170,7 @@ export function ContractTermCard({
                   size="icon"
                   aria-label="Chuyển điều khoản xuống"
                   disabled={!canMoveDown}
-                  onClick={() => onMove(1)}
+                  onClick={() => handleMove(1)}
                 >
                   <ArrowDown className="size-4" />
                 </Button>
@@ -267,9 +284,7 @@ export function ContractTermCard({
                       value={term.termContentEn ?? ""}
                       placeholder={englishContentPlaceholder}
                       ariaLabel="Nội dung điều khoản tiếng Anh"
-                      onChange={(value) =>
-                        onChange?.("termContentEn", value)
-                      }
+                      onChange={(value) => onChange?.("termContentEn", value)}
                     />
                   </div>
                 </div>
@@ -280,9 +295,7 @@ export function ContractTermCard({
                   variant="link"
                   type="button"
                   className="flex w-fit cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() =>
-                    onChange?.("isNegotiable", !term.isNegotiable)
-                  }
+                  onClick={() => onChange?.("isNegotiable", !term.isNegotiable)}
                 >
                   {term.isNegotiable ? (
                     <UnlockKeyhole className="size-4 text-emerald-600" />

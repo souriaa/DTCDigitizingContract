@@ -390,6 +390,11 @@ public sealed class ContractDocumentPreviewService :
         var customerSnapshot = snapshot.Customer;
         var tenant = snapshot.Tenant;
         var currency = version.CurrencyCode;
+        var customerContactName = Required(
+            customer.CustomerContactPersonName,
+            "Người liên lạc khách hàng");
+        var customerContactTitle = Value(
+            customer.CustomerContactPersonTitle);
 
         var scalarValues = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -489,8 +494,10 @@ public sealed class ContractDocumentPreviewService :
                 "ĐẠI DIỆN BÊN KHÁCH HÀNG",
                 $"{customerSnapshot.LegalName} — MST: "
                 + $"{Value(customerSnapshot.TaxCode)} — {customerSnapshot.Address} — "
-                + $"{customerSnapshot.RepresentativeName}, "
-                + customerSnapshot.RepresentativeTitle),
+                + customerContactName
+                + (string.IsNullOrWhiteSpace(customerContactTitle)
+                    ? string.Empty
+                    : $", {customerContactTitle}")),
             string.Empty,
             currency)
         {

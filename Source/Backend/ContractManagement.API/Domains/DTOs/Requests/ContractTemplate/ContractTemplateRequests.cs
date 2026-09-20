@@ -11,6 +11,8 @@ public sealed class ContractTemplateFilterRequest
     public int PageSize { get; set; } = 20;
 
     public string? Keyword { get; set; }
+
+    public TemplateDocumentType? DocumentType { get; set; }
 }
 
 public sealed class AvailableContractTemplateFilterRequest

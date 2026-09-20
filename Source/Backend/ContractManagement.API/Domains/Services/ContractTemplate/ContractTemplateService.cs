@@ -323,6 +323,12 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && template.TemplateNameEn.Contains(keyword)));
         }
 
+        if (filter.DocumentType.HasValue)
+        {
+            query = query.Where(template =>
+                template.DocumentType == (byte)filter.DocumentType.Value);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
         var offset = ((long)page - 1) * pageSize;
         if (offset > int.MaxValue)

@@ -105,6 +105,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 AcceptanceDate = record.AcceptanceDate,
                 AcceptanceKind = (AcceptanceKind)record.AcceptanceKind,
                 Status = (AcceptanceRecordStatus)record.Status,
+                PaymentMilestoneIds = _db.TblContractAcceptanceMilestones
+                    .Where(x => x.AcceptanceRecordId ==
+                        record.AcceptanceRecordId)
+                    .Select(x => x.PaymentMilestoneId)
+                    .ToList(),
                 RowVersion = Convert.ToBase64String(record.RowVersion)
             }).ToListAsync(cancellationToken);
     }
@@ -146,6 +151,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             Match(version.RowVersion, request.VersionRowVersion,
                 "Version hợp đồng");
             await EnsureSignedSourceAsync(contract, version, cancellationToken);
+            await EnsureCanStartNewRecordAsync(
+                contractId, version.VersionId, cancellationToken);
 
             var template = await LoadPublishedTemplateAsync(
                 request.TemplateVersionId, cancellationToken);
@@ -987,6 +994,34 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         if (!activeEvidence)
             throw Rule("SignedEvidenceRequired",
                 "Hợp đồng chưa có bản ký active.",
+                StatusCodes.Status409Conflict);
+    }
+
+    private async Task EnsureCanStartNewRecordAsync(
+        int contractId, int versionId, CancellationToken ct)
+    {
+        var records = await _db.TblContractAcceptanceRecords
+            .AsNoTracking()
+            .Where(x => x.ContractId == contractId
+                && x.ContractVersionId == versionId
+                && x.Status != (byte)AcceptanceRecordStatus.Cancelled)
+            .Select(x => new { x.Status, x.AcceptanceKind })
+            .ToListAsync(ct);
+
+        if (records.Any(x => x.Status ==
+                (byte)AcceptanceRecordStatus.Draft
+            || x.Status == (byte)AcceptanceRecordStatus.Finalized))
+            throw Rule("AcceptanceRecordInProgress",
+                "Hợp đồng đang có biên bản nghiệm thu Draft hoặc " +
+                "đã chốt chờ ký. Hãy hoàn tất hoặc hủy biên bản đó.",
+                StatusCodes.Status409Conflict);
+
+        if (records.Any(x => x.Status ==
+                (byte)AcceptanceRecordStatus.Signed
+            && x.AcceptanceKind == (byte)AcceptanceKind.Final))
+            throw Rule("AcceptanceFinalAlreadySigned",
+                "Hợp đồng đã có biên bản nghiệm thu toàn bộ " +
+                "đã ký nên không thể tạo biên bản mới.",
                 StatusCodes.Status409Conflict);
     }
 

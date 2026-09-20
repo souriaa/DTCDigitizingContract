@@ -21,6 +21,7 @@ public class ContractAcceptanceRecordSummaryResponse
     public DateTime AcceptanceDate { get; set; }
     public AcceptanceKind AcceptanceKind { get; set; }
     public AcceptanceRecordStatus Status { get; set; }
+    public IReadOnlyList<int> PaymentMilestoneIds { get; set; } = [];
     public string RowVersion { get; set; } = string.Empty;
 }
 
