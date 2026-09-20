@@ -26,6 +26,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
     {
         var data = CreateSampleRenderData(languageMode);
         var values = new Dictionary<string, string>(data.ScalarValues, StringComparer.Ordinal);
+        AddAcceptanceSampleValues(values);
         if (definitions.Any(x => x.IsSystem && x.Key == "CUSTOMER_REPRESENTATIVE_TITLE"))
             values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Tổng giám đốc";
         foreach (var pair in customSamples) values[pair.Key] = pair.Value;
@@ -197,6 +198,10 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     languageMode, renderData, availableWidthDxa),
                 "CONTRACT_APPENDICES" => CreateAppendixElements(
                     languageMode, renderData, availableWidthDxa),
+                "DOCUMENT_REFERENCES" => CreateAcceptanceReferenceSample(
+                    languageMode),
+                "ACCEPTANCE_SECTIONS" => CreateAcceptanceSectionElements(
+                    languageMode, renderData.Terms, availableWidthDxa),
                 "SIGNATURE_PROVIDER" =>
                 [
                     (OpenXmlElement)CreateSignatureBlock(
@@ -216,6 +221,52 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
     }
 
+    private static IReadOnlyList<OpenXmlElement> CreateAcceptanceReferenceSample(
+        ContractLanguageMode languageMode)
+    {
+        var result = new List<OpenXmlElement>
+        {
+            CreateStyledParagraph(
+                "Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Công ty Khách hàng Mẫu và Công ty DTC về việc Cung cấp phần mềm mẫu.",
+                italic: true)
+        };
+        if (languageMode == ContractLanguageMode.Bilingual)
+        {
+            result.Add(CreateStyledParagraph(
+                "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01/09/2026 between Sample Customer Company and DTC Company regarding the sample software supply.",
+                italic: true));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<OpenXmlElement> CreateAcceptanceSectionElements(
+        ContractLanguageMode languageMode,
+        IReadOnlyList<ContractTemplateRenderTerm> sections,
+        int availableWidthDxa)
+    {
+        if (sections.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<OpenXmlElement>();
+        foreach (var section in sections)
+        {
+            result.Add(CreateStyledParagraph(section.TitleVi, bold: true));
+            result.AddRange(CreateTermContentElements(
+                section.ContentVi, availableWidthDxa));
+            if (languageMode == ContractLanguageMode.Bilingual)
+            {
+                result.Add(CreateStyledParagraph(section.TitleEn, bold: true));
+                result.AddRange(CreateTermContentElements(
+                    section.ContentEn, availableWidthDxa));
+            }
+        }
+
+        return result;
+    }
+
     private static void ReplaceParagraph(
         W.Paragraph paragraph,
         IEnumerable<OpenXmlElement> replacements)
@@ -227,6 +278,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var materialized = replacements.ToList();
         foreach (var replacement in materialized)
         {
+            ApplyPlaceholderFormatting(paragraph, replacement);
             parent.InsertBefore(replacement, paragraph);
         }
 
@@ -239,6 +291,60 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         {
             parent.Append(new W.Paragraph());
         }
+    }
+
+    private static void ApplyPlaceholderFormatting(
+        W.Paragraph source,
+        OpenXmlElement replacement)
+    {
+        if (replacement is not W.Paragraph paragraph) return;
+
+        var sourceParagraphProperties = source.ParagraphProperties;
+        var sourceJustification = sourceParagraphProperties?
+            .GetFirstChild<W.Justification>();
+        var sourceStyle = sourceParagraphProperties?
+            .GetFirstChild<W.ParagraphStyleId>();
+        if (sourceJustification is not null || sourceStyle is not null)
+        {
+            paragraph.ParagraphProperties ??= new W.ParagraphProperties();
+            if (sourceJustification is not null)
+            {
+                paragraph.ParagraphProperties
+                    .RemoveAllChildren<W.Justification>();
+                paragraph.ParagraphProperties.Append(
+                    sourceJustification.CloneNode(true));
+            }
+            if (sourceStyle is not null && paragraph.ParagraphProperties
+                    .GetFirstChild<W.ParagraphStyleId>() is null)
+            {
+                paragraph.ParagraphProperties.PrependChild(
+                    (W.ParagraphStyleId)sourceStyle.CloneNode(true));
+            }
+        }
+
+        var sourceRunProperties = source.Descendants<W.Run>()
+            .Select(run => run.RunProperties)
+            .FirstOrDefault(properties => properties is not null);
+        if (sourceRunProperties is null) return;
+        foreach (var run in paragraph.Descendants<W.Run>())
+        {
+            run.RunProperties ??= new W.RunProperties();
+            CopyRunProperty<W.RunFonts>(sourceRunProperties, run.RunProperties);
+            CopyRunProperty<W.FontSize>(sourceRunProperties, run.RunProperties);
+            CopyRunProperty<W.FontSizeComplexScript>(
+                sourceRunProperties, run.RunProperties);
+        }
+    }
+
+    private static void CopyRunProperty<T>(
+        W.RunProperties source,
+        W.RunProperties target)
+        where T : OpenXmlElement
+    {
+        var value = source.GetFirstChild<T>();
+        if (value is null) return;
+        target.RemoveAllChildren<T>();
+        target.Append(value.CloneNode(true));
     }
 
     internal static int GetAvailableWidthDxa(W.Paragraph paragraph)
@@ -999,6 +1105,29 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                 new ContractTemplateRenderLegalBasis(
                     basis.No, basis.ContentVi, basis.ContentEn)).ToList()
         };
+
+    private static void AddAcceptanceSampleValues(
+        IDictionary<string, string> values)
+    {
+        values["ACCEPTANCE_CODE"] = "BBNT-SAMPLE-001";
+        values["ACCEPTANCE_DATE"] = "20/09/2026";
+        values["ACCEPTANCE_LOCATION"] = "Hà Nội";
+        values["CUSTOMER_LEGAL_NAME"] = "CÔNG TY KHÁCH HÀNG MẪU";
+        values["CUSTOMER_ADDRESS"] = "Số 01, Đường Mẫu, Hà Nội";
+        values["CUSTOMER_PHONE"] = "024 0000 0000";
+        values["CUSTOMER_FAX"] = "024 0000 0001";
+        values["CUSTOMER_TAX_CODE"] = "0100000000";
+        values["CUSTOMER_REPRESENTATIVE_NAME"] = "Nguyễn Văn A";
+        values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Giám đốc";
+        values["TENANT_LEGAL_NAME"] =
+            "CÔNG TY TNHH CÔNG NGHỆ ỨNG DỤNG VÀ TRUYỀN THÔNG DTC";
+        values["TENANT_ADDRESS"] = "Số 2, ngách 6, ngõ 200, Vĩnh Hưng, Hà Nội";
+        values["TENANT_PHONE"] = "024 3557 3636";
+        values["TENANT_FAX"] = "024 3569 0588";
+        values["TENANT_TAX_CODE"] = "0105801335";
+        values["TENANT_REPRESENTATIVE_NAME"] = "Bùi Đức Ngọc";
+        values["TENANT_REPRESENTATIVE_TITLE"] = "Cán bộ tư vấn, triển khai";
+    }
 
     private static ContractTemplatePreviewException LayoutUnsupported(string key) =>
         new(

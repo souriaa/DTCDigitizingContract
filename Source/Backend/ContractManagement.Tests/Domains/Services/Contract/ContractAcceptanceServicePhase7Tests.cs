@@ -6,6 +6,7 @@ using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Domains.Interfaces.File;
+using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.Domains.Services.Contract;
 using ContractManagement.Infrastructure.MultiTenancy.Enums;
 using ContractManagement.Infrastructure.MultiTenancy.Models;
@@ -52,6 +53,11 @@ public sealed class ContractAcceptanceServicePhase7Tests
         Assert.Contains("ký ngày 12/09/2026", draft.References[0].TextVi);
         Assert.DoesNotContain("ký ngày", draft.References[1].TextVi);
         Assert.Equal(2, draft.Parties.Count);
+        var customerParty = Assert.Single(draft.Parties,
+            party => party.PartyRole == AcceptancePartyRole.Customer);
+        Assert.Equal("Người liên hệ nghiệm thu",
+            customerParty.RepresentativeName);
+        Assert.Equal("Điều phối dự án", customerParty.RepresentativeTitle);
         Assert.Single(draft.Sections);
         Assert.Single(draft.Milestones);
         Assert.Contains(audit.EmployeeRequests, x =>
@@ -99,6 +105,12 @@ public sealed class ContractAcceptanceServicePhase7Tests
             x.ActionType == ContractAuditActionTypes.AcceptanceRecordFinalized);
         Assert.Contains(audit.EmployeeRequests, x =>
             x.ActionType == ContractAuditActionTypes.AcceptanceEvidenceUploaded);
+        var evidenceAudit = Assert.Single(audit.EmployeeRequests, x =>
+            x.ActionType == ContractAuditActionTypes.AcceptanceEvidenceUploaded);
+        Assert.Equal(ContractAuditSubjectTypes.AcceptanceEvidence,
+            evidenceAudit.SubjectType);
+        Assert.Equal(evidence.AcceptanceEvidenceId, evidenceAudit.SubjectId);
+        Assert.True(evidenceAudit.SubjectId > 0);
         var auditedStrings = audit.EmployeeRequests
             .SelectMany(request => request.NewValues ?? [])
             .Where(value => value.StringValue is not null)
@@ -106,6 +118,66 @@ public sealed class ContractAcceptanceServicePhase7Tests
         Assert.DoesNotContain(auditedStrings, value =>
             value.Contains("Đã hoàn thành công việc", StringComparison.Ordinal)
             || value.Contains("contract-rich-text", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Preview_AllowsOptionalBlocks_AndRendersSignaturesAndCustomPlaceholder()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var customer = await db.TblCustomers.SingleAsync();
+        customer.CustomerContactPersonName = "Người liên hệ nghiệm thu";
+        db.TblContractTemplateFields.Add(new TblContractTemplateField
+        {
+            TemplateVersionId = TemplateVersionId,
+            PlaceholderKey = "ACCEPTANCE_CONTACT",
+            FieldLabel = "Người liên hệ nghiệm thu",
+            DataSource = "Khách hàng / Người liên hệ",
+            SourceFieldKey = "customer.contact-name",
+            DataKind = (byte)TemplatePlaceholderDataKind.Scalar,
+            Multiplicity = (byte)TemplatePlaceholderMultiplicity.ZeroOrOne,
+            IsSystem = false,
+            IsRequired = false,
+            DisplayOrder = 0,
+            CreatedEmployeeId = EmployeeId,
+            CreatedDate = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        storage.Add("templates/acceptance.docx",
+            CreateTemplateDocxWithCustomAndSignatures());
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+
+        var preview = await service.PreviewAsync(
+            ContractId, draft.AcceptanceRecordId, "docx", EmployeeId);
+
+        using var document = WordprocessingDocument.Open(
+            new MemoryStream(preview.Content), false);
+        var text = document.MainDocumentPart!.Document!.InnerText;
+        Assert.Contains("Người liên hệ nghiệm thu", text);
+        Assert.Contains("ĐẠI DIỆN BÊN A", text);
+        Assert.Contains("Người liên hệ nghiệm thu", text);
+        var customerSignature = document.MainDocumentPart.Document.Body!
+            .Elements<W.Paragraph>()
+            .Single(paragraph => paragraph.InnerText ==
+                "Người liên hệ nghiệm thu");
+        Assert.Equal(W.JustificationValues.Center,
+            customerSignature.ParagraphProperties?
+                .GetFirstChild<W.Justification>()?.Val?.Value);
+        Assert.All(customerSignature.Descendants<W.Run>(), run =>
+            Assert.Equal("Arial", run.RunProperties?
+                .GetFirstChild<W.RunFonts>()?.Ascii?.Value));
+        var contactLine = document.MainDocumentPart.Document.Body
+            .Elements<W.Paragraph>()
+            .Single(paragraph => paragraph.InnerText ==
+                "Liên hệ: Người liên hệ nghiệm thu");
+        Assert.Equal("Arial", contactLine.Descendants<W.Run>().First()
+            .RunProperties?.GetFirstChild<W.RunFonts>()?.Ascii?.Value);
+        Assert.Contains("ĐẠI DIỆN BÊN B", text);
+        Assert.Contains("Nguyễn Văn B", text);
+        Assert.DoesNotContain("{{", text);
     }
 
     [Fact]
@@ -291,6 +363,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
         {
             CustomerId = 1,
             CustomerFullName = "Khách hàng A",
+            CustomerContactPersonName = "Người liên hệ nghiệm thu",
+            CustomerContactPersonTitle = "Điều phối dự án",
             Status = 1
         });
         db.TblFileStorages.AddRange(
@@ -482,6 +556,45 @@ public sealed class ContractAcceptanceServicePhase7Tests
             main.Document.Save();
         }
         return stream.ToArray();
+    }
+
+    private static byte[] CreateTemplateDocxWithCustomAndSignatures()
+    {
+        using var stream = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(
+                   stream,
+                   DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            main.Document = new W.Document(new W.Body(
+                FormattedParagraph("Liên hệ: {{ACCEPTANCE_CONTACT}}"),
+                FormattedParagraph("{{SIGNATURE_CUSTOMER}}", centered: true),
+                FormattedParagraph("{{SIGNATURE_PROVIDER}}", centered: true)));
+            main.Document.Save();
+        }
+        return stream.ToArray();
+    }
+
+    private static W.Paragraph FormattedParagraph(
+        string text,
+        bool centered = false)
+    {
+        var paragraph = new W.Paragraph(new W.Run(
+            new W.RunProperties(
+                new W.RunFonts
+                {
+                    Ascii = "Arial",
+                    HighAnsi = "Arial",
+                    EastAsia = "Arial"
+                },
+                new W.FontSize { Val = "22" }),
+            new W.Text(text)));
+        if (centered)
+        {
+            paragraph.ParagraphProperties = new W.ParagraphProperties(
+                new W.Justification { Val = W.JustificationValues.Center });
+        }
+        return paragraph;
     }
 
     private static TblContractPaymentMilestone Milestone(

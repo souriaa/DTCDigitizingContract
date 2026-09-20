@@ -1,3 +1,4 @@
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Policies.ContractTemplate;
 
 namespace ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -9,5 +10,6 @@ public interface IContractTemplateDocumentValidator
 {
     Task<ContractTemplateDocumentValidationResult> ValidateAsync(
         IFormFile? file,
+        TemplateDocumentType documentType,
         CancellationToken cancellationToken = default);
 }

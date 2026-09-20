@@ -1,5 +1,6 @@
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.Domains.Services.ContractTemplate;
@@ -66,6 +67,7 @@ public sealed class CustomContractPlaceholderTests
     [InlineData("BAD__KEY", "PlaceholderKeyInvalid")]
     [InlineData("BAD KEY", "PlaceholderKeyInvalid")]
     [InlineData("CUSTOMER_NAME", "SystemPlaceholderImmutable")]
+    [InlineData("ACCEPTANCE_CODE", "SystemPlaceholderImmutable")]
     public async Task Create_RejectsInvalidOrReservedKeys(string key, string error)
     {
         await using var db = Context(); await SeedActor(db);
@@ -89,6 +91,40 @@ public sealed class CustomContractPlaceholderTests
         Assert.DoesNotContain("PII", audit.NewFormatString ?? string.Empty);
         audit.ActionType = "edited";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task AcceptanceCatalog_IncludesTenantCustomPlaceholders()
+    {
+        await using var db = Context();
+        await SeedActor(db);
+        var catalog = Catalog(db);
+        var created = await new ContractPlaceholderDefinitionService(
+                db, catalog, Registry)
+            .SaveAsync(null, Request("ACCEPTANCE_CONTACT"), 1, default);
+        var templateService = new ContractTemplateService(
+            db,
+            placeholderCatalog: catalog,
+            sourceRegistry: Registry);
+
+        var response = await templateService.GetPlaceholderCatalogAsync(
+            TemplateDocumentType.AcceptanceRecord,
+            1);
+        var documentBytes = Document(created.Key);
+        var validation = await new ContractTemplateDocumentValidator(catalog)
+            .ValidateAsync(
+                new FormFile(
+                    new MemoryStream(documentBytes),
+                    0,
+                    documentBytes.LongLength,
+                    "File",
+                    "acceptance.docx"),
+                TemplateDocumentType.AcceptanceRecord);
+
+        Assert.True(response.CustomEnabled);
+        Assert.Contains(response.Items, item =>
+            item.Key == created.Key && !item.IsSystem);
+        Assert.True(validation.IsCatalogValid);
     }
 
     [Fact]
@@ -219,13 +255,19 @@ public sealed class CustomContractPlaceholderTests
         await using var db = Context(); await SeedActor(db);
         var item = await Service(db).SaveAsync(null, Request(), 1, default);
         var validator = new ContractTemplateDocumentValidator(Catalog(db));
-        var accepted = await validator.ValidateAsync(File(Document("CUSTOM_CONTACT", split: true)));
+        var accepted = await validator.ValidateAsync(
+            File(Document("CUSTOM_CONTACT", split: true)),
+            TemplateDocumentType.SoftwareSupplyContract);
         Assert.True(accepted.IsCatalogValid, accepted.ValidationMessage);
         Assert.Contains(accepted.Definitions!, x => x.Key == item.Key && x.SourceFieldKey == "customer.contact-name");
-        var duplicate = await validator.ValidateAsync(File(Document("CUSTOM_CONTACT", duplicate: true)));
+        var duplicate = await validator.ValidateAsync(
+            File(Document("CUSTOM_CONTACT", duplicate: true)),
+            TemplateDocumentType.SoftwareSupplyContract);
         Assert.Contains("MultiplicityViolation:CUSTOM_CONTACT", duplicate.ValidationMessage);
         await Service(db).SetActiveAsync(item.Id!.Value, false, item.RowVersion!, 1, default);
-        Assert.False((await validator.ValidateAsync(File(Document("CUSTOM_CONTACT")))).IsCatalogValid);
+        Assert.False((await validator.ValidateAsync(
+            File(Document("CUSTOM_CONTACT")),
+            TemplateDocumentType.SoftwareSupplyContract)).IsCatalogValid);
         Assert.Contains(await Catalog(db).GetAsync(true), x => x.Key == item.Key && !x.IsActive);
     }
 
@@ -235,7 +277,9 @@ public sealed class CustomContractPlaceholderTests
         await using var db = Context(); await SeedActor(db);
         var item = await Service(db).SaveAsync(null, Request(), 1, default);
         var bytes = Document(item.Key, split: true);
-        var validation = await new ContractTemplateDocumentValidator(Catalog(db)).ValidateAsync(File(bytes));
+        var validation = await new ContractTemplateDocumentValidator(Catalog(db))
+            .ValidateAsync(File(bytes),
+                TemplateDocumentType.SoftwareSupplyContract);
         var hash = ContractPlaceholderCatalog.Fingerprint(validation.Definitions!);
         var update = Request(); update.SourceFieldKey = "customer.phone"; update.RowVersion = item.RowVersion;
         await Service(db).SaveAsync(item.Id, update, 1, default);

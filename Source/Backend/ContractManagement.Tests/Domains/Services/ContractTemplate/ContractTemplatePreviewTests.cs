@@ -1029,6 +1029,155 @@ public sealed class ContractTemplatePreviewTests
     }
 
     [Fact]
+    public async Task AcceptanceRecordDocument_UploadsWithItsOwnCatalogSnapshot()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+
+        var template = await context.TblContractTemplates.SingleAsync();
+        template.DocumentType = (byte)TemplateDocumentType.AcceptanceRecord;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var source = CreateAcceptanceSourceDocument();
+        var version = await GetVersionAsync(context);
+        var service = CreateService(context, storage);
+
+        var uploaded = await service.UploadDocumentAsync(
+            VersionId,
+            new UploadContractTemplateDocumentRequest
+            {
+                File = new FormFile(new MemoryStream(source), 0,
+                    source.LongLength, "File", "acceptance-record.docx"),
+                VersionRowVersion = Convert.ToBase64String(version.RowVersion)
+            },
+            AdminOfficerId);
+
+        Assert.Equal(TemplateValidationStatus.Valid, uploaded.ValidationStatus);
+        var fields = await context.TblContractTemplateFields.AsNoTracking()
+            .Where(field => field.TemplateVersionId == VersionId)
+            .OrderBy(field => field.DisplayOrder)
+            .ToListAsync();
+        Assert.Equal(AcceptanceRecordPlaceholderCatalog.All.Count, fields.Count);
+        Assert.Equal(
+            AcceptanceRecordPlaceholderCatalog.All.Select(item => item.Key),
+            fields.Select(field => field.PlaceholderKey));
+        Assert.All(fields, field => Assert.StartsWith(
+            "system.", field.SourceFieldKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AcceptanceRecordPublish_RequiresAtLeastOneSection()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+
+        var template = await context.TblContractTemplates.SingleAsync();
+        template.DocumentType = (byte)TemplateDocumentType.AcceptanceRecord;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var source = CreateAcceptanceSourceDocument();
+        var version = await GetVersionAsync(context);
+        var service = CreateService(context, storage,
+            pdfRenderer: new FakePdfRenderer("%PDF-1.7\npreview"));
+        var uploaded = await service.UploadDocumentAsync(
+            VersionId,
+            new UploadContractTemplateDocumentRequest
+            {
+                File = new FormFile(new MemoryStream(source), 0,
+                    source.LongLength, "File", "acceptance-record.docx"),
+                VersionRowVersion = Convert.ToBase64String(version.RowVersion)
+            },
+            AdminOfficerId);
+        var preview = await service.GeneratePreviewAsync(
+            VersionId,
+            PreviewRequest(uploaded.RowVersion),
+            AdminOfficerId);
+
+        var exception = await Assert.ThrowsAsync<ContractTemplatePreviewException>(
+            () => service.PublishAsync(
+                VersionId,
+                PublishRequest(preview.RowVersion),
+                AdminOfficerId));
+
+        Assert.Equal("AcceptanceSectionsMissing", exception.FailureCode);
+        Assert.Equal(TemplateVersionStatus.Draft,
+            (TemplateVersionStatus)(await GetVersionAsync(context)).Status);
+    }
+
+    [Fact]
+    public async Task AcceptanceRecordPreviewAndPublish_UsesConfiguredSections()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+
+        var template = await context.TblContractTemplates.SingleAsync();
+        template.DocumentType = (byte)TemplateDocumentType.AcceptanceRecord;
+        template.LanguageMode = (byte)ContractLanguageMode.Vietnamese;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var source = CreateAcceptanceSourceDocument();
+        var version = await GetVersionAsync(context);
+        var service = CreateService(context, storage,
+            pdfRenderer: new FakePdfRenderer("%PDF-1.7\npreview"));
+        var uploaded = await service.UploadDocumentAsync(
+            VersionId,
+            new UploadContractTemplateDocumentRequest
+            {
+                File = new FormFile(new MemoryStream(source), 0,
+                    source.LongLength, "File", "acceptance-record.docx"),
+                VersionRowVersion = Convert.ToBase64String(version.RowVersion)
+            },
+            AdminOfficerId);
+
+        context.TblContractTemplateTerms.Add(new TblContractTemplateTerm
+        {
+            TemplateTermId = 101,
+            TemplateVersionId = VersionId,
+            TermCode = "SECTION_1",
+            TermKind = (byte)ContractTermKind.General,
+            TermTitle = "I. KẾT QUẢ THỰC HIỆN",
+            TermContent = RichText("Hai bên xác nhận phần mềm đã được bàn giao."),
+            IsNegotiable = false,
+            DisplayOrder = 1,
+            CreatedEmployeeId = AdminOfficerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [4, 4, 4, 4, 4, 4, 4, 4]
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var preview = await service.GeneratePreviewAsync(
+            VersionId,
+            PreviewRequest(uploaded.RowVersion),
+            AdminOfficerId);
+        var download = await service.DownloadPreviewAsync(
+            VersionId,
+            AdminOfficerId);
+        await using (download.Stream)
+        using (var document = WordprocessingDocument.Open(download.Stream, false))
+        {
+            var text = document.MainDocumentPart!.Document!.Body!.InnerText;
+            Assert.Contains("I. KẾT QUẢ THỰC HIỆN", text,
+                StringComparison.Ordinal);
+            Assert.Contains("Hai bên xác nhận phần mềm đã được bàn giao.", text,
+                StringComparison.Ordinal);
+        }
+
+        var published = await service.PublishAsync(
+            VersionId,
+            PublishRequest(preview.RowVersion),
+            AdminOfficerId);
+
+        Assert.Equal(TemplateVersionStatus.Published, published.Status);
+    }
+
+    [Fact]
     public async Task IncorrectDynamicLayout_IsRejectedWithAuditWithoutArtifactOrPreviewMetadata()
     {
         await using var context = CreateContext();
@@ -1681,6 +1830,29 @@ public sealed class ContractTemplatePreviewTests
             }
 
             body.Append(section);
+            mainPart.Document = new W.Document(body);
+            mainPart.Document.Save();
+        }
+
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateAcceptanceSourceDocument()
+    {
+        using var stream = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(
+                   stream,
+                   WordprocessingDocumentType.Document,
+                   autoSave: true))
+        {
+            var mainPart = document.AddMainDocumentPart();
+            var body = new W.Body();
+            foreach (var definition in AcceptanceRecordPlaceholderCatalog.All)
+            {
+                body.Append(new W.Paragraph(new W.Run(new W.Text(
+                    $"{{{{{definition.Key}}}}}"))));
+            }
+
             mainPart.Document = new W.Document(body);
             mainPart.Document.Save();
         }

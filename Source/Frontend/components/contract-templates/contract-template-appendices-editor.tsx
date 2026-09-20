@@ -547,10 +547,8 @@ export function ContractTemplateAppendicesEditor({
                 )}
               </div>
               {terms.map((term, termIndex) => (
-                <div
-                  key={term.templateAppendixTermId}
-                  className="rounded-xl border p-4"
-                >
+                <Collapsible key={term.templateAppendixTermId}>
+                  <div className="rounded-xl border p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -566,8 +564,9 @@ export function ContractTemplateAppendicesEditor({
                         </p>
                       )}
                     </div>
-                    {isDraft && (
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      {isDraft && (
+                        <>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -605,22 +604,37 @@ export function ContractTemplateAppendicesEditor({
                         >
                           <Trash2 className="size-4" />
                         </Button>
+                        </>
+                      )}
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="group"
+                          aria-label={`Thu gọn hoặc mở rộng điều khoản ${term.termTitle}`}
+                        >
+                          <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                  </div>
+                  <CollapsibleContent>
+                    <ContractRichTextContent
+                      value={term.termContent}
+                      emptyText="Chưa có nội dung"
+                    />
+                    {isBilingual && (
+                      <div className="mt-3 rounded-xl border border-dashed p-3">
+                        <ContractRichTextContent
+                          value={term.termContentEn}
+                          emptyText="Chưa có nội dung tiếng Anh"
+                        />
                       </div>
                     )}
+                  </CollapsibleContent>
                   </div>
-                  <ContractRichTextContent
-                    value={term.termContent}
-                    emptyText="Chưa có nội dung"
-                  />
-                  {isBilingual && (
-                    <div className="mt-3 rounded-xl border border-dashed p-3">
-                      <ContractRichTextContent
-                        value={term.termContentEn}
-                        emptyText="Chưa có nội dung tiếng Anh"
-                      />
-                    </div>
-                  )}
-                </div>
+                </Collapsible>
               ))}
               {terms.length === 0 && (
                 <div className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">

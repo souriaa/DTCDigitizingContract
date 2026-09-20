@@ -13,7 +13,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
+import { ContractTermCard } from "./contract-term-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
 import {
@@ -233,36 +233,12 @@ export function ContractVersionSnapshotTabs({
           </EmptyState>
         ) : (
           paginatedTerms.map((term) => (
-            <div key={term.termId} className="rounded-xl border p-4 sm:p-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {term.termCode} · Điều {term.displayOrder}
-                  </p>
-                  <h3 className="mt-1 font-semibold">{term.termTitle}</h3>
-                </div>
-                <Badge variant={term.isNegotiable ? "outline" : "secondary"}>
-                  {term.isNegotiable ? "Cho phép đàm phán" : "Điều khoản cứng"}
-                </Badge>
-              </div>
-              <ContractRichTextContent
-                value={term.termContent}
-                emptyText="Chưa có nội dung."
-                className="mt-3 text-muted-foreground"
-              />
-              {(term.termTitleEn || term.termContentEn) && (
-                <div className="mt-4 border-t pt-4">
-                  <p className="font-medium">
-                    {term.termTitleEn || "English content"}
-                  </p>
-                  <ContractRichTextContent
-                    value={term.termContentEn}
-                    emptyText="No content."
-                    className="mt-2 text-muted-foreground"
-                  />
-                </div>
-              )}
-            </div>
+            <ContractTermCard
+              key={term.termId}
+              term={term}
+              inputId={`snapshot-${term.termId}`}
+              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
+            />
           ))
         )}
         <PaginationControls
@@ -298,17 +274,15 @@ export function ContractVersionSnapshotTabs({
                 )}
                 <div className="mt-4 space-y-3">
                   {appendix.terms.map((term) => (
-                    <div key={term.appendixTermId} className="rounded-lg bg-muted/30 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {term.termCode} · Điều {term.displayOrder}
-                      </p>
-                      <p className="mt-1 font-medium">{term.termTitle}</p>
-                      <ContractRichTextContent
-                        value={term.termContent}
-                        emptyText="Chưa có nội dung."
-                        className="mt-2 text-muted-foreground"
-                      />
-                    </div>
+                    <ContractTermCard
+                      key={term.appendixTermId}
+                      term={{ ...term, isNegotiable: false }}
+                      inputId={`snapshot-appendix-${term.appendixTermId}`}
+                      isBilingual={Boolean(
+                        term.termTitleEn || term.termContentEn
+                      )}
+                      showNegotiation={false}
+                    />
                   ))}
                 </div>
               </div>

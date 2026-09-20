@@ -51,6 +51,7 @@ export enum TemplatePlaceholderDataKind {
 export enum TemplatePlaceholderMultiplicity {
   ExactlyOne = 1,
   ZeroOrOne = 2,
+  ZeroOrMore = 3,
 }
 
 export const getTemplateDocumentTypeLabel = (type?: TemplateDocumentType) => {
@@ -116,6 +117,7 @@ export interface CreateContractTemplateRequest {
   templateCode: string;
   templateName: string;
   templateNameEn?: string | null;
+  documentType: TemplateDocumentType;
   languageMode: ContractLanguageMode;
   description?: string | null;
   initialChangeNote?: string | null;
@@ -524,9 +526,10 @@ export const contractTemplateApi = {
       unknown,
       AvailableContractTemplateVersionDetailResponse
     >(`${BASE_URL}/available/${templateVersionId}`),
-  getPlaceholderCatalog: () =>
+  getPlaceholderCatalog: (documentType: TemplateDocumentType) =>
     axiosClient.get<unknown, SoftwareSupplyPlaceholderCatalogResponse>(
       `${BASE_URL}/placeholder-catalog`,
+      { params: { documentType } },
     ),
   getPlaceholderSourceFields: () =>
     axiosClient.get<unknown, ContractPlaceholderSourceField[]>(`${BASE_URL}/placeholder-source-fields`),

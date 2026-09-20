@@ -19,12 +19,12 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 import { PublicContractDiscussionModal } from "@/components/contracts/public-contract-comments";
+import { ContractTermCard } from "@/components/contracts/contract-term-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
@@ -587,41 +587,12 @@ export default function PublicContractPage() {
           </p>
         ) : (
           sortedTerms.map((term) => (
-            <Card key={term.termId}>
-              <CardHeader>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle className="text-base">
-                      {[term.termCode, term.termTitle]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </CardTitle>
-                    {term.termTitleEn && (
-                      <p className="mt-1 text-sm text-muted-foreground italic">
-                        {term.termTitleEn}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant={term.isNegotiable ? "default" : "secondary"}>
-                    {term.isNegotiable
-                      ? "Có thể thương lượng"
-                      : "Điều khoản cố định"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm leading-7">
-                  <ContractRichTextContent
-                    value={term.termContent}
-                    emptyText="—"
-                  />
-                  {term.termContentEn && (
-                    <ContractRichTextContent
-                      value={term.termContentEn}
-                      className="text-muted-foreground italic"
-                    />
-                  )}
-                </div>
+            <ContractTermCard
+              key={term.termId}
+              term={term}
+              inputId={`public-${term.termId}`}
+              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
+            >
                 <PublicContractDiscussionModal
                   termId={term.termId}
                   termCode={term.termCode}
@@ -630,8 +601,7 @@ export default function PublicContractPage() {
                   canWrite={term.isNegotiable}
                   onCreate={handleCreateComment}
                 />
-              </CardContent>
-            </Card>
+            </ContractTermCard>
           ))
         )}
       </section>

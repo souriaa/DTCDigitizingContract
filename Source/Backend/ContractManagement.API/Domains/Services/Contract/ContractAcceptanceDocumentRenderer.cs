@@ -15,7 +15,11 @@ public sealed record ContractAcceptanceDocumentRenderData(
     ContractLanguageMode LanguageMode,
     IReadOnlyList<ContractAcceptanceReferenceResponse> References,
     IReadOnlyList<ContractAcceptancePartyResponse> Parties,
-    IReadOnlyList<ContractAcceptanceSectionResponse> Sections);
+    IReadOnlyList<ContractAcceptanceSectionResponse> Sections)
+{
+    public IReadOnlyDictionary<string, string> CustomValues { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+}
 
 public sealed class ContractAcceptanceDocumentRenderer
 {
@@ -35,9 +39,9 @@ public sealed class ContractAcceptanceDocumentRenderer
             var body = document.MainDocumentPart?.Document?.Body
                 ?? throw new InvalidOperationException(
                     "Acceptance template không có document body.");
-            ReplaceRequiredMarker(body, ReferencesMarker,
+            ReplaceOptionalMarker(body, ReferencesMarker,
                 (_, _) => CreateReferenceParagraphs(data));
-            ReplaceRequiredMarker(body, SectionsMarker,
+            ReplaceOptionalMarker(body, SectionsMarker,
                 (_, width) => CreateSectionElements(data, width));
 
             var customer = data.Parties.Single(x =>
@@ -66,6 +70,13 @@ public sealed class ContractAcceptanceDocumentRenderer
                 ["TENANT_REPRESENTATIVE_TITLE"] =
                     tenant.RepresentativeTitle ?? string.Empty
             };
+            foreach (var (key, value) in data.CustomValues)
+                values[key] = value;
+
+            ReplaceOptionalMarker(body, "{{SIGNATURE_CUSTOMER}}",
+                (_, _) => CreateSignatureParagraphs(customer, "ĐẠI DIỆN BÊN A"));
+            ReplaceOptionalMarker(body, "{{SIGNATURE_PROVIDER}}",
+                (_, _) => CreateSignatureParagraphs(tenant, "ĐẠI DIỆN BÊN B"));
             foreach (var paragraph in body.Descendants<W.Paragraph>())
                 ReplaceScalarTokens(paragraph, values);
             document.MainDocumentPart!.Document.Save();
@@ -73,7 +84,7 @@ public sealed class ContractAcceptanceDocumentRenderer
         return output.ToArray();
     }
 
-    private static void ReplaceRequiredMarker(
+    private static void ReplaceOptionalMarker(
         W.Body body,
         string marker,
         Func<W.Paragraph, int, IReadOnlyList<OpenXmlElement>> createReplacements)
@@ -82,15 +93,73 @@ public sealed class ContractAcceptanceDocumentRenderer
             .Where(paragraph => string.Equals(
                 paragraph.InnerText.Trim(), marker, StringComparison.Ordinal))
             .ToList();
-        if (matches.Count != 1)
+        if (matches.Count > 1)
             throw new InvalidOperationException(
-                $"Acceptance template phải có đúng một marker {marker}.");
+                $"Acceptance template chỉ được có tối đa một marker {marker}.");
+        if (matches.Count == 0) return;
         var target = matches[0];
         var replacements = createReplacements(target,
             ContractTemplatePreviewRenderer.GetAvailableWidthDxa(target));
-        foreach (var paragraph in replacements)
-            target.InsertBeforeSelf(paragraph);
+        foreach (var replacement in replacements)
+        {
+            ApplyPlaceholderFormatting(target, replacement);
+            target.InsertBeforeSelf(replacement);
+        }
         target.Remove();
+    }
+
+    private static void ApplyPlaceholderFormatting(
+        W.Paragraph source,
+        OpenXmlElement replacement)
+    {
+        if (replacement is not W.Paragraph paragraph) return;
+
+        var sourceParagraphProperties = source.ParagraphProperties;
+        var sourceJustification = sourceParagraphProperties?
+            .GetFirstChild<W.Justification>();
+        var sourceStyle = sourceParagraphProperties?
+            .GetFirstChild<W.ParagraphStyleId>();
+        if (sourceJustification is not null || sourceStyle is not null)
+        {
+            paragraph.ParagraphProperties ??= new W.ParagraphProperties();
+            if (sourceJustification is not null)
+            {
+                paragraph.ParagraphProperties
+                    .RemoveAllChildren<W.Justification>();
+                paragraph.ParagraphProperties.Append(
+                    sourceJustification.CloneNode(true));
+            }
+            if (sourceStyle is not null && paragraph.ParagraphProperties
+                    .GetFirstChild<W.ParagraphStyleId>() is null)
+            {
+                paragraph.ParagraphProperties.PrependChild(
+                    (W.ParagraphStyleId)sourceStyle.CloneNode(true));
+            }
+        }
+
+        var sourceRunProperties = source.Descendants<W.Run>()
+            .Select(run => run.RunProperties)
+            .FirstOrDefault(properties => properties is not null);
+        if (sourceRunProperties is null) return;
+        foreach (var run in paragraph.Descendants<W.Run>())
+        {
+            run.RunProperties ??= new W.RunProperties();
+            CopyRunProperty<W.RunFonts>(sourceRunProperties, run.RunProperties);
+            CopyRunProperty<W.FontSize>(sourceRunProperties, run.RunProperties);
+            CopyRunProperty<W.FontSizeComplexScript>(
+                sourceRunProperties, run.RunProperties);
+        }
+    }
+
+    private static void CopyRunProperty<T>(
+        W.RunProperties source,
+        W.RunProperties target)
+        where T : OpenXmlElement
+    {
+        var value = source.GetFirstChild<T>();
+        if (value is null) return;
+        target.RemoveAllChildren<T>();
+        target.Append(value.CloneNode(true));
     }
 
     private static IReadOnlyList<OpenXmlElement> CreateReferenceParagraphs(
@@ -106,6 +175,17 @@ public sealed class ContractAcceptanceDocumentRenderer
         }
         return result.Cast<OpenXmlElement>().ToList();
     }
+
+    private static IReadOnlyList<OpenXmlElement> CreateSignatureParagraphs(
+        ContractAcceptancePartyResponse party,
+        string partyTitle) =>
+    [
+        Paragraph(partyTitle, bold: true),
+        Paragraph("(Chữ ký)", italic: true),
+        Paragraph(string.Empty),
+        Paragraph(string.Empty),
+        Paragraph(party.RepresentativeName, bold: true)
+    ];
 
     private static IReadOnlyList<OpenXmlElement> CreateSectionElements(
         ContractAcceptanceDocumentRenderData data,
@@ -155,16 +235,17 @@ public sealed class ContractAcceptanceDocumentRenderer
         W.Paragraph paragraph,
         IReadOnlyDictionary<string, string> values)
     {
-        var text = paragraph.InnerText;
+        var textElements = paragraph.Descendants<W.Text>().ToList();
+        if (textElements.Count == 0) return;
+        var text = string.Concat(textElements.Select(element => element.Text));
         var replaced = text;
         foreach (var (key, value) in values)
             replaced = replaced.Replace(
                 $"{{{{{key}}}}}", value, StringComparison.Ordinal);
         if (replaced == text) return;
-        paragraph.RemoveAllChildren<W.Run>();
-        paragraph.Append(new W.Run(new W.Text(replaced)
-        {
-            Space = SpaceProcessingModeValues.Preserve
-        }));
+        textElements[0].Text = replaced;
+        textElements[0].Space = SpaceProcessingModeValues.Preserve;
+        foreach (var textElement in textElements.Skip(1))
+            textElement.Text = string.Empty;
     }
 }

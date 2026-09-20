@@ -31,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
+  getTemplateDocumentTypeLabel,
+  TemplateDocumentType,
   type ContractTemplateDetailResponse,
 } from "@/services/contract-template-api";
 import { getContractTemplateErrorMessage } from "./contract-template-utils";
@@ -52,6 +54,9 @@ export function ContractTemplateFormDialog({
   const [templateCode, setTemplateCode] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [templateNameEn, setTemplateNameEn] = useState("");
+  const [documentType, setDocumentType] = useState<TemplateDocumentType>(
+    TemplateDocumentType.SoftwareSupplyContract,
+  );
   const [languageMode, setLanguageMode] = useState<ContractLanguageMode>(
     ContractLanguageMode.Vietnamese,
   );
@@ -64,6 +69,9 @@ export function ContractTemplateFormDialog({
     setTemplateCode(template?.templateCode ?? "");
     setTemplateName(template?.templateName ?? "");
     setTemplateNameEn(template?.templateNameEn ?? "");
+    setDocumentType(
+      template?.documentType ?? TemplateDocumentType.SoftwareSupplyContract,
+    );
     setLanguageMode(template?.languageMode ?? ContractLanguageMode.Vietnamese);
     setDescription(template?.description ?? "");
     setInitialChangeNote("");
@@ -106,6 +114,7 @@ export function ContractTemplateFormDialog({
             templateCode: normalizedTemplateCode,
             templateName: templateName.trim(),
             templateNameEn: templateNameEn.trim() || null,
+            documentType,
             languageMode,
             description: description.trim() || null,
             initialChangeNote: initialChangeNote.trim() || null,
@@ -155,6 +164,39 @@ export function ContractTemplateFormDialog({
               id="template-code-help"
               className="text-xs leading-relaxed text-muted-foreground"
             ></p>
+          </div>
+          <div className="space-y-2">
+            <Label>
+              Loại tài liệu <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={String(documentType)}
+              onValueChange={(value) =>
+                setDocumentType(Number(value) as TemplateDocumentType)
+              }
+              disabled={isEdit}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  TemplateDocumentType.SoftwareSupplyContract,
+                  TemplateDocumentType.SoftwareMaintenanceContract,
+                  TemplateDocumentType.SoftwareUpkeepContract,
+                  TemplateDocumentType.Quotation,
+                  TemplateDocumentType.PaymentRequest,
+                  TemplateDocumentType.HandoverRecord,
+                  TemplateDocumentType.AcceptanceRecord,
+                  TemplateDocumentType.LiquidationRecord,
+                  TemplateDocumentType.Other,
+                ].map((type) => (
+                  <SelectItem key={type} value={String(type)}>
+                    {getTemplateDocumentTypeLabel(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>

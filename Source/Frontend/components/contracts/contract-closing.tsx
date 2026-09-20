@@ -415,7 +415,7 @@ export function ContractClosing({
                           : "Chưa phát sinh mốc tính hạn"}
                         {milestone.dayCountMode ===
                           ContractPaymentDayCountMode.BusinessDays && (
-                          <span className="mt-1 inline-block rounded-sm bg-muted px-2 py-0.5 text-xs text-foreground">
+                          <span className="mt-1 inline-block rounded-sm bg-muted/20 px-2 py-0.5 text-xs text-foreground">
                             Ngày làm việc hiện chỉ loại trừ thứ Bảy và Chủ nhật.
                           </span>
                         )}

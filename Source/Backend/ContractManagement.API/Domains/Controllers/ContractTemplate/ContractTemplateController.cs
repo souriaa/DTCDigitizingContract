@@ -2,6 +2,7 @@ using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Filter;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ContractManagement.Domains.Controllers.ContractTemplate;
 
 /// <summary>
-/// API quản trị catalog/template/version draft của SoftwareSupply.
+/// API quản trị catalog, template và version nháp của mọi loại tài liệu.
 /// </summary>
 [ApiController]
 [Route("api/contract-templates")]
@@ -32,7 +33,8 @@ public sealed partial class ContractTemplateController : ControllerBase
     /// Mục đích: làm nguồn sự thật để Slice 09 nhận diện và validate placeholder trong DOCX.
     /// </remarks>
     [HttpGet("placeholder-catalog")]
-    public async Task<IActionResult> GetPlaceholderCatalog()
+    public async Task<IActionResult> GetPlaceholderCatalog(
+        [FromQuery] TemplateDocumentType documentType)
     {
         if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
         {
@@ -42,6 +44,7 @@ public sealed partial class ContractTemplateController : ControllerBase
         try
         {
             var result = await _service.GetPlaceholderCatalogAsync(
+                documentType,
                 employeeId,
                 HttpContext.RequestAborted);
             return Ok(ApiResponse<SoftwareSupplyPlaceholderCatalogResponse>.Ok(
@@ -55,11 +58,11 @@ public sealed partial class ContractTemplateController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/contract-templates - liệt kê Template SoftwareSupply trong tenant hiện tại.
+    /// GET /api/contract-templates - liệt kê mọi loại template trong tenant hiện tại.
     /// </summary>
     /// <remarks>
-    /// Luồng: xác thực actor, chuẩn hóa page/pageSize/keyword, lọc theo tenant và DocumentType,
-    /// rồi trả metadata theo dạng phân trang. Route này phục vụ màn hình danh sách quản trị.
+    /// Luồng: xác thực actor, chuẩn hóa page/pageSize/keyword rồi trả metadata theo dạng
+    /// phân trang. Route này phục vụ màn hình danh sách quản trị mọi loại tài liệu.
     /// </remarks>
     [HttpGet]
     public async Task<IActionResult> List(
@@ -91,7 +94,7 @@ public sealed partial class ContractTemplateController : ControllerBase
     /// POST /api/contract-templates - tạo Template mới cùng Version 1 Draft.
     /// </summary>
     /// <remarks>
-    /// Luồng: validate input và mã không trùng, server tự gán SoftwareSupplyContract, Active,
+    /// Luồng: validate input, loại tài liệu và mã không trùng; server gán Active,
     /// VersionNo = 1, Draft và NotValidated, sau đó ghi Template + Version trong một transaction.
     /// Mục đích: khởi tạo authoring aggregate hoàn chỉnh, không để Template hoặc Version mồ côi.
     /// </remarks>

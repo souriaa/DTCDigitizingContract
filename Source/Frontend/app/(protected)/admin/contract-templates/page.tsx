@@ -22,7 +22,6 @@ import { ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
   getTemplateDocumentTypeLabel,
-  type ContractTemplateDetailResponse,
   type ContractTemplateResponse,
 } from "@/services/contract-template-api";
 
@@ -204,7 +203,7 @@ export default function ContractTemplateListPage() {
     [openTemplate],
   );
 
-  const handleCreated = (_template: ContractTemplateDetailResponse) => {
+  const handleCreated = () => {
     if (pagination.pageIndex === 0) {
       void fetchTemplates();
       return;

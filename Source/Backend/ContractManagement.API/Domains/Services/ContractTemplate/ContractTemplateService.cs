@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 namespace ContractManagement.Domains.Services.ContractTemplate;
 
 /// <summary>
-/// Quản trị metadata, draft version và soft terms của SoftwareSupply template.
+/// Quản trị metadata, draft version và soft terms của contract template.
 /// DOCX, validation, publish và retire thuộc các slice sau.
 /// </summary>
 public sealed partial class ContractTemplateService : IContractTemplateService
@@ -253,15 +253,45 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
     public async Task<SoftwareSupplyPlaceholderCatalogResponse>
         GetPlaceholderCatalogAsync(
+        TemplateDocumentType documentType,
         int employeeId,
         CancellationToken cancellationToken = default)
     {
         await EnsureAdminOfficerAsync(employeeId, cancellationToken);
-        var items = await _placeholderCatalog.GetAsync(true, cancellationToken);
+        ValidateDocumentType(documentType);
+        IReadOnlyList<SoftwareSupplyPlaceholderDefinition> items;
+        var customEnabled = false;
+        var catalogVersion = documentType == TemplateDocumentType.AcceptanceRecord
+            ? AcceptanceRecordPlaceholderCatalog.Version
+            : SoftwareSupplyPlaceholderCatalog.Version;
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            var tenantCatalog = await _placeholderCatalog.GetAsync(
+                includeInactive: true,
+                cancellationToken: cancellationToken);
+            items = AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+            customEnabled = _placeholderCatalog is ContractPlaceholderCatalog
+                { CustomEnabled: true };
+        }
+        else if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            items = await _placeholderCatalog.GetAsync(true, cancellationToken);
+            customEnabled = _placeholderCatalog is ContractPlaceholderCatalog
+                { CustomEnabled: true };
+        }
+        else
+        {
+            items = [];
+        }
+
         return new SoftwareSupplyPlaceholderCatalogResponse
         {
-            CatalogVersion = ContractPlaceholderCatalog.Fingerprint(items),
-            CustomEnabled = _placeholderCatalog is ContractPlaceholderCatalog { CustomEnabled: true },
+            CatalogVersion = $"{catalogVersion}:{ContractPlaceholderCatalog.Fingerprint(items)}",
+            CustomEnabled = customEnabled,
             Items = items
         };
     }
@@ -281,11 +311,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             throw new ArgumentException("PageSize không được vượt quá 100.");
         }
 
-        var query = _dbContext.TblContractTemplates
-            .AsNoTracking()
-            .Where(template =>
-                template.DocumentType
-                    == (byte)TemplateDocumentType.SoftwareSupplyContract);
+        var query = _dbContext.TblContractTemplates.AsNoTracking();
 
         var keyword = NormalizeOptional(filter.Keyword);
         if (keyword is not null)
@@ -346,6 +372,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var templateNameEn = NormalizeOptional(request.TemplateNameEn, 500);
         var description = NormalizeOptional(request.Description, 2000);
         var changeNote = NormalizeOptional(request.InitialChangeNote, 2000);
+        ValidateDocumentType(request.DocumentType);
         ValidateLanguageMode(request.LanguageMode);
 
         try
@@ -369,7 +396,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     TemplateCode = templateCode,
                     TemplateName = templateName,
                     TemplateNameEn = templateNameEn,
-                    DocumentType = (byte)TemplateDocumentType.SoftwareSupplyContract,
+                    DocumentType = (byte)request.DocumentType,
                     LanguageMode = (byte)request.LanguageMode,
                     Description = description,
                     CurrentPublishedVersionId = null,
@@ -796,6 +823,9 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var preflightVersion = await GetVersionForUploadPreflightAsync(
             versionId,
             cancellationToken);
+        var preflightTemplate = await GetTemplateForPreviewAsync(
+            preflightVersion.TemplateId,
+            cancellationToken);
         EnsureDraft(preflightVersion);
 
         try
@@ -817,6 +847,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
         var validation = await _documentValidator.ValidateAsync(
             request.File,
+            (TemplateDocumentType)preflightTemplate.DocumentType,
             cancellationToken);
         if (!validation.IsTechnicallyAccepted)
         {
@@ -897,6 +928,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
                 await ReplaceFieldSnapshotAsync(
                     versionId,
+                    (TemplateDocumentType)preflightTemplate.DocumentType,
                     validation,
                     employeeId,
                     cancellationToken);
@@ -1274,6 +1306,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             EnsureRowVersionMatches(preflightVersion.RowVersion, expectedRowVersion,
                 "Template version");
             EnsurePublishEligible(preflightVersion);
+            await ValidateAcceptanceSectionsForPublishAsync(
+                versionId,
+                (TemplateDocumentType)preflightTemplate.DocumentType,
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                cancellationToken);
             await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
             await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
             await ValidateAppendicesForPublishAsync(versionId,
@@ -1319,6 +1356,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 EnsureRowVersionMatches(version.RowVersion, expectedRowVersion,
                     "Template version");
                 EnsurePublishEligible(version);
+                await ValidateAcceptanceSectionsForPublishAsync(
+                    versionId,
+                    (TemplateDocumentType)template.DocumentType,
+                    (ContractLanguageMode)template.LanguageMode,
+                    cancellationToken);
                 await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
                 await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
                 await ValidateAppendicesForPublishAsync(versionId,
@@ -2197,9 +2239,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
         var template = await _dbContext.TblContractTemplates
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateId == templateId
-                    && candidate.DocumentType
-                        == (byte)TemplateDocumentType.SoftwareSupplyContract,
+                candidate => candidate.TemplateId == templateId,
                 cancellationToken);
         return template
             ?? throw new KeyNotFoundException("Không tìm thấy template.");
@@ -2212,9 +2252,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var template = await _dbContext.TblContractTemplates
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateId == templateId
-                    && candidate.DocumentType
-                        == (byte)TemplateDocumentType.SoftwareSupplyContract,
+                candidate => candidate.TemplateId == templateId,
                 cancellationToken);
         return template
             ?? throw new KeyNotFoundException("Không tìm thấy template.");
@@ -2231,11 +2269,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
         var version = await _dbContext.TblContractTemplateVersions
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateVersionId == versionId
-                    && _dbContext.TblContractTemplates.Any(template =>
-                        template.TemplateId == candidate.TemplateId
-                        && template.DocumentType
-                            == (byte)TemplateDocumentType.SoftwareSupplyContract),
+                candidate => candidate.TemplateVersionId == versionId,
                 cancellationToken);
         return version
             ?? throw new KeyNotFoundException("Không tìm thấy template version.");
@@ -2256,11 +2290,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var version = await _dbContext.TblContractTemplateVersions
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateVersionId == versionId
-                    && _dbContext.TblContractTemplates.Any(template =>
-                        template.TemplateId == candidate.TemplateId
-                        && template.DocumentType
-                            == (byte)TemplateDocumentType.SoftwareSupplyContract),
+                candidate => candidate.TemplateVersionId == versionId,
                 cancellationToken);
         return version
             ?? throw new KeyNotFoundException("Không tìm thấy template version.");
@@ -2268,13 +2298,16 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
     private async Task ReplaceFieldSnapshotAsync(
         int versionId,
+        TemplateDocumentType documentType,
         ContractTemplateDocumentValidationResult validation,
         int employeeId,
         CancellationToken cancellationToken)
     {
         var recognized = new HashSet<string>(validation.RecognizedPlaceholderKeys,
             StringComparer.Ordinal);
-        var currentCatalog = await _placeholderCatalog.GetAsync(cancellationToken: cancellationToken);
+        var currentCatalog = await GetActivePlaceholderCatalogAsync(
+            documentType,
+            cancellationToken);
         if (validation.CatalogRevision is not null && validation.CatalogRevision != ContractPlaceholderCatalog.Fingerprint(currentCatalog))
             throw new DbUpdateConcurrencyException("Catalog placeholder đã thay đổi trong khi upload. Hãy thử lại.");
         var definitions = validation.Definitions
@@ -2898,6 +2931,75 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 "Đợt thanh toán đầu tiên không thể phụ thuộc đợt trước.");
     }
 
+    private async Task ValidateAcceptanceSectionsForPublishAsync(
+        int versionId,
+        TemplateDocumentType documentType,
+        ContractLanguageMode languageMode,
+        CancellationToken cancellationToken)
+    {
+        if (documentType != TemplateDocumentType.AcceptanceRecord)
+        {
+            return;
+        }
+
+        var sections = await _dbContext.TblContractTemplateTerms
+            .AsNoTracking()
+            .Where(term => term.TemplateVersionId == versionId)
+            .OrderBy(term => term.DisplayOrder)
+            .ThenBy(term => term.TemplateTermId)
+            .ToListAsync(cancellationToken);
+        if (sections.Count == 0)
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsMissing",
+                "Template nghiệm thu phải có ít nhất một section trước khi phát hành.");
+        }
+
+        if (sections.Any(section => section.TermKind !=
+                (byte)ContractTermKind.General))
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsInvalid",
+                "Template nghiệm thu chỉ được sử dụng section loại General.");
+        }
+
+        if (languageMode == ContractLanguageMode.Bilingual
+            && sections.Any(section => string.IsNullOrWhiteSpace(
+                    section.TermTitleEn)
+                || (!string.IsNullOrWhiteSpace(section.TermContent)
+                    && string.IsNullOrWhiteSpace(section.TermContentEn))))
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsBilingualInvalid",
+                "Section nghiệm thu song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+        }
+    }
+
+    private async Task<IReadOnlyList<SoftwareSupplyPlaceholderDefinition>>
+        GetActivePlaceholderCatalogAsync(
+            TemplateDocumentType documentType,
+            CancellationToken cancellationToken)
+    {
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            var tenantCatalog = await _placeholderCatalog.GetAsync(
+                cancellationToken: cancellationToken);
+            return AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+        }
+
+        if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            return await _placeholderCatalog.GetAsync(
+                cancellationToken: cancellationToken);
+        }
+
+        return [];
+    }
+
     private async Task ValidateLegalBasesMarkerAsync(
         int versionId,
         CancellationToken cancellationToken)
@@ -3478,6 +3580,14 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             normalizedContentVi,
             NormalizeRichText(contentEn, nameof(contentEn)),
             displayOrder);
+    }
+
+    private static void ValidateDocumentType(TemplateDocumentType type)
+    {
+        if (!Enum.IsDefined(type))
+        {
+            throw new ArgumentException("DocumentType không hợp lệ.");
+        }
     }
 
     private static void ValidateLanguageMode(ContractLanguageMode mode)

@@ -12,6 +12,7 @@ using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Domains.Interfaces.File;
 using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.Domains.Policies.Contract;
+using ContractManagement.Domains.Services.ContractTemplate;
 using ContractManagement.Domains.Services.File;
 using ContractManagement.Infrastructure.MultiTenancy.Interfaces;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -31,6 +32,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     private readonly ICurrentTenant _tenant;
     private readonly IContractTemplatePdfRenderer _pdfRenderer;
     private readonly IContractPaymentDueDateService _paymentDueDates;
+    private readonly IContractPlaceholderSourceRegistry _placeholderSources;
     private readonly ContractAcceptanceDocumentRenderer _renderer = new();
 
     public ContractAcceptanceService(
@@ -40,7 +42,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         IPrivateFileStorage files,
         ICurrentTenant tenant,
         IContractTemplatePdfRenderer pdfRenderer,
-        IContractPaymentDueDateService paymentDueDates)
+        IContractPaymentDueDateService paymentDueDates,
+        IContractPlaceholderSourceRegistry? placeholderSources = null)
     {
         _db = db;
         _authorization = authorization;
@@ -49,6 +52,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         _tenant = tenant;
         _pdfRenderer = pdfRenderer;
         _paymentDueDates = paymentDueDates;
+        _placeholderSources = placeholderSources
+            ?? new ContractPlaceholderSourceRegistry();
     }
 
     public async Task<IReadOnlyList<ContractAcceptanceTemplateOptionResponse>>
@@ -160,6 +165,17 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 throw Rule("AcceptancePartySnapshotMissing",
                     "Version đã ký thiếu snapshot hai bên.",
                     StatusCodes.Status409Conflict);
+            var customer = await _db.TblCustomers.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.CustomerId == contract.CustomerId,
+                    cancellationToken)
+                ?? throw new KeyNotFoundException("Không tìm thấy khách hàng.");
+            var customerContactName = Required(
+                customer.CustomerContactPersonName,
+                300,
+                "Người liên lạc của khách hàng");
+            var customerContactTitle = Optional(
+                customer.CustomerContactPersonTitle,
+                300);
 
             var appendices = await ValidateAppendicesAsync(
                 contractId, version.VersionId, request.AppendixIds,
@@ -210,19 +226,29 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         DisplayOrder = index + 1
                     }));
             _db.TblContractAcceptanceParties.AddRange(
-                sourceParties.Select(party => new TblContractAcceptanceParty
+                sourceParties.Select(party =>
                 {
-                    AcceptanceRecordId = row.AcceptanceRecordId,
-                    PartyRole = party.PartyRole == 1
+                    var partyRole = party.PartyRole == 1
                         ? (byte)AcceptancePartyRole.Tenant
-                        : (byte)AcceptancePartyRole.Customer,
-                    LegalName = party.LegalName,
-                    Address = party.Address,
-                    Phone = party.PhoneNumber,
-                    Fax = party.FaxNumber,
-                    TaxCode = party.TaxCode,
-                    RepresentativeName = party.RepresentativeName,
-                    RepresentativeTitle = party.RepresentativeTitle
+                        : (byte)AcceptancePartyRole.Customer;
+                    var isCustomer = partyRole ==
+                        (byte)AcceptancePartyRole.Customer;
+                    return new TblContractAcceptanceParty
+                    {
+                        AcceptanceRecordId = row.AcceptanceRecordId,
+                        PartyRole = partyRole,
+                        LegalName = party.LegalName,
+                        Address = party.Address,
+                        Phone = party.PhoneNumber,
+                        Fax = party.FaxNumber,
+                        TaxCode = party.TaxCode,
+                        RepresentativeName = isCustomer
+                            ? customerContactName
+                            : party.RepresentativeName,
+                        RepresentativeTitle = isCustomer
+                            ? customerContactTitle
+                            : party.RepresentativeTitle
+                    };
                 }));
             var sections = sourceSections.Select(section =>
                     new TblContractAcceptanceSection
@@ -597,6 +623,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     now.Date,
                     employeeId,
                     cancellationToken);
+                // Materialize the evidence identity before using it as an audit
+                // subject. The surrounding execution transaction still keeps
+                // evidence, milestone activation and audit atomic.
+                await _db.SaveChangesAsync(cancellationToken);
                 _audit.StageEmployeeAudits([new(
                     contractId, version.VersionId, employeeId,
                     ContractAuditActionTypes.AcceptanceEvidenceUploaded,
@@ -827,6 +857,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             template.file.TenantCode, template.file.StorageKey, ct);
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, ct);
+        var customValues = await ResolveCustomPlaceholderValuesAsync(
+            contractId,
+            detail.ContractVersionId,
+            detail.TemplateVersionId,
+            ct);
         return _renderer.Render(memory.ToArray(), new(
             detail.AcceptanceCode,
             detail.AcceptanceDate,
@@ -834,7 +869,72 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             (ContractLanguageMode)template.LanguageMode,
             detail.References,
             detail.Parties,
-            detail.Sections));
+            detail.Sections)
+        {
+            CustomValues = customValues
+        });
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>>
+        ResolveCustomPlaceholderValuesAsync(
+            int contractId,
+            int contractVersionId,
+            int templateVersionId,
+            CancellationToken ct)
+    {
+        var fields = await _db.TblContractTemplateFields.AsNoTracking()
+            .Where(field => field.TemplateVersionId == templateVersionId
+                && !field.IsSystem)
+            .ToListAsync(ct);
+        if (fields.Count == 0)
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var contract = await _db.TblContracts.AsNoTracking()
+            .SingleAsync(item => item.ContractId == contractId, ct);
+        var version = await _db.TblContractVersions.AsNoTracking()
+            .SingleAsync(item => item.VersionId == contractVersionId
+                && item.ContractId == contractId, ct);
+        var customer = await _db.TblCustomers.AsNoTracking()
+            .SingleAsync(item => item.CustomerId == contract.CustomerId, ct);
+        var tenant = fields.Any(field => field.SourceFieldKey.StartsWith(
+                "provider.", StringComparison.Ordinal))
+            ? await _db.TblTenantLegalProfiles.AsNoTracking()
+                .SingleOrDefaultAsync(ct)
+            : null;
+        TblEmployee? owner = null;
+        TblDepartment? department = null;
+        if (fields.Any(field =>
+                field.SourceFieldKey.StartsWith(
+                    "contract-owner.", StringComparison.Ordinal)
+                || field.SourceFieldKey.StartsWith(
+                    "department.", StringComparison.Ordinal)))
+        {
+            owner = await _db.TblEmployees.AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item => item.EmployeeId == contract.EmployeeId, ct);
+            if (owner?.DepartmentId is { } departmentId)
+            {
+                department = await _db.TblDepartments.AsNoTracking()
+                    .SingleOrDefaultAsync(
+                        item => item.DepartmentId == departmentId, ct);
+            }
+        }
+
+        var context = new ContractPlaceholderResolveContext(
+            contract, version, customer, tenant, owner, department);
+        return fields.ToDictionary(
+            field => field.PlaceholderKey,
+            field =>
+            {
+                var sourceFieldKey = field.SourceFieldKey;
+                var raw = _placeholderSources.Resolve(sourceFieldKey, context);
+                return _placeholderSources.Format(
+                    sourceFieldKey,
+                    raw,
+                    field.FormatString,
+                    field.DefaultValue);
+            },
+            StringComparer.Ordinal);
     }
 
     private async Task<ContractAcceptanceDocumentContent> ToDocumentContentAsync(

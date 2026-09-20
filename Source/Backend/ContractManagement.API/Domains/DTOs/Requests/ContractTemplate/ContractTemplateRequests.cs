@@ -36,6 +36,9 @@ public sealed class CreateContractTemplateRequest
 
     public string? TemplateNameEn { get; set; }
 
+    [EnumDataType(typeof(TemplateDocumentType))]
+    public TemplateDocumentType DocumentType { get; set; }
+
     [Required]
     public ContractLanguageMode LanguageMode { get; set; }
 

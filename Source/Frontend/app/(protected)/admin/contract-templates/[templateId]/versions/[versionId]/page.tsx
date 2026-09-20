@@ -54,6 +54,7 @@ import { ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
   ContractTermKind,
+  TemplateDocumentType,
   TemplateValidationStatus,
   TemplateVersionStatus,
   type ContractTemplateDetailResponse,
@@ -73,6 +74,23 @@ const TAB_VALUES = [
   "preview",
 ] as const;
 type WorkspaceTab = (typeof TAB_VALUES)[number];
+
+const CONTRACT_DOCUMENT_TYPES = new Set<TemplateDocumentType>([
+  TemplateDocumentType.SoftwareSupplyContract,
+  TemplateDocumentType.SoftwareMaintenanceContract,
+  TemplateDocumentType.SoftwareUpkeepContract,
+]);
+
+const CONTRACT_ONLY_TABS = new Set<WorkspaceTab>([
+  "legal-bases",
+  "appendices",
+]);
+
+const ACCEPTANCE_SECTION_ERROR_CODES = new Set([
+  "AcceptanceSectionsMissing",
+  "AcceptanceSectionsInvalid",
+  "AcceptanceSectionsBilingualInvalid",
+]);
 
 const APPENDIX_PUBLISH_ERROR_CODES = new Set([
   "AppendixMarkerMissing",
@@ -178,6 +196,21 @@ export default function ContractTemplateVersionWorkspacePage() {
         }
         setTemplate(templateResponse);
         setVersion(versionResponse);
+        if (
+          !CONTRACT_DOCUMENT_TYPES.has(templateResponse.documentType)
+        ) {
+          setActiveTab((current) => {
+            if (CONTRACT_ONLY_TABS.has(current)) return "overview";
+            if (
+              current === "terms" &&
+              templateResponse.documentType !==
+                TemplateDocumentType.AcceptanceRecord
+            ) {
+              return "overview";
+            }
+            return current;
+          });
+        }
       } catch (error) {
         toast.error(
           getContractTemplateErrorMessage(
@@ -298,6 +331,13 @@ export default function ContractTemplateVersionWorkspacePage() {
       } else if (isAppendixPublishError(error)) {
         setAppendixPublishError(message);
         changeTab("appendices");
+      } else if (
+        ACCEPTANCE_SECTION_ERROR_CODES.has(
+          (error as { response?: { data?: { code?: string } } }).response?.data
+            ?.code ?? "",
+        )
+      ) {
+        changeTab("terms");
       }
       await fetchWorkspace(false);
     } finally {
@@ -392,6 +432,14 @@ export default function ContractTemplateVersionWorkspacePage() {
         setLegalBasesRenderError(message);
         setIsPublishOpen(false);
         changeTab("legal-bases");
+      } else if (
+        ACCEPTANCE_SECTION_ERROR_CODES.has(
+          (error as { response?: { data?: { code?: string } } }).response?.data
+            ?.code ?? "",
+        )
+      ) {
+        setIsPublishOpen(false);
+        changeTab("terms");
       }
       await fetchWorkspace(false);
     } finally {
@@ -431,6 +479,13 @@ export default function ContractTemplateVersionWorkspacePage() {
   const isDocumentValid =
     version?.validationStatus === TemplateValidationStatus.Valid;
   const hasPreview = Boolean(version?.previewFileId);
+  const isContractDocument = Boolean(
+    template && CONTRACT_DOCUMENT_TYPES.has(template.documentType),
+  );
+  const isAcceptanceDocument =
+    template?.documentType === TemplateDocumentType.AcceptanceRecord;
+  const supportsStructuredContent =
+    isContractDocument || isAcceptanceDocument;
   const hasTerms = Boolean(version?.terms.length);
   const paymentTerms =
     version?.terms.filter(
@@ -447,9 +502,24 @@ export default function ContractTemplateVersionWorkspacePage() {
     (paymentTerms.length === 1 &&
       paymentTerms[0].paymentMilestones.length > 0 &&
       paymentPercentTotal === 100);
+  const hasValidAcceptanceSections = Boolean(
+    !isAcceptanceDocument ||
+      (version?.terms.length &&
+        version.terms.every(
+          (term) =>
+            term.termKind === ContractTermKind.General &&
+            (template?.languageMode !== ContractLanguageMode.Bilingual ||
+              (Boolean(term.termTitleEn?.trim()) &&
+                (!term.termContent?.trim() ||
+                  Boolean(term.termContentEn?.trim())))),
+        )),
+  );
   const canGeneratePreview = Boolean(isDraft && hasDocument && isDocumentValid);
   const canPublish = Boolean(
-    canGeneratePreview && hasPreview && hasTerms && hasValidPaymentMilestones,
+    canGeneratePreview &&
+      hasPreview &&
+      (!isContractDocument || (hasTerms && hasValidPaymentMilestones)) &&
+      hasValidAcceptanceSections,
   );
   const templateHasDraft = Boolean(
     template?.versions.some(
@@ -563,15 +633,21 @@ export default function ContractTemplateVersionWorkspacePage() {
                     <TabsTrigger value="overview">
                       <Info /> Tổng quan
                     </TabsTrigger>
-                    <TabsTrigger value="terms">
-                      <ListChecks /> Điều khoản
-                    </TabsTrigger>
-                    <TabsTrigger value="legal-bases">
-                      <Scale /> Căn cứ
-                    </TabsTrigger>
-                    <TabsTrigger value="appendices">
-                      <Files /> Phụ lục đính kèm
-                    </TabsTrigger>
+                    {supportsStructuredContent && (
+                        <TabsTrigger value="terms">
+                          <ListChecks /> {isAcceptanceDocument ? "Nội dung nghiệm thu" : "Điều khoản"}
+                        </TabsTrigger>
+                    )}
+                    {isContractDocument && (
+                      <>
+                        <TabsTrigger value="legal-bases">
+                          <Scale /> Căn cứ
+                        </TabsTrigger>
+                        <TabsTrigger value="appendices">
+                          <Files /> Phụ lục đính kèm
+                        </TabsTrigger>
+                      </>
+                    )}
                     <TabsTrigger value="placeholders">
                       <Braces /> Placeholder
                     </TabsTrigger>
@@ -585,18 +661,18 @@ export default function ContractTemplateVersionWorkspacePage() {
                 </div>
 
                 <TabsContent value="overview" className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                    <Card>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {supportsStructuredContent && <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
-                          Điều khoản mềm
+                          {isAcceptanceDocument ? "Section nghiệm thu" : "Điều khoản mềm"}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="text-2xl font-bold">
                         {version.terms.length}
                       </CardContent>
-                    </Card>
-                    <Card>
+                    </Card>}
+                    {isContractDocument && <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
                           Phụ lục đính kèm
@@ -605,8 +681,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                       <CardContent className="text-2xl font-bold">
                         {version.appendices?.length ?? 0}
                       </CardContent>
-                    </Card>
-                    <Card>
+                    </Card>}
+                    {isContractDocument && <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
                           Căn cứ hợp đồng
@@ -615,7 +691,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                       <CardContent className="text-2xl font-bold">
                         {version.legalBases?.length ?? 0}
                       </CardContent>
-                    </Card>
+                    </Card>}
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
@@ -649,59 +725,71 @@ export default function ContractTemplateVersionWorkspacePage() {
                       </CardContent>
                     </Card>
                   </div>
-                  <ContractTemplateItemTableLayoutEditor
-                    key={`${version.templateVersionId}-${version.rowVersion}-item-layout`}
-                    versionId={version.templateVersionId}
-                    versionRowVersion={version.rowVersion}
-                    layout={version.itemTableLayout}
-                    editable={isDraft}
-                    onSaved={setVersion}
-                  />
+                  {isContractDocument && (
+                    <ContractTemplateItemTableLayoutEditor
+                      key={`${version.templateVersionId}-${version.rowVersion}-item-layout`}
+                      versionId={version.templateVersionId}
+                      versionRowVersion={version.rowVersion}
+                      layout={version.itemTableLayout}
+                      editable={isDraft}
+                      onSaved={setVersion}
+                    />
+                  )}
                   <Alert>
                     <Info />
                     <AlertTitle>Quy trình đề xuất</AlertTitle>
                     <AlertDescription>
-                      Hoàn thiện căn cứ và điều khoản → chèn placeholder vào
-                      DOCX → upload và sửa lỗi validation → tạo preview → phát
-                      hành. Chỉ bản nháp được chỉnh sửa.
+                      {isContractDocument
+                        ? "Hoàn thiện căn cứ và điều khoản → chèn placeholder vào DOCX → upload và sửa lỗi validation → tạo preview → phát hành. Chỉ bản nháp được chỉnh sửa."
+                        : "Chèn các placeholder dành cho loại tài liệu này vào DOCX → upload và sửa lỗi validation → tạo preview → phát hành. Chỉ bản nháp được chỉnh sửa."}
                     </AlertDescription>
                   </Alert>
                 </TabsContent>
 
-                <TabsContent value="terms">
-                  <ContractTemplateTermsEditor
-                    key={`${version.templateVersionId}-${version.status}-${version.rowVersion}`}
-                    version={version}
-                    isBilingual={
-                      template.languageMode === ContractLanguageMode.Bilingual
-                    }
-                    onRefresh={() => fetchWorkspace(false)}
-                  />
-                </TabsContent>
+                {supportsStructuredContent && (
+                    <TabsContent value="terms">
+                      <ContractTemplateTermsEditor
+                        key={`${version.templateVersionId}-${version.status}-${version.rowVersion}`}
+                        version={version}
+                        isBilingual={
+                          template.languageMode ===
+                          ContractLanguageMode.Bilingual
+                        }
+                        mode={isAcceptanceDocument ? "acceptance" : "contract"}
+                        onRefresh={() => fetchWorkspace(false)}
+                      />
+                    </TabsContent>
+                )}
 
-                <TabsContent value="legal-bases">
-                  <ContractTemplateLegalBasesEditor
-                    key={`${version.templateVersionId}-${version.status}-${version.rowVersion}-legal-bases`}
-                    version={version}
-                    isBilingual={
-                      template.languageMode === ContractLanguageMode.Bilingual
-                    }
-                    publishError={legalBasesRenderError}
-                    onRefresh={() => fetchWorkspace(false)}
-                  />
-                </TabsContent>
+                {isContractDocument && (
+                  <>
+                    <TabsContent value="legal-bases">
+                      <ContractTemplateLegalBasesEditor
+                        key={`${version.templateVersionId}-${version.status}-${version.rowVersion}-legal-bases`}
+                        version={version}
+                        isBilingual={
+                          template.languageMode ===
+                          ContractLanguageMode.Bilingual
+                        }
+                        publishError={legalBasesRenderError}
+                        onRefresh={() => fetchWorkspace(false)}
+                      />
+                    </TabsContent>
 
-                <TabsContent value="appendices">
-                  <ContractTemplateAppendicesEditor
-                    key={`${version.templateVersionId}-${version.status}-${version.rowVersion}-appendices`}
-                    version={version}
-                    isBilingual={
-                      template.languageMode === ContractLanguageMode.Bilingual
-                    }
-                    publishError={appendixPublishError}
-                    onRefresh={() => fetchWorkspace(false)}
-                  />
-                </TabsContent>
+                    <TabsContent value="appendices">
+                      <ContractTemplateAppendicesEditor
+                        key={`${version.templateVersionId}-${version.status}-${version.rowVersion}-appendices`}
+                        version={version}
+                        isBilingual={
+                          template.languageMode ===
+                          ContractLanguageMode.Bilingual
+                        }
+                        publishError={appendixPublishError}
+                        onRefresh={() => fetchWorkspace(false)}
+                      />
+                    </TabsContent>
+                  </>
+                )}
 
                 <TabsContent value="document" className="space-y-4">
                   <Card>
@@ -802,7 +890,9 @@ export default function ContractTemplateVersionWorkspacePage() {
                 </TabsContent>
 
                 <TabsContent value="placeholders">
-                  <ContractTemplatePlaceholderCatalog />
+                  <ContractTemplatePlaceholderCatalog
+                    documentType={template.documentType}
+                  />
                 </TabsContent>
 
                 <TabsContent
@@ -900,20 +990,29 @@ export default function ContractTemplateVersionWorkspacePage() {
                     </CardHeader>
                     <CardContent className="space-y-5">
                       <ul className="space-y-2">
-                        <RequirementRow met={hasTerms}>
-                          Có ít nhất một điều khoản mềm
-                        </RequirementRow>
+                        {isContractDocument && (
+                          <RequirementRow met={hasTerms}>
+                            Có ít nhất một điều khoản mềm
+                          </RequirementRow>
+                        )}
+                        {isAcceptanceDocument && (
+                          <RequirementRow met={hasValidAcceptanceSections}>
+                            Có ít nhất một section nghiệm thu hợp lệ
+                          </RequirementRow>
+                        )}
                         <RequirementRow met={hasDocument}>
                           Đã upload DOCX
                         </RequirementRow>
                         <RequirementRow met={isDocumentValid}>
                           DOCX hợp lệ
                         </RequirementRow>
-                        <RequirementRow met={hasValidPaymentMilestones}>
-                          {paymentTerms.length === 0
-                            ? "Không có điều khoản thanh toán"
-                            : `Tổng tỷ lệ các đợt thanh toán đúng 100% (hiện tại ${paymentPercentTotal}%)`}
-                        </RequirementRow>
+                        {isContractDocument && (
+                          <RequirementRow met={hasValidPaymentMilestones}>
+                            {paymentTerms.length === 0
+                              ? "Không có điều khoản thanh toán"
+                              : `Tổng tỷ lệ các đợt thanh toán đúng 100% (hiện tại ${paymentPercentTotal}%)`}
+                          </RequirementRow>
+                        )}
                         <RequirementRow met={hasPreview}>
                           Đã tạo preview hiện hành
                         </RequirementRow>
