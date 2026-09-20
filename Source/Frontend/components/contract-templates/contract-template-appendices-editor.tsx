@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   FileStack,
   Loader2,
   Pencil,
@@ -16,6 +17,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { CodeInput } from "@/components/ui/custom/code-input";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
@@ -121,6 +127,15 @@ export function ContractTemplateAppendicesEditor({
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const copyAppendixMarker = async () => {
+    try {
+      await navigator.clipboard.writeText("{{CONTRACT_APPENDICES}}");
+      toast.success("Đã sao chép {{CONTRACT_APPENDICES}}.");
+    } catch {
+      toast.error("Không thể sao chép marker.");
+    }
+  };
 
   const runAction = async (action: string, operation: () => Promise<void>) => {
     try {
@@ -351,6 +366,28 @@ export function ContractTemplateAppendicesEditor({
 
   return (
     <div className="space-y-4">
+      {appendices.length > 0 && (
+        <Alert>
+          <FileStack />
+          <AlertTitle>Vị trí gắn phụ lục trong DOCX</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              DOCX nguồn phải có đúng một marker{" "}
+              <code>{"{{CONTRACT_APPENDICES}}"}</code> sau toàn bộ nội dung hợp
+              đồng chính. Nếu DOCX đã được upload trước khi tạo phụ lục, hãy chèn
+              marker, upload lại tài liệu và tạo preview mới.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copyAppendixMarker}
+            >
+              Sao chép marker
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {publishError && (
         <Alert variant="destructive">
           <FileStack />
@@ -395,7 +432,11 @@ export function ContractTemplateAppendicesEditor({
           (left, right) => left.displayOrder - right.displayOrder,
         );
         return (
-          <Card key={appendix.templateAppendixId}>
+          <Collapsible
+            key={appendix.templateAppendixId}
+            defaultOpen={appendixIndex === 0}
+          >
+          <Card>
             <CardHeader className="gap-3">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                 <div className="space-y-2">
@@ -464,10 +505,33 @@ export function ContractTemplateAppendicesEditor({
                     >
                       <Trash2 className="size-4" />
                     </Button>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
+                        className="group"
+                      >
+                        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
+                )}
+                {!isDraft && (
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
+                      className="group"
+                    >
+                      <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
                 )}
               </div>
             </CardHeader>
+            <CollapsibleContent>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between gap-3 border-t pt-4">
                 <p className="text-sm font-medium">Điều khoản ({terms.length})</p>
@@ -565,7 +629,9 @@ export function ContractTemplateAppendicesEditor({
                 </div>
               )}
             </CardContent>
+            </CollapsibleContent>
           </Card>
+          </Collapsible>
         );
       })}
 

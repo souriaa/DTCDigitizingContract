@@ -81,6 +81,8 @@ const APPENDIX_PUBLISH_ERROR_CODES = new Set([
   "AppendixTermsInvalid",
 ]);
 
+const LEGAL_BASES_RENDER_ERROR_CODES = new Set(["LegalBasesMarkerMissing"]);
+
 const isAppendixPublishError = (error: unknown) => {
   const data = (error as {
     response?: { data?: { code?: string; errors?: string[] } };
@@ -88,6 +90,16 @@ const isAppendixPublishError = (error: unknown) => {
   return Boolean(
     (data?.code && APPENDIX_PUBLISH_ERROR_CODES.has(data.code)) ||
       data?.errors?.some((code) => APPENDIX_PUBLISH_ERROR_CODES.has(code)),
+  );
+};
+
+const isLegalBasesRenderError = (error: unknown) => {
+  const data = (error as {
+    response?: { data?: { code?: string; errors?: string[] } };
+  }).response?.data;
+  return Boolean(
+    (data?.code && LEGAL_BASES_RENDER_ERROR_CODES.has(data.code)) ||
+      data?.errors?.some((code) => LEGAL_BASES_RENDER_ERROR_CODES.has(code)),
   );
 };
 
@@ -136,6 +148,9 @@ export default function ContractTemplateVersionWorkspacePage() {
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [appendixPublishError, setAppendixPublishError] = useState<
+    string | null
+  >(null);
+  const [legalBasesRenderError, setLegalBasesRenderError] = useState<
     string | null
   >(null);
   const [isRetireOpen, setIsRetireOpen] = useState(false);
@@ -229,6 +244,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       );
       setVersion(result);
       setAppendixPublishError(null);
+      setLegalBasesRenderError(null);
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (result.validationStatus === TemplateValidationStatus.Valid) {
@@ -267,11 +283,22 @@ export default function ContractTemplateVersionWorkspacePage() {
           ? "Preview hiện tại vẫn còn hợp lệ."
           : "Đã tạo preview mới.",
       );
+      setAppendixPublishError(null);
+      setLegalBasesRenderError(null);
       await fetchWorkspace(false);
     } catch (error) {
-      toast.error(
-        getContractTemplateErrorMessage(error, "Không thể tạo preview."),
+      const message = getContractTemplateErrorMessage(
+        error,
+        "Không thể tạo preview.",
       );
+      toast.error(message);
+      if (isLegalBasesRenderError(error)) {
+        setLegalBasesRenderError(message);
+        changeTab("legal-bases");
+      } else if (isAppendixPublishError(error)) {
+        setAppendixPublishError(message);
+        changeTab("appendices");
+      }
       await fetchWorkspace(false);
     } finally {
       setIsGenerating(false);
@@ -347,6 +374,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       );
       setVersion(result);
       setAppendixPublishError(null);
+      setLegalBasesRenderError(null);
       setIsPublishOpen(false);
       toast.success(`Đã phát hành Version ${result.versionNo}.`);
       await fetchWorkspace(false);
@@ -360,6 +388,10 @@ export default function ContractTemplateVersionWorkspacePage() {
         setAppendixPublishError(message);
         setIsPublishOpen(false);
         changeTab("appendices");
+      } else if (isLegalBasesRenderError(error)) {
+        setLegalBasesRenderError(message);
+        setIsPublishOpen(false);
+        changeTab("legal-bases");
       }
       await fetchWorkspace(false);
     } finally {
@@ -654,6 +686,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                     isBilingual={
                       template.languageMode === ContractLanguageMode.Bilingual
                     }
+                    publishError={legalBasesRenderError}
                     onRefresh={() => fetchWorkspace(false)}
                   />
                 </TabsContent>

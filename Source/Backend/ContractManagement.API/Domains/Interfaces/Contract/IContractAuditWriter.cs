@@ -306,7 +306,9 @@ public static class ContractAuditActionTypes
     public const string NegotiationRoundCreated =
         "NegotiationRoundCreated";
     public const string ContractAppendixSelected = "ContractAppendixSelected";
+    public const string ContractAppendixCreated = "ContractAppendixCreated";
     public const string ContractAppendixRemoved = "ContractAppendixRemoved";
+    public const string ContractAppendicesReordered = "ContractAppendicesReordered";
     public const string ContractAppendixTermCreated = "ContractAppendixTermCreated";
     public const string ContractAppendixTermUpdated = "ContractAppendixTermUpdated";
     public const string ContractAppendixTermDeleted = "ContractAppendixTermDeleted";

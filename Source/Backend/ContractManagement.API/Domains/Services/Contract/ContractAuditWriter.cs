@@ -80,7 +80,11 @@ public sealed class ContractAuditWriter : IContractAuditWriter
                     "CarriedForwardThreadCount", "CarriedForwardCommentCount"),
             [ContractAuditActionTypes.ContractAppendixSelected] =
                 Fields("CurrentVersionId", "AppendixCount"),
+            [ContractAuditActionTypes.ContractAppendixCreated] =
+                Fields("CurrentVersionId", "AppendixCount"),
             [ContractAuditActionTypes.ContractAppendixRemoved] =
+                Fields("CurrentVersionId", "AppendixCount"),
+            [ContractAuditActionTypes.ContractAppendicesReordered] =
                 Fields("CurrentVersionId", "AppendixCount"),
             [ContractAuditActionTypes.ContractAppendixTermCreated] =
                 Fields("CurrentVersionId", "AppendixCount"),

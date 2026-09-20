@@ -993,6 +993,13 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 expectedRowVersion,
                 "Template version");
             EnsurePreviewEligible(preflightVersion);
+            await ValidateLegalBasesMarkerAsync(
+                versionId,
+                cancellationToken);
+            await ValidateAppendicesForPublishAsync(
+                versionId,
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                cancellationToken);
             fingerprint = CreatePreviewSourceHash(
                 preflightVersion.DocumentHash!,
                 (ContractLanguageMode)preflightTemplate.LanguageMode,
@@ -1268,6 +1275,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 "Template version");
             EnsurePublishEligible(preflightVersion);
             await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
+            await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
             await ValidateAppendicesForPublishAsync(versionId,
                 (ContractLanguageMode)preflightTemplate.LanguageMode,
                 cancellationToken);
@@ -1312,6 +1320,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     "Template version");
                 EnsurePublishEligible(version);
                 await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
+                await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
                 await ValidateAppendicesForPublishAsync(versionId,
                     (ContractLanguageMode)template.LanguageMode,
                     cancellationToken);
@@ -2887,6 +2896,32 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         if (milestones[0].DueAnchor == (byte)PaymentDueAnchor.PreviousMilestonePaid)
             throw new ContractTemplatePreviewException("PaymentMilestonesInvalid",
                 "Đợt thanh toán đầu tiên không thể phụ thuộc đợt trước.");
+    }
+
+    private async Task ValidateLegalBasesMarkerAsync(
+        int versionId,
+        CancellationToken cancellationToken)
+    {
+        var hasLegalBases = await _dbContext.TblContractTemplateLegalBases
+            .AsNoTracking()
+            .AnyAsync(item => item.TemplateVersionId == versionId,
+                cancellationToken);
+        if (!hasLegalBases)
+        {
+            return;
+        }
+
+        var hasMarker = await _dbContext.TblContractTemplateFields
+            .AsNoTracking()
+            .AnyAsync(field => field.TemplateVersionId == versionId
+                && field.PlaceholderKey == "CONTRACT_LEGAL_BASES",
+                cancellationToken);
+        if (!hasMarker)
+        {
+            throw new ContractTemplatePreviewException(
+                "LegalBasesMarkerMissing",
+                "DOCX nguồn phải có đúng một marker {{CONTRACT_LEGAL_BASES}} tại vị trí cần chèn căn cứ hợp đồng. Hãy chèn marker vào DOCX, upload lại tài liệu rồi tạo preview trước khi phát hành.");
+        }
     }
 
     private async Task<TemplatePreviewInput> LoadTemplatePreviewInputAsync(

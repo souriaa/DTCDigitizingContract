@@ -574,6 +574,122 @@ public sealed class ContractServiceSlice04Tests
         Assert.Empty(context.TblContractAppendixTerms);
     }
 
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.Negotiating)]
+    public async Task Appendices_EditableVersion_SupportsReorder(
+        ContractStatus status)
+    {
+        await using var context = CreateContext();
+        var versionId = await SeedNegotiatingContractAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)status;
+        context.TblContractAppendices.AddRange(
+            new TblContractAppendix
+            {
+                AppendixId = 103,
+                ContractId = 100,
+                VersionId = versionId,
+                SourceTemplateAppendixId = 63,
+                AppendixCode = "PL-01",
+                AppendixName = "Phụ lục một",
+                IsRequired = true,
+                DisplayOrder = 1,
+                CreatedEmployeeId = EmployeeId,
+                CreatedDate = DateTime.UtcNow,
+                RowVersion = InitialRowVersion()
+            },
+            new TblContractAppendix
+            {
+                AppendixId = 104,
+                ContractId = 100,
+                VersionId = versionId,
+                SourceTemplateAppendixId = 64,
+                AppendixCode = "PL-02",
+                AppendixName = "Phụ lục hai",
+                IsRequired = false,
+                DisplayOrder = 2,
+                CreatedEmployeeId = EmployeeId,
+                CreatedDate = DateTime.UtcNow,
+                RowVersion = InitialRowVersion()
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var rowVersion = Convert.ToBase64String(InitialRowVersion());
+
+        var reordered = await CreateService(context).ReorderAppendicesAsync(
+            100,
+            versionId,
+            new ReorderContractAppendicesRequest
+            {
+                VersionRowVersion = rowVersion,
+                Appendices =
+                [
+                    new ReorderContractAppendixItem
+                    {
+                        AppendixId = 104,
+                        RowVersion = rowVersion,
+                        DisplayOrder = 1
+                    },
+                    new ReorderContractAppendixItem
+                    {
+                        AppendixId = 103,
+                        RowVersion = rowVersion,
+                        DisplayOrder = 2
+                    }
+                ]
+            },
+            EmployeeId);
+
+        Assert.Equal([104, 103],
+            reordered.Select(item => item.AppendixId));
+        Assert.Contains(await context.TblContractAudits.AsNoTracking()
+                .ToListAsync(),
+            audit => audit.ActionType ==
+                ContractAuditActionTypes.ContractAppendicesReordered
+                && audit.SubjectType ==
+                ContractAuditSubjectTypes.ContractVersion
+                && audit.SubjectId == versionId);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.Negotiating)]
+    public async Task Appendices_EditableVersion_CanCreateCustomAppendix(
+        ContractStatus status)
+    {
+        await using var context = CreateContext();
+        var versionId = await SeedNegotiatingContractAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)status;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var created = await CreateService(context).CreateAppendixAsync(
+            100,
+            versionId,
+            new CreateContractAppendixRequest
+            {
+                AppendixCode = "custom_01",
+                AppendixName = "Phụ lục tạo trực tiếp",
+                AppendixDescription = "Chỉ thuộc version hợp đồng",
+                VersionRowVersion = Convert.ToBase64String(InitialRowVersion())
+            },
+            EmployeeId);
+
+        Assert.Equal("CUSTOM_01", created.AppendixCode);
+        Assert.Null(created.SourceTemplateAppendixId);
+        Assert.False(created.IsRequired);
+        Assert.Empty(created.Terms);
+        Assert.Contains(await context.TblContractAudits.AsNoTracking()
+                .ToListAsync(),
+            audit => audit.ActionType ==
+                ContractAuditActionTypes.ContractAppendixCreated
+                && audit.SubjectType ==
+                ContractAuditSubjectTypes.ContractAppendix
+                && audit.SubjectId == created.AppendixId);
+    }
+
     [Fact]
     public async Task AppendixTerms_EditableVersion_SupportsCrudAndReorder()
     {

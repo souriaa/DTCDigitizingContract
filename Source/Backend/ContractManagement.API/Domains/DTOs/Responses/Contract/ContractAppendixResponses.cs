@@ -5,7 +5,7 @@ public sealed class ContractAppendixResponse
     public int AppendixId { get; set; }
     public int ContractId { get; set; }
     public int VersionId { get; set; }
-    public int SourceTemplateAppendixId { get; set; }
+    public int? SourceTemplateAppendixId { get; set; }
     public string AppendixCode { get; set; } = string.Empty;
     public string AppendixName { get; set; } = string.Empty;
     public string? AppendixNameEn { get; set; }

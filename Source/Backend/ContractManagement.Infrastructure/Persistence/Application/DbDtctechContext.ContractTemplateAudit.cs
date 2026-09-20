@@ -59,7 +59,7 @@ public partial class DbDtctechContext
         TblContractTemplateAuditValue value)
     {
         if (!Enum.IsDefined(value.ValueSide)
-            || value.FieldCode is < 1 or > 11)
+            || value.FieldCode is < 1 or > 15)
         {
             throw new InvalidOperationException(
                 "Template audit value metadata không hợp lệ.");
@@ -80,7 +80,8 @@ public partial class DbDtctechContext
 
         var correctColumn = value.FieldCode switch
         {
-            1 or 5 or 6 or 9 => value.IntegerValue.HasValue,
+            1 or 5 or 6 or 9 or 12 or 13 or 14 or 15 =>
+                value.IntegerValue.HasValue,
             3 or 7 or 10 => value.LongValue.HasValue,
             2 or 4 or 8 or 11 => value.StringValue is { Length: <= 32 },
             _ => false

@@ -887,6 +887,72 @@ public sealed class ContractTemplateServiceTests
     }
 
     [Fact]
+    public async Task DraftAppendix_ReorderSwappedOrders_PersistsRequestedOrder()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateAsync(CreateRequest("APPENDIX-REORDER"),
+            AdminOfficerId);
+        var draft = Assert.Single(created.Versions);
+
+        await service.AddAppendixAsync(draft.TemplateVersionId,
+            new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX-ONE",
+                AppendixName = "Phụ lục một",
+                DisplayOrder = 1,
+                VersionRowVersion = draft.RowVersion
+            }, AdminOfficerId);
+        var afterFirst = await service.GetVersionAsync(draft.TemplateVersionId,
+            AdminOfficerId);
+        await service.AddAppendixAsync(draft.TemplateVersionId,
+            new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX-TWO",
+                AppendixName = "Phụ lục hai",
+                DisplayOrder = 2,
+                VersionRowVersion = afterFirst.RowVersion
+            }, AdminOfficerId);
+        var beforeReorder = await service.GetVersionAsync(draft.TemplateVersionId,
+            AdminOfficerId);
+        var first = beforeReorder.Appendices.Single(item =>
+            item.AppendixCode == "ANNEX-ONE");
+        var second = beforeReorder.Appendices.Single(item =>
+            item.AppendixCode == "ANNEX-TWO");
+
+        var reordered = await service.ReorderAppendicesAsync(
+            draft.TemplateVersionId,
+            new ReorderContractTemplateAppendicesRequest
+            {
+                VersionRowVersion = beforeReorder.RowVersion,
+                Appendices =
+                [
+                    new()
+                    {
+                        TemplateAppendixId = first.TemplateAppendixId,
+                        RowVersion = first.RowVersion,
+                        DisplayOrder = 2
+                    },
+                    new()
+                    {
+                        TemplateAppendixId = second.TemplateAppendixId,
+                        RowVersion = second.RowVersion,
+                        DisplayOrder = 1
+                    }
+                ]
+            },
+            AdminOfficerId);
+
+        Assert.Equal(
+            ["ANNEX-TWO", "ANNEX-ONE"],
+            reordered.Appendices.Select(item => item.AppendixCode));
+        Assert.Equal(
+            [1, 2],
+            reordered.Appendices.Select(item => item.DisplayOrder));
+    }
+
+    [Fact]
     public async Task CopyVersion_CopiesAppendixDefinitionsAndTermsIntoNewRows()
     {
         await using var context = CreateContext();

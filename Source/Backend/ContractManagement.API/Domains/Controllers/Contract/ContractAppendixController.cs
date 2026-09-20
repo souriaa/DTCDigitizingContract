@@ -28,6 +28,16 @@ public sealed class ContractAppendixController : ControllerBase
             "Thêm phụ lục hợp đồng thành công."));
     }
 
+    [HttpPost("custom")]
+    public async Task<IActionResult> Create(int contractId, int versionId,
+        [FromBody] CreateContractAppendixRequest request)
+    {
+        var result = await _service.CreateAppendixAsync(
+            contractId, versionId, request, GetEmployeeId());
+        return Ok(ApiResponse<ContractAppendixResponse>.Ok(result,
+            "Tạo phụ lục hợp đồng thành công."));
+    }
+
     [HttpDelete("{appendixId:int}")]
     public async Task<IActionResult> Delete(int contractId, int versionId,
         int appendixId, [FromBody] DeleteContractAppendixRequest request)
@@ -36,6 +46,16 @@ public sealed class ContractAppendixController : ControllerBase
             request, GetEmployeeId());
         return Ok(ApiResponse<object>.Ok(new { appendixId },
             "Xóa phụ lục hợp đồng thành công."));
+    }
+
+    [HttpPut("order")]
+    public async Task<IActionResult> Reorder(int contractId, int versionId,
+        [FromBody] ReorderContractAppendicesRequest request)
+    {
+        var result = await _service.ReorderAppendicesAsync(
+            contractId, versionId, request, GetEmployeeId());
+        return Ok(ApiResponse<IReadOnlyList<ContractAppendixResponse>>.Ok(
+            result, "Sắp xếp phụ lục hợp đồng thành công."));
     }
 
     [HttpPost("{appendixId:int}/terms")]

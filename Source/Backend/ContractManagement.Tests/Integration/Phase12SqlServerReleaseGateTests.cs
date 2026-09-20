@@ -4,8 +4,12 @@ using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Services.Contract;
+using ContractManagement.Infrastructure.MultiTenancy.Enums;
+using ContractManagement.Infrastructure.MultiTenancy.Models;
+using ContractManagement.Infrastructure.MultiTenancy.Services;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
@@ -257,6 +261,298 @@ public sealed class Phase12SqlServerReleaseGateTests
         }
     }
 
+    [Phase12SqlServerFact]
+    [Trait("Category", "Phase12SqlServer")]
+    public async Task DraftAppendix_AddTermAndSwapOrder_SucceedsOnSqlServer()
+    {
+        var baseConnection = Environment.GetEnvironmentVariable(
+            ConnectionVariable)!;
+        var databaseName =
+            $"ContractManagement_Phase12_QA_AppendixTerms_{Guid.NewGuid():N}";
+        var connectionString = WithDatabase(baseConnection, databaseName);
+
+        try
+        {
+            await using var context = CreateContext(connectionString);
+            await context.Database.MigrateAsync();
+
+            var employee = Employee(
+                "PH12-APPENDIX-TERM-OWNER", EmployeeType.Sale);
+            var customer = new TblCustomer
+            {
+                CustomerCode = "PH12-APPENDIX-TERM-CUSTOMER",
+                CustomerFullName = "Phase 12 Appendix Term Customer",
+                Status = 1
+            };
+            var template = new TblContractTemplate
+            {
+                TemplateCode = "PH12-APPENDIX-TERM-TEMPLATE",
+                TemplateName = "Phase 12 Appendix Term Template",
+                DocumentType =
+                    (byte)TemplateDocumentType.SoftwareSupplyContract,
+                LanguageMode = (byte)ContractLanguageMode.Vietnamese,
+                IsActive = true,
+                CreatedEmployeeId = 0,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblEmployees.Add(employee);
+            context.TblCustomers.Add(customer);
+            await context.SaveChangesAsync();
+            template.CreatedEmployeeId = employee.EmployeeId;
+            context.TblContractTemplates.Add(template);
+            await context.SaveChangesAsync();
+
+            var templateVersion = new TblContractTemplateVersion
+            {
+                TemplateId = template.TemplateId,
+                VersionNo = 1,
+                Status = (byte)TemplateVersionStatus.Draft,
+                ValidationStatus =
+                    (byte)TemplateValidationStatus.NotValidated,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContractTemplateVersions.Add(templateVersion);
+            await context.SaveChangesAsync();
+
+            var sourceAppendix = new TblContractTemplateAppendix
+            {
+                TemplateVersionId = templateVersion.TemplateVersionId,
+                AppendixCode = "PL-SQL",
+                AppendixName = "Phụ lục SQL",
+                IsRequired = false,
+                IsSelectedByDefault = false,
+                DisplayOrder = 1,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            var secondSourceAppendix = new TblContractTemplateAppendix
+            {
+                TemplateVersionId = templateVersion.TemplateVersionId,
+                AppendixCode = "PL-SQL-02",
+                AppendixName = "Phụ lục SQL hai",
+                IsRequired = false,
+                IsSelectedByDefault = false,
+                DisplayOrder = 2,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContractTemplateAppendices.AddRange(
+                sourceAppendix, secondSourceAppendix);
+            await context.SaveChangesAsync();
+
+            var contract = new TblContract
+            {
+                CustomerId = customer.CustomerId,
+                EmployeeId = employee.EmployeeId,
+                ContractType = (byte)ContractType.SoftwareSupply,
+                TemplateVersionId = templateVersion.TemplateVersionId,
+                ContractCode = "PH12-APPENDIX-TERM-CONTRACT",
+                ContractName = "Phase 12 Appendix Term Contract",
+                Status = (byte)ContractStatus.Draft,
+                CurrencyCode = "VND",
+                LanguageMode = (byte)ContractLanguageMode.Vietnamese,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContracts.Add(contract);
+            await context.SaveChangesAsync();
+
+            var version = new TblContractVersion
+            {
+                ContractId = contract.ContractId,
+                VersionNo = 1,
+                TemplateVersionId = templateVersion.TemplateVersionId,
+                CurrencyCode = "VND",
+                IsLocked = false,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContractVersions.Add(version);
+            await context.SaveChangesAsync();
+            contract.CurrentVersionId = version.VersionId;
+
+            var appendix = new TblContractAppendix
+            {
+                ContractId = contract.ContractId,
+                VersionId = version.VersionId,
+                SourceTemplateAppendixId = sourceAppendix.TemplateAppendixId,
+                AppendixCode = "PL-SQL",
+                AppendixName = "Phụ lục SQL",
+                IsRequired = false,
+                DisplayOrder = 1,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            var secondAppendix = new TblContractAppendix
+            {
+                ContractId = contract.ContractId,
+                VersionId = version.VersionId,
+                SourceTemplateAppendixId =
+                    secondSourceAppendix.TemplateAppendixId,
+                AppendixCode = "PL-SQL-02",
+                AppendixName = "Phụ lục SQL hai",
+                IsRequired = false,
+                DisplayOrder = 2,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContractAppendices.AddRange(appendix, secondAppendix);
+            await context.SaveChangesAsync();
+
+            var first = new TblContractAppendixTerm
+            {
+                AppendixId = appendix.AppendixId,
+                TermCode = "TERM-1",
+                TermTitle = "Điều một",
+                DisplayOrder = 1,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            var second = new TblContractAppendixTerm
+            {
+                AppendixId = appendix.AppendixId,
+                TermCode = "TERM-2",
+                TermTitle = "Điều hai",
+                DisplayOrder = 2,
+                CreatedEmployeeId = employee.EmployeeId,
+                CreatedDate = DateTime.UtcNow
+            };
+            context.TblContractAppendixTerms.AddRange(first, second);
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var service = new ContractService(
+                context,
+                CreateAuditWriter(context));
+            var currentVersion = await context.TblContractVersions
+                .AsNoTracking().SingleAsync(x => x.VersionId == version.VersionId);
+            var currentAppendix = await context.TblContractAppendices
+                .AsNoTracking().SingleAsync(x => x.AppendixId == appendix.AppendixId);
+            var added = await service.AddAppendixTermAsync(
+                contract.ContractId,
+                version.VersionId,
+                appendix.AppendixId,
+                new CreateContractAppendixTermRequest
+                {
+                    TermCode = "TERM-3",
+                    TermTitle = "Điều ba",
+                    DisplayOrder = 3,
+                    VersionRowVersion = Convert.ToBase64String(
+                        currentVersion.RowVersion),
+                    AppendixRowVersion = Convert.ToBase64String(
+                        currentAppendix.RowVersion)
+                },
+                employee.EmployeeId);
+
+            context.ChangeTracker.Clear();
+            currentVersion = await context.TblContractVersions
+                .AsNoTracking().SingleAsync(x => x.VersionId == version.VersionId);
+            currentAppendix = await context.TblContractAppendices
+                .AsNoTracking().SingleAsync(x => x.AppendixId == appendix.AppendixId);
+            var currentTerms = await context.TblContractAppendixTerms
+                .AsNoTracking().Where(x => x.AppendixId == appendix.AppendixId)
+                .ToDictionaryAsync(x => x.AppendixTermId);
+
+            var reordered = await service.ReorderAppendixTermsAsync(
+                contract.ContractId,
+                version.VersionId,
+                appendix.AppendixId,
+                new ReorderContractAppendixTermsRequest
+                {
+                    VersionRowVersion = Convert.ToBase64String(
+                        currentVersion.RowVersion),
+                    AppendixRowVersion = Convert.ToBase64String(
+                        currentAppendix.RowVersion),
+                    Terms =
+                    [
+                        Reorder(second.AppendixTermId, 1),
+                        Reorder(first.AppendixTermId, 2),
+                        Reorder(added.AppendixTermId, 3)
+                    ]
+                },
+                employee.EmployeeId);
+
+            Assert.Equal(
+                [second.AppendixTermId, first.AppendixTermId,
+                    added.AppendixTermId],
+                reordered.Terms.Select(item => item.AppendixTermId));
+            Assert.Equal(2, await context.TblContractAudits.CountAsync(audit =>
+                audit.SubjectType == ContractAuditSubjectTypes.ContractAppendix
+                && audit.SubjectId == appendix.AppendixId));
+
+            context.ChangeTracker.Clear();
+            currentVersion = await context.TblContractVersions
+                .AsNoTracking().SingleAsync(x => x.VersionId == version.VersionId);
+            var currentAppendices = await context.TblContractAppendices
+                .AsNoTracking().Where(x => x.VersionId == version.VersionId)
+                .ToDictionaryAsync(x => x.AppendixId);
+            var reorderedAppendices = await service.ReorderAppendicesAsync(
+                contract.ContractId,
+                version.VersionId,
+                new ReorderContractAppendicesRequest
+                {
+                    VersionRowVersion = Convert.ToBase64String(
+                        currentVersion.RowVersion),
+                    Appendices =
+                    [
+                        ReorderAppendix(secondAppendix.AppendixId, 1),
+                        ReorderAppendix(appendix.AppendixId, 2)
+                    ]
+                },
+                employee.EmployeeId);
+            Assert.Equal(
+                [secondAppendix.AppendixId, appendix.AppendixId],
+                reorderedAppendices.Select(item => item.AppendixId));
+            Assert.Contains(await context.TblContractAudits.AsNoTracking()
+                    .ToListAsync(),
+                audit => audit.ActionType ==
+                    ContractAuditActionTypes.ContractAppendicesReordered
+                    && audit.SubjectType ==
+                    ContractAuditSubjectTypes.ContractVersion
+                    && audit.SubjectId == version.VersionId);
+
+            context.ChangeTracker.Clear();
+            currentVersion = await context.TblContractVersions
+                .AsNoTracking().SingleAsync(x => x.VersionId == version.VersionId);
+            var customAppendix = await service.CreateAppendixAsync(
+                contract.ContractId,
+                version.VersionId,
+                new CreateContractAppendixRequest
+                {
+                    AppendixCode = "PL-CUSTOM",
+                    AppendixName = "Phụ lục tạo trực tiếp",
+                    VersionRowVersion = Convert.ToBase64String(
+                        currentVersion.RowVersion)
+                },
+                employee.EmployeeId);
+            Assert.Null(customAppendix.SourceTemplateAppendixId);
+            Assert.Empty(customAppendix.Terms);
+
+            ReorderContractAppendixTermItem Reorder(int termId, int order) =>
+                new()
+                {
+                    AppendixTermId = termId,
+                    DisplayOrder = order,
+                    RowVersion = Convert.ToBase64String(
+                        currentTerms[termId].RowVersion)
+                };
+
+            ReorderContractAppendixItem ReorderAppendix(
+                int appendixId, int order) => new()
+            {
+                AppendixId = appendixId,
+                DisplayOrder = order,
+                RowVersion = Convert.ToBase64String(
+                    currentAppendices[appendixId].RowVersion)
+            };
+        }
+        finally
+        {
+            await DropQaDatabaseAsync(connectionString, databaseName);
+        }
+    }
+
     private static async Task<SeededTenantA> SeedTenantAAsync(
         string connectionString)
     {
@@ -430,6 +726,45 @@ public sealed class Phase12SqlServerReleaseGateTests
             WHERE definition LIKE '%ISJSON%';
             """;
         Assert.Equal(0L, (long)(await jsonConstraints.ExecuteScalarAsync())!);
+
+        await using var contractAuditFieldCodeConstraint =
+            connection.CreateCommand();
+        contractAuditFieldCodeConstraint.CommandText =
+            """
+            SELECT definition
+            FROM sys.check_constraints
+            WHERE name = 'CK_tbl_ContractAuditValue_FieldCode';
+            """;
+        var fieldCodeDefinition = Assert.IsType<string>(
+            await contractAuditFieldCodeConstraint.ExecuteScalarAsync());
+        Assert.Contains("[FieldCode]>=(1)", fieldCodeDefinition);
+        Assert.Contains("[FieldCode]<=(99)", fieldCodeDefinition);
+
+        await using var contractAuditFieldKindConstraint =
+            connection.CreateCommand();
+        contractAuditFieldKindConstraint.CommandText =
+            """
+            SELECT definition
+            FROM sys.check_constraints
+            WHERE name = 'CK_tbl_ContractAuditValue_FieldKind';
+            """;
+        var fieldKindDefinition = Assert.IsType<string>(
+            await contractAuditFieldKindConstraint.ExecuteScalarAsync());
+        Assert.Contains("95", fieldKindDefinition);
+        Assert.Contains("98", fieldKindDefinition);
+
+        await using var contractAuditSubjectConstraint =
+            connection.CreateCommand();
+        contractAuditSubjectConstraint.CommandText =
+            """
+            SELECT definition
+            FROM sys.check_constraints
+            WHERE name = 'CK_tbl_ContractAudit_Subject';
+            """;
+        var subjectDefinition = Assert.IsType<string>(
+            await contractAuditSubjectConstraint.ExecuteScalarAsync());
+        Assert.Contains("ContractAppendix", subjectDefinition);
+        Assert.Contains("AcceptanceRecord", subjectDefinition);
     }
 
     private static TblEmployee Employee(
@@ -458,6 +793,28 @@ public sealed class Phase12SqlServerReleaseGateTests
                 })
             .Options;
         return new DbDtctechContext(options);
+    }
+
+    private static ContractAuditWriter CreateAuditWriter(
+        DbDtctechContext context)
+    {
+        var tenant = new CurrentTenant();
+        tenant.Set(new ResolvedTenant(
+            1,
+            "PHASE12-SQL",
+            "Phase 12 SQL",
+            TenantDatabaseMode.Dedicated,
+            context.Database.GetConnectionString()!));
+        return new ContractAuditWriter(
+            context,
+            tenant,
+            new HttpContextAccessor
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    TraceIdentifier = "phase-12-sql-appendix"
+                }
+            });
     }
 
     private static string WithDatabase(

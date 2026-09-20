@@ -11,7 +11,7 @@ public partial class TblContractAppendix
 
     public int VersionId { get; set; }
 
-    public int SourceTemplateAppendixId { get; set; }
+    public int? SourceTemplateAppendixId { get; set; }
 
     public string AppendixCode { get; set; } = null!;
 

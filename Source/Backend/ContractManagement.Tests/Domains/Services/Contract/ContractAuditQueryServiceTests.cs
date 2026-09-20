@@ -24,6 +24,35 @@ public sealed class ContractAuditQueryServiceTests
     private const int ContractId = 7001;
 
     [Fact]
+    public void FieldVocabulary_ReservesAppendixAndAcceptanceCodesThrough99()
+    {
+        Assert.Equal(94, (short)ContractAuditFieldCode.AppendixCount);
+        Assert.Equal(95, (short)ContractAuditFieldCode.SignDate);
+        Assert.Equal(96, (short)ContractAuditFieldCode.AcceptanceRecordId);
+        Assert.Equal(97, (short)ContractAuditFieldCode.AcceptanceKind);
+        Assert.Equal(98, (short)ContractAuditFieldCode.AcceptanceDate);
+        Assert.Equal(99, (short)ContractAuditFieldCode.AcceptanceStatus);
+
+        var values = ContractAuditValues.Create(
+            ("AppendixCount", 2),
+            ("SignDate", new DateTime(2026, 9, 20, 0, 0, 0,
+                DateTimeKind.Utc)),
+            ("AcceptanceRecordId", 3),
+            ("AcceptanceKind", 1),
+            ("AcceptanceDate", new DateTime(2026, 9, 20, 0, 0, 0,
+                DateTimeKind.Utc)),
+            ("AcceptanceStatus", 2));
+
+        Assert.Equal(6, values.Count);
+        Assert.Equal(AuditScalarValueKind.DateTime,
+            values.Single(value => value.FieldCode
+                == ContractAuditFieldCode.SignDate).ValueKind);
+        Assert.Equal(AuditScalarValueKind.DateTime,
+            values.Single(value => value.FieldCode
+                == ContractAuditFieldCode.AcceptanceDate).ValueKind);
+    }
+
+    [Fact]
     public async Task QueryAsync_ManagerSeesOnlyCurrentTenantAndUsesStableSort()
     {
         await using var context = CreateContext();

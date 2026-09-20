@@ -135,11 +135,27 @@ public sealed partial class ContractTemplateService
             var byId = request.Appendices.ToDictionary(x => x.TemplateAppendixId);
             if (!rows.Select(x => x.TemplateAppendixId).ToHashSet().SetEquals(byId.Keys))
                 throw new ArgumentException("Danh sách reorder phải chứa đúng toàn bộ Appendix.");
+
+            // A direct swap (for example 1 <-> 2) creates a dependency cycle
+            // for the unique (TemplateVersionId, DisplayOrder) index. Move all
+            // rows to an unused positive range first, flush inside the current
+            // transaction, then apply the requested order.
+            var temporaryOrder = GetTemporaryDisplayOrderStart(
+                rows.Select(row => row.DisplayOrder),
+                request.Appendices.Select(item => item.DisplayOrder),
+                rows.Count);
             foreach (var row in rows)
             {
                 var item = byId[row.TemplateAppendixId];
                 MatchAndTrack(row, DecodeRowVersion(item.RowVersion, nameof(item.RowVersion)));
-                row.DisplayOrder = item.DisplayOrder; row.UpdatedEmployeeId = employeeId;
+                row.DisplayOrder = temporaryOrder++;
+                RotateRowVersionIfNeeded(row);
+            }
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var row in rows)
+            {
+                row.DisplayOrder = byId[row.TemplateAppendixId].DisplayOrder;
+                row.UpdatedEmployeeId = employeeId;
                 row.UpdatedDate = DateTime.UtcNow; RotateRowVersionIfNeeded(row);
             }
             InvalidateAppendixPreview(version, employeeId, DateTime.UtcNow);
@@ -285,11 +301,23 @@ public sealed partial class ContractTemplateService
             var byId = request.Terms.ToDictionary(x => x.TemplateAppendixTermId);
             if (!rows.Select(x => x.TemplateAppendixTermId).ToHashSet().SetEquals(byId.Keys))
                 throw new ArgumentException("Danh sách reorder phải chứa đúng toàn bộ Appendix term.");
+
+            var temporaryOrder = GetTemporaryDisplayOrderStart(
+                rows.Select(row => row.DisplayOrder),
+                request.Terms.Select(item => item.DisplayOrder),
+                rows.Count);
             foreach (var row in rows)
             {
                 var item = byId[row.TemplateAppendixTermId];
                 MatchAndTrack(row, DecodeRowVersion(item.RowVersion, nameof(item.RowVersion)));
-                row.DisplayOrder = item.DisplayOrder; row.UpdatedEmployeeId = employeeId;
+                row.DisplayOrder = temporaryOrder++;
+                RotateRowVersionIfNeeded(row);
+            }
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var row in rows)
+            {
+                row.DisplayOrder = byId[row.TemplateAppendixTermId].DisplayOrder;
+                row.UpdatedEmployeeId = employeeId;
                 row.UpdatedDate = DateTime.UtcNow; RotateRowVersionIfNeeded(row);
             }
             var now = DateTime.UtcNow; appendix.UpdatedEmployeeId = employeeId;
@@ -443,6 +471,24 @@ public sealed partial class ContractTemplateService
             throw new ArgumentException($"ID và DisplayOrder của {name} phải hợp lệ và duy nhất.");
     }
 
+    private static int GetTemporaryDisplayOrderStart(
+        IEnumerable<int> currentOrders,
+        IEnumerable<int> requestedOrders,
+        int rowCount)
+    {
+        var maximum = currentOrders.Concat(requestedOrders)
+            .DefaultIfEmpty(0)
+            .Max();
+        var start = (long)maximum + rowCount + 1;
+        if (start + Math.Max(0, rowCount - 1) > int.MaxValue)
+        {
+            throw new ArgumentException(
+                "DisplayOrder quá lớn để thực hiện đổi thứ tự an toàn.");
+        }
+
+        return (int)start;
+    }
+
     private void StageAppendixAudit(TblContractTemplateVersion version,
         int employeeId, string action, int? appendixId, int? termCount,
         int? termId = null)
@@ -494,7 +540,7 @@ public sealed partial class ContractTemplateService
                 && x.PlaceholderKey == "CONTRACT_APPENDICES", ct);
         if (!hasMarker)
             throw new ContractTemplatePreviewException("AppendixMarkerMissing",
-                "DOCX phải có marker CONTRACT_APPENDICES khi template có Appendix.");
+                "DOCX nguồn phải có đúng một marker {{CONTRACT_APPENDICES}} sau nội dung hợp đồng chính. Hãy chèn marker vào DOCX, upload lại tài liệu rồi tạo preview trước khi phát hành.");
         var ids = appendices.Select(x => x.TemplateAppendixId).ToList();
         var terms = await _dbContext.TblContractTemplateAppendixTerms.AsNoTracking()
             .Where(x => ids.Contains(x.TemplateAppendixId)).ToListAsync(ct);

@@ -69,6 +69,58 @@ public sealed class ContractTemplatePreviewTests
             + (value.StringValue is not null ? 1 : 0)));
     }
 
+    [Fact]
+    public async Task TemplateAuditContext_AcceptsAppendixTypedFields()
+    {
+        await using var context = CreateContext();
+        var tenant = new CurrentTenant();
+        tenant.Set(new ResolvedTenant(
+            TenantId,
+            $"TENANT-{TenantId}",
+            $"Tenant {TenantId}",
+            TenantDatabaseMode.Dedicated,
+            "InMemory"));
+        var writer = new ContractTemplateAuditWriter(
+            context,
+            tenant,
+            new HttpContextAccessor
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    TraceIdentifier = "appendix-audit-regression"
+                }
+            });
+
+        writer.StageAudits([new ContractTemplateAuditWriteRequest(
+            TemplateId,
+            VersionId,
+            AdminOfficerId,
+            ContractTemplateAuditActionTypes.TemplateAppendixCreated,
+            ContractTemplateAuditResults.Succeeded,
+            DateTime.UtcNow,
+            NewValues: ContractTemplateAuditValues.Create(
+                ("TemplateAppendixId", 20),
+                ("TemplateAppendixTermId", 21),
+                ("AppendixCount", 1),
+                ("AppendixTermCount", 2)))]);
+
+        await context.SaveChangesAsync();
+
+        var audit = await context.TblContractTemplateAudits
+            .Include(item => item.Values)
+            .SingleAsync();
+        Assert.Equal(
+            [
+                ContractTemplateAuditFieldCode.TemplateAppendixId,
+                ContractTemplateAuditFieldCode.TemplateAppendixTermId,
+                ContractTemplateAuditFieldCode.AppendixCount,
+                ContractTemplateAuditFieldCode.AppendixTermCount
+            ],
+            audit.Values
+                .OrderBy(value => value.FieldCode)
+                .Select(value => (ContractTemplateAuditFieldCode)value.FieldCode));
+    }
+
     private const int TenantId = 1010;
     private const int AdminOfficerId = 1011;
     private const int ManagerId = 1012;
@@ -92,6 +144,90 @@ public sealed class ContractTemplatePreviewTests
             "72.187.500",
             SoftwareSupplyPreviewDatasetV1.GetScalarValues(ContractLanguageMode.Vietnamese)[
                 "CONTRACT_TOTAL_AMOUNT"]);
+    }
+
+    [Fact]
+    public async Task GeneratePreview_WithAppendixButWithoutMarker_IsRejected()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(
+            context,
+            storage,
+            CreateSourceDocument(includeAppendixMarker: false),
+            includeAppendixMarker: false);
+        var now = DateTime.UtcNow;
+        var appendix = new TblContractTemplateAppendix
+        {
+            TemplateVersionId = VersionId,
+            AppendixCode = "ANNEX-MISSING-MARKER",
+            AppendixName = "Phụ lục thiếu marker",
+            DisplayOrder = 1,
+            CreatedEmployeeId = AdminOfficerId,
+            CreatedDate = now,
+            RowVersion = [3, 3, 3, 3, 3, 3, 3, 3]
+        };
+        context.TblContractTemplateAppendices.Add(appendix);
+        await context.SaveChangesAsync();
+        context.TblContractTemplateAppendixTerms.Add(
+            new TblContractTemplateAppendixTerm
+            {
+                TemplateAppendixId = appendix.TemplateAppendixId,
+                TermCode = "TERM-1",
+                TermTitle = "Điều khoản phụ lục",
+                TermContent = RichText("Nội dung phụ lục."),
+                DisplayOrder = 1,
+                CreatedEmployeeId = AdminOfficerId,
+                CreatedDate = now,
+                RowVersion = [4, 4, 4, 4, 4, 4, 4, 4]
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var version = await GetVersionAsync(context);
+
+        var exception = await Assert.ThrowsAsync<ContractTemplatePreviewException>(
+            () => CreateService(context, storage).GeneratePreviewAsync(
+                VersionId,
+                PreviewRequest(version.RowVersion),
+                AdminOfficerId));
+
+        Assert.Equal("AppendixMarkerMissing", exception.FailureCode);
+        Assert.Contains("{{CONTRACT_APPENDICES}}", exception.Message);
+    }
+
+    [Fact]
+    public async Task GeneratePreview_WithLegalBasesButWithoutMarker_IsRejected()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(
+            context,
+            storage,
+            CreateSourceDocument(includeLegalBasesMarker: false),
+            includeLegalBasesMarker: false);
+        context.TblContractTemplateLegalBases.Add(
+            new TblContractTemplateLegalBasis
+            {
+                TemplateVersionId = VersionId,
+                BasisCode = "CIVIL-CODE",
+                ContentVi = RichText("Căn cứ Bộ luật Dân sự."),
+                DisplayOrder = 1,
+                CreatedEmployeeId = AdminOfficerId,
+                CreatedDate = DateTime.UtcNow,
+                RowVersion = [5, 5, 5, 5, 5, 5, 5, 5]
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var version = await GetVersionAsync(context);
+
+        var exception = await Assert.ThrowsAsync<ContractTemplatePreviewException>(
+            () => CreateService(context, storage).GeneratePreviewAsync(
+                VersionId,
+                PreviewRequest(version.RowVersion),
+                AdminOfficerId));
+
+        Assert.Equal("LegalBasesMarkerMissing", exception.FailureCode);
+        Assert.Contains("{{CONTRACT_LEGAL_BASES}}", exception.Message);
     }
 
     [Fact]
@@ -1294,7 +1430,9 @@ public sealed class ContractTemplatePreviewTests
     private static async Task SeedValidDraftAsync(
         DbDtctechContext context,
         TestFileStorage storage,
-        byte[] source)
+        byte[] source,
+        bool includeAppendixMarker = true,
+        bool includeLegalBasesMarker = true)
     {
         await SeedEmployeeAsync(context, AdminOfficerId,
             EmployeeType.AdminOfficer, active: true);
@@ -1317,6 +1455,12 @@ public sealed class ContractTemplatePreviewTests
             CreatedDate = now,
             RowVersion = [1, 1, 1, 1, 1, 1, 1, 1]
         });
+        var definitions = ContractPlaceholderCatalog.SystemDefinitions
+            .Where(definition => includeAppendixMarker
+                || definition.Key != "CONTRACT_APPENDICES")
+            .Where(definition => includeLegalBasesMarker
+                || definition.Key != "CONTRACT_LEGAL_BASES")
+            .ToArray();
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
             TemplateVersionId = VersionId,
@@ -1327,14 +1471,14 @@ public sealed class ContractTemplatePreviewTests
             DocumentFileId = 1,
             DocumentHash = documentHash,
             PlaceholderBindingHash = ContractPlaceholderCatalog.Fingerprint(
-                ContractPlaceholderCatalog.SystemDefinitions),
+                definitions),
             ValidatedByEmployeeId = AdminOfficerId,
             ValidatedDate = now,
             CreatedEmployeeId = AdminOfficerId,
             CreatedDate = now,
             RowVersion = [2, 2, 2, 2, 2, 2, 2, 2]
         });
-        AddSystemFieldSnapshots(context, VersionId, now);
+        AddSystemFieldSnapshots(context, VersionId, now, definitions);
         AddItemTableLayout(context, VersionId, now);
         await storage.SeedAsync(1, source, "ContractTemplateVersion", VersionId,
             AdminOfficerId);
@@ -1345,10 +1489,11 @@ public sealed class ContractTemplatePreviewTests
     private static void AddSystemFieldSnapshots(
         DbDtctechContext context,
         int templateVersionId,
-        DateTime createdDate)
+        DateTime createdDate,
+        IReadOnlyCollection<SoftwareSupplyPlaceholderDefinition>? definitions = null)
     {
         context.TblContractTemplateFields.AddRange(
-            ContractPlaceholderCatalog.SystemDefinitions.Select(
+            (definitions ?? ContractPlaceholderCatalog.SystemDefinitions).Select(
                 (definition, index) => new TblContractTemplateField
                 {
                     TemplateVersionId = templateVersionId,
@@ -1436,7 +1581,9 @@ public sealed class ContractTemplatePreviewTests
         bool includeHeaderFooterAndNotes = false,
         bool dynamicTermsInHeader = false,
         bool dynamicTermsMixedWithText = false,
-        string? additionalBodyText = null)
+        string? additionalBodyText = null,
+        bool includeAppendixMarker = true,
+        bool includeLegalBasesMarker = true)
     {
         using var stream = new MemoryStream();
         using (var document = WordprocessingDocument.Create(
@@ -1448,6 +1595,17 @@ public sealed class ContractTemplatePreviewTests
             var body = new W.Body();
             foreach (var definition in SoftwareSupplyPlaceholderCatalog.GetAll())
             {
+                if (!includeAppendixMarker
+                    && definition.Key == "CONTRACT_APPENDICES")
+                {
+                    continue;
+                }
+                if (!includeLegalBasesMarker
+                    && definition.Key == "CONTRACT_LEGAL_BASES")
+                {
+                    continue;
+                }
+
                 if (definition.DataKind == TemplatePlaceholderDataKind.DynamicBlock)
                 {
                     if (definition.Key == "CONTRACT_TERMS" && dynamicTermsInHeader)

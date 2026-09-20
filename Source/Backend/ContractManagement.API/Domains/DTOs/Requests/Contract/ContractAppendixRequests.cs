@@ -39,6 +39,28 @@ public sealed class DeleteContractAppendixTermRequest
     [Required] public string VersionRowVersion { get; set; } = string.Empty;
 }
 
+public sealed class CreateContractAppendixRequest
+{
+    [Required, MaxLength(50)] public string AppendixCode { get; set; } = string.Empty;
+    [Required, MaxLength(500)] public string AppendixName { get; set; } = string.Empty;
+    [MaxLength(500)] public string? AppendixNameEn { get; set; }
+    [MaxLength(2000)] public string? AppendixDescription { get; set; }
+    [Required] public string VersionRowVersion { get; set; } = string.Empty;
+}
+
+public sealed class ReorderContractAppendicesRequest
+{
+    [Required] public string VersionRowVersion { get; set; } = string.Empty;
+    [Required] public List<ReorderContractAppendixItem> Appendices { get; set; } = [];
+}
+
+public sealed class ReorderContractAppendixItem
+{
+    [Range(1, int.MaxValue)] public int AppendixId { get; set; }
+    [Required] public string RowVersion { get; set; } = string.Empty;
+    [Range(0, int.MaxValue)] public int DisplayOrder { get; set; }
+}
+
 public sealed class ReorderContractAppendixTermsRequest
 {
     [Required] public string VersionRowVersion { get; set; } = string.Empty;

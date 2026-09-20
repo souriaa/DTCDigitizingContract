@@ -114,6 +114,78 @@ public partial class ContractService
         });
     }
 
+    public async Task<ContractAppendixResponse> CreateAppendixAsync(
+        int contractId, int versionId, CreateContractAppendixRequest request,
+        int employeeId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var code = NormalizeAppendixValue(
+            request.AppendixCode, 50, "Mã phụ lục").ToUpperInvariant();
+        var name = NormalizeAppendixValue(
+            request.AppendixName, 500, "Tên phụ lục");
+        var nameEn = NormalizeAppendixOptional(
+            request.AppendixNameEn, 500, "Tên phụ lục tiếng Anh");
+        var description = NormalizeAppendixOptional(
+            request.AppendixDescription, 2000, "Mô tả phụ lục");
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database
+                .BeginTransactionAsync(IsolationLevel.Serializable);
+            try
+            {
+                var (contract, version) = await LoadWritableAppendixStateAsync(
+                    contractId, versionId, employeeId,
+                    request.VersionRowVersion);
+                if (await _dbContext.TblContractAppendices.AnyAsync(row =>
+                        row.VersionId == versionId
+                        && row.AppendixCode == code))
+                {
+                    throw new InvalidOperationException(
+                        "Mã phụ lục đã tồn tại trong version hợp đồng.");
+                }
+
+                var now = DateTime.UtcNow;
+                var displayOrder = (await _dbContext.TblContractAppendices
+                    .Where(row => row.VersionId == versionId)
+                    .Select(row => (int?)row.DisplayOrder)
+                    .MaxAsync() ?? 0) + 1;
+                var row = new TblContractAppendix
+                {
+                    ContractId = contractId,
+                    VersionId = versionId,
+                    SourceTemplateAppendixId = null,
+                    AppendixCode = code,
+                    AppendixName = name,
+                    AppendixNameEn = nameEn,
+                    AppendixDescription = description,
+                    IsRequired = false,
+                    DisplayOrder = displayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                _dbContext.TblContractAppendices.Add(row);
+                await _dbContext.SaveChangesAsync();
+
+                await TouchAppendixAggregateAsync(
+                    contract, version, employeeId, now);
+                await StageAppendixAuditAsync(
+                    contractId, versionId, row.AppendixId, employeeId, now,
+                    ContractAuditActionTypes.ContractAppendixCreated);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return await LoadContractAppendixAsync(row.AppendixId);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
+        });
+    }
+
     public async Task DeleteAppendixAsync(
         int contractId, int versionId, int appendixId,
         DeleteContractAppendixRequest request, int employeeId)
@@ -136,6 +208,101 @@ public partial class ContractService
         await StageAppendixAuditAsync(contractId, versionId, appendixId,
             employeeId, now, ContractAuditActionTypes.ContractAppendixRemoved);
         await _dbContext.SaveChangesAsync();
+    }
+
+    public async Task<IReadOnlyList<ContractAppendixResponse>>
+        ReorderAppendicesAsync(
+            int contractId, int versionId,
+            ReorderContractAppendicesRequest request, int employeeId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Appendices is null
+            || request.Appendices.Any(item => item.AppendixId <= 0
+                || item.DisplayOrder < 0)
+            || request.Appendices.Select(item => item.AppendixId).Distinct().Count()
+                != request.Appendices.Count
+            || request.Appendices.Select(item => item.DisplayOrder).Distinct().Count()
+                != request.Appendices.Count)
+        {
+            throw new ArgumentException(
+                "Danh sách phụ lục và DisplayOrder phải hợp lệ, duy nhất.");
+        }
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database
+                .BeginTransactionAsync(IsolationLevel.Serializable);
+            try
+            {
+                var (contract, version) = await LoadWritableAppendixStateAsync(
+                    contractId, versionId, employeeId,
+                    request.VersionRowVersion);
+                var rows = await _dbContext.TblContractAppendices
+                    .Where(row => row.ContractId == contractId
+                        && row.VersionId == versionId)
+                    .ToListAsync();
+                var requestedById = request.Appendices.ToDictionary(
+                    item => item.AppendixId);
+                if (rows.Count != request.Appendices.Count
+                    || !rows.Select(row => row.AppendixId).ToHashSet()
+                        .SetEquals(requestedById.Keys))
+                {
+                    throw new ArgumentException(
+                        "Danh sách sắp xếp phải chứa đúng mỗi phụ lục một lần.");
+                }
+
+                var temporaryOrder = GetTemporaryDisplayOrderStart(
+                    rows.Select(row => row.DisplayOrder),
+                    request.Appendices.Select(item => item.DisplayOrder),
+                    rows.Count);
+                foreach (var row in rows)
+                {
+                    var item = requestedById[row.AppendixId];
+                    MatchRowVersion(row.RowVersion, item.RowVersion,
+                        "Phụ lục hợp đồng");
+                    row.DisplayOrder = temporaryOrder++;
+                }
+
+                if (rows.Count > 0)
+                {
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var now = DateTime.UtcNow;
+                foreach (var row in rows)
+                {
+                    row.DisplayOrder = requestedById[row.AppendixId]
+                        .DisplayOrder;
+                    row.UpdatedEmployeeId = employeeId;
+                    row.UpdatedDate = now;
+                }
+
+                await TouchAppendixAggregateAsync(
+                    contract, version, employeeId, now);
+                _contractAuditWriter.StageEmployeeAudits(
+                [
+                    new EmployeeContractAuditWriteRequest(
+                        contractId, versionId, employeeId,
+                        ContractAuditActionTypes.ContractAppendicesReordered,
+                        ContractAuditResults.Succeeded, now,
+                        SubjectType: ContractAuditSubjectTypes.ContractVersion,
+                        SubjectId: versionId,
+                        NewValues: ContractAuditValues.Create(
+                            ("CurrentVersionId", versionId),
+                            ("AppendixCount", rows.Count)))
+                ]);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return await LoadContractAppendicesAsync(contractId, versionId);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
+        });
     }
 
     public async Task<ContractAppendixTermResponse> AddAppendixTermAsync(
@@ -227,36 +394,85 @@ public partial class ContractService
         ReorderContractAppendixTermsRequest request, int employeeId)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var (contract, version) = await LoadWritableAppendixStateAsync(
-            contractId, versionId, employeeId, request.VersionRowVersion);
-        var appendix = await RequireAppendixAsync(contractId, versionId, appendixId);
-        MatchRowVersion(appendix.RowVersion, request.AppendixRowVersion,
-            "Phụ lục hợp đồng");
-        var rows = await _dbContext.TblContractAppendixTerms
-            .Where(x => x.AppendixId == appendixId).ToListAsync();
-        if (request.Terms.Count != rows.Count
-            || request.Terms.Select(x => x.AppendixTermId).Distinct().Count()
+        if (request.Terms is null
+            || request.Terms.Any(item => item.AppendixTermId <= 0
+                || item.DisplayOrder < 0)
+            || request.Terms.Select(item => item.AppendixTermId).Distinct().Count()
                 != request.Terms.Count
-            || request.Terms.Any(item => rows.All(row =>
-                row.AppendixTermId != item.AppendixTermId))
-            || request.Terms.Select(x => x.DisplayOrder).Distinct().Count()
+            || request.Terms.Select(item => item.DisplayOrder).Distinct().Count()
                 != request.Terms.Count)
-            throw new ArgumentException(
-                "Danh sách sắp xếp phải chứa đúng mỗi điều khoản một lần.");
-        var now = DateTime.UtcNow;
-        foreach (var item in request.Terms)
         {
-            var row = rows.Single(x => x.AppendixTermId == item.AppendixTermId);
-            MatchRowVersion(row.RowVersion, item.RowVersion,
-                "Điều khoản phụ lục");
-            row.DisplayOrder = item.DisplayOrder;
-            row.UpdatedEmployeeId = employeeId;
-            row.UpdatedDate = now;
+            throw new ArgumentException(
+                "Danh sách sắp xếp và DisplayOrder phải hợp lệ, duy nhất.");
         }
-        await TouchAppendixParentAsync(appendix, contract, version, employeeId,
-            ContractAuditActionTypes.ContractAppendixTermsReordered);
-        await _dbContext.SaveChangesAsync();
-        return await LoadContractAppendixAsync(appendixId);
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database
+                .BeginTransactionAsync(IsolationLevel.Serializable);
+            try
+            {
+                var (contract, version) = await LoadWritableAppendixStateAsync(
+                    contractId, versionId, employeeId,
+                    request.VersionRowVersion);
+                var appendix = await RequireAppendixAsync(
+                    contractId, versionId, appendixId);
+                MatchRowVersion(appendix.RowVersion,
+                    request.AppendixRowVersion, "Phụ lục hợp đồng");
+                var rows = await _dbContext.TblContractAppendixTerms
+                    .Where(x => x.AppendixId == appendixId)
+                    .ToListAsync();
+                var requestedById = request.Terms.ToDictionary(
+                    item => item.AppendixTermId);
+                if (request.Terms.Count != rows.Count
+                    || !rows.Select(row => row.AppendixTermId).ToHashSet()
+                        .SetEquals(requestedById.Keys))
+                {
+                    throw new ArgumentException(
+                        "Danh sách sắp xếp phải chứa đúng mỗi điều khoản một lần.");
+                }
+
+                var temporaryOrder = GetTemporaryDisplayOrderStart(
+                    rows.Select(row => row.DisplayOrder),
+                    request.Terms.Select(item => item.DisplayOrder),
+                    rows.Count);
+                foreach (var row in rows)
+                {
+                    var item = requestedById[row.AppendixTermId];
+                    MatchRowVersion(row.RowVersion, item.RowVersion,
+                        "Điều khoản phụ lục");
+                    row.DisplayOrder = temporaryOrder++;
+                }
+
+                if (rows.Count > 0)
+                {
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var now = DateTime.UtcNow;
+                foreach (var row in rows)
+                {
+                    row.DisplayOrder = requestedById[row.AppendixTermId]
+                        .DisplayOrder;
+                    row.UpdatedEmployeeId = employeeId;
+                    row.UpdatedDate = now;
+                }
+
+                await TouchAppendixParentAsync(
+                    appendix, contract, version, employeeId,
+                    ContractAuditActionTypes.ContractAppendixTermsReordered);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return await LoadContractAppendixAsync(appendixId);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                _dbContext.ChangeTracker.Clear();
+                throw;
+            }
+        });
     }
 
     private async Task<(TblContract Contract, TblContractVersion Version)>
@@ -307,8 +523,52 @@ public partial class ContractService
             throw new InvalidOperationException("Mã điều khoản phụ lục đã tồn tại.");
     }
 
+    private static int GetTemporaryDisplayOrderStart(
+        IEnumerable<int> currentOrders,
+        IEnumerable<int> requestedOrders,
+        int rowCount)
+    {
+        var maxOrder = currentOrders.Concat(requestedOrders)
+            .DefaultIfEmpty(-1)
+            .Max();
+        var temporaryStart = (long)maxOrder + rowCount + 1;
+        if (temporaryStart + Math.Max(rowCount - 1, 0) > int.MaxValue)
+        {
+            throw new ArgumentException(
+                "DisplayOrder quá lớn để thực hiện sắp xếp.");
+        }
+
+        return (int)temporaryStart;
+    }
+
     private static string NormalizeAppendixTermCode(string value) =>
         NormalizeAppendixRequired(value, "Mã điều khoản").ToUpperInvariant();
+
+    private static string NormalizeAppendixValue(
+        string? value, int maxLength, string field)
+    {
+        var normalized = NormalizeAppendixRequired(value, field);
+        if (normalized.Length > maxLength)
+        {
+            throw new ArgumentException(
+                $"{field} không được vượt quá {maxLength} ký tự.");
+        }
+
+        return normalized;
+    }
+
+    private static string? NormalizeAppendixOptional(
+        string? value, int maxLength, string field)
+    {
+        var normalized = NormalizeOptional(value);
+        if (normalized?.Length > maxLength)
+        {
+            throw new ArgumentException(
+                $"{field} không được vượt quá {maxLength} ký tự.");
+        }
+
+        return normalized;
+    }
 
     private static string NormalizeAppendixRequired(string? value, string field)
     {
