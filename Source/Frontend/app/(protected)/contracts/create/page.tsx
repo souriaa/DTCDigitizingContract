@@ -134,7 +134,7 @@ type AvailableTemplateView = AvailableContractTemplateVersionResponse & {
   description: string;
   contractType: ContractType;
 };
-
+// hehe
 const getContractTypeFromTemplateDocument = (
   documentType: TemplateDocumentType,
 ): ContractType | null => {
@@ -568,15 +568,15 @@ export default function CreateContractPage() {
           return mappedContractType === null
             ? []
             : [
-                {
-                  ...template,
-                  versionId: template.templateVersionId,
-                  name: template.templateName,
-                  version: String(template.versionNo),
-                  description: "Phiên bản đã phát hành, sẵn sàng tạo hợp đồng.",
-                  contractType: mappedContractType,
-                },
-              ];
+              {
+                ...template,
+                versionId: template.templateVersionId,
+                name: template.templateName,
+                version: String(template.versionNo),
+                description: "Phiên bản đã phát hành, sẵn sàng tạo hợp đồng.",
+                contractType: mappedContractType,
+              },
+            ];
         });
         setAvailableTemplates(mapped);
         setTemplateTotalCount(response.totalCount);
@@ -1346,21 +1346,19 @@ export default function CreateContractPage() {
                   type="button"
                   key={step.title}
                   onClick={() => setCurrentStep(index)}
-                  className={`rounded-xl border p-3 cursor-pointer hover:border-primary/50 transition-colors text-left ${
-                    index === currentStep
-                      ? "border-primary bg-primary/5"
-                      : isStepCompleted(index)
-                        ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/20"
-                        : "bg-muted/30"
-                  }`}
+                  className={`rounded-xl border p-3 cursor-pointer hover:border-primary/50 transition-colors text-left ${index === currentStep
+                    ? "border-primary bg-primary/5"
+                    : isStepCompleted(index)
+                      ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/20"
+                      : "bg-muted/30"
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${
-                        isStepCompleted(index) || index === currentStep
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
+                      className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${isStepCompleted(index) || index === currentStep
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                        }`}
                     >
                       {isStepCompleted(index) ? (
                         <CheckCircle2 className="size-4" />
@@ -1683,13 +1681,12 @@ export default function CreateContractPage() {
                               onClick={() =>
                                 handleTemplateSelect(template.versionId)
                               }
-                              className={`rounded-2xl border p-4 text-left transition-all ${
-                                selected
-                                  ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary"
-                                  : compatible
-                                    ? "bg-background hover:border-primary/50 hover:bg-accent/40"
-                                    : "cursor-not-allowed bg-muted/30 opacity-50"
-                              }`}
+                              className={`rounded-2xl border p-4 text-left transition-all ${selected
+                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary"
+                                : compatible
+                                  ? "bg-background hover:border-primary/50 hover:bg-accent/40"
+                                  : "cursor-not-allowed bg-muted/30 opacity-50"
+                                }`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -1858,31 +1855,28 @@ export default function CreateContractPage() {
                     <div className="flex bg-muted p-1 rounded-lg">
                       <button
                         onClick={() => setItemFilter("all")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                          itemFilter === "all"
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${itemFilter === "all"
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                          }`}
                       >
                         Tất cả
                       </button>
                       <button
                         onClick={() => setItemFilter("product")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                          itemFilter === "product"
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${itemFilter === "product"
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                          }`}
                       >
                         Sản phẩm
                       </button>
                       <button
                         onClick={() => setItemFilter("service")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                          itemFilter === "service"
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${itemFilter === "service"
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                          }`}
                       >
                         Dịch vụ
                       </button>
@@ -1949,11 +1943,10 @@ export default function CreateContractPage() {
                       return (
                         <div
                           key={item.id}
-                          className={`w-full rounded-xl border p-4 text-left transition-colors ${
-                            selected
-                              ? "border-primary bg-primary/5"
-                              : "bg-background hover:bg-accent"
-                          }`}
+                          className={`w-full rounded-xl border p-4 text-left transition-colors ${selected
+                            ? "border-primary bg-primary/5"
+                            : "bg-background hover:bg-accent"
+                            }`}
                         >
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <button
@@ -2019,22 +2012,22 @@ export default function CreateContractPage() {
                             <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-4">
                               {languageMode ===
                                 ContractLanguageMode.Bilingual && (
-                                <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Tên sản phẩm / dịch vụ tiếng Anh
-                                  </Label>
-                                  <Input
-                                    value={item.itemNameEn}
-                                    onChange={(event) =>
-                                      updateCatalogItem(item.id, {
-                                        itemNameEn: event.target.value,
-                                      })
-                                    }
-                                    className="bg-white"
-                                    placeholder="Enter the English item name..."
-                                  />
-                                </div>
-                              )}
+                                  <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
+                                    <Label className="text-xs text-muted-foreground">
+                                      Tên sản phẩm / dịch vụ tiếng Anh
+                                    </Label>
+                                    <Input
+                                      value={item.itemNameEn}
+                                      onChange={(event) =>
+                                        updateCatalogItem(item.id, {
+                                          itemNameEn: event.target.value,
+                                        })
+                                      }
+                                      className="bg-white"
+                                      placeholder="Enter the English item name..."
+                                    />
+                                  </div>
+                                )}
                               <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">
                                   Đơn giá
@@ -2096,7 +2089,7 @@ export default function CreateContractPage() {
                               <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">
                                   {item.discountMode ===
-                                  ContractItemDiscountMode.FixedAmount
+                                    ContractItemDiscountMode.FixedAmount
                                     ? "Tiền giảm"
                                     : "Giảm giá (%)"}
                                 </Label>
@@ -2104,7 +2097,7 @@ export default function CreateContractPage() {
                                   min={0}
                                   max={
                                     item.discountMode ===
-                                    ContractItemDiscountMode.Percentage
+                                      ContractItemDiscountMode.Percentage
                                       ? 100
                                       : amounts.lineSubtotal
                                   }
@@ -2114,7 +2107,7 @@ export default function CreateContractPage() {
                                   }
                                   value={
                                     item.discountMode ===
-                                    ContractItemDiscountMode.FixedAmount
+                                      ContractItemDiscountMode.FixedAmount
                                       ? item.fixedDiscountAmount
                                       : item.discountPercent
                                   }
@@ -2126,11 +2119,11 @@ export default function CreateContractPage() {
                                         ContractItemDiscountMode.FixedAmount
                                         ? { fixedDiscountAmount: value }
                                         : {
-                                            discountPercent: Math.min(
-                                              100,
-                                              value,
-                                            ),
-                                          },
+                                          discountPercent: Math.min(
+                                            100,
+                                            value,
+                                          ),
+                                        },
                                     );
                                   }}
                                 />
@@ -2372,15 +2365,15 @@ export default function CreateContractPage() {
                                       setSelectedOptionalAppendixIds((current) =>
                                         nextChecked
                                           ? Array.from(
-                                              new Set([
-                                                ...current,
-                                                appendix.templateAppendixId,
-                                              ]),
-                                            )
+                                            new Set([
+                                              ...current,
+                                              appendix.templateAppendixId,
+                                            ]),
+                                          )
                                           : current.filter(
-                                              (id) =>
-                                                id !== appendix.templateAppendixId,
-                                            ),
+                                            (id) =>
+                                              id !== appendix.templateAppendixId,
+                                          ),
                                       )
                                     }
                                   />
@@ -2564,10 +2557,10 @@ export default function CreateContractPage() {
                                 <p>{item.itemName}</p>
                                 {languageMode ===
                                   ContractLanguageMode.Bilingual && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {item.itemNameEn || "Chưa có tên tiếng Anh"}
-                                  </p>
-                                )}
+                                    <p className="text-xs text-muted-foreground">
+                                      {item.itemNameEn || "Chưa có tên tiếng Anh"}
+                                    </p>
+                                  )}
                               </div>
                               <div className="text-left sm:text-right">
                                 <p className="font-semibold text-primary">
