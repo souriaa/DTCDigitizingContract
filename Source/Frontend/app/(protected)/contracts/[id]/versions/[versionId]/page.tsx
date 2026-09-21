@@ -38,7 +38,7 @@ const getApiErrorMessage = (error: any) => {
     data?.message ||
     data?.title ||
     (typeof data === "string" ? data : null) ||
-    "Không thể tải chi tiết snapshot. Vui lòng thử lại."
+    "Không thể tải chi tiết bản lưu phiên bản. Vui lòng thử lại."
   );
 };
 
@@ -56,7 +56,7 @@ export default function ContractVersionDetailPage() {
 
   useEffect(() => {
     if (!Number.isInteger(contractId) || !Number.isInteger(versionId)) {
-      setError("Đường dẫn hợp đồng hoặc version không hợp lệ.");
+      setError("Đường dẫn hợp đồng hoặc phiên bản không hợp lệ.");
       setIsLoading(false);
       return;
     }
@@ -97,7 +97,7 @@ export default function ContractVersionDetailPage() {
         <div className="flex h-[50vh] items-center justify-center">
           <Loader2 className="mr-2 size-7 animate-spin text-primary" />
           <span className="text-muted-foreground">
-            Đang tải chi tiết snapshot...
+            Đang tải chi tiết bản lưu phiên bản...
           </span>
         </div>
       </>
@@ -110,9 +110,9 @@ export default function ContractVersionDetailPage() {
         <Header />
         <div className="grow overflow-y-auto p-3 sm:p-6 lg:p-10">
           <Alert variant="destructive">
-            <AlertTitle>Không thể mở snapshot</AlertTitle>
+            <AlertTitle>Không thể mở bản lưu phiên bản</AlertTitle>
             <AlertDescription className="space-y-3">
-              <p>{error || "Không tìm thấy dữ liệu version."}</p>
+              <p>{error || "Không tìm thấy dữ liệu phiên bản."}</p>
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/contracts/${params.id}`}>Quay lại hợp đồng</Link>
               </Button>
@@ -168,7 +168,7 @@ export default function ContractVersionDetailPage() {
           />
           <InfoCard
             icon={<WalletCards className="size-4" />}
-            label={`Tổng thanh toán · Version ${version.versionNo}`}
+            label={`Tổng thanh toán · Phiên bản ${version.versionNo}`}
             value={
               <span className="text-primary">
                 {formatCurrency(version.totalPayment, version.currencyCode)}
@@ -186,10 +186,10 @@ export default function ContractVersionDetailPage() {
           <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Snapshot lịch sử
+                Bản lưu lịch sử
               </p>
               <CardTitle className="mt-1">
-                Chi tiết Version {version.versionNo}
+                Chi tiết phiên bản {version.versionNo}
               </CardTitle>
               <p className="mt-2 text-sm text-muted-foreground">
                 Tạo ngày {formatDate(version.createdDate)} ·{" "}
@@ -205,7 +205,7 @@ export default function ContractVersionDetailPage() {
               ) : (
                 <CheckCircle2 className="size-3.5" />
               )}
-              {version.isLocked ? "Snapshot đã khóa" : "Đang chỉnh sửa"}
+              {version.isLocked ? "Bản lưu đã khóa" : "Đang chỉnh sửa"}
             </Badge>
           </CardHeader>
           <CardContent>

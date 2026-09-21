@@ -228,7 +228,7 @@ export function CreateContractTermsEditor({
             <DialogTitle>Thêm điều khoản hợp đồng</DialogTitle>
             <DialogDescription>
               Điều khoản mới sẽ được thêm vào cuối danh sách và không thay đổi
-              template gốc.
+              mẫu gốc.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
@@ -307,7 +307,7 @@ export function CreateContractTermsEditor({
         onClose={() => setDeleteTerm(null)}
         onConfirm={confirmDelete}
         title="Xóa điều khoản?"
-        description={`Điều khoản ${deleteTerm?.termCode ?? ""} sẽ không được đưa vào hợp đồng mới. Template gốc không bị thay đổi.`}
+        description={`Điều khoản ${deleteTerm?.termCode ?? ""} sẽ không được đưa vào hợp đồng mới. Mẫu gốc không bị thay đổi.`}
         confirmText="Xóa điều khoản"
         variant="destructive"
       />

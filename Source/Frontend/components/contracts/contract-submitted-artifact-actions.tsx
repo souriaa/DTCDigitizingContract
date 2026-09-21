@@ -116,7 +116,7 @@ export function ContractSubmittedArtifactActions({
       toast.error(
         await getBlobApiErrorMessage(
           error,
-          "Không thể tải artifact hợp đồng đã gửi duyệt.",
+          "Không thể tải tài liệu hợp đồng đã gửi duyệt.",
         ),
       );
     } finally {

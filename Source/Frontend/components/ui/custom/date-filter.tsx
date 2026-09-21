@@ -12,6 +12,11 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
+export interface DateFilterLimit {
+  from?: Date;
+  to?: Date;
+}
+
 interface DateFilterProps {
   date: Date | undefined;
   onChange: (date: Date | undefined) => void;
@@ -19,6 +24,7 @@ interface DateFilterProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  limit?: DateFilterLimit;
 }
 
 export function DateFilter({
@@ -28,6 +34,7 @@ export function DateFilter({
   placeholder = "Ngày tạo",
   className = "w-[160px]",
   disabled = false,
+  limit,
 }: DateFilterProps) {
   const isMobile = useMediaQuery("(max-width: 767px)");
 
@@ -57,6 +64,16 @@ export function DateFilter({
             mode="single"
             selected={date}
             onSelect={onChange}
+            startMonth={limit?.from}
+            endMonth={limit?.to}
+            disabled={
+              limit
+                ? [
+                    ...(limit.from ? [{ before: limit.from }] : []),
+                    ...(limit.to ? [{ after: limit.to }] : []),
+                  ]
+                : undefined
+            }
             initialFocus
           />
         </PopoverContent>

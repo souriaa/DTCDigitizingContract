@@ -699,14 +699,14 @@ export default function ContractDetailPage() {
           <div className="flex flex-wrap gap-2">
             {canPreviewContractDocument && (
               <SplitActionMenu
-                primaryLabel="Xem PDF preview"
+                primaryLabel="Xem bản xem trước PDF"
                 primaryIcon={<Eye className="size-4" />}
                 onPrimaryClick={viewContractPdf}
                 isLoading={isOpeningPdf}
                 buttonClassName="h-9"
                 menuItems={[
                   {
-                    label: "Tải DOCX preview",
+                    label: "Tải bản xem trước DOCX",
                     icon: isDownloadingDocx ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -716,7 +716,7 @@ export default function ContractDetailPage() {
                     disabled: isDownloadingDocx,
                   },
                   {
-                    label: "Tải PDF preview",
+                    label: "Tải bản xem trước PDF",
                     icon: isDownloadingPdf ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -862,8 +862,8 @@ export default function ContractDetailPage() {
               </AlertTitle>
               <AlertDescription>
                 {hasActiveCurrentVersionLink
-                  ? "Mọi thay đổi sau khi lưu sẽ được khách hàng nhìn thấy trên cùng link truy cập."
-                  : "Link cũ hiện không còn hoạt động. Bạn vẫn có thể chỉnh sửa và lưu; chỉ cần tạo link mới nếu muốn chia sẻ lại."}
+                  ? "Mọi thay đổi sau khi lưu sẽ được khách hàng nhìn thấy trên cùng liên kết truy cập."
+                  : "Liên kết cũ hiện không còn hoạt động. Bạn vẫn có thể chỉnh sửa và lưu; chỉ cần tạo liên kết mới nếu muốn chia sẻ lại."}
               </AlertDescription>
             </Alert>
           )}

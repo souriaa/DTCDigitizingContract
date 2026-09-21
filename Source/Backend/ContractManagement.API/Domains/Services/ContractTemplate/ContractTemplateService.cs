@@ -343,9 +343,41 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        var publishedVersionIds = templates
+            .Where(template => template.CurrentPublishedVersionId.HasValue)
+            .Select(template => template.CurrentPublishedVersionId!.Value)
+            .ToArray();
+        var publishedVersionNumbers = publishedVersionIds.Length == 0
+            ? new Dictionary<int, int>()
+            : await _dbContext.TblContractTemplateVersions
+                .AsNoTracking()
+                .Where(version => publishedVersionIds.Contains(
+                    version.TemplateVersionId))
+                .Select(version => new
+                {
+                    version.TemplateVersionId,
+                    version.VersionNo
+                })
+                .ToDictionaryAsync(
+                    version => version.TemplateVersionId,
+                    version => version.VersionNo,
+                    cancellationToken);
+
+        var items = templates.Select(template =>
+        {
+            var item = MapTemplate(template);
+            if (template.CurrentPublishedVersionId is int versionId
+                && publishedVersionNumbers.TryGetValue(versionId,
+                    out var versionNo))
+            {
+                item.CurrentPublishedVersionNo = versionNo;
+            }
+            return item;
+        }).ToList();
+
         return new PagedResult<ContractTemplateResponse>
         {
-            Items = templates.Select(MapTemplate).ToList(),
+            Items = items,
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -3312,6 +3344,10 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
         var response = MapTemplateDetail(template);
         response.Versions = versions.Select(MapVersionSummary).ToList();
+        response.CurrentPublishedVersionNo = versions
+            .FirstOrDefault(version =>
+                version.TemplateVersionId == template.CurrentPublishedVersionId)
+            ?.VersionNo;
         return response;
     }
 
@@ -3356,6 +3392,16 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             cancellationToken);
 
         var response = MapVersionDetail(version, template);
+        if (version.PreviewedByEmployeeId is int previewedByEmployeeId)
+        {
+            response.PreviewedByEmployeeName =
+                await _dbContext.TblEmployees
+                    .AsNoTracking()
+                    .Where(employee =>
+                        employee.EmployeeId == previewedByEmployeeId)
+                    .Select(employee => employee.EmployeeFullName)
+                    .SingleOrDefaultAsync(cancellationToken);
+        }
         response.Terms = terms.Select(MapTerm).ToList();
         foreach (var term in response.Terms)
         {

@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { DateFilter } from "@/components/ui/custom/date-filter";
-import { format } from "date-fns";
+import { endOfDay, format } from "date-fns";
 import {
   getApiErrorMessage,
   getBlobApiErrorMessage,
@@ -120,7 +120,7 @@ export function ContractSigningPanel({
       return;
     }
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
-      toast.error("File phải có nội dung và không vượt quá 20 MB.");
+      toast.error("Tệp phải có nội dung và không vượt quá 20 MB.");
       return;
     }
     setSelectedFile(file);
@@ -133,7 +133,7 @@ export function ContractSigningPanel({
       return;
     }
     if (isSupersede && !supersedeReason.trim()) {
-      toast.error("Vui lòng nhập lý do thay bản scan.");
+      toast.error("Vui lòng nhập lý do thay bản quét.");
       return;
     }
 
@@ -157,10 +157,10 @@ export function ContractSigningPanel({
             reason: supersedeReason.trim(),
           },
         );
-        toast.success("Đã thay bản scan và giữ lại bản cũ trong lịch sử.");
+        toast.success("Đã thay bản quét và giữ lại bản cũ trong lịch sử.");
       } else {
         await contractSigningApi.upload(contract.contractId, filePayload);
-        toast.success("Đã lưu bản scan. Hợp đồng đã chuyển sang Đã ký.");
+        toast.success("Đã lưu bản quét. Hợp đồng đã chuyển sang Đã ký.");
       }
       setSelectedFile(null);
       setSupersedeReason("");
@@ -173,7 +173,7 @@ export function ContractSigningPanel({
         );
       } else {
         toast.error(
-          getApiErrorMessage(error, "Không thể lưu bản scan hợp đồng ký."),
+          getApiErrorMessage(error, "Không thể lưu bản quét hợp đồng ký."),
         );
       }
     } finally {
@@ -244,7 +244,7 @@ export function ContractSigningPanel({
         <ShieldCheck className="size-4 text-blue-600" />
         <AlertTitle>Ký giấy và lưu bằng chứng</AlertTitle>
         <AlertDescription>
-          Tải một file scan đã có đủ chữ ký hai bên. Hệ thống không thực hiện ký
+          Tải một bản quét đã có đủ chữ ký hai bên. Hệ thống không thực hiện ký
           điện tử hoặc ký bằng OTP trong luồng này.
         </AlertDescription>
       </Alert>
@@ -254,16 +254,16 @@ export function ContractSigningPanel({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileCheck2 className="size-5 text-primary" />
-              Artifact Version {detail.versionNo} đã duyệt
+              Tài liệu phiên bản {detail.versionNo} đã duyệt
             </CardTitle>
           </CardHeader>
           <CardContent>
             {detail.approvedArtifacts.length === 0 ? (
               <Alert variant="destructive">
-                <AlertTitle>Chưa có artifact đã duyệt hợp lệ</AlertTitle>
+                <AlertTitle>Chưa có tài liệu đã duyệt hợp lệ</AlertTitle>
                 <AlertDescription>
-                  Không thể tải bản scan cho đến khi DOCX/PDF bất biến của
-                  version đã được Manager duyệt đầy đủ.
+                  Không thể tải bản quét cho đến khi DOCX/PDF bất biến của
+                  phiên bản đã được người quản lý duyệt đầy đủ.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -307,7 +307,7 @@ export function ContractSigningPanel({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="size-5 text-emerald-600" />
-              Bản scan đang hiệu lực
+              Bản quét đang hiệu lực
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -319,7 +319,7 @@ export function ContractSigningPanel({
               />
             ) : (
               <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Chưa có bản scan hợp đồng đã ký.
+                Chưa có bản quét hợp đồng đã ký.
               </p>
             )}
           </CardContent>
@@ -332,15 +332,15 @@ export function ContractSigningPanel({
             <CardTitle className="flex items-center gap-2">
               <FileUp className="size-5 text-primary" />
               {isSupersede
-                ? "Thay bản scan đang hiệu lực"
-                : "Tải bản scan đã ký"}
+                ? "Thay bản quét đang hiệu lực"
+                : "Tải bản quét đã ký"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             {isSupersede && (
               <div className="space-y-2">
                 <Label htmlFor="signed-evidence-reason">
-                  Lý do thay bản scan{" "}
+                  Lý do thay bản quét{" "}
                   <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
@@ -364,17 +364,18 @@ export function ContractSigningPanel({
                 onChange={setSignDate}
                 placeholder="Chọn ngày ký hợp đồng"
                 disabled={isSubmitting}
-                className="w-full"
+                className="flex-1"
+                limit={{ to: endOfDay(new Date()) }}
               />
               <p className="text-xs text-muted-foreground">
                 Đây là ngày ký nghiệp vụ in trên hợp đồng, không phải ngày tải
-                file lên.
+                tệp lên.
               </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="signed-evidence-file">
-                File scan <span className="text-destructive">*</span>
+                Bản quét đã ký <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="signed-evidence-file"
@@ -418,7 +419,7 @@ export function ContractSigningPanel({
         <CardContent className="space-y-3">
           {detail.evidenceHistory.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Chưa có lịch sử bản scan.
+              Chưa có lịch sử bản quét.
             </p>
           ) : (
             detail.evidenceHistory.map((evidence) => (
@@ -460,12 +461,12 @@ function EvidenceCard({
             <Badge variant={isActive ? "default" : "secondary"}>
               {isActive ? "Đang hiệu lực" : "Đã thay thế"}
             </Badge>
-            <Badge variant="outline">Version {evidence.versionNo}</Badge>
+            <Badge variant="outline">Phiên bản {evidence.versionNo}</Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatFileSize(evidence.fileSize)} · Tải bởi{" "}
             {evidence.uploadedByEmployeeName ||
-              `Nhân viên #${evidence.uploadedByEmployeeId}`}{" "}
+              "Không rõ nhân viên"}{" "}
             lúc {formatDateTime(evidence.uploadedAt)}
           </p>
         </div>

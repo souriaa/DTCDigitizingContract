@@ -47,6 +47,10 @@ public sealed class ContractAttachmentAuditTests
                 DocumentType = 6
             },
             EmployeeId);
+        Assert.Equal("Attachment Owner", attachment.UploadEmployeeName);
+        var listedAttachment = Assert.Single(await service.GetByContractAsync(
+            ContractId, EmployeeId));
+        Assert.Equal("Attachment Owner", listedAttachment.UploadEmployeeName);
 
         var uploadedAudit = await context.TblContractAudits.SingleAsync(x =>
             x.ActionType ==

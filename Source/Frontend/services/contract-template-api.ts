@@ -297,6 +297,7 @@ export interface ContractTemplateResponse {
   languageMode: ContractLanguageMode;
   description?: string | null;
   currentPublishedVersionId?: number | null;
+  currentPublishedVersionNo?: number | null;
   isActive: boolean;
   createdEmployeeId: number;
   createdDate: string;
@@ -483,6 +484,7 @@ export interface ContractTemplateVersionDetailResponse {
   previewSourceHash?: string | null;
   previewedAt?: string | null;
   previewedByEmployeeId?: number | null;
+  previewedByEmployeeName?: string | null;
   createdDate: string;
   updatedDate?: string | null;
   rowVersion: string;

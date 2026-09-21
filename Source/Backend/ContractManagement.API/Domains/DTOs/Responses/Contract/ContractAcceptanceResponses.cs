@@ -34,6 +34,8 @@ public sealed class ContractAcceptanceRecordResponse
     public string Location { get; set; } = string.Empty;
     public string? SnapshotHash { get; set; }
     public DateTime? FinalizedAt { get; set; }
+    public int? FinalizedByEmployeeId { get; set; }
+    public string? FinalizedByEmployeeName { get; set; }
     public DateTime? SignedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancellationReason { get; set; }

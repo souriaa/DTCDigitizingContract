@@ -115,14 +115,12 @@ function mapAttachment(
 ): ContractAttachmentItem {
   return {
     id: attachment.attachmentId,
-    name: attachment.contractFileName || `Tài liệu #${attachment.attachmentId}`,
+    name: attachment.contractFileName || "Tài liệu không tên",
     documentType: attachment.documentType,
     documentTypeName:
       documentTypeLabel(attachment.documentType) || attachment.documentTypeName,
     uploadedAt: attachment.uploadDate,
-    uploadedBy: attachment.uploadEmployeeId
-      ? `Nhân viên #${attachment.uploadEmployeeId}`
-      : undefined,
+    uploadedBy: attachment.uploadEmployeeName || undefined,
     downloadUrl: attachment.contractFilePath,
   };
 }
@@ -197,13 +195,13 @@ export function ContractAttachments({
       setUploadQueue((current) => [...current, ...accepted]);
     }
     if (invalid.empty > 0) {
-      toast.error(`${invalid.empty} file bị bỏ qua vì không có nội dung.`);
+      toast.error(`${invalid.empty} tệp bị bỏ qua vì không có nội dung.`);
     }
     if (invalid.unsupported > 0) {
-      toast.error(`${invalid.unsupported} file có định dạng chưa hỗ trợ.`);
+      toast.error(`${invalid.unsupported} tệp có định dạng chưa hỗ trợ.`);
     }
     if (invalid.oversized > 0) {
-      toast.error(`${invalid.oversized} file vượt quá dung lượng 10 MB.`);
+      toast.error(`${invalid.oversized} tệp vượt quá dung lượng 10 MB.`);
     }
   };
 
@@ -251,9 +249,7 @@ export function ContractAttachments({
           documentType: response.documentType,
           documentTypeName: response.documentTypeName,
           uploadedAt: response.uploadDate,
-          uploadedBy: response.uploadEmployeeId
-            ? `Nhân viên #${response.uploadEmployeeId}`
-            : undefined,
+          uploadedBy: response.uploadEmployeeName || undefined,
           downloadUrl: response.contractFilePath,
         },
         ...current,
@@ -267,7 +263,7 @@ export function ContractAttachments({
         progress: 0,
         errorMessage: getApiErrorMessage(
           error,
-          "Không thể tải file lên. Vui lòng thử lại.",
+          "Không thể tải tệp lên. Vui lòng thử lại.",
         ),
       });
       return false;
@@ -280,7 +276,7 @@ export function ContractAttachments({
       (item) => item.status === "pending" || item.status === "error",
     );
     if (pendingItems.length === 0) {
-      toast.error("Vui lòng chọn file cần đính kèm.");
+      toast.error("Vui lòng chọn tệp cần đính kèm.");
       return;
     }
 
@@ -296,7 +292,7 @@ export function ContractAttachments({
     }
     if (successCount < pendingItems.length) {
       toast.error(
-        `${pendingItems.length - successCount} file tải lên thất bại. Bạn có thể thử lại từng file.`,
+        `${pendingItems.length - successCount} tệp tải lên thất bại. Bạn có thể thử lại từng tệp.`,
       );
     }
   };
@@ -327,7 +323,10 @@ export function ContractAttachments({
 
   const handleDownload = async (attachment: ContractAttachmentItem) => {
     try {
-      const blob = await contractAttachmentsApi.download(contractId, attachment.id);
+      const blob = await contractAttachmentsApi.download(
+        contractId,
+        attachment.id,
+      );
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -350,7 +349,7 @@ export function ContractAttachments({
                 Tài liệu hợp đồng
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {attachments.length} file đang được lưu trong hồ sơ
+                {attachments.length} tài liệu đang được lưu trong hồ sơ
               </p>
             </div>
           </div>
@@ -392,7 +391,7 @@ export function ContractAttachments({
                 onClick={() => inputRef.current?.click()}
               >
                 <Plus className="size-4" />
-                Chọn file đầu tiên
+                Chọn tệp đầu tiên
               </Button>
             </div>
           ) : (
@@ -511,7 +510,7 @@ export function ContractAttachments({
               <UploadCloud className="size-6" />
             </div>
             <p className="mt-3 text-sm font-semibold">
-              Kéo thả một hoặc nhiều file vào đây
+              Kéo thả một hoặc nhiều tệp vào đây
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               hoặc bấm để chọn từ máy tính
@@ -538,7 +537,7 @@ export function ContractAttachments({
                       )
                     }
                   >
-                    Dọn file đã xong
+                    Dọn tệp đã xong
                   </Button>
                 )}
               </div>
@@ -690,11 +689,11 @@ export function ContractAttachments({
             )}
             {isUploading
               ? "Đang tải lên..."
-              : `Tải ${uploadQueue.filter((item) => item.status === "pending" || item.status === "error").length} file`}
+              : `Tải ${uploadQueue.filter((item) => item.status === "pending" || item.status === "error").length} tệp`}
           </Button>
 
           <p className="text-center text-xs leading-5 text-muted-foreground">
-            File được phân loại để dễ theo dõi tiến độ hoàn thiện hồ sơ hợp
+            Tệp được phân loại để dễ theo dõi tiến độ hoàn thiện hồ sơ hợp
             đồng.
           </p>
         </CardContent>

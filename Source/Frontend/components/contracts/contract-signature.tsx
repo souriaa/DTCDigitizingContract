@@ -239,7 +239,7 @@ export function ContractSignature({
       await onContractRefetch();
     } catch {
       toast.warning(
-        "Thao tác đã hoàn tất nhưng chưa thể tải rowVersion mới. Hãy tải lại trang trước khi thao tác tiếp.",
+        "Thao tác đã hoàn tất nhưng chưa thể tải dữ liệu mới. Hãy tải lại trang trước khi thao tác tiếp.",
       );
     }
   };
@@ -301,12 +301,12 @@ export function ContractSignature({
   const handleCreateLink = async () => {
     if (!canManage) return;
     if (hasUnsavedChanges) {
-      toast.error("Vui lòng lưu thay đổi hợp đồng trước khi tạo link.");
+      toast.error("Vui lòng lưu thay đổi hợp đồng trước khi tạo liên kết.");
       return;
     }
 
     if (!currentPhone) {
-      toast.error("Hãy chọn số điện thoại xác minh trước khi tạo link.");
+      toast.error("Hãy chọn số điện thoại xác minh trước khi tạo liên kết.");
       return;
     }
 
@@ -322,9 +322,9 @@ export function ContractSignature({
       onCustomerAccessLinkChange(publicLink);
       await refetchAfterMutation();
       setIsCreateLinkConfirmOpen(false);
-      toast.success("Đã tạo link truy cập khách hàng.");
+      toast.success("Đã tạo liên kết truy cập khách hàng.");
     } catch (error: any) {
-      toast.error(getErrorMessage(error, "Không thể tạo link truy cập."));
+      toast.error(getErrorMessage(error, "Không thể tạo liên kết truy cập."));
     } finally {
       setIsCreatingLink(false);
     }
@@ -335,7 +335,7 @@ export function ContractSignature({
 
     try {
       await navigator.clipboard.writeText(oneTimePublicUrl);
-      toast.success("Đã sao chép link truy cập.");
+      toast.success("Đã sao chép liên kết truy cập.");
       setIsCopied(true);
       if (copyTimeoutRef.current) {
         clearTimeout(copyTimeoutRef.current);
@@ -345,7 +345,7 @@ export function ContractSignature({
       }, 5000);
     } catch {
       toast.error(
-        "Không thể sao chép tự động. Vui lòng sao chép link thủ công.",
+        "Không thể sao chép tự động. Vui lòng sao chép liên kết thủ công.",
       );
     }
   };
@@ -354,7 +354,7 @@ export function ContractSignature({
     if (!canManage) return;
     if (!activeLink || !linkAction) return;
     if (hasUnsavedChanges) {
-      toast.error("Vui lòng lưu thay đổi hợp đồng trước khi quản lý link.");
+      toast.error("Vui lòng lưu thay đổi hợp đồng trước khi quản lý liên kết.");
       return;
     }
 
@@ -362,8 +362,8 @@ export function ContractSignature({
     if (!reason) {
       toast.error(
         linkAction === "replace"
-          ? "Vui lòng nhập lý do thay link."
-          : "Vui lòng nhập lý do thu hồi link.",
+          ? "Vui lòng nhập lý do thay liên kết."
+          : "Vui lòng nhập lý do thu hồi liên kết.",
       );
       return;
     }
@@ -381,7 +381,7 @@ export function ContractSignature({
         setActiveLink(publicLink);
         setOneTimePublicUrl(publicLink.publicUrl);
         onCustomerAccessLinkChange(publicLink);
-        toast.success("Đã thay link truy cập. Link cũ không còn hiệu lực.");
+        toast.success("Đã thay liên kết truy cập. Liên kết cũ không còn hiệu lực.");
       } else {
         await contractApi.revokeCustomerAccessLink(
           contract.contractId,
@@ -391,7 +391,7 @@ export function ContractSignature({
         setActiveLink(null);
         setOneTimePublicUrl(null);
         onCustomerAccessLinkChange(null);
-        toast.success("Đã thu hồi link truy cập khách hàng.");
+        toast.success("Đã thu hồi liên kết truy cập khách hàng.");
       }
 
       setLinkAction(null);
@@ -402,8 +402,8 @@ export function ContractSignature({
         getErrorMessage(
           error,
           linkAction === "replace"
-            ? "Không thể thay link truy cập."
-            : "Không thể thu hồi link truy cập.",
+            ? "Không thể thay liên kết truy cập."
+            : "Không thể thu hồi liên kết truy cập.",
         ),
       );
     } finally {
@@ -419,16 +419,16 @@ export function ContractSignature({
           Truy cập khách hàng
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Thiết lập số nhận OTP và quản lý link để khách hàng xem, đàm phán hợp
+          Thiết lập số nhận OTP và quản lý liên kết để khách hàng xem, đàm phán hợp
           đồng.
         </p>
       </div>
 
       <Alert>
         <ShieldAlert className="size-4" />
-        <AlertTitle>Link có thể mất hiệu lực</AlertTitle>
+        <AlertTitle>Liên kết có thể mất hiệu lực</AlertTitle>
         <AlertDescription>
-          Đổi số xác minh, tạo vòng đàm phán mới hoặc hủy hợp đồng sẽ làm link
+          Đổi số xác minh, tạo vòng đàm phán mới hoặc hủy hợp đồng sẽ làm liên kết
           hiện tại, OTP đang chờ và phiên truy cập của khách hàng mất hiệu lực.
         </AlertDescription>
       </Alert>
@@ -439,7 +439,7 @@ export function ContractSignature({
           <AlertTitle>Hợp đồng có thay đổi chưa được lưu</AlertTitle>
           <AlertDescription>
             Hãy lưu nội dung hợp đồng trước khi chọn số, tạo, thay hoặc thu hồi
-            link khách hàng.
+            liên kết khách hàng.
           </AlertDescription>
         </Alert>
       )}
@@ -474,7 +474,7 @@ export function ContractSignature({
               <Alert>
                 <AlertTitle>Chưa chọn số xác minh</AlertTitle>
                 <AlertDescription>
-                  Chọn một nguồn số bên dưới trước khi tạo link cho khách hàng.
+                  Chọn một nguồn số bên dưới trước khi tạo liên kết cho khách hàng.
                 </AlertDescription>
               </Alert>
             )}
@@ -670,7 +670,7 @@ export function ContractSignature({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Link2 className="size-5 text-primary" />
-              Link truy cập
+              Liên kết truy cập
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -708,7 +708,7 @@ export function ContractSignature({
                         </>
                       ) : (
                         <>
-                          <Copy className="size-4" /> Sao chép link
+                          <Copy className="size-4" /> Sao chép liên kết
                         </>
                       )}
                     </Button>
@@ -719,7 +719,7 @@ export function ContractSignature({
                           onClick={() => setLinkAction("replace")}
                           disabled={!canManage || hasUnsavedChanges}
                         >
-                          <RefreshCw /> Thay link mới
+                          <RefreshCw /> Thay liên kết mới
                         </Button>
                         <Button
                           variant="destructive"
@@ -742,10 +742,10 @@ export function ContractSignature({
                     <div className="rounded-xl border border-dashed p-5 text-center">
                       <Link2 className="mx-auto size-8 text-muted-foreground" />
                       <p className="mt-3 font-medium">
-                        Chưa tạo link trong phiên này
+                        Chưa tạo liên kết trong phiên này
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Link chỉ tạo được khi hợp đồng ở trạng thái Nháp hoặc
+                        Liên kết chỉ tạo được khi hợp đồng ở trạng thái Nháp hoặc
                         Đang đàm phán và đã có số xác minh.
                       </p>
                     </div>
@@ -770,7 +770,7 @@ export function ContractSignature({
                   </div>
                   {!oneTimePublicUrl && (
                     <p className="text-xs text-muted-foreground">
-                      URL đã được ẩn và không thể lấy lại. Hãy thay link nếu bạn
+                      Địa chỉ đã được ẩn và không thể lấy lại. Hãy thay liên kết nếu bạn
                       chưa lưu URL.
                     </p>
                   )}
@@ -780,7 +780,7 @@ export function ContractSignature({
                       onClick={() => setLinkAction("replace")}
                       disabled={!canManage || hasUnsavedChanges}
                     >
-                      <RefreshCw /> Thay link
+                      <RefreshCw /> Thay liên kết
                     </Button>
                     <Button
                       variant="destructive"
@@ -805,12 +805,12 @@ export function ContractSignature({
                 ) : (
                   <Link2 />
                 )}
-                Tạo link truy cập
+                Tạo liên kết truy cập
               </Button>
             )}
             {!canCreateLink && (
               <p className="text-xs text-muted-foreground italic">
-                Không thể tạo link. Đảm bảo rằng đã có số điện thoại được xác
+                Không thể tạo liên kết. Đảm bảo rằng đã có số điện thoại được xác
                 minh, hợp đồng ở trạng thái "Nháp" hoăc "Đang đàm phán", và
                 không có thay đổi chưa được lưu!
               </p>
@@ -818,7 +818,7 @@ export function ContractSignature({
 
             {contract.status === ContractStatus.Draft && (
               <p className="text-sm text-muted-foreground font-semibold underline">
-                Ở trạng thái Nháp, link sẽ không hoạt động cho tới khi bắt đầu
+                Ở trạng thái Nháp, liên kết sẽ không hoạt động cho tới khi bắt đầu
                 đàm phán.
               </p>
             )}
@@ -830,14 +830,14 @@ export function ContractSignature({
         isOpen={isCreateLinkConfirmOpen}
         onClose={() => setIsCreateLinkConfirmOpen(false)}
         onConfirm={handleCreateLink}
-        title="Tạo link truy cập khách hàng?"
+        title="Tạo liên kết truy cập khách hàng?"
         description={
           contract.status === ContractStatus.Draft
-            ? "Link sẽ chờ kích hoạt cho đến khi bắt đầu đàm phán. URL chỉ hiển thị một lần sau khi tạo, hãy sao chép và lưu lại."
-            : "URL chỉ hiển thị một lần sau khi tạo. Version hợp đồng hiện tại sẽ chuyển sang chỉ xem; bạn cần tạo vòng đàm phán mới nếu muốn tiếp tục chỉnh sửa."
+            ? "Liên kết sẽ chờ kích hoạt cho đến khi bắt đầu đàm phán. Địa chỉ chỉ hiển thị một lần sau khi tạo, hãy sao chép và lưu lại."
+            : "Địa chỉ chỉ hiển thị một lần sau khi tạo. Phiên bản hợp đồng hiện tại sẽ chuyển sang chỉ xem; bạn cần tạo vòng đàm phán mới nếu muốn tiếp tục chỉnh sửa."
         }
         icon={<Link2 className="size-5 text-primary" />}
-        confirmText="Tạo link"
+        confirmText="Tạo liên kết"
         cancelText="Hủy"
         isLoading={isCreatingLink}
       />
@@ -855,13 +855,13 @@ export function ContractSignature({
           <DialogHeader>
             <DialogTitle>
               {linkAction === "replace"
-                ? "Thay link truy cập"
-                : "Thu hồi link truy cập"}
+                ? "Thay liên kết truy cập"
+                : "Thu hồi liên kết truy cập"}
             </DialogTitle>
             <DialogDescription>
               {linkAction === "replace"
-                ? "Link cũ, OTP đang chờ và phiên khách hàng sẽ mất hiệu lực ngay. URL mới chỉ hiển thị một lần."
-                : "Link, OTP đang chờ và toàn bộ phiên khách hàng sẽ mất hiệu lực ngay sau khi thu hồi."}
+                ? "Liên kết cũ, OTP đang chờ và phiên khách hàng sẽ mất hiệu lực ngay. Địa chỉ mới chỉ hiển thị một lần."
+                : "Liên kết, OTP đang chờ và toàn bộ phiên khách hàng sẽ mất hiệu lực ngay sau khi thu hồi."}
             </DialogDescription>
           </DialogHeader>
 
@@ -873,8 +873,8 @@ export function ContractSignature({
               id="customer-link-action-reason"
               placeholder={
                 linkAction === "replace"
-                  ? "Nhập lý do thay link..."
-                  : "Nhập lý do thu hồi link..."
+                  ? "Nhập lý do thay liên kết..."
+                  : "Nhập lý do thu hồi liên kết..."
               }
               value={linkActionReason}
               onChange={(event) => setLinkActionReason(event.target.value)}
@@ -909,7 +909,7 @@ export function ContractSignature({
               ) : (
                 <Trash2 />
               )}
-              {linkAction === "replace" ? "Thay link" : "Thu hồi link"}
+              {linkAction === "replace" ? "Thay liên kết" : "Thu hồi liên kết"}
             </Button>
           </DialogFooter>
         </DialogContent>

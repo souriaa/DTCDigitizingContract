@@ -478,7 +478,7 @@ export function ContractNegotiation({
                               Bản sao lưu đã chọn
                             </p>
                             <h4 className="mt-1 text-xl font-bold">
-                              Version {selectedVersion.versionNo}
+                              Phiên bản {selectedVersion.versionNo}
                             </h4>
                           </div>
                           <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -599,10 +599,10 @@ export function ContractNegotiation({
               <FileLock2 className="size-4" />
               <AlertTitle>Ảnh hưởng sau khi tạo vòng mới</AlertTitle>
               <AlertDescription>
-                Các luồng trao đổi còn mở sẽ được chuyển sang version mới để
-                tiếp tục xử lý; các luồng đã đóng chỉ còn trong lịch sử. Link và
+                Các luồng trao đổi còn mở sẽ được chuyển sang phiên bản mới để
+                tiếp tục xử lý; các luồng đã đóng chỉ còn trong lịch sử. Liên kết và
                 phiên truy cập khách hàng hiện tại sẽ mất hiệu lực; sau khi sửa
-                version mới, bạn cần tạo link khác để gửi khách hàng.
+                phiên bản mới, bạn cần tạo liên kết khác để gửi khách hàng.
               </AlertDescription>
             </Alert>
 
@@ -642,7 +642,7 @@ export function ContractNegotiation({
               ) : (
                 <GitBranch className="mr-2 size-4" />
               )}
-              Tạo version {currentVersion.versionNo + 1}
+              Tạo phiên bản {currentVersion.versionNo + 1}
             </Button>
           </DialogFooter>
         </DialogContent>

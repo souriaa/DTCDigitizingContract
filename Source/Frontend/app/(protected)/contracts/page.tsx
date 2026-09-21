@@ -234,7 +234,7 @@ export default function ContractListPage() {
           return (
             <div className="min-w-36">
               <p className="truncate text-sm font-medium">
-                {row.original.responsibleEmployeeName || `#${row.original.responsibleEmployeeId}`}
+                {row.original.responsibleEmployeeName || "Chưa xác định"}
               </p>
               {!isMine && (
                 <Badge variant="outline" className="mt-1 text-[10px] text-muted-foreground">
@@ -446,7 +446,7 @@ export default function ContractListPage() {
                       <div className="col-span-2 border-t pt-2">
                         <p className="text-xs text-muted-foreground">Người phụ trách</p>
                         <div className="flex items-center gap-2">
-                          <p className="truncate font-medium">{item.responsibleEmployeeName || `#${item.responsibleEmployeeId}`}</p>
+                          <p className="truncate font-medium">{item.responsibleEmployeeName || "Chưa xác định"}</p>
                           {item.responsibleEmployeeId !== user?.employeeId && <Badge variant="outline">Chỉ xem</Badge>}
                         </div>
                       </div>

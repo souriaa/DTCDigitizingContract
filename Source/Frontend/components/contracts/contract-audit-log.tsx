@@ -131,7 +131,7 @@ const FIELD_LABELS: Record<string, string> = {
   LanguageMode: "Ngôn ngữ hợp đồng",
   TemplateVersionId: "Phiên bản mẫu",
   ParentContractId: "Hợp đồng nguồn",
-  CustomerId: "ID khách hàng",
+  CustomerId: "Khách hàng",
   CustomerName: "Tên khách hàng",
   ContractName: "Tên hợp đồng",
   ContractNameEn: "Tên hợp đồng (tiếng Anh)",
@@ -165,10 +165,10 @@ const FIELD_LABELS: Record<string, string> = {
   VerificationPhoneId: "Số xác minh",
   VerificationPhoneMasked: "Số xác minh đã che",
   PhoneSource: "Nguồn số điện thoại",
-  LinkId: "Link truy cập",
-  PreviousLinkId: "Link cũ",
-  NewLinkId: "Link mới",
-  LinkState: "Trạng thái link",
+  LinkId: "Liên kết truy cập",
+  PreviousLinkId: "Liên kết cũ",
+  NewLinkId: "Liên kết mới",
+  LinkState: "Trạng thái liên kết",
   ExpiresAt: "Hết hạn lúc",
   CustomerOtpChallengeId: "Mã thử thách OTP",
   ChallengeState: "Trạng thái OTP",
@@ -183,26 +183,26 @@ const FIELD_LABELS: Record<string, string> = {
   ApprovalStatus: "Trạng thái duyệt",
   ResolvedByEmployeeId: "Người xử lý duyệt",
   WorkflowId: "Quy trình duyệt",
-  SnapshotHash: "Mã băm snapshot",
+  SnapshotHash: "Mã băm bản lưu",
   DocxFileId: "Tệp DOCX trình duyệt",
   DocxHash: "Mã băm DOCX",
   PdfFileId: "Tệp PDF trình duyệt",
   PdfHash: "Mã băm PDF",
-  ArtifactCount: "Số artifact trình duyệt",
-  InvalidatedLinkCount: "Số link đã vô hiệu hóa",
+  ArtifactCount: "Số tài liệu trình duyệt",
+  InvalidatedLinkCount: "Số liên kết đã vô hiệu hóa",
   RevokedSessionCount: "Số phiên khách hàng đã thu hồi",
   AttachmentId: "Tệp đính kèm",
-  FileId: "ID tệp",
+  FileId: "Tệp",
   FileName: "Tên tệp",
   DocumentType: "Loại tài liệu",
   UploadDate: "Ngày tải lên",
-  SignedEvidenceId: "Bản scan đã ký",
-  EvidenceStatus: "Trạng thái bản scan",
+  SignedEvidenceId: "Bản quét đã ký",
+  EvidenceStatus: "Trạng thái bản quét",
   FileType: "Định dạng tệp",
   Sha256: "Mã băm SHA-256",
-  SupersedesEvidenceId: "Thay thế bản scan",
+  SupersedesEvidenceId: "Thay thế bản quét",
   AcceptanceEvidenceId: "Biên bản nghiệm thu",
-  ContractPaymentId: "Mã thanh toán hợp đồng",
+  ContractPaymentId: "Khoản thanh toán hợp đồng",
   PaymentDate: "Ngày thanh toán",
   Amount: "Số tiền",
   PaymentMethod: "Phương thức thanh toán",
@@ -213,7 +213,7 @@ const FIELD_LABELS: Record<string, string> = {
   RemainingAmount: "Còn phải thanh toán",
   PaidAt: "Ngày thanh toán",
   PaidByEmployeeId: "Người thanh toán",
-  PaymentMilestoneId: "Mã đợt thanh toán",
+  PaymentMilestoneId: "Đợt thanh toán",
 };
 
 const PHONE_SOURCE_LABELS: Record<string, string> = {
@@ -248,7 +248,7 @@ const DOCUMENT_TYPE_LABELS: Record<number, string> = {
   3: "Biên bản thanh lý",
   4: "Hóa đơn VAT",
   5: "Bảo lãnh ngân hàng",
-  6: "Bản scan đã ký",
+  6: "Bản quét đã ký",
   99: "Khác",
 };
 
@@ -340,6 +340,16 @@ const formatAuditValue = (
     const versionNo = resolveAuditVersionNo(audit, value, side);
     return versionNo ? `Phiên bản ${versionNo}` : "—";
   }
+  if (key === "SourceVersionId" && audit) {
+    const versionNo =
+      audit.actionType === "NegotiationRoundCreated" && audit.versionNo
+        ? audit.versionNo - 1
+        : resolveAuditVersionNo(audit, value, side);
+    return versionNo ? `Phiên bản ${versionNo}` : "—";
+  }
+  if (key === "NewVersionId" && audit) {
+    return audit.versionNo ? `Phiên bản ${audit.versionNo}` : "—";
+  }
   if (key === "Status" && !Number.isNaN(Number(value))) {
     return getContractStatusLabel(Number(value) as ContractStatus);
   }
@@ -389,6 +399,10 @@ function AuditChanges({ audit }: { audit: ContractAuditResponse }) {
   );
   const changedKeys = keys.filter(
     (key) =>
+      (!key.endsWith("Id") ||
+        key === "CurrentVersionId" ||
+        key === "SourceVersionId" ||
+        key === "NewVersionId") &&
       formatAuditValue(key, previousValues[key], audit, "previous") !==
       formatAuditValue(key, newValues[key], audit, "new"),
   );
@@ -496,13 +510,17 @@ function AuditSubject({
   canReadContract: boolean;
 }) {
   const href = getAuditSubjectHref(audit, canReadContract);
+  const subjectVersionNo =
+    audit.subjectType === "ContractVersion"
+      ? resolveAuditVersionNo(audit, audit.subjectId, "new")
+      : undefined;
   const content = (
     <>
-      {CONTRACT_AUDIT_SUBJECT_LABELS[
-        audit.subjectType as ContractAuditSubjectType
-      ] ?? audit.subjectType}
-      {" #"}
-      {audit.subjectId}
+      {subjectVersionNo
+        ? `Phiên bản ${subjectVersionNo}`
+        : CONTRACT_AUDIT_SUBJECT_LABELS[
+            audit.subjectType as ContractAuditSubjectType
+          ] ?? audit.subjectType}
     </>
   );
 
@@ -526,28 +544,13 @@ function AuditActor({
 }) {
   const label = CONTRACT_AUDIT_ACTOR_LABELS[audit.actorType];
   const actorName = audit.actorDisplayName?.trim() || label;
-  const actorId =
-    audit.actorType === "Employee"
-      ? audit.actorEmployeeId
-      : audit.actorType === "Customer"
-        ? audit.actorCustomerAccessSessionId
-        : null;
   const actorHref =
     audit.actorType === "Employee" && audit.actorEmployeeId && canViewEmployee
       ? `/admin/employees?employeeId=${audit.actorEmployeeId}`
       : audit.actorType === "Customer" && canReadContract
         ? `/contracts/${audit.contractId}#signature`
         : null;
-  const actorContent = (
-    <>
-      {actorName}
-      {actorId && (
-        <span>
-          ({audit.actorType === "Employee" ? "NV" : "Phiên"} #{actorId})
-        </span>
-      )}
-    </>
-  );
+  const actorContent = actorName;
 
   if (audit.actorType === "System") {
     return (
@@ -842,23 +845,25 @@ export function ContractAuditLog({
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <Label htmlFor="audit-version-id">Mã phiên bản</Label>
-                <Input
-                  id="audit-version-id"
-                  type="number"
-                  min={1}
-                  maxLength={0}
-                  value={draftFilters.versionId}
-                  onChange={(event) =>
-                    setDraftFilters((current) => ({
-                      ...current,
-                      versionId: event.target.value,
-                    }))
-                  }
-                  placeholder="Tất cả phiên bản"
-                />
-              </div>
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="audit-version-id">Mã phiên bản nội bộ</Label>
+                  <Input
+                    id="audit-version-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.versionId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        versionId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả phiên bản"
+                  />
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label>Người thực hiện</Label>
@@ -950,8 +955,9 @@ export function ContractAuditLog({
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="audit-actor-employee-id">ID nhân viên</Label>
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                <Label htmlFor="audit-actor-employee-id">Mã nhân viên nội bộ</Label>
                 <Input
                   id="audit-actor-employee-id"
                   type="number"
@@ -966,11 +972,13 @@ export function ContractAuditLog({
                   }
                   placeholder="Tất cả nhân viên"
                 />
-              </div>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
                 <Label htmlFor="audit-customer-session-id">
-                  ID phiên khách hàng
+                  Mã phiên khách hàng nội bộ
                 </Label>
                 <Input
                   id="audit-customer-session-id"
@@ -986,7 +994,8 @@ export function ContractAuditLog({
                   }
                   placeholder="Tất cả phiên"
                 />
-              </div>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label>Loại đối tượng</Label>
@@ -1013,8 +1022,9 @@ export function ContractAuditLog({
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="audit-subject-id">ID đối tượng</Label>
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                <Label htmlFor="audit-subject-id">Mã đối tượng nội bộ</Label>
                 <Input
                   id="audit-subject-id"
                   type="number"
@@ -1027,14 +1037,15 @@ export function ContractAuditLog({
                       subjectId: event.target.value,
                     }))
                   }
-                  placeholder="Tất cả ID"
+                  placeholder="Tất cả đối tượng"
                 />
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="audit-correlation-id">Correlation ID</Label>
+                <Label htmlFor="audit-correlation-id">Mã truy vết</Label>
                 <Input
                   id="audit-correlation-id"
                   value={draftFilters.correlationId}
@@ -1045,7 +1056,7 @@ export function ContractAuditLog({
                       correlationId: event.target.value,
                     }))
                   }
-                  placeholder="Khớp chính xác correlation ID"
+                  placeholder="Khớp chính xác mã truy vết"
                 />
               </div>
 
@@ -1145,13 +1156,11 @@ export function ContractAuditLog({
                               href={`/contracts/${audit.contractId}`}
                               title="Xem chi tiết hợp đồng"
                             >
-                              {audit.contractCode ||
-                                `Hợp đồng #${audit.contractId}`}
+                              {audit.contractCode || audit.contractName || "Hợp đồng"}
                             </AuditQuickLink>
                           ) : (
                             <span className="font-medium">
-                              {audit.contractCode ||
-                                `Hợp đồng #${audit.contractId}`}
+                              {audit.contractCode || audit.contractName || "Hợp đồng"}
                             </span>
                           )}
                           {audit.contractName ? ` · ${audit.contractName}` : ""}
@@ -1169,13 +1178,11 @@ export function ContractAuditLog({
                               href={`/contracts/${audit.contractId}/versions/${audit.versionId}`}
                               title="Xem phiên bản hợp đồng"
                             >
-                              Phiên bản {audit.versionNo ?? "—"} (ID #
-                              {audit.versionId})
+                              Phiên bản {audit.versionNo ?? "—"}
                             </AuditQuickLink>
                           ) : (
                             <span>
-                              Phiên bản {audit.versionNo ?? "—"} (ID #
-                              {audit.versionId})
+                              Phiên bản {audit.versionNo ?? "—"}
                             </span>
                           ))}
                         <AuditSubject
@@ -1209,11 +1216,9 @@ export function ContractAuditLog({
                       Chi tiết kỹ thuật
                     </summary>
                     <div className="mt-2 space-y-1 break-all pl-3">
-                      <p>Audit ID: {audit.contractAuditId}</p>
-                      <p>Contract ID: {audit.contractId}</p>
-                      <p>Correlation ID: {audit.correlationId}</p>
-                      {audit.ipAddress && <p>IP: {audit.ipAddress}</p>}
-                      {audit.userAgent && <p>User agent: {audit.userAgent}</p>}
+                      <p>Mã truy vết: {audit.correlationId}</p>
+                      {audit.ipAddress && <p>Địa chỉ IP: {audit.ipAddress}</p>}
+                      {audit.userAgent && <p>Trình duyệt/thiết bị: {audit.userAgent}</p>}
                     </div>
                   </details>
                 </div>

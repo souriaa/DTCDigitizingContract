@@ -358,7 +358,7 @@ export function ContractOverview({
                   onChange={(e) =>
                     handleRootChange("contractNameEn", e.target.value)
                   }
-                  placeholder="Enter the contract name..."
+                  placeholder="Nhập tên hợp đồng bằng tiếng Anh..."
                 />
               ) : (
                 <p className="font-medium">
@@ -599,7 +599,7 @@ export function ContractOverview({
                                     e.target.value,
                                   )
                                 }
-                                placeholder="Enter the English item name..."
+                                placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
                               />
                             </div>
                           )}

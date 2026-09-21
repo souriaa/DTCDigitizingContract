@@ -548,7 +548,7 @@ export function ContractAcceptanceRecords({
         {templates.length === 0 && canCreate && (
           <Alert>
             <AlertDescription>
-              Chưa có Acceptance Template đã phát hành. Hãy phát hành template
+              Chưa có mẫu biên bản nghiệm thu đã phát hành. Hãy phát hành mẫu
               trước khi tạo biên bản.
             </AlertDescription>
           </Alert>
@@ -587,7 +587,7 @@ export function ContractAcceptanceRecords({
                     {new Date(record.acceptanceDate).toLocaleDateString(
                       "vi-VN",
                     )}{" "}
-                    · Version {record.versionNo}
+                    · Phiên bản {record.versionNo}
                   </p>
                 </button>
               ))}
@@ -1029,7 +1029,7 @@ export function ContractAcceptanceRecords({
                             Nội dung biên bản
                           </h4>
                           <Badge variant="secondary" className="text-xs">
-                            {selected.sections.length} section
+                            {selected.sections.length} mục nghiệm thu
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -1097,9 +1097,9 @@ export function ContractAcceptanceRecords({
                           isBilingual={
                             section.titleEn != null || section.contentEn != null
                           }
-                          orderLabel="Section"
-                          titleLabel="Tiêu đề section"
-                          contentLabel="Nội dung section"
+                          orderLabel="Mục nghiệm thu"
+                          titleLabel="Tiêu đề mục"
+                          contentLabel="Nội dung mục"
                           showNegotiation={false}
                           onChange={updateSection}
                         />
@@ -1123,6 +1123,22 @@ export function ContractAcceptanceRecords({
                     <span className="text-muted-foreground">Địa điểm:</span>{" "}
                     {selected.location}
                   </div>
+                  {selected.finalizedAt && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Ngày chốt:
+                        </span>{" "}
+                        {new Date(selected.finalizedAt).toLocaleString("vi-VN")}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Chốt bởi:
+                        </span>{" "}
+                        {selected.finalizedByEmployeeName ?? "—"}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {selected.references.map((reference) => (
@@ -1136,7 +1152,7 @@ export function ContractAcceptanceRecords({
                     <div>
                       <p className="font-medium">Nội dung biên bản</p>
                       <p className="text-xs text-muted-foreground">
-                        {selected.sections.length} section
+                        {selected.sections.length} mục nghiệm thu
                       </p>
                     </div>
                     <CollapsibleTrigger asChild>
@@ -1168,7 +1184,7 @@ export function ContractAcceptanceRecords({
                         isBilingual={Boolean(
                           section.titleEn || section.contentEn,
                         )}
-                        orderLabel="Section"
+                        orderLabel="Mục nghiệm thu"
                         showNegotiation={false}
                       />
                     ))}
@@ -1188,6 +1204,7 @@ export function ContractAcceptanceRecords({
                       onChange={(event) =>
                         setSignedFile(event.target.files?.[0])
                       }
+                      className="bg-background"
                     />
                     <Button
                       disabled={!signedFile || busy}
@@ -1283,7 +1300,7 @@ export function ContractAcceptanceRecords({
           {createStep === 1 && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label>Acceptance Template</Label>
+                <Label>Mẫu biên bản nghiệm thu</Label>
                 <Select
                   value={
                     createForm.templateVersionId
@@ -1298,7 +1315,7 @@ export function ContractAcceptanceRecords({
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn template" />
+                    <SelectValue placeholder="Chọn mẫu" />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((template) => (
@@ -1306,7 +1323,7 @@ export function ContractAcceptanceRecords({
                         key={template.templateVersionId}
                         value={String(template.templateVersionId)}
                       >
-                        {template.templateName} · v{template.versionNo}
+                        {template.templateName} · Phiên bản {template.versionNo}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1391,7 +1408,7 @@ export function ContractAcceptanceRecords({
                     })
                   }
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-background">
                     <SelectValue placeholder="Chọn loại nghiệm thu" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1435,14 +1452,14 @@ export function ContractAcceptanceRecords({
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Không còn milestone nào chưa thuộc biên bản đã chốt hoặc đã
+                    Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt hoặc đã
                     ký.
                   </p>
                 )}
               <Alert>
                 <AlertDescription>
-                  Sau khi tạo Draft, hệ thống snapshot hai bên và sections từ
-                  template. Bạn có thể chỉnh người tham gia và nội dung trước
+                  Sau khi tạo bản nháp, hệ thống lưu thông tin hai bên và các mục nghiệm thu từ
+                  mẫu. Bạn có thể chỉnh người tham gia và nội dung trước
                   khi chốt.
                 </AlertDescription>
               </Alert>
@@ -1482,7 +1499,7 @@ export function ContractAcceptanceRecords({
                 onClick={() => void createRecord()}
               >
                 {busy && <Loader2 className="mr-2 size-4 animate-spin" />} Tạo
-                Draft
+                Bản nháp
               </Button>
             )}
           </DialogFooter>

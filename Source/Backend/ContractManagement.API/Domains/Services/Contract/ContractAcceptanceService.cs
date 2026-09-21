@@ -763,6 +763,14 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 && x.VersionId == header.record.ContractVersionId, ct);
         var contract = await _db.TblContracts.AsNoTracking()
             .SingleAsync(x => x.ContractId == contractId, ct);
+        var finalizedByEmployeeName = header.record.FinalizedByEmployeeId
+            .HasValue
+            ? await _db.TblEmployees.AsNoTracking()
+                .Where(x => x.EmployeeId ==
+                    header.record.FinalizedByEmployeeId.Value)
+                .Select(x => x.EmployeeFullName)
+                .SingleOrDefaultAsync(ct)
+            : null;
         var referenceResponses = references.Select(reference =>
             FormatReference(reference, legal, contract.SignDate,
                 partyResponses, appendices)).ToList();
@@ -826,6 +834,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             Status = (AcceptanceRecordStatus)header.record.Status,
             SnapshotHash = header.record.SnapshotHash,
             FinalizedAt = header.record.FinalizedAt,
+            FinalizedByEmployeeId = header.record.FinalizedByEmployeeId,
+            FinalizedByEmployeeName = finalizedByEmployeeName,
             SignedAt = header.record.SignedAt,
             CancelledAt = header.record.CancelledAt,
             CancellationReason = header.record.CancellationReason,
