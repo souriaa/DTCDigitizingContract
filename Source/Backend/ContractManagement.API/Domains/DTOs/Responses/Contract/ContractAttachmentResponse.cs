@@ -20,5 +20,7 @@
         public DateTime? UploadDate { get; set; }
 
         public int? UploadEmployeeId { get; set; }
+
+        public string? UploadEmployeeName { get; set; }
     }
 }

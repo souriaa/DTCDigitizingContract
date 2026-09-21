@@ -146,7 +146,7 @@ export function ContractApprovalPanel({
         changeNote: reason,
       });
       toast.success(
-        `Đã rút hồ sơ và tạo Version ${round.versionNo} để tiếp tục chỉnh sửa.`,
+        `Đã rút hồ sơ và tạo phiên bản ${round.versionNo} để tiếp tục chỉnh sửa.`,
       );
     } catch (withdrawError) {
       if (withdrawCompleted) {
@@ -179,7 +179,7 @@ export function ContractApprovalPanel({
       setIsLoadingArtifacts(true);
       setArtifactDetail(await contractApprovalApi.getDetail(approvalRequestId));
     } catch (loadError) {
-      toast.error(getApiErrorMessage(loadError, "Không thể tải artifact."));
+      toast.error(getApiErrorMessage(loadError, "Không thể tải tài liệu đã gửi."));
     } finally {
       setIsLoadingArtifacts(false);
     }
@@ -210,7 +210,7 @@ export function ContractApprovalPanel({
     } catch (downloadError) {
       previewWindow?.close();
       toast.error(
-        await getBlobApiErrorMessage(downloadError, "Không thể tải artifact."),
+        await getBlobApiErrorMessage(downloadError, "Không thể tải tài liệu đã gửi."),
       );
     } finally {
       setDownloadingFileId(null);
@@ -225,8 +225,8 @@ export function ContractApprovalPanel({
           <AlertTitle>Hợp đồng đang chờ duyệt</AlertTitle>
           <AlertDescription className="mt-3 space-y-3">
             <p>
-              Bạn có thể rút hồ sơ trước khi Manager xử lý. Hệ thống sẽ tự tạo
-              version mới từ bản đã gửi để bạn tiếp tục chỉnh sửa.
+              Bạn có thể rút hồ sơ trước khi người quản lý xử lý. Hệ thống sẽ tự tạo
+              phiên bản mới từ bản đã gửi để bạn tiếp tục chỉnh sửa.
             </p>
             <div className="space-y-2">
               <Label htmlFor="withdraw-reason">Lý do rút hồ sơ *</Label>
@@ -297,7 +297,7 @@ export function ContractApprovalPanel({
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">
-                              Lần gửi #{request.approvalRequestId} · Version{" "}
+                              Hồ sơ gửi duyệt · Phiên bản{" "}
                               {request.versionNo}
                             </p>
                             <Badge
@@ -332,7 +332,7 @@ export function ContractApprovalPanel({
                         ) : (
                           <FileText className="size-4" />
                         )}
-                        Artifact đã gửi
+                        Tài liệu đã gửi
                       </Button>
                     </div>
                     {request.decisionComment && (
@@ -358,7 +358,7 @@ export function ContractApprovalPanel({
             <>
               <DialogHeader>
                 <DialogTitle>
-                  Artifact Version {artifactDetail.versionNo}
+                  Tài liệu phiên bản {artifactDetail.versionNo}
                 </DialogTitle>
                 <DialogDescription>
                   Đây là bản bất biến được tạo tại thời điểm gửi duyệt.
@@ -366,7 +366,7 @@ export function ContractApprovalPanel({
               </DialogHeader>
               <div className="rounded-xl border bg-muted/20 p-3 text-sm">
                 <p className="font-medium">
-                  Phụ lục trong package ({artifactDetail.appendices?.length ?? 0})
+                  Phụ lục trong bộ tài liệu ({artifactDetail.appendices?.length ?? 0})
                 </p>
                 {(artifactDetail.appendices?.length ?? 0) > 0 ? (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">

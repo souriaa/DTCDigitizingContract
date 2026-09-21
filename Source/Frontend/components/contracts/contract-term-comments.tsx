@@ -251,8 +251,7 @@ export function ContractTermComments({
 
     return comment.source === "Customer"
       ? "Khách hàng"
-      : comment.recordedByDisplayName?.trim() ||
-          `Nhân viên #${comment.recordedByEmployeeId}`;
+      : comment.recordedByDisplayName?.trim() || "Không rõ nhân viên";
   };
 
   const renderCarryForwardBadge = (
@@ -269,7 +268,7 @@ export function ContractTermComments({
       <Badge
         variant="outline"
         className="h-5 gap-1 border-sky-500/40 bg-sky-500/5 text-[10px] font-medium text-sky-700 dark:text-sky-300"
-        title={`Nguồn: phiên bản ${comment.carriedForwardFromVersionNo ?? comment.carriedForwardFromVersionId}, bình luận #${comment.carriedForwardFromCommentId}`}
+        title={`Nguồn: phiên bản ${comment.carriedForwardFromVersionNo ?? "không rõ"}, bình luận được chuyển từ vòng trước`}
       >
         <GitBranch className="size-3" />
         Từ vòng trước

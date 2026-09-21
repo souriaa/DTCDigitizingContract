@@ -114,6 +114,47 @@ public sealed class ContractTemplateServiceTests
     }
 
     [Fact]
+    public async Task GetVersion_ReturnsPreviewCreatorName()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateAsync(
+            CreateRequest("PREVIEW-CREATOR"), AdminOfficerId);
+        var draft = Assert.Single(created.Versions);
+        var entity = await context.TblContractTemplateVersions.SingleAsync(
+            version => version.TemplateVersionId == draft.TemplateVersionId);
+        entity.PreviewedByEmployeeId = AdminOfficerId;
+        entity.PreviewedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var detail = await service.GetVersionAsync(
+            draft.TemplateVersionId, AdminOfficerId);
+
+        Assert.Equal(AdminOfficerId, detail.PreviewedByEmployeeId);
+        Assert.Equal("Admin Officer", detail.PreviewedByEmployeeName);
+    }
+
+    [Fact]
+    public async Task List_ReturnsPublishedVersionNumberInsteadOfOnlyId()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        await SeedPublishedTemplateAsync(context);
+        var service = CreateService(context);
+
+        var list = await service.ListAsync(
+            new ContractTemplateFilterRequest(), AdminOfficerId);
+        var item = Assert.Single(list.Items);
+        Assert.Equal(2, item.CurrentPublishedVersionId);
+        Assert.Equal(1, item.CurrentPublishedVersionNo);
+
+        var detail = await service.GetAsync(item.TemplateId, AdminOfficerId);
+        Assert.Equal(1, detail.CurrentPublishedVersionNo);
+    }
+
+    [Fact]
     public async Task DraftItemTableLayout_CanBeUpdatedAndInvalidatesPreview()
     {
         await using var context = CreateContext();

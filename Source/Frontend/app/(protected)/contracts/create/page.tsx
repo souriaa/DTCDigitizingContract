@@ -273,7 +273,7 @@ function PaymentPlanReview({
           <p className="font-semibold">Theo dõi các đợt thanh toán</p>
           <p className="text-sm text-muted-foreground">
             Số tiền được tính lại theo tổng giá trị hiện tại. Muốn đổi cấu trúc
-            các đợt, hãy tạo version template mới.
+            các đợt, hãy tạo phiên bản mẫu mới.
           </p>
         </div>
       </div>
@@ -595,7 +595,7 @@ export default function CreateContractPage() {
           console.error("Failed to load available templates:", error);
           setAvailableTemplates([]);
           setTemplateTotalCount(0);
-          toast.error("Không thể tải danh sách template.");
+          toast.error("Không thể tải danh sách mẫu hợp đồng.");
         }
       })
       .finally(() => {
@@ -681,7 +681,7 @@ export default function CreateContractPage() {
           setTemplateAppendices([]);
           setSelectedOptionalAppendixIds([]);
           setManualPaymentDates({});
-          setTemplateDetailError("Không thể tải điều khoản của template.");
+          setTemplateDetailError("Không thể tải điều khoản của mẫu hợp đồng.");
         }
       })
       .finally(() => {
@@ -875,7 +875,7 @@ export default function CreateContractPage() {
     Boolean(effectiveDate && expiredDate) &&
     new Date(effectiveDate).getTime() <= new Date(expiredDate).getTime();
   const contractTermsValidationError = useMemo(() => {
-    if (isLoadingTemplateDetail) return "Đang tải điều khoản của template.";
+    if (isLoadingTemplateDetail) return "Đang tải điều khoản của mẫu hợp đồng.";
     if (templateDetailError) return templateDetailError;
     if (contractTerms.length === 0) {
       return "Hợp đồng phải có ít nhất một điều khoản.";
@@ -1102,7 +1102,7 @@ export default function CreateContractPage() {
       return;
     }
     if (!templateVersionId) {
-      toast.error("Vui lòng chọn template hợp đồng.");
+      toast.error("Vui lòng chọn mẫu hợp đồng.");
       setCurrentStep(0);
       return;
     }
@@ -1634,7 +1634,7 @@ export default function CreateContractPage() {
                         onChange={(event) =>
                           setContractTitleEn(event.target.value)
                         }
-                        placeholder="Enter the contract name..."
+                        placeholder="Nhập tên hợp đồng bằng tiếng Anh..."
                       />
                       <p className="text-xs text-muted-foreground">
                         Backend yêu cầu trường này khi chọn hợp đồng song ngữ.
@@ -1646,7 +1646,7 @@ export default function CreateContractPage() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                       <div>
                         <Label>
-                          Template hợp đồng{" "}
+                          Mẫu hợp đồng{" "}
                           <span className="text-red-500">*</span>
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -1664,15 +1664,15 @@ export default function CreateContractPage() {
                           setTemplatePage(1);
                         }}
                         className="pl-9"
-                        placeholder="Tìm theo tên, mã hoặc mô tả template..."
-                        aria-label="Tìm kiếm template hợp đồng"
+                        placeholder="Tìm theo tên, mã hoặc mô tả mẫu..."
+                        aria-label="Tìm kiếm mẫu hợp đồng"
                       />
                     </div>
 
                     {isLoadingTemplates && (
                       <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed py-8 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Đang tải template...
+                        Đang tải mẫu hợp đồng...
                       </div>
                     )}
 
@@ -1711,7 +1711,7 @@ export default function CreateContractPage() {
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline">
-                                    v{template.version}
+                                    Phiên bản {template.version}
                                   </Badge>
                                 )}
                               </div>
@@ -1747,10 +1747,10 @@ export default function CreateContractPage() {
                       <div className="rounded-2xl border border-dashed px-4 py-8 text-center">
                         <LayoutTemplate className="mx-auto size-8 text-muted-foreground/60" />
                         <p className="mt-3 text-sm font-medium">
-                          Không tìm thấy template phù hợp
+                          Không tìm thấy mẫu phù hợp
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Thử tìm bằng tên, mã template hoặc loại hợp đồng khác.
+                          Thử tìm bằng tên, mã mẫu hoặc loại hợp đồng khác.
                         </p>
                       </div>
                     ) : !isLoadingTemplates ? (
@@ -1761,7 +1761,7 @@ export default function CreateContractPage() {
                             templatePage * templatePageSize,
                             templateTotalCount,
                           )}{" "}
-                          trong {templateTotalCount} template
+                          trong {templateTotalCount} mẫu
                         </p>
                         <div className="flex items-center gap-2">
                           <Button
@@ -2040,7 +2040,7 @@ export default function CreateContractPage() {
                                       })
                                     }
                                     className="bg-white"
-                                    placeholder="Enter the English item name..."
+                                    placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
                                   />
                                 </div>
                               )}
@@ -2453,7 +2453,7 @@ export default function CreateContractPage() {
                           </p>
                         )}
                       </div>
-                      <Badge variant="outline">Draft</Badge>
+                      <Badge variant="outline">Bản nháp</Badge>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
@@ -2530,7 +2530,7 @@ export default function CreateContractPage() {
                           Mẫu hợp đồng
                         </p>
                         <p className="font-semibold text-blue-600">
-                          {selectedTemplate?.name || "Chưa chọn template"}
+                          {selectedTemplate?.name || "Chưa chọn mẫu"}
                         </p>
                       </div>
                       <div>
@@ -2674,7 +2674,7 @@ export default function CreateContractPage() {
                         <AlertDescription>
                           {contractTerms.length} điều khoản trong danh sách hiện
                           tại sẽ được lưu. Việc thêm, xóa, sửa hoặc sắp xếp ở
-                          bước trước không làm thay đổi template gốc.
+                          bước trước không làm thay đổi mẫu gốc.
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -2784,7 +2784,7 @@ export default function CreateContractPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium line-clamp-1">
-                      {selectedTemplate?.name || "Chưa chọn Template"}
+                          {selectedTemplate?.name || "Chưa chọn mẫu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {getContractTypeLabel(contractType)}
@@ -2797,7 +2797,7 @@ export default function CreateContractPage() {
                     <ShieldCheck className="size-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Theo template đã chọn</p>
+                    <p className="text-sm font-medium">Theo mẫu đã chọn</p>
                     <p className="text-xs text-muted-foreground">
                       Chỉnh sửa tại trang chi tiết sau khi tạo
                     </p>

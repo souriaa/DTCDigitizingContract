@@ -51,6 +51,11 @@ namespace ContractManagement.Domains.Services.Contract
                 throw new ArgumentException("DocumentType không hợp lệ.");
             }
 
+            var uploaderName = await _dbContext.TblEmployees
+                .AsNoTracking()
+                .Where(employee => employee.EmployeeId == uploadedBy)
+                .Select(employee => employee.EmployeeFullName)
+                .SingleOrDefaultAsync();
             var strategy = _dbContext.Database.CreateExecutionStrategy();
             return await strategy.ExecuteAsync(async () =>
             {
@@ -101,7 +106,9 @@ namespace ContractManagement.Domains.Services.Contract
                     await _dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    return MapToResponse(attachment);
+                    var response = MapToResponse(attachment);
+                    response.UploadEmployeeName = uploaderName;
+                    return response;
                 }
                 catch
                 {
@@ -140,7 +147,30 @@ namespace ContractManagement.Domains.Services.Contract
                 .OrderByDescending(x => x.UploadDate)
                 .ToListAsync();
 
-            return attachments.Select(MapToResponse).ToList();
+            var uploaderIds = attachments
+                .Where(attachment => attachment.UploadEmployeeId.HasValue)
+                .Select(attachment => attachment.UploadEmployeeId!.Value)
+                .Distinct()
+                .ToArray();
+            var uploaderNames = uploaderIds.Length == 0
+                ? new Dictionary<int, string?>()
+                : await _dbContext.TblEmployees
+                    .AsNoTracking()
+                    .Where(employee => uploaderIds.Contains(employee.EmployeeId))
+                    .ToDictionaryAsync(
+                        employee => employee.EmployeeId,
+                        employee => employee.EmployeeFullName);
+
+            return attachments.Select(attachment =>
+            {
+                var response = MapToResponse(attachment);
+                if (attachment.UploadEmployeeId is int uploaderId
+                    && uploaderNames.TryGetValue(uploaderId, out var name))
+                {
+                    response.UploadEmployeeName = name;
+                }
+                return response;
+            }).ToList();
         }
 
         public async Task<(Stream Stream, string FileName)?> DownloadAsync(

@@ -213,15 +213,15 @@ export default function ContractTemplateListPage() {
         ),
       },
       {
-        accessorKey: "currentPublishedVersionId",
+        accessorKey: "currentPublishedVersionNo",
         header: "Bản hiện hành",
         cell: ({ row }) =>
-          row.original.currentPublishedVersionId ? (
+          row.original.currentPublishedVersionNo != null ? (
             <Badge
               variant="outline"
               className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
             >
-              ID #{row.original.currentPublishedVersionId}
+              Phiên bản {row.original.currentPublishedVersionNo}
             </Badge>
           ) : (
             <span className="whitespace-nowrap text-sm text-muted-foreground">
@@ -353,12 +353,12 @@ export default function ContractTemplateListPage() {
                               </p>
                             )}
                           </div>
-                          {template.currentPublishedVersionId ? (
+                          {template.currentPublishedVersionNo != null ? (
                             <Badge
                               variant="outline"
                               className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
                             >
-                              ID #{template.currentPublishedVersionId}
+                              Phiên bản {template.currentPublishedVersionNo}
                             </Badge>
                           ) : (
                             <Badge variant="secondary" className="shrink-0">

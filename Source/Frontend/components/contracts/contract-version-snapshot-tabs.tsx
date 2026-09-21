@@ -111,10 +111,10 @@ export function ContractVersionSnapshotTabs({
       termId,
       termCode:
         term?.termCode ||
-        (termId == null ? undefined : `Điều khoản #${termId}`),
+        (termId == null ? undefined : "Điều khoản đã xóa"),
       termTitle:
         term?.termTitle ||
-        (termId == null ? undefined : "Điều khoản không còn trong snapshot"),
+        (termId == null ? undefined : "Điều khoản không còn trong bản lưu"),
     };
   });
   const paginatedItems = version.items.slice(
@@ -153,7 +153,7 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="items" className="space-y-3">
         {version.items.length === 0 ? (
           <EmptyState icon={<Package className="size-8" />}>
-            Snapshot không có sản phẩm hoặc dịch vụ
+            Bản lưu không có sản phẩm hoặc dịch vụ
           </EmptyState>
         ) : (
           paginatedItems.map((item) => (
@@ -229,7 +229,7 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="terms" className="space-y-3">
         {version.terms.length === 0 ? (
           <EmptyState icon={<ScrollText className="size-8" />}>
-            Snapshot không có điều khoản
+            Bản lưu không có điều khoản
           </EmptyState>
         ) : (
           paginatedTerms.map((term) => (
@@ -252,7 +252,7 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="appendices" className="space-y-4">
         {(version.appendices?.length ?? 0) === 0 ? (
           <EmptyState icon={<FileStack className="size-8" />}>
-            Snapshot không có phụ lục
+            Bản lưu không có phụ lục
           </EmptyState>
         ) : (
           [...version.appendices]
@@ -293,7 +293,7 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="comments" className="space-y-3">
         {commentScopes.length === 0 ? (
           <EmptyState icon={<MessageSquareText className="size-8" />}>
-            Version này chưa có bình luận
+            Phiên bản này chưa có bình luận
           </EmptyState>
         ) : (
           commentScopes.map((scope) => (

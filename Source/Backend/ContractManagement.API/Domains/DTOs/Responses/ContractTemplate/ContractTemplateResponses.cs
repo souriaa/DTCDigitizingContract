@@ -75,6 +75,8 @@ public class ContractTemplateResponse
 
     public int? CurrentPublishedVersionId { get; set; }
 
+    public int? CurrentPublishedVersionNo { get; set; }
+
     public bool IsActive { get; set; }
 
     public int CreatedEmployeeId { get; set; }
@@ -147,6 +149,8 @@ public sealed class ContractTemplateVersionDetailResponse
     public DateTime? PreviewedAt { get; set; }
 
     public int? PreviewedByEmployeeId { get; set; }
+
+    public string? PreviewedByEmployeeName { get; set; }
 
     public DateTime CreatedDate { get; set; }
 

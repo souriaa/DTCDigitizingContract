@@ -435,8 +435,8 @@ export function ContractClosing({
                           </p>
                           <p>
                             Ghi nhận bởi{" "}
-                            {milestone.activePayment.createdByEmployeeName ??
-                              `#${milestone.activePayment.createdByEmployeeId}`}{" "}
+                            {milestone.activePayment.createdByEmployeeName ||
+                              "Không rõ nhân viên"}{" "}
                             lúc{" "}
                             {formatDateTime(milestone.activePayment.createdAt)}
                           </p>

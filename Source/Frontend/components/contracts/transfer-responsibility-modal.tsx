@@ -158,7 +158,7 @@ export function TransferResponsibilityModal({
               .filter((emp) => emp.employeeId !== currentEmployeeId)
               .map((emp) => (
                 <SelectItem key={emp.employeeId} value={String(emp.employeeId)}>
-                  {emp.employeeFullName || `Nhân viên #${emp.employeeId}`}
+                  {emp.employeeFullName || "Chưa có tên nhân viên"}
                   {emp.employeeCode ? ` • ${emp.employeeCode}` : ""}
                   {emp.departmentName ? ` • ${emp.departmentName}` : ""}
                 </SelectItem>

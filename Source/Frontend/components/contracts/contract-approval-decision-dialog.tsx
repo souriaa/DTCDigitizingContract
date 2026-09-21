@@ -41,7 +41,7 @@ export const APPROVAL_DECISION_CONFIG = {
   return: {
     label: "Yêu cầu sửa lại",
     description:
-      "Hợp đồng sẽ quay về Đang đàm phán. Owner phải tạo version mới trước khi chỉnh sửa.",
+      "Hợp đồng sẽ quay về Đang đàm phán. Nhân viên phụ trách phải tạo phiên bản mới trước khi chỉnh sửa.",
     buttonClass: "bg-amber-600 text-white hover:bg-amber-700",
     icon: RotateCcw,
   },
@@ -110,9 +110,9 @@ export function ContractApprovalDecisionDialog({
                 {mode === "bulk"
                   ? `Xử lý ${requests.length} yêu cầu duyệt`
                   : detail?.contractCode
-                    || `Hợp đồng #${detail?.contractId ?? requests[0]?.contractId}`}
+                    || detail?.contractName || requests[0]?.contractName || "Hợp đồng"}
                 {mode === "single" && (detail || requests[0])
-                  ? ` · Version ${(detail ?? requests[0]).versionNo}`
+                  ? ` · Phiên bản ${(detail ?? requests[0]).versionNo}`
                   : ""}
               </DialogTitle>
               <DialogDescription>
@@ -133,14 +133,14 @@ export function ContractApprovalDecisionDialog({
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">
-                        {request.contractCode || `Hợp đồng #${request.contractId}`}
+                        {request.contractCode || request.contractName || "Hợp đồng"}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {request.contractName}
                       </p>
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      Version {request.versionNo}
+                      Phiên bản {request.versionNo}
                     </span>
                   </div>
                 ))}
@@ -260,7 +260,7 @@ export function ContractApprovalDecisionDialog({
                 onChange={(event) => setComment(event.target.value)}
                 placeholder={
                   decision === "approve"
-                    ? "Ghi chú cho Owner..."
+                    ? "Ghi chú cho nhân viên phụ trách..."
                     : "Nêu rõ nội dung cần sửa..."
                 }
               />

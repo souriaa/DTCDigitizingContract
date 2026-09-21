@@ -298,7 +298,7 @@ export function ContractAppendices({
     return (
       <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
         <FileStack className="mx-auto mb-3 size-8" />
-        Version này không có phụ lục đính kèm.
+        Phiên bản này không có phụ lục đính kèm.
       </div>
     );
   }
@@ -312,7 +312,7 @@ export function ContractAppendices({
               Phụ lục hợp đồng ({appendices.length})
             </p>
             <p className="text-sm text-muted-foreground">
-              Có thể chọn từ template hoặc tạo một phụ lục mới cho version hiện
+              Có thể chọn từ mẫu hoặc tạo một phụ lục mới cho phiên bản hiện
               tại.
             </p>
           </div>
@@ -563,8 +563,8 @@ export function ContractAppendices({
           <DialogHeader>
             <DialogTitle>Tạo phụ lục mới</DialogTitle>
             <DialogDescription>
-              Phụ lục này chỉ thuộc version hợp đồng hiện tại và không thay đổi
-              template.
+              Phụ lục này chỉ thuộc phiên bản hợp đồng hiện tại và không thay đổi
+              mẫu.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">

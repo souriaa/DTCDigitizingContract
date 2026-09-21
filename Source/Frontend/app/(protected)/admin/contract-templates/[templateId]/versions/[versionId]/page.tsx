@@ -220,7 +220,7 @@ export default function ContractTemplateVersionWorkspacePage() {
         toast.error(
           getContractTemplateErrorMessage(
             error,
-            "Không thể tải workspace mẫu hợp đồng.",
+            "Không thể tải khu vực biên soạn mẫu hợp đồng.",
           ),
         );
       } finally {
@@ -259,12 +259,12 @@ export default function ContractTemplateVersionWorkspacePage() {
       !file.name.toLocaleLowerCase().endsWith(".docx") &&
       file.type !== DOCX_MIME
     ) {
-      toast.error("Chỉ chấp nhận file DOCX.");
+      toast.error("Chỉ chấp nhận tệp DOCX.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     if (file.size > MAX_DOCX_SIZE) {
-      toast.error("File DOCX không được vượt quá 10 MB.");
+      toast.error("Tệp DOCX không được vượt quá 10 MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -286,10 +286,10 @@ export default function ContractTemplateVersionWorkspacePage() {
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (result.validationStatus === TemplateValidationStatus.Valid) {
-        toast.success("Đã upload và kiểm tra DOCX thành công.");
+        toast.success("Đã tải lên và kiểm tra DOCX thành công.");
       } else {
         toast.warning(
-          "Đã upload DOCX nhưng tài liệu chưa hợp lệ. Vui lòng xem kết quả kiểm tra.",
+          "Đã tải DOCX lên nhưng tài liệu chưa hợp lệ. Vui lòng xem kết quả kiểm tra.",
         );
       }
       await fetchWorkspace(false);
@@ -297,7 +297,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       toast.error(
         getContractTemplateErrorMessage(
           error,
-          "Không thể upload tài liệu DOCX.",
+          "Không thể tải tài liệu DOCX lên.",
         ),
       );
       await fetchWorkspace(false);
@@ -318,8 +318,8 @@ export default function ContractTemplateVersionWorkspacePage() {
       );
       toast.success(
         result.isReused
-          ? "Preview hiện tại vẫn còn hợp lệ."
-          : "Đã tạo preview mới.",
+          ? "Bản xem trước hiện tại vẫn còn hợp lệ."
+          : "Đã tạo bản xem trước mới.",
       );
       setAppendixPublishError(null);
       setLegalBasesRenderError(null);
@@ -327,7 +327,7 @@ export default function ContractTemplateVersionWorkspacePage() {
     } catch (error) {
       const message = getContractTemplateErrorMessage(
         error,
-        "Không thể tạo preview.",
+        "Không thể tạo bản xem trước.",
       );
       toast.error(message);
       if (isLegalBasesRenderError(error)) {
@@ -363,7 +363,10 @@ export default function ContractTemplateVersionWorkspacePage() {
       );
     } catch (error) {
       toast.error(
-        getContractTemplateErrorMessage(error, "Không thể tải preview DOCX."),
+        getContractTemplateErrorMessage(
+          error,
+          "Không thể tải bản xem trước DOCX.",
+        ),
       );
     } finally {
       setIsDownloadingDocx(false);
@@ -382,8 +385,8 @@ export default function ContractTemplateVersionWorkspacePage() {
     }
 
     previewWindow.opener = null;
-    previewWindow.document.title = "Đang tải PDF preview...";
-    previewWindow.document.body.textContent = "Đang tải bản PDF preview...";
+    previewWindow.document.title = "Đang tải bản xem trước PDF...";
+    previewWindow.document.body.textContent = "Đang tải bản xem trước PDF...";
 
     try {
       setIsOpeningPdf(true);
@@ -400,7 +403,10 @@ export default function ContractTemplateVersionWorkspacePage() {
     } catch (error) {
       previewWindow.close();
       toast.error(
-        getContractTemplateErrorMessage(error, "Không thể mở bản PDF preview."),
+        getContractTemplateErrorMessage(
+          error,
+          "Không thể mở bản xem trước PDF.",
+        ),
       );
     } finally {
       setIsOpeningPdf(false);
@@ -421,7 +427,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       setAppendixPublishError(null);
       setLegalBasesRenderError(null);
       setIsPublishOpen(false);
-      toast.success(`Đã phát hành Version ${result.versionNo}.`);
+      toast.success(`Đã phát hành phiên bản ${result.versionNo}.`);
       await fetchWorkspace(false);
     } catch (error) {
       const message = getContractTemplateErrorMessage(
@@ -464,7 +470,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       );
       setVersion(result);
       setIsRetireOpen(false);
-      toast.success(`Đã ngừng sử dụng Version ${result.versionNo}.`);
+      toast.success(`Đã ngừng sử dụng phiên bản ${result.versionNo}.`);
       await fetchWorkspace(false);
     } catch (error) {
       toast.error(
@@ -547,7 +553,7 @@ export default function ContractTemplateVersionWorkspacePage() {
 
   return (
     <>
-      <Header title="Workspace mẫu hợp đồng" />
+      <Header title="Khu vực biên soạn mẫu hợp đồng" />
       <div className="grow overflow-y-auto p-3 sm:p-6 lg:p-10">
         <div className="mx-auto space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -576,7 +582,7 @@ export default function ContractTemplateVersionWorkspacePage() {
               <ShieldAlert />
               <AlertTitle>Không có quyền truy cập</AlertTitle>
               <AlertDescription>
-                Chỉ Admin Officer được quản trị mẫu hợp đồng.
+                Chỉ nhân viên quản trị được quản trị mẫu hợp đồng.
               </AlertDescription>
             </Alert>
           ) : isLoading ? (
@@ -603,7 +609,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="font-semibold">
-                        Version {version.versionNo}
+                        Phiên bản {version.versionNo}
                       </span>
                       <TemplateVersionStatusBadge status={version.status} />
                       <TemplateValidationStatusBadge
@@ -656,13 +662,13 @@ export default function ContractTemplateVersionWorkspacePage() {
                       </>
                     )}
                     <TabsTrigger value="placeholders">
-                      <Braces /> Placeholder
+                      <Braces /> Trường dữ liệu
                     </TabsTrigger>
                     <TabsTrigger value="document">
                       <FileText /> Tài liệu DOCX
                     </TabsTrigger>
                     <TabsTrigger value="preview">
-                      <Eye /> Preview & phát hành
+                      <Eye /> Xem trước và phát hành
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -674,7 +680,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm text-muted-foreground">
                             {isAcceptanceDocument
-                              ? "Section nghiệm thu"
+                              ? "Mục nghiệm thu"
                               : "Điều khoản mềm"}
                           </CardTitle>
                         </CardHeader>
@@ -714,13 +720,13 @@ export default function ContractTemplateVersionWorkspacePage() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="font-semibold">
-                        {hasDocument ? "Đã upload" : "Chưa có"}
+                        {hasDocument ? "Đã tải lên" : "Chưa có"}
                       </CardContent>
                     </Card>
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
-                          Preview DOCX
+                          Bản xem trước DOCX
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="font-semibold">
@@ -755,8 +761,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                     <AlertTitle>Quy trình đề xuất</AlertTitle>
                     <AlertDescription>
                       {isContractDocument
-                        ? "Hoàn thiện căn cứ và điều khoản → chèn placeholder vào DOCX → upload và sửa lỗi validation → tạo preview → phát hành. Chỉ bản nháp được chỉnh sửa."
-                        : "Chèn các placeholder dành cho loại tài liệu này vào DOCX → upload và sửa lỗi validation → tạo preview → phát hành. Chỉ bản nháp được chỉnh sửa."}
+                        ? "Hoàn thiện căn cứ và điều khoản → chèn trường dữ liệu vào DOCX → tải lên và sửa lỗi kiểm tra tính hợp lệ → tạo bản xem trước → phát hành. Chỉ bản nháp được chỉnh sửa."
+                        : "Chèn các trường dữ liệu dành cho loại tài liệu này vào DOCX → tải lên và sửa lỗi kiểm tra tính hợp lệ → tạo bản xem trước → phát hành. Chỉ bản nháp được chỉnh sửa."}
                     </AlertDescription>
                   </Alert>
                 </TabsContent>
@@ -831,14 +837,14 @@ export default function ContractTemplateVersionWorkspacePage() {
                         nguồn DOCX
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        File tối đa 10 MB. Upload mới sẽ làm preview cũ mất hiệu
-                        lực.
+                        Tệp tối đa 10 MB. Việc tải tài liệu mới lên sẽ làm bản
+                        xem trước cũ mất hiệu lực.
                       </p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                         <div className="space-y-2">
-                          <Label htmlFor="template-docx">Chọn file DOCX</Label>
+                          <Label htmlFor="template-docx">Chọn tệp DOCX</Label>
                           <input
                             ref={fileInputRef}
                             id="template-docx"
@@ -865,7 +871,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                             ) : (
                               <Upload className="size-4" />
                             )}{" "}
-                            Upload & kiểm tra
+                            Tải lên và kiểm tra
                           </Button>
                         </div>
                       </div>
@@ -891,8 +897,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                         />
                         <span className="text-sm text-muted-foreground">
                           {hasDocument
-                            ? `Document file`
-                            : "Chưa upload tài liệu"}
+                            ? "Đã có tài liệu nguồn"
+                            : "Chưa tải tài liệu lên"}
                         </span>
                       </div>
                       {validationMessages.length > 0 && (
@@ -913,7 +919,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                           <CheckCircle2 className="text-emerald-600" />
                           <AlertTitle>Tài liệu hợp lệ</AlertTitle>
                           <AlertDescription>
-                            Có thể tạo preview từ tài liệu này.
+                            Có thể tạo bản xem trước từ tài liệu này.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -934,8 +940,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-lg">
-                        <Eye className="size-5 text-primary" /> Preview và bản
-                        phát hành
+                        <Eye className="size-5 text-primary" /> Bản xem trước và
+                        bản phát hành
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-5">
@@ -950,7 +956,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                             ) : (
                               <RefreshCw className="size-4" />
                             )}{" "}
-                            Tạo preview
+                            Tạo bản xem trước
                           </Button>
                         )}
                         {hasPreview && (
@@ -964,7 +970,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                             ) : (
                               <Download className="size-4" />
                             )}{" "}
-                            Tải preview DOCX
+                            Tải bản xem trước DOCX
                           </Button>
                         )}
                         {(hasPreview || version.publishedPreviewPdfFileId) && (
@@ -978,14 +984,16 @@ export default function ContractTemplateVersionWorkspacePage() {
                             ) : (
                               <Eye className="size-4" />
                             )}{" "}
-                            {isDraft ? "Xem preview PDF" : "Xem PDF phát hành"}
+                            {isDraft
+                              ? "Xem bản xem trước PDF"
+                              : "Xem PDF phát hành"}
                           </Button>
                         )}
                       </div>
                       <dl className="grid gap-4 text-sm sm:grid-cols-2">
                         <div>
                           <dt className="text-muted-foreground">
-                            Preview gần nhất
+                            Bản xem trước gần nhất
                           </dt>
                           <dd className="mt-1 font-medium">
                             {version.previewedAt
@@ -995,21 +1003,19 @@ export default function ContractTemplateVersionWorkspacePage() {
                         </div>
                         <div>
                           <dt className="text-muted-foreground">
-                            Người tạo preview
+                            Người tạo bản xem trước
                           </dt>
                           <dd className="mt-1 font-medium">
-                            {version.previewedByEmployeeId
-                              ? `Nhân viên #${version.previewedByEmployeeId}`
-                              : "—"}
+                            {version.previewedByEmployeeName || "—"}
                           </dd>
                         </div>
                       </dl>
                       {isDraft && !canGeneratePreview && (
                         <Alert>
                           <Info />
-                          <AlertTitle>Chưa thể tạo preview</AlertTitle>
+                          <AlertTitle>Chưa thể tạo bản xem trước</AlertTitle>
                           <AlertDescription>
-                            Cần upload DOCX và đạt validation hợp lệ trước.
+                            Cần tải DOCX lên và tài liệu phải hợp lệ trước.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -1029,11 +1035,11 @@ export default function ContractTemplateVersionWorkspacePage() {
                         )}
                         {isAcceptanceDocument && (
                           <RequirementRow met={hasValidAcceptanceSections}>
-                            Có ít nhất một section nghiệm thu hợp lệ
+                            Có ít nhất một mục nghiệm thu hợp lệ
                           </RequirementRow>
                         )}
                         <RequirementRow met={hasDocument}>
-                          Đã upload DOCX
+                          Đã tải DOCX lên
                         </RequirementRow>
                         <RequirementRow met={isDocumentValid}>
                           DOCX hợp lệ
@@ -1046,7 +1052,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                           </RequirementRow>
                         )}
                         <RequirementRow met={hasPreview}>
-                          Đã tạo preview hiện hành
+                          Đã tạo bản xem trước hiện hành
                         </RequirementRow>
                       </ul>
                       {version.status === TemplateVersionStatus.Draft && (
@@ -1055,7 +1061,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                           onClick={() => setIsPublishOpen(true)}
                           disabled={!canPublish}
                         >
-                          <Send className="size-4" /> Phát hành version
+                          <Send className="size-4" /> Phát hành phiên bản
                         </Button>
                       )}
                       {version.status === TemplateVersionStatus.Published && (
@@ -1070,7 +1076,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                       {version.status === TemplateVersionStatus.Retired && (
                         <div className="space-y-3">
                           <p className="text-sm text-muted-foreground">
-                            Version này đã ngừng sử dụng, vẫn bất biến và chỉ
+                            Phiên bản này đã ngừng sử dụng, vẫn bất biến và chỉ
                             còn chế độ xem.
                           </p>
                           {canCreateDraftFromRetired && (
@@ -1089,7 +1095,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Khi phát hành, version đang hiện hành trước đó của mẫu
+                        Khi phát hành, phiên bản đang hiện hành trước đó của mẫu
                         sẽ tự chuyển sang ngừng sử dụng.
                       </p>
                     </CardContent>
@@ -1115,7 +1121,7 @@ export default function ContractTemplateVersionWorkspacePage() {
         onClose={() => setIsRetireOpen(false)}
         onConfirm={retireVersion}
         title="Ngừng sử dụng phiên bản?"
-        description="Phiên bản sẽ không còn là bản hiện hành và không thể chỉnh sửa lại. Sau đó có thể sao chép bản Retired này thành một Draft mới nếu cần tiếp tục sử dụng mẫu."
+        description="Phiên bản sẽ không còn là bản hiện hành và không thể chỉnh sửa lại. Sau đó có thể sao chép phiên bản đã ngừng sử dụng này thành một bản nháp mới nếu cần tiếp tục sử dụng mẫu."
         confirmText="Ngừng sử dụng"
         variant="destructive"
         isLoading={isRetiring}
