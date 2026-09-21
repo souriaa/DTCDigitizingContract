@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { DateFilter } from "@/components/ui/custom/date-filter";
 import { DateRangeFilter } from "@/components/ui/custom/date-range-filter";
 import { DecimalInput } from "@/components/ui/custom/decimal-input";
 import { IntegerInput } from "@/components/ui/custom/integer-input";
@@ -233,6 +234,13 @@ const getPaymentAnchorLabel = (anchor: PaymentDueAnchor) => {
   }
 };
 
+const parseDateString = (str?: string) => {
+  if (!str) return undefined;
+  const [y, m, d] = str.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+};
+
 function PaymentPlanReview({
   milestones,
   currencyCode,
@@ -303,18 +311,19 @@ function PaymentPlanReview({
                 >
                   Ngày bắt đầu tính hạn
                 </Label>
-                <Input
+                <DateFilter
                   id={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
-                  type="date"
-                  value={
-                    manualDates[milestone.templatePaymentMilestoneId] ?? ""
-                  }
-                  onChange={(event) =>
+                  date={parseDateString(
+                    manualDates[milestone.templatePaymentMilestoneId],
+                  )}
+                  onChange={(date) =>
                     onManualDateChange(
                       milestone.templatePaymentMilestoneId,
-                      event.target.value,
+                      date ? format(date, "yyyy-MM-dd") : "",
                     )
                   }
+                  placeholder="Chọn ngày bắt đầu tính hạn"
+                  className="flex-1"
                 />
               </div>
             )}
@@ -2349,10 +2358,19 @@ export default function CreateContractPage() {
                                   <div className="min-w-0 space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p className="font-medium">
-                                        {appendix.appendixCode} — {appendix.appendixName}
+                                        {appendix.appendixCode} —{" "}
+                                        {appendix.appendixName}
                                       </p>
-                                      <Badge variant={appendix.isRequired ? "default" : "outline"}>
-                                        {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
+                                      <Badge
+                                        variant={
+                                          appendix.isRequired
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                      >
+                                        {appendix.isRequired
+                                          ? "Bắt buộc"
+                                          : "Tùy chọn"}
                                       </Badge>
                                     </div>
                                     {appendix.appendixDescription && (
@@ -2367,20 +2385,24 @@ export default function CreateContractPage() {
                                   <Switch
                                     aria-label={`Chọn phụ lục ${appendix.appendixName}`}
                                     checked={checked}
-                                    disabled={appendix.isRequired || isSubmitting}
+                                    disabled={
+                                      appendix.isRequired || isSubmitting
+                                    }
                                     onCheckedChange={(nextChecked) =>
-                                      setSelectedOptionalAppendixIds((current) =>
-                                        nextChecked
-                                          ? Array.from(
-                                              new Set([
-                                                ...current,
-                                                appendix.templateAppendixId,
-                                              ]),
-                                            )
-                                          : current.filter(
-                                              (id) =>
-                                                id !== appendix.templateAppendixId,
-                                            ),
+                                      setSelectedOptionalAppendixIds(
+                                        (current) =>
+                                          nextChecked
+                                            ? Array.from(
+                                                new Set([
+                                                  ...current,
+                                                  appendix.templateAppendixId,
+                                                ]),
+                                              )
+                                            : current.filter(
+                                                (id) =>
+                                                  id !==
+                                                  appendix.templateAppendixId,
+                                              ),
                                       )
                                     }
                                   />
@@ -2677,7 +2699,8 @@ export default function CreateContractPage() {
                                 className="flex items-center justify-between gap-3 text-sm"
                               >
                                 <span>
-                                  {appendix.appendixCode} — {appendix.appendixName}
+                                  {appendix.appendixCode} —{" "}
+                                  {appendix.appendixName}
                                 </span>
                                 {appendix.isRequired && (
                                   <Badge variant="secondary">Bắt buộc</Badge>

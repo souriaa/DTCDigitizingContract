@@ -81,10 +81,7 @@ const CONTRACT_DOCUMENT_TYPES = new Set<TemplateDocumentType>([
   TemplateDocumentType.SoftwareUpkeepContract,
 ]);
 
-const CONTRACT_ONLY_TABS = new Set<WorkspaceTab>([
-  "legal-bases",
-  "appendices",
-]);
+const CONTRACT_ONLY_TABS = new Set<WorkspaceTab>(["legal-bases", "appendices"]);
 
 const ACCEPTANCE_SECTION_ERROR_CODES = new Set([
   "AcceptanceSectionsMissing",
@@ -102,22 +99,26 @@ const APPENDIX_PUBLISH_ERROR_CODES = new Set([
 const LEGAL_BASES_RENDER_ERROR_CODES = new Set(["LegalBasesMarkerMissing"]);
 
 const isAppendixPublishError = (error: unknown) => {
-  const data = (error as {
-    response?: { data?: { code?: string; errors?: string[] } };
-  }).response?.data;
+  const data = (
+    error as {
+      response?: { data?: { code?: string; errors?: string[] } };
+    }
+  ).response?.data;
   return Boolean(
     (data?.code && APPENDIX_PUBLISH_ERROR_CODES.has(data.code)) ||
-      data?.errors?.some((code) => APPENDIX_PUBLISH_ERROR_CODES.has(code)),
+    data?.errors?.some((code) => APPENDIX_PUBLISH_ERROR_CODES.has(code)),
   );
 };
 
 const isLegalBasesRenderError = (error: unknown) => {
-  const data = (error as {
-    response?: { data?: { code?: string; errors?: string[] } };
-  }).response?.data;
+  const data = (
+    error as {
+      response?: { data?: { code?: string; errors?: string[] } };
+    }
+  ).response?.data;
   return Boolean(
     (data?.code && LEGAL_BASES_RENDER_ERROR_CODES.has(data.code)) ||
-      data?.errors?.some((code) => LEGAL_BASES_RENDER_ERROR_CODES.has(code)),
+    data?.errors?.some((code) => LEGAL_BASES_RENDER_ERROR_CODES.has(code)),
   );
 };
 
@@ -173,6 +174,12 @@ export default function ContractTemplateVersionWorkspacePage() {
   >(null);
   const [isRetireOpen, setIsRetireOpen] = useState(false);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [openTemplateTermIds, setOpenTemplateTermIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const [openTemplateAppendixIds, setOpenTemplateAppendixIds] = useState<
+    Set<number>
+  >(new Set());
 
   const fetchWorkspace = useCallback(
     async (showLoading = true) => {
@@ -196,9 +203,7 @@ export default function ContractTemplateVersionWorkspacePage() {
         }
         setTemplate(templateResponse);
         setVersion(versionResponse);
-        if (
-          !CONTRACT_DOCUMENT_TYPES.has(templateResponse.documentType)
-        ) {
+        if (!CONTRACT_DOCUMENT_TYPES.has(templateResponse.documentType)) {
           setActiveTab((current) => {
             if (CONTRACT_ONLY_TABS.has(current)) return "overview";
             if (
@@ -484,8 +489,7 @@ export default function ContractTemplateVersionWorkspacePage() {
   );
   const isAcceptanceDocument =
     template?.documentType === TemplateDocumentType.AcceptanceRecord;
-  const supportsStructuredContent =
-    isContractDocument || isAcceptanceDocument;
+  const supportsStructuredContent = isContractDocument || isAcceptanceDocument;
   const hasTerms = Boolean(version?.terms.length);
   const paymentTerms =
     version?.terms.filter(
@@ -504,22 +508,22 @@ export default function ContractTemplateVersionWorkspacePage() {
       paymentPercentTotal === 100);
   const hasValidAcceptanceSections = Boolean(
     !isAcceptanceDocument ||
-      (version?.terms.length &&
-        version.terms.every(
-          (term) =>
-            term.termKind === ContractTermKind.General &&
-            (template?.languageMode !== ContractLanguageMode.Bilingual ||
-              (Boolean(term.termTitleEn?.trim()) &&
-                (!term.termContent?.trim() ||
-                  Boolean(term.termContentEn?.trim())))),
-        )),
+    (version?.terms.length &&
+      version.terms.every(
+        (term) =>
+          term.termKind === ContractTermKind.General &&
+          (template?.languageMode !== ContractLanguageMode.Bilingual ||
+            (Boolean(term.termTitleEn?.trim()) &&
+              (!term.termContent?.trim() ||
+                Boolean(term.termContentEn?.trim())))),
+      )),
   );
   const canGeneratePreview = Boolean(isDraft && hasDocument && isDocumentValid);
   const canPublish = Boolean(
     canGeneratePreview &&
-      hasPreview &&
-      (!isContractDocument || (hasTerms && hasValidPaymentMilestones)) &&
-      hasValidAcceptanceSections,
+    hasPreview &&
+    (!isContractDocument || (hasTerms && hasValidPaymentMilestones)) &&
+    hasValidAcceptanceSections,
   );
   const templateHasDraft = Boolean(
     template?.versions.some(
@@ -634,9 +638,12 @@ export default function ContractTemplateVersionWorkspacePage() {
                       <Info /> Tổng quan
                     </TabsTrigger>
                     {supportsStructuredContent && (
-                        <TabsTrigger value="terms">
-                          <ListChecks /> {isAcceptanceDocument ? "Nội dung nghiệm thu" : "Điều khoản"}
-                        </TabsTrigger>
+                      <TabsTrigger value="terms">
+                        <ListChecks />{" "}
+                        {isAcceptanceDocument
+                          ? "Nội dung nghiệm thu"
+                          : "Điều khoản"}
+                      </TabsTrigger>
                     )}
                     {isContractDocument && (
                       <>
@@ -662,36 +669,44 @@ export default function ContractTemplateVersionWorkspacePage() {
 
                 <TabsContent value="overview" className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {supportsStructuredContent && <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">
-                          {isAcceptanceDocument ? "Section nghiệm thu" : "Điều khoản mềm"}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-bold">
-                        {version.terms.length}
-                      </CardContent>
-                    </Card>}
-                    {isContractDocument && <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">
-                          Phụ lục đính kèm
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-bold">
-                        {version.appendices?.length ?? 0}
-                      </CardContent>
-                    </Card>}
-                    {isContractDocument && <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">
-                          Căn cứ hợp đồng
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-bold">
-                        {version.legalBases?.length ?? 0}
-                      </CardContent>
-                    </Card>}
+                    {supportsStructuredContent && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-muted-foreground">
+                            {isAcceptanceDocument
+                              ? "Section nghiệm thu"
+                              : "Điều khoản mềm"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-2xl font-bold">
+                          {version.terms.length}
+                        </CardContent>
+                      </Card>
+                    )}
+                    {isContractDocument && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-muted-foreground">
+                            Phụ lục đính kèm
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-2xl font-bold">
+                          {version.appendices?.length ?? 0}
+                        </CardContent>
+                      </Card>
+                    )}
+                    {isContractDocument && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-muted-foreground">
+                            Căn cứ hợp đồng
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-2xl font-bold">
+                          {version.legalBases?.length ?? 0}
+                        </CardContent>
+                      </Card>
+                    )}
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-muted-foreground">
@@ -747,18 +762,26 @@ export default function ContractTemplateVersionWorkspacePage() {
                 </TabsContent>
 
                 {supportsStructuredContent && (
-                    <TabsContent value="terms">
-                      <ContractTemplateTermsEditor
-                        key={`${version.templateVersionId}-${version.status}-${version.rowVersion}`}
-                        version={version}
-                        isBilingual={
-                          template.languageMode ===
-                          ContractLanguageMode.Bilingual
-                        }
-                        mode={isAcceptanceDocument ? "acceptance" : "contract"}
-                        onRefresh={() => fetchWorkspace(false)}
-                      />
-                    </TabsContent>
+                  <TabsContent value="terms">
+                    <ContractTemplateTermsEditor
+                      key={`${version.templateVersionId}-${version.status}-${version.rowVersion}`}
+                      version={version}
+                      isBilingual={
+                        template.languageMode === ContractLanguageMode.Bilingual
+                      }
+                      mode={isAcceptanceDocument ? "acceptance" : "contract"}
+                      openTermIds={openTemplateTermIds}
+                      onTermOpenChange={(termId, open) =>
+                        setOpenTemplateTermIds((current) => {
+                          const next = new Set(current);
+                          if (open) next.add(termId);
+                          else next.delete(termId);
+                          return next;
+                        })
+                      }
+                      onRefresh={() => fetchWorkspace(false)}
+                    />
+                  </TabsContent>
                 )}
 
                 {isContractDocument && (
@@ -785,6 +808,15 @@ export default function ContractTemplateVersionWorkspacePage() {
                           ContractLanguageMode.Bilingual
                         }
                         publishError={appendixPublishError}
+                        openAppendixIds={openTemplateAppendixIds}
+                        onAppendixOpenChange={(appendixId, open) =>
+                          setOpenTemplateAppendixIds((current) => {
+                            const next = new Set(current);
+                            if (open) next.add(appendixId);
+                            else next.delete(appendixId);
+                            return next;
+                          })
+                        }
                         onRefresh={() => fetchWorkspace(false)}
                       />
                     </TabsContent>

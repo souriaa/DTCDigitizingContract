@@ -65,7 +65,9 @@ interface ContractTermCardProps {
   titleLabel?: string;
   contentLabel?: string;
   showNegotiation?: boolean;
+  open?: boolean;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onChange?: (
     field: ContractTermEditableField,
     value: string | boolean,
@@ -90,7 +92,9 @@ export function ContractTermCard({
   titleLabel = "Tiêu đề điều khoản",
   contentLabel = "Nội dung điều khoản",
   showNegotiation = true,
+  open,
   defaultOpen = false,
+  onOpenChange,
   onChange,
   onKindChange,
   onMove,
@@ -105,7 +109,7 @@ export function ContractTermCard({
         toast.error("Đổi thứ tự thất bại");
         return;
       }
-      toast.success("Đổi thứ tự thành công");
+      toast.info("Thứ tự đã được thay đổi");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message
@@ -116,7 +120,11 @@ export function ContractTermCard({
   };
 
   return (
-    <Collapsible defaultOpen={defaultOpen}>
+    <Collapsible
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
+    >
       <Card className={cn("p-4 shadow-xs", className)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-2">

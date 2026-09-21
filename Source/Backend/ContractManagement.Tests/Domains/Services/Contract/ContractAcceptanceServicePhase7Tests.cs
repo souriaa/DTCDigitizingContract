@@ -74,6 +74,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
         Assert.Equal(AcceptanceRecordStatus.Finalized, finalized.Status);
         Assert.NotNull(finalized.SnapshotHash);
         Assert.Equal(64, finalized.SnapshotHash!.Length);
+        Assert.Equal(EmployeeId, finalized.FinalizedByEmployeeId);
+        Assert.Equal("Nguyễn Văn B", finalized.FinalizedByEmployeeName);
         Assert.Equal(["docx", "pdf"],
             finalized.Artifacts.Select(x => x.Format).Order().ToArray());
         await Assert.ThrowsAsync<BusinessRuleException>(() =>

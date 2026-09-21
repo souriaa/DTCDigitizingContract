@@ -1123,6 +1123,22 @@ export function ContractAcceptanceRecords({
                     <span className="text-muted-foreground">Địa điểm:</span>{" "}
                     {selected.location}
                   </div>
+                  {selected.finalizedAt && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Ngày chốt:
+                        </span>{" "}
+                        {new Date(selected.finalizedAt).toLocaleString("vi-VN")}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Chốt bởi:
+                        </span>{" "}
+                        {selected.finalizedByEmployeeName ?? "—"}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {selected.references.map((reference) => (
@@ -1188,6 +1204,7 @@ export function ContractAcceptanceRecords({
                       onChange={(event) =>
                         setSignedFile(event.target.files?.[0])
                       }
+                      className="bg-background"
                     />
                     <Button
                       disabled={!signedFile || busy}
@@ -1391,7 +1408,7 @@ export function ContractAcceptanceRecords({
                     })
                   }
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-background">
                     <SelectValue placeholder="Chọn loại nghiệm thu" />
                   </SelectTrigger>
                   <SelectContent>

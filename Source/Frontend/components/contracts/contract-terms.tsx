@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateFilter } from "@/components/ui/custom/date-filter";
 import { ContractTermComments } from "./contract-term-comments";
 import {
   ContractTermCard,
@@ -29,6 +31,13 @@ import {
   ContractTermDetailResponse,
 } from "@/services/contract-api";
 import { ContractPaymentDueAnchor } from "@/services/contract-completion-api";
+
+const parseDateString = (str?: string | null) => {
+  if (!str) return undefined;
+  const [y, m, d] = str.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+};
 
 export function ContractTerms({
   contract,
@@ -366,17 +375,18 @@ export function ContractTerms({
                 >
                   {milestone.titleVi} — Ngày bắt đầu tính hạn
                 </Label>
-                <Input
+                <DateFilter
                   id={`contract-payment-date-${milestone.paymentMilestoneId}`}
-                  type="date"
-                  value={milestone.anchorDate?.slice(0, 10) ?? ""}
+                  date={parseDateString(milestone.anchorDate)}
                   disabled={!isEditable}
-                  onChange={(event) =>
+                  onChange={(date) =>
                     handleManualPaymentDateChange(
                       milestone.paymentMilestoneId,
-                      event.target.value,
+                      date ? format(date, "yyyy-MM-dd") : "",
                     )
                   }
+                  placeholder="Chọn ngày bắt đầu tính hạn"
+                  className="w-full flex-1"
                 />
                 <p className="text-xs text-muted-foreground">
                   Hệ thống cộng thêm {milestone.dueOffsetDays} ngày để tính hạn.

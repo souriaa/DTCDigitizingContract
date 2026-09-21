@@ -45,6 +45,8 @@ interface ContractTemplateTermsEditorProps {
   isBilingual: boolean;
   onRefresh: () => Promise<void>;
   mode?: "contract" | "acceptance";
+  openTermIds: ReadonlySet<number>;
+  onTermOpenChange: (termId: number, open: boolean) => void;
 }
 
 const reorderTerms = (terms: ContractTemplateTermResponse[]) =>
@@ -64,6 +66,8 @@ export function ContractTemplateTermsEditor({
   isBilingual,
   onRefresh,
   mode = "contract",
+  openTermIds,
+  onTermOpenChange,
 }: ContractTemplateTermsEditorProps) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
   const isAcceptance = mode === "acceptance";
@@ -358,6 +362,10 @@ export function ContractTemplateTermsEditor({
               : undefined
           }
           editable={isDraft}
+          open={openTermIds.has(term.templateTermId)}
+          onOpenChange={(open) =>
+            onTermOpenChange(term.templateTermId, open)
+          }
           isBilingual={isBilingual}
           orderLabel={isAcceptance ? "Section" : "Điều"}
           titleLabel={isAcceptance ? "Tiêu đề section" : undefined}

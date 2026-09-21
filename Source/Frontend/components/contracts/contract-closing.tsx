@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { format } from "date-fns";
+import { endOfDay, format } from "date-fns";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -733,6 +733,7 @@ export function ContractClosing({
                 onChange={setMilestonePaymentDate}
                 placeholder="Chọn ngày thanh toán"
                 className="flex-1"
+                limit={{ to: endOfDay(new Date()) }}
               />
             </div>
             <div className="space-y-2">

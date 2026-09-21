@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { DateFilter } from "@/components/ui/custom/date-filter";
-import { format } from "date-fns";
+import { endOfDay, format } from "date-fns";
 import {
   getApiErrorMessage,
   getBlobApiErrorMessage,
@@ -364,7 +364,8 @@ export function ContractSigningPanel({
                 onChange={setSignDate}
                 placeholder="Chọn ngày ký hợp đồng"
                 disabled={isSubmitting}
-                className="w-full"
+                className="flex-1"
+                limit={{ to: endOfDay(new Date()) }}
               />
               <p className="text-xs text-muted-foreground">
                 Đây là ngày ký nghiệp vụ in trên hợp đồng, không phải ngày tải

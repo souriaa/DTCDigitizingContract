@@ -119,6 +119,8 @@ export interface ContractAcceptanceRecord
   location: string;
   snapshotHash?: string | null;
   finalizedAt?: string | null;
+  finalizedByEmployeeId?: number | null;
+  finalizedByEmployeeName?: string | null;
   signedAt?: string | null;
   cancelledAt?: string | null;
   cancellationReason?: string | null;
