@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Domains.Policies.ContractTemplate;
 using DocumentFormat.OpenXml;
@@ -35,6 +36,7 @@ public sealed class ContractTemplateDocumentValidator
 
     public async Task<ContractTemplateDocumentValidationResult> ValidateAsync(
         IFormFile? file,
+        TemplateDocumentType documentType,
         CancellationToken cancellationToken = default)
     {
         var extension = GetSafeExtension(file?.FileName);
@@ -122,8 +124,7 @@ public sealed class ContractTemplateDocumentValidator
             // do not execute code. Invalid/missing placeholders still produce a
             // catalog-invalid version that cannot be published.
 
-            var catalog = _catalog is null ? ContractPlaceholderCatalog.SystemDefinitions
-                : await _catalog.GetAsync(includeInactive: true, cancellationToken: cancellationToken);
+            var catalog = await GetCatalogAsync(documentType, cancellationToken);
             return ValidatePlaceholders(roots, extension, documentBytes, catalog.Where(x => x.IsActive).ToArray(),
                 catalog.Where(x => !x.IsActive).Select(x => x.Key).ToHashSet(StringComparer.Ordinal));
         }
@@ -140,6 +141,40 @@ public sealed class ContractTemplateDocumentValidator
             return ContractTemplateDocumentValidationResult.RejectTechnical(
                 "OoxmlStructureInvalid", extension, documentBytes.LongLength);
         }
+    }
+
+    private async Task<IReadOnlyList<SoftwareSupplyPlaceholderDefinition>>
+        GetCatalogAsync(
+            TemplateDocumentType documentType,
+            CancellationToken cancellationToken)
+    {
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            if (_catalog is null)
+            {
+                return AcceptanceRecordPlaceholderCatalog.All;
+            }
+
+            var tenantCatalog = await _catalog.GetAsync(
+                includeInactive: true,
+                cancellationToken: cancellationToken);
+            return AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+        }
+
+        if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            return _catalog is null
+                ? ContractPlaceholderCatalog.SystemDefinitions
+                : await _catalog.GetAsync(
+                    includeInactive: true,
+                    cancellationToken: cancellationToken);
+        }
+
+        return [];
     }
 
     private static ContractTemplateDocumentValidationResult ValidatePlaceholders(
@@ -191,6 +226,7 @@ public sealed class ContractTemplateDocumentValidator
             {
                 TemplatePlaceholderMultiplicity.ExactlyOne => count != 1,
                 TemplatePlaceholderMultiplicity.ZeroOrOne => count > 1,
+                TemplatePlaceholderMultiplicity.ZeroOrMore => false,
                 _ => true
             };
             if (violatesMultiplicity)

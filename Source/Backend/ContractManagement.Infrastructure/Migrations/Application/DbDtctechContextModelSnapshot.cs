@@ -620,6 +620,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("ContractId", "AcceptanceCode")
                         .IsUnique();
 
+                    b.HasIndex("ContractVersionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_tbl_ContractAcceptanceRecord_ActiveVersion")
+                        .HasFilter("[Status] IN (0, 1)");
+
                     b.HasIndex("ContractVersionId", "Status");
 
                     b.ToTable("tbl_ContractAcceptanceRecord", null, t =>
@@ -777,7 +782,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<int>("SourceTemplateAppendixId")
+                    b.Property<int?>("SourceTemplateAppendixId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedDate")
@@ -1168,7 +1173,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                             t.HasCheckConstraint("CK_tbl_ContractAudit_Result", "LEN(LTRIM(RTRIM([Result]))) > 0");
 
-                            t.HasCheckConstraint("CK_tbl_ContractAudit_Subject", "([SubjectType] IS NULL AND [SubjectId] IS NULL) OR ([SubjectType] IN ('Contract', 'ContractVersion', 'NegotiationComment', 'CustomerAccessLink', 'CustomerOtpChallenge', 'CustomerAccessSession', 'ApprovalRequest', 'SignedEvidence', 'AcceptanceEvidence', 'Payment') AND [SubjectId] > 0)");
+                            t.HasCheckConstraint("CK_tbl_ContractAudit_Subject", "([SubjectType] IS NULL AND [SubjectId] IS NULL) OR ([SubjectType] IN ('Contract', 'ContractVersion', 'NegotiationComment', 'CustomerAccessLink', 'CustomerOtpChallenge', 'CustomerAccessSession', 'ApprovalRequest', 'SignedEvidence', 'ContractAppendix', 'AcceptanceRecord', 'AcceptanceEvidence', 'Payment') AND [SubjectId] > 0)");
 
                             t.HasCheckConstraint("CK_tbl_ContractAudit_TenantId", "[TenantId] > 0");
 
@@ -1230,9 +1235,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAuditValue", null, t =>
                         {
-                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode", "[FieldCode] BETWEEN 1 AND 95");
+                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode", "[FieldCode] BETWEEN 1 AND 99");
 
-                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldKind", "([ValueKind] = 2 AND [FieldCode] IN (11,12,13,14,55,60,61)) OR ([ValueKind] = 4 AND [FieldCode] IN (8,9,45,54,62,63,64,85,91,92,95)) OR ([ValueKind] = 5 AND [FieldCode] IN (27,68)) OR ([ValueKind] = 3 AND [FieldCode] IN (5,6,7,10,17,18,19,20,21,22,32,34,36,43,47,48,56,57,73,74,77,79,80,82,87,90,93)) OR ([ValueKind] = 1 AND [FieldCode] NOT IN (5,6,7,8,9,10,11,12,13,14,17,18,19,20,21,22,27,32,34,36,43,45,47,48,54,55,56,57,60,61,62,63,64,68,73,74,77,79,80,82,85,87,90,91,92,93,95))");
+                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldKind", "([ValueKind] = 2 AND [FieldCode] IN (11,12,13,14,55,60,61)) OR ([ValueKind] = 4 AND [FieldCode] IN (8,9,45,54,62,63,64,85,91,92,95,98)) OR ([ValueKind] = 5 AND [FieldCode] IN (27,68)) OR ([ValueKind] = 3 AND [FieldCode] IN (5,6,7,10,17,18,19,20,21,22,32,34,36,43,47,48,56,57,73,74,77,79,80,82,87,90,93)) OR ([ValueKind] = 1 AND [FieldCode] NOT IN (5,6,7,8,9,10,11,12,13,14,17,18,19,20,21,22,27,32,34,36,43,45,47,48,54,55,56,57,60,61,62,63,64,68,73,74,77,79,80,82,85,87,90,91,92,93,95,98))");
 
                             t.HasCheckConstraint("CK_tbl_ContractAuditValue_Side", "[ValueSide] IN (1, 2)");
 
@@ -5355,8 +5360,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractTemplateAppendix", null)
                         .WithMany()
                         .HasForeignKey("SourceTemplateAppendixId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblEmployee", null)
                         .WithMany()

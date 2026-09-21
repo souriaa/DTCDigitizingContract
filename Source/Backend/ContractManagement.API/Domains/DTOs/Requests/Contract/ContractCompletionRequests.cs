@@ -3,14 +3,6 @@ using ContractManagement.API.Common.Enums;
 
 namespace ContractManagement.API.Domains.DTOs.Requests.Contract;
 
-public sealed class UploadContractAcceptanceEvidenceRequest
-{
-    public IFormFile File { get; set; } = null!;
-    public int CurrentVersionId { get; set; }
-    public string ContractRowVersion { get; set; } = string.Empty;
-    public string VersionRowVersion { get; set; } = string.Empty;
-}
-
 public sealed class AddContractPaymentRequest
 {
     public IFormFile? EvidenceFile { get; set; }

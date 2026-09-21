@@ -11,6 +11,8 @@ public sealed class ContractTemplateFilterRequest
     public int PageSize { get; set; } = 20;
 
     public string? Keyword { get; set; }
+
+    public TemplateDocumentType? DocumentType { get; set; }
 }
 
 public sealed class AvailableContractTemplateFilterRequest
@@ -35,6 +37,9 @@ public sealed class CreateContractTemplateRequest
     public string TemplateName { get; set; } = string.Empty;
 
     public string? TemplateNameEn { get; set; }
+
+    [EnumDataType(typeof(TemplateDocumentType))]
+    public TemplateDocumentType DocumentType { get; set; }
 
     [Required]
     public ContractLanguageMode LanguageMode { get; set; }

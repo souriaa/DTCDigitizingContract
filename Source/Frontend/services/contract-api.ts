@@ -242,7 +242,7 @@ export interface ContractAppendixResponse {
   appendixId: number;
   contractId: number;
   versionId: number;
-  sourceTemplateAppendixId: number;
+  sourceTemplateAppendixId?: number | null;
   appendixCode: string;
   appendixName: string;
   appendixNameEn?: string | null;
@@ -276,6 +276,25 @@ export interface CreateContractAppendixTermRequest {
 export interface UpdateContractAppendixTermRequest
   extends CreateContractAppendixTermRequest {
   rowVersion: string;
+}
+
+export interface CreateContractAppendixRequest {
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  versionRowVersion: string;
+}
+
+export interface ReorderContractAppendixItem {
+  appendixId: number;
+  rowVersion: string;
+  displayOrder: number;
+}
+
+export interface ReorderContractAppendicesRequest {
+  versionRowVersion: string;
+  appendices: ReorderContractAppendixItem[];
 }
 
 export interface ContractPaymentMilestoneDateRequest {
@@ -880,6 +899,15 @@ export const contractApi = {
       `${BASE_URL}/${contractId}/versions/${versionId}/appendices`,
       { templateAppendixId, versionRowVersion },
     ),
+  createAppendix: (
+    contractId: number,
+    versionId: number,
+    data: CreateContractAppendixRequest,
+  ) =>
+    axiosClient.post<unknown, ContractAppendixResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/custom`,
+      data,
+    ),
   deleteAppendix: (
     contractId: number,
     versionId: number,
@@ -890,6 +918,15 @@ export const contractApi = {
     axiosClient.delete<any, { appendixId: number }>(
       `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}`,
       { data: { rowVersion, versionRowVersion } },
+    ),
+  reorderAppendices: (
+    contractId: number,
+    versionId: number,
+    data: ReorderContractAppendicesRequest,
+  ) =>
+    axiosClient.put<unknown, ContractAppendixResponse[]>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/order`,
+      data,
     ),
   addAppendixTerm: (
     contractId: number,

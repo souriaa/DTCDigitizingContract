@@ -186,9 +186,15 @@ namespace ContractManagement.Domains.Interfaces.Contract
         Task<ContractAppendixResponse> AddAppendixAsync(
             int contractId, int versionId, AddContractAppendixRequest request,
             int employeeId);
+        Task<ContractAppendixResponse> CreateAppendixAsync(
+            int contractId, int versionId,
+            CreateContractAppendixRequest request, int employeeId);
         Task DeleteAppendixAsync(
             int contractId, int versionId, int appendixId,
             DeleteContractAppendixRequest request, int employeeId);
+        Task<IReadOnlyList<ContractAppendixResponse>> ReorderAppendicesAsync(
+            int contractId, int versionId,
+            ReorderContractAppendicesRequest request, int employeeId);
         Task<ContractAppendixTermResponse> AddAppendixTermAsync(
             int contractId, int versionId, int appendixId,
             CreateContractAppendixTermRequest request, int employeeId);

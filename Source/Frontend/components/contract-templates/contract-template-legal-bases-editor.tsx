@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  FileText,
   Loader2,
   Pencil,
   Plus,
@@ -12,6 +13,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CodeInput } from "@/components/ui/custom/code-input";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
@@ -38,12 +40,14 @@ import { Card } from "../ui/card";
 interface Props {
   version: ContractTemplateVersionDetailResponse;
   isBilingual: boolean;
+  publishError?: string | null;
   onRefresh: () => Promise<void>;
 }
 
 export function ContractTemplateLegalBasesEditor({
   version,
   isBilingual,
+  publishError,
   onRefresh,
 }: Props) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
@@ -65,6 +69,15 @@ export function ContractTemplateLegalBasesEditor({
   const [deleting, setDeleting] =
     useState<ContractTemplateLegalBasisResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const copyLegalBasesMarker = async () => {
+    try {
+      await navigator.clipboard.writeText("{{CONTRACT_LEGAL_BASES}}");
+      toast.success("Đã sao chép {{CONTRACT_LEGAL_BASES}}.");
+    } catch {
+      toast.error("Không thể sao chép marker.");
+    }
+  };
 
   const openCreate = () => {
     let index = 1;
@@ -184,6 +197,35 @@ export function ContractTemplateLegalBasesEditor({
 
   return (
     <div className="space-y-4">
+      {bases.length > 0 && (
+        <Alert>
+          <FileText />
+          <AlertTitle>Vị trí chèn căn cứ trong DOCX</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              DOCX nguồn phải có đúng một marker{" "}
+              <code>{"{{CONTRACT_LEGAL_BASES}}"}</code> tại vị trí cần chèn căn
+              cứ hợp đồng. Nếu DOCX đã được upload trước khi thêm căn cứ, hãy
+              chèn marker, upload lại tài liệu và tạo preview mới.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copyLegalBasesMarker}
+            >
+              Sao chép marker
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {publishError && bases.length > 0 && (
+        <Alert variant="destructive">
+          <FileText />
+          <AlertTitle>Chưa thể tạo preview hoặc phát hành</AlertTitle>
+          <AlertDescription>{publishError}</AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col justify-between gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
         <div>
           <p className="font-semibold">Căn cứ hợp đồng ({bases.length})</p>

@@ -826,7 +826,8 @@ namespace ContractManagement.Domains.Services.Contract
                     await _dbContext.SaveChangesAsync();
 
                     var contractAppendicesBySource = contractAppendices
-                        .ToDictionary(x => x.SourceTemplateAppendixId);
+                        .Where(x => x.SourceTemplateAppendixId.HasValue)
+                        .ToDictionary(x => x.SourceTemplateAppendixId!.Value);
                     var contractAppendixTerms = templateAppendixTerms
                         .Where(source => contractAppendicesBySource.ContainsKey(
                             source.TemplateAppendixId))

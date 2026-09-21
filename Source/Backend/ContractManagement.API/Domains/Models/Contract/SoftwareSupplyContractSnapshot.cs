@@ -27,7 +27,7 @@ public sealed record SoftwareSupplyContractSnapshot(
 
 public sealed record ContractAppendixLegalSnapshot(
     int AppendixId,
-    int SourceTemplateAppendixId,
+    int? SourceTemplateAppendixId,
     string AppendixCode,
     string AppendixName,
     string? AppendixNameEn,
@@ -470,7 +470,7 @@ public static class SoftwareSupplyContractSnapshotFactory
         foreach (var appendix in appendices)
         {
             writer.Write(appendix.AppendixId);
-            writer.Write(appendix.SourceTemplateAppendixId);
+            WriteNullableInt(writer, appendix.SourceTemplateAppendixId);
             WriteString(writer, appendix.AppendixCode);
             WriteString(writer, appendix.AppendixName);
             WriteString(writer, appendix.AppendixNameEn);

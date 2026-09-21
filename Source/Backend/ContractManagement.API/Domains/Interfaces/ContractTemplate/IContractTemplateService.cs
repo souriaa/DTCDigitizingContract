@@ -1,6 +1,7 @@
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
+using ContractManagement.Common.Enums;
 
 namespace ContractManagement.Domains.Interfaces.ContractTemplate;
 
@@ -19,6 +20,7 @@ public interface IContractTemplateService
         CancellationToken cancellationToken = default);
 
     Task<SoftwareSupplyPlaceholderCatalogResponse> GetPlaceholderCatalogAsync(
+        TemplateDocumentType documentType,
         int employeeId,
         CancellationToken cancellationToken = default);
 

@@ -25,8 +25,6 @@ export const contractCompletionApi = {
   get: (contractId: number) => axiosClient.get<unknown, ContractCompletionDetailResponse>(`${BASE_URL}/${contractId}/completion`),
   getReadiness: (contractId: number) => axiosClient.get<unknown, ContractCompletionReadinessResponse>(`${BASE_URL}/${contractId}/completion-readiness`),
   getPaymentMilestones: (contractId: number, versionId: number) => axiosClient.get<unknown, ContractPaymentMilestoneResponse[]>(`${BASE_URL}/${contractId}/versions/${versionId}/payment-milestones`),
-  uploadAcceptance: (contractId: number, values: { file: File; currentVersionId: number; contractRowVersion: string; versionRowVersion: string }) =>
-    axiosClient.post<unknown, ContractAcceptanceEvidenceResponse>(`${BASE_URL}/${contractId}/acceptance-evidence`, multipart(values), { headers: { "Content-Type": "multipart/form-data" } }),
   addPayment: (contractId: number, values: { evidenceFile?: File; currentVersionId: number; contractRowVersion: string; versionRowVersion: string; paymentDate: string; amount: number; currencyCode: string; paymentMethod: string; referenceCode: string }) =>
     axiosClient.post<unknown, ContractPaymentResponse>(`${BASE_URL}/${contractId}/payments`, multipart(values), { headers: { "Content-Type": "multipart/form-data" } }),
   completePaymentMilestone: (contractId: number, versionId: number, milestoneId: number, values: { evidenceFile: File; currentVersionId: number; contractRowVersion: string; versionRowVersion: string; milestoneRowVersion: string; paymentDate: string; paymentMethod: string; referenceCode: string }) =>

@@ -15,7 +15,8 @@ public enum TemplatePlaceholderDataKind
 public enum TemplatePlaceholderMultiplicity
 {
     ExactlyOne = 1,
-    ZeroOrOne = 2
+    ZeroOrOne = 2,
+    ZeroOrMore = 3
 }
 
 /// <summary>

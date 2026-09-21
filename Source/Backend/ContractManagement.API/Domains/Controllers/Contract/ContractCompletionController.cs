@@ -31,12 +31,6 @@ public sealed class ContractCompletionController : ControllerBase
         Ok(ApiResponse<IReadOnlyList<ContractPaymentMilestoneResponse>>.Ok(
             await _service.GetPaymentMilestonesAsync(contractId, versionId, EmployeeId(), ct)));
 
-    [HttpPost("acceptance-evidence")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
-    [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadAcceptance(int contractId, [FromForm] UploadContractAcceptanceEvidenceRequest request, CancellationToken ct) =>
-        Ok(ApiResponse<ContractAcceptanceEvidenceResponse>.Ok(await _service.UploadAcceptanceAsync(contractId, request, EmployeeId(), ct), "Đã lưu biên bản nghiệm thu."));
-
     [HttpPost("payments")]
     [SessionAuthorize(RbacPermissions.ContractPaymentManage)]
     [Consumes("multipart/form-data")]

@@ -103,10 +103,15 @@ public sealed class ContractDocumentPreviewServiceTests
         Assert.Contains("Ngân hàng DTC", text);
         Assert.Contains("CÔNG TY KHÁCH HÀNG", text);
         Assert.Contains("Nguyễn Người liên hệ", text);
-        Assert.Contains(document.MainDocumentPart.Document.Descendants<W.Paragraph>(),
-            paragraph => paragraph.InnerText == "Nguyễn Người liên hệ");
-        Assert.Contains("Trần Customer", text);
-        Assert.Contains("Giám đốc", text);
+        var customerSignature = document.MainDocumentPart.Document
+            .Descendants<W.Paragraph>()
+            .Single(paragraph => paragraph.InnerText.StartsWith(
+                "ĐẠI DIỆN BÊN KHÁCH HÀNG",
+                StringComparison.Ordinal));
+        Assert.Contains("Lê Đầu mối", customerSignature.InnerText);
+        Assert.Contains("Quản lý dự án", customerSignature.InnerText);
+        Assert.DoesNotContain("Trần Customer", customerSignature.InnerText);
+        Assert.DoesNotContain("Giám đốc", customerSignature.InnerText);
         Assert.Contains("02473000003", text);
         Assert.Contains("02473000004", text);
         Assert.Contains("012345678901", text);
@@ -361,6 +366,8 @@ public sealed class ContractDocumentPreviewServiceTests
             CustomerFaxNumber = "02473000004",
             CustomerRepresentativeName = "Trần Customer",
             CustomerRepresentativeTitle = "Giám đốc",
+            CustomerContactPersonName = "Lê Đầu mối",
+            CustomerContactPersonTitle = "Quản lý dự án",
             CustomerBankAccountNumber = "012345678901",
             CustomerBankName = "Ngân hàng Khách hàng",
             CustomerCountry = "Việt Nam"

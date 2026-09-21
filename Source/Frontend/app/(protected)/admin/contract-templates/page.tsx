@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/custom/data-table-server";
 import { Header } from "@/components/ui/custom/header";
+import { SelectFilter } from "@/components/ui/custom/select-filter";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { formatDateTime } from "@/lib/format-date-time";
@@ -22,9 +23,55 @@ import { ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
   getTemplateDocumentTypeLabel,
-  type ContractTemplateDetailResponse,
+  TemplateDocumentType,
   type ContractTemplateResponse,
 } from "@/services/contract-template-api";
+
+const DOCUMENT_TYPE_FILTER_OPTIONS = [
+  { label: "Tất cả loại tài liệu", value: "all" },
+  {
+    label: getTemplateDocumentTypeLabel(
+      TemplateDocumentType.SoftwareSupplyContract,
+    ),
+    value: String(TemplateDocumentType.SoftwareSupplyContract),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(
+      TemplateDocumentType.SoftwareMaintenanceContract,
+    ),
+    value: String(TemplateDocumentType.SoftwareMaintenanceContract),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(
+      TemplateDocumentType.SoftwareUpkeepContract,
+    ),
+    value: String(TemplateDocumentType.SoftwareUpkeepContract),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.Quotation),
+    value: String(TemplateDocumentType.Quotation),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.PaymentRequest),
+    value: String(TemplateDocumentType.PaymentRequest),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.HandoverRecord),
+    value: String(TemplateDocumentType.HandoverRecord),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.AcceptanceRecord),
+    value: String(TemplateDocumentType.AcceptanceRecord),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.LiquidationRecord),
+    value: String(TemplateDocumentType.LiquidationRecord),
+  },
+  {
+    label: getTemplateDocumentTypeLabel(TemplateDocumentType.Other),
+    value: String(TemplateDocumentType.Other),
+  },
+];
 
 export default function ContractTemplateListPage() {
   const router = useRouter();
@@ -34,6 +81,7 @@ export default function ContractTemplateListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<string>("all");
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 20,
@@ -54,6 +102,10 @@ export default function ContractTemplateListPage() {
         page: pagination.pageIndex + 1,
         pageSize: pagination.pageSize,
         keyword: searchTerm.trim() || undefined,
+        documentType:
+          documentTypeFilter !== "all"
+            ? (Number(documentTypeFilter) as TemplateDocumentType)
+            : undefined,
       });
       setItems(response.items ?? []);
       setTotalCount(response.totalCount ?? 0);
@@ -62,7 +114,13 @@ export default function ContractTemplateListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [canManage, pagination.pageIndex, pagination.pageSize, searchTerm]);
+  }, [
+    canManage,
+    documentTypeFilter,
+    pagination.pageIndex,
+    pagination.pageSize,
+    searchTerm,
+  ]);
 
   useEffect(() => {
     void fetchTemplates();
@@ -204,7 +262,7 @@ export default function ContractTemplateListPage() {
     [openTemplate],
   );
 
-  const handleCreated = (_template: ContractTemplateDetailResponse) => {
+  const handleCreated = () => {
     if (pagination.pageIndex === 0) {
       void fetchTemplates();
       return;
@@ -257,6 +315,18 @@ export default function ContractTemplateListPage() {
                   searchValue={searchTerm}
                   onSearchChange={setSearchTerm}
                   searchPlaceholder="Tìm theo mã hoặc tên mẫu..."
+                  filterSlot={
+                    <SelectFilter
+                      value={documentTypeFilter}
+                      onChange={(value) => {
+                        setDocumentTypeFilter(value);
+                        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                      }}
+                      options={DOCUMENT_TYPE_FILTER_OPTIONS}
+                      placeholder="Loại tài liệu"
+                      className="w-[240px]"
+                    />
+                  }
                   isLoading={isLoading}
                   onRowClick={openTemplate}
                   mobileCardRenderer={(row, { isSelected, actionCell }) => {

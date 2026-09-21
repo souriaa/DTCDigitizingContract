@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Plus, Save } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
@@ -44,6 +44,7 @@ interface ContractTemplateTermsEditorProps {
   version: ContractTemplateVersionDetailResponse;
   isBilingual: boolean;
   onRefresh: () => Promise<void>;
+  mode?: "contract" | "acceptance";
 }
 
 const reorderTerms = (terms: ContractTemplateTermResponse[]) =>
@@ -62,9 +63,13 @@ export function ContractTemplateTermsEditor({
   version,
   isBilingual,
   onRefresh,
+  mode = "contract",
 }: ContractTemplateTermsEditorProps) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
-  const [terms, setTerms] = useState<ContractTemplateTermResponse[]>([]);
+  const isAcceptance = mode === "acceptance";
+  const [terms, setTerms] = useState<ContractTemplateTermResponse[]>(() =>
+    [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
+  );
   const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
   const [isOrderDirty, setIsOrderDirty] = useState(false);
   const [orderDirtyIds, setOrderDirtyIds] = useState<Set<number>>(new Set());
@@ -80,15 +85,6 @@ export function ContractTemplateTermsEditor({
   const [newTermContent, setNewTermContent] = useState("");
   const [newTermContentEn, setNewTermContentEn] = useState("");
   const [newTermKind, setNewTermKind] = useState(ContractTermKind.General);
-
-  useEffect(() => {
-    setTerms(
-      [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
-    );
-    setDirtyIds(new Set());
-    setIsOrderDirty(false);
-    setOrderDirtyIds(new Set());
-  }, [version]);
 
   const hasUnsavedContent = dirtyIds.size > 0;
   const hasUnsavedChanges = hasUnsavedContent || isOrderDirty;
@@ -163,12 +159,14 @@ export function ContractTemplateTermsEditor({
         term.templateTermId,
         {
           termCode: term.termCode.trim(),
-          termKind: term.termKind ?? ContractTermKind.General,
+          termKind: isAcceptance
+            ? ContractTermKind.General
+            : (term.termKind ?? ContractTermKind.General),
           termTitle: term.termTitle.trim(),
           termTitleEn: term.termTitleEn?.trim() || null,
           termContent: term.termContent?.trim() || null,
           termContentEn: term.termContentEn?.trim() || null,
-          isNegotiable: term.isNegotiable,
+          isNegotiable: isAcceptance ? false : term.isNegotiable,
           displayOrder: term.displayOrder,
           rowVersion: term.rowVersion,
           versionRowVersion: latestVersion.rowVersion,
@@ -195,8 +193,8 @@ export function ContractTemplateTermsEditor({
 
     toast.success(
       pendingTerms.length === 1
-        ? `Đã lưu điều khoản ${pendingTerms[0].termCode}.`
-        : `Đã lưu ${pendingTerms.length} điều khoản.`,
+        ? `Đã lưu ${isAcceptance ? "section" : "điều khoản"} ${pendingTerms[0].termCode}.`
+        : `Đã lưu ${pendingTerms.length} ${isAcceptance ? "section" : "điều khoản"}.`,
     );
     await onRefresh();
   };
@@ -238,12 +236,15 @@ export function ContractTemplateTermsEditor({
   const openAddDialog = () => {
     if (!isDraft) return;
     if (hasUnsavedChanges) {
-      toast.error("Vui lòng lưu các thay đổi điều khoản trước khi thêm mới.");
+      toast.error(
+        `Vui lòng lưu các thay đổi ${isAcceptance ? "section" : "điều khoản"} trước khi thêm mới.`,
+      );
       return;
     }
     let index = 1;
-    while (existingCodes.has(`TERM_${index}`)) index += 1;
-    setNewTermCode(`TERM_${index}`);
+    const prefix = isAcceptance ? "SECTION" : "TERM";
+    while (existingCodes.has(`${prefix}_${index}`)) index += 1;
+    setNewTermCode(`${prefix}_${index}`);
     setNewTermTitle("");
     setNewTermTitleEn("");
     setNewTermContent("");
@@ -269,17 +270,17 @@ export function ContractTemplateTermsEditor({
     try {
       setIsAdding(true);
       await contractTemplateApi.addTerm(version.templateVersionId, {
-        termKind: newTermKind,
+        termKind: isAcceptance ? ContractTermKind.General : newTermKind,
         termCode: newTermCode.trim(),
         termTitle: newTermTitle.trim(),
         termTitleEn: newTermTitleEn.trim() || null,
         termContent: newTermContent.trim() || null,
         termContentEn: newTermContentEn.trim() || null,
-        isNegotiable: true,
+        isNegotiable: !isAcceptance,
         displayOrder: getFirstAvailableDisplayOrder(terms),
         versionRowVersion: version.rowVersion,
       });
-      toast.success("Đã thêm điều khoản.");
+      toast.success(`Đã thêm ${isAcceptance ? "section" : "điều khoản"}.`);
       setIsAddOpen(false);
       await onRefresh();
     } catch (error) {
@@ -327,7 +328,9 @@ export function ContractTemplateTermsEditor({
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
         <div>
-          <p className="font-semibold">Điều khoản mềm ({terms.length})</p>
+          <p className="font-semibold">
+            {isAcceptance ? "Nội dung nghiệm thu" : "Điều khoản mềm"} ({terms.length})
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {isDraft
               ? "Các card có viền đỏ là những thay đổi chưa được lưu."
@@ -337,7 +340,7 @@ export function ContractTemplateTermsEditor({
         {isDraft && (
           <div className="flex flex-wrap gap-2">
             <Button onClick={openAddDialog}>
-              <Plus className="size-4" /> Thêm điều khoản
+              <Plus className="size-4" /> Thêm {isAcceptance ? "section" : "điều khoản"}
             </Button>
           </div>
         )}
@@ -356,12 +359,16 @@ export function ContractTemplateTermsEditor({
           }
           editable={isDraft}
           isBilingual={isBilingual}
+          orderLabel={isAcceptance ? "Section" : "Điều"}
+          titleLabel={isAcceptance ? "Tiêu đề section" : undefined}
+          contentLabel={isAcceptance ? "Nội dung section" : undefined}
+          showNegotiation={!isAcceptance}
           canMoveUp={index > 0}
           canMoveDown={index < terms.length - 1}
           onChange={(field, value) =>
             updateTerm(term.templateTermId, field, value)
           }
-          onKindChange={(value) => {
+          onKindChange={isAcceptance ? undefined : (value) => {
             if (!isDraft) return;
             if (
               term.termKind === ContractTermKind.Payment &&
@@ -390,7 +397,7 @@ export function ContractTemplateTermsEditor({
           onMove={(direction) => moveTerm(index, direction)}
           onRemove={() => requestDeleteTerm(term)}
         >
-          {term.termKind === ContractTermKind.Payment &&
+          {!isAcceptance && term.termKind === ContractTermKind.Payment &&
             !dirtyIds.has(term.templateTermId) && (
               <ContractTemplatePaymentMilestonesEditor
                 version={version}
@@ -400,7 +407,7 @@ export function ContractTemplateTermsEditor({
                 onRefresh={onRefresh}
               />
             )}
-          {term.termKind === ContractTermKind.Payment &&
+          {!isAcceptance && term.termKind === ContractTermKind.Payment &&
             dirtyIds.has(term.templateTermId) && (
               <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
                 Lưu loại điều khoản trước khi cấu hình các đợt thanh toán.
@@ -411,8 +418,9 @@ export function ContractTemplateTermsEditor({
 
       {terms.length === 0 && (
         <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
-          Version chưa có điều khoản. Cần ít nhất một điều khoản trước khi dùng
-          để tạo hợp đồng.
+          {isAcceptance
+            ? "Template chưa có section. Cần ít nhất một section trước khi phát hành."
+            : "Version chưa có điều khoản. Cần ít nhất một điều khoản trước khi dùng để tạo hợp đồng."}
         </div>
       )}
 
@@ -422,13 +430,15 @@ export function ContractTemplateTermsEditor({
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Thêm điều khoản</DialogTitle>
+            <DialogTitle>
+              Thêm {isAcceptance ? "section nghiệm thu" : "điều khoản"}
+            </DialogTitle>
             <DialogDescription>
-              Điều khoản sẽ được thêm vào cuối danh sách hiện tại.
+              {isAcceptance ? "Section" : "Điều khoản"} sẽ được thêm vào cuối danh sách hiện tại.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
+            {!isAcceptance && <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="new-term-kind">Loại điều khoản</Label>
               <Select
                 value={String(newTermKind)}
@@ -451,7 +461,7 @@ export function ContractTemplateTermsEditor({
                   </SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div>}
             <div className="space-y-2">
               <Label htmlFor="new-term-code">
                 Mã điều khoản <span className="text-destructive">*</span>
@@ -513,8 +523,7 @@ export function ContractTemplateTermsEditor({
               Hủy
             </Button>
             <Button onClick={addTerm} disabled={isAdding}>
-              {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm
-              điều khoản
+              {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm {isAcceptance ? "section" : "điều khoản"}
             </Button>
           </DialogFooter>
         </DialogContent>

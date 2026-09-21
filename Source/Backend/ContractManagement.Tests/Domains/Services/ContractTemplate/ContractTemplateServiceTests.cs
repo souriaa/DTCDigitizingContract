@@ -32,6 +32,7 @@ public sealed class ContractTemplateServiceTests
                 TemplateCode = "  sw-supply  ",
                 TemplateName = "  Hợp đồng cung cấp  ",
                 TemplateNameEn = "Software supply",
+                DocumentType = TemplateDocumentType.AcceptanceRecord,
                 LanguageMode = ContractLanguageMode.Bilingual,
                 Description = "  Mô tả  ",
                 InitialChangeNote = "  Khởi tạo  "
@@ -40,7 +41,7 @@ public sealed class ContractTemplateServiceTests
 
         Assert.Equal("SW-SUPPLY", result.TemplateCode);
         Assert.Equal("Hợp đồng cung cấp", result.TemplateName);
-        Assert.Equal(TemplateDocumentType.SoftwareSupplyContract, result.DocumentType);
+        Assert.Equal(TemplateDocumentType.AcceptanceRecord, result.DocumentType);
         Assert.True(result.IsActive);
         Assert.Null(result.CurrentPublishedVersionId);
         var version = Assert.Single(result.Versions);
@@ -60,6 +61,56 @@ public sealed class ContractTemplateServiceTests
         Assert.Equal(
             ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
             layout.Select(column => (int)column.WidthBps));
+    }
+
+    [Fact]
+    public async Task AcceptanceTemplate_IsListedAndItsDraftCanBeOpened()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateAsync(
+            new CreateContractTemplateRequest
+            {
+                TemplateCode = "ACCEPTANCE-RECORD",
+                TemplateName = "Biên bản nghiệm thu",
+                DocumentType = TemplateDocumentType.AcceptanceRecord,
+                LanguageMode = ContractLanguageMode.Vietnamese
+            },
+            AdminOfficerId);
+
+        var list = await service.ListAsync(
+            new ContractTemplateFilterRequest(),
+            AdminOfficerId);
+
+        var listed = Assert.Single(list.Items);
+        Assert.Equal(created.TemplateId, listed.TemplateId);
+        Assert.Equal(TemplateDocumentType.AcceptanceRecord, listed.DocumentType);
+
+        var detail = await service.GetAsync(created.TemplateId, AdminOfficerId);
+        Assert.Equal(TemplateDocumentType.AcceptanceRecord, detail.DocumentType);
+
+        var draft = Assert.Single(created.Versions);
+        var openedDraft = await service.GetVersionAsync(
+            draft.TemplateVersionId,
+            AdminOfficerId);
+        Assert.Equal(draft.TemplateVersionId, openedDraft.TemplateVersionId);
+
+        var catalog = await service.GetPlaceholderCatalogAsync(
+            TemplateDocumentType.AcceptanceRecord,
+            AdminOfficerId);
+        Assert.False(catalog.CustomEnabled);
+        Assert.Contains(catalog.Items, item =>
+            item.Key == "DOCUMENT_REFERENCES" && !item.IsRequired);
+        Assert.Contains(catalog.Items, item =>
+            item.Key == "ACCEPTANCE_SECTIONS" && !item.IsRequired);
+        Assert.Contains(catalog.Items, item =>
+            item.Key == "SIGNATURE_PROVIDER" && !item.IsRequired);
+        Assert.Contains(catalog.Items, item =>
+            item.Key == "SIGNATURE_CUSTOMER" && !item.IsRequired);
+        Assert.All(catalog.Items, item => Assert.False(item.IsRequired));
+        Assert.DoesNotContain(catalog.Items, item =>
+            item.Key == "CONTRACT_ITEM_TABLE");
     }
 
     [Fact]
@@ -887,6 +938,72 @@ public sealed class ContractTemplateServiceTests
     }
 
     [Fact]
+    public async Task DraftAppendix_ReorderSwappedOrders_PersistsRequestedOrder()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateAsync(CreateRequest("APPENDIX-REORDER"),
+            AdminOfficerId);
+        var draft = Assert.Single(created.Versions);
+
+        await service.AddAppendixAsync(draft.TemplateVersionId,
+            new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX-ONE",
+                AppendixName = "Phụ lục một",
+                DisplayOrder = 1,
+                VersionRowVersion = draft.RowVersion
+            }, AdminOfficerId);
+        var afterFirst = await service.GetVersionAsync(draft.TemplateVersionId,
+            AdminOfficerId);
+        await service.AddAppendixAsync(draft.TemplateVersionId,
+            new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX-TWO",
+                AppendixName = "Phụ lục hai",
+                DisplayOrder = 2,
+                VersionRowVersion = afterFirst.RowVersion
+            }, AdminOfficerId);
+        var beforeReorder = await service.GetVersionAsync(draft.TemplateVersionId,
+            AdminOfficerId);
+        var first = beforeReorder.Appendices.Single(item =>
+            item.AppendixCode == "ANNEX-ONE");
+        var second = beforeReorder.Appendices.Single(item =>
+            item.AppendixCode == "ANNEX-TWO");
+
+        var reordered = await service.ReorderAppendicesAsync(
+            draft.TemplateVersionId,
+            new ReorderContractTemplateAppendicesRequest
+            {
+                VersionRowVersion = beforeReorder.RowVersion,
+                Appendices =
+                [
+                    new()
+                    {
+                        TemplateAppendixId = first.TemplateAppendixId,
+                        RowVersion = first.RowVersion,
+                        DisplayOrder = 2
+                    },
+                    new()
+                    {
+                        TemplateAppendixId = second.TemplateAppendixId,
+                        RowVersion = second.RowVersion,
+                        DisplayOrder = 1
+                    }
+                ]
+            },
+            AdminOfficerId);
+
+        Assert.Equal(
+            ["ANNEX-TWO", "ANNEX-ONE"],
+            reordered.Appendices.Select(item => item.AppendixCode));
+        Assert.Equal(
+            [1, 2],
+            reordered.Appendices.Select(item => item.DisplayOrder));
+    }
+
+    [Fact]
     public async Task CopyVersion_CopiesAppendixDefinitionsAndTermsIntoNewRows()
     {
         await using var context = CreateContext();
@@ -991,6 +1108,7 @@ public sealed class ContractTemplateServiceTests
     {
         TemplateCode = code,
         TemplateName = $"Template {code}",
+        DocumentType = TemplateDocumentType.SoftwareSupplyContract,
         LanguageMode = ContractLanguageMode.Vietnamese
     };
 

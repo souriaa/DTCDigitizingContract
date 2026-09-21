@@ -39,6 +39,7 @@ import {
 } from "./contract-placeholder-form";
 import {
   contractTemplateApi,
+  TemplateDocumentType,
   TemplatePlaceholderDataKind,
   TemplatePlaceholderMultiplicity,
   type SoftwareSupplyPlaceholderCatalogResponse,
@@ -55,7 +56,9 @@ const getDataKindLabel = (dataKind: TemplatePlaceholderDataKind) =>
 const getMultiplicityLabel = (multiplicity: TemplatePlaceholderMultiplicity) =>
   multiplicity === TemplatePlaceholderMultiplicity.ExactlyOne
     ? "Xuất hiện đúng 1 lần"
-    : "Có thể không xuất hiện hoặc xuất hiện 1 lần";
+    : multiplicity === TemplatePlaceholderMultiplicity.ZeroOrMore
+      ? "Có thể không xuất hiện hoặc lặp lại"
+      : "Có thể không xuất hiện hoặc xuất hiện 1 lần";
 
 function PlaceholderCard({
   item,
@@ -187,7 +190,11 @@ function PlaceholderCard({
   );
 }
 
-export function ContractTemplatePlaceholderCatalog() {
+export function ContractTemplatePlaceholderCatalog({
+  documentType,
+}: {
+  documentType: TemplateDocumentType;
+}) {
   const [catalog, setCatalog] =
     useState<SoftwareSupplyPlaceholderCatalogResponse | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -212,7 +219,7 @@ export function ContractTemplatePlaceholderCatalog() {
 
   const fetchCatalog = useCallback(async () => {
     try {
-      setCatalog(await contractTemplateApi.getPlaceholderCatalog());
+      setCatalog(await contractTemplateApi.getPlaceholderCatalog(documentType));
       setLoadError(false);
     } catch (error) {
       setLoadError(true);
@@ -220,12 +227,12 @@ export function ContractTemplatePlaceholderCatalog() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [documentType]);
 
   useEffect(() => {
     let active = true;
     contractTemplateApi
-      .getPlaceholderCatalog()
+      .getPlaceholderCatalog(documentType)
       .then((data) => {
         if (active) setCatalog(data);
       })
@@ -241,7 +248,7 @@ export function ContractTemplatePlaceholderCatalog() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [documentType]);
 
   const filteredItems = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLocaleLowerCase();

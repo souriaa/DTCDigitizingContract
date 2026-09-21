@@ -36,7 +36,9 @@ public sealed class ContractPlaceholderDefinitionService(
         key = key.ToUpperInvariant();
         if (key.Length > 100 || !Regex.IsMatch(key, "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$", RegexOptions.CultureInvariant))
             throw new PlaceholderOperationException("PlaceholderKeyInvalid", "Key chỉ gồm chữ in hoa, số và dấu gạch dưới; bắt đầu bằng chữ.");
-        if (ContractPlaceholderCatalog.SystemDefinitions.Any(x => x.Key == key))
+        if (ContractPlaceholderCatalog.SystemDefinitions.Any(x => x.Key == key)
+            || AcceptanceRecordPlaceholderCatalog.All.Any(x => x.Key == key
+                && x.Key != "CUSTOMER_REPRESENTATIVE_TITLE"))
             throw new PlaceholderOperationException("SystemPlaceholderImmutable", "Không thể thay đổi hoặc dùng trùng key hệ thống.");
         if (string.IsNullOrWhiteSpace(request.FieldLabel) || request.FieldLabel.Length > 300 || request.DefaultValue?.Length > 2000)
             throw new PlaceholderOperationException("PlaceholderKeyInvalid", "Tên hiển thị hoặc giá trị mặc định không hợp lệ.");

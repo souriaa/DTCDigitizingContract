@@ -14,6 +14,7 @@ public static class ContractAuditSubjectTypes
     public const string ApprovalRequest = "ApprovalRequest";
     public const string SignedEvidence = "SignedEvidence";
     public const string ContractAppendix = "ContractAppendix";
+    public const string AcceptanceRecord = "AcceptanceRecord";
     public const string AcceptanceEvidence = "AcceptanceEvidence";
     public const string Payment = "Payment";
 }
@@ -157,7 +158,11 @@ public enum ContractAuditFieldCode : short
     HardExpiresAt,
     RevocationReasonCode,
     AppendixCount,
-    SignDate
+    SignDate,
+    AcceptanceRecordId,
+    AcceptanceKind,
+    AcceptanceDate,
+    AcceptanceStatus
 }
 
 public sealed record ContractAuditValueInput(
@@ -217,6 +222,7 @@ internal static class ContractAuditFieldKinds
                 or ContractAuditFieldCode.ExpireDate
                 or ContractAuditFieldCode.UploadDate
                 or ContractAuditFieldCode.SignDate
+                or ContractAuditFieldCode.AcceptanceDate
                 or ContractAuditFieldCode.PaymentDate
                 or ContractAuditFieldCode.AnchorDate
                 or ContractAuditFieldCode.DueDate
@@ -283,6 +289,10 @@ public static class ContractAuditActionTypes
     public const string SignedEvidenceSuperseded =
         "SignedEvidenceSuperseded";
     public const string AcceptanceEvidenceUploaded = "AcceptanceEvidenceUploaded";
+    public const string AcceptanceRecordCreated = "AcceptanceRecordCreated";
+    public const string AcceptanceRecordUpdated = "AcceptanceRecordUpdated";
+    public const string AcceptanceRecordFinalized = "AcceptanceRecordFinalized";
+    public const string AcceptanceRecordCancelled = "AcceptanceRecordCancelled";
     public const string PaymentAdded = "PaymentAdded";
     public const string PaymentVoided = "PaymentVoided";
     public const string PaymentMilestoneAnchored = "PaymentMilestoneAnchored";
@@ -296,7 +306,9 @@ public static class ContractAuditActionTypes
     public const string NegotiationRoundCreated =
         "NegotiationRoundCreated";
     public const string ContractAppendixSelected = "ContractAppendixSelected";
+    public const string ContractAppendixCreated = "ContractAppendixCreated";
     public const string ContractAppendixRemoved = "ContractAppendixRemoved";
+    public const string ContractAppendicesReordered = "ContractAppendicesReordered";
     public const string ContractAppendixTermCreated = "ContractAppendixTermCreated";
     public const string ContractAppendixTermUpdated = "ContractAppendixTermUpdated";
     public const string ContractAppendixTermDeleted = "ContractAppendixTermDeleted";

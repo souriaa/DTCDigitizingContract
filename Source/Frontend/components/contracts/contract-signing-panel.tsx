@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
+import { DateFilter } from "@/components/ui/custom/date-filter";
+import { format } from "date-fns";
 import {
   getApiErrorMessage,
   getBlobApiErrorMessage,
@@ -72,7 +74,11 @@ export function ContractSigningPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [signDate, setSignDate] = useState(contract.signDate?.slice(0, 10) ?? "");
+  const [signDate, setSignDate] = useState<Date | undefined>(() => {
+    if (!contract.signDate) return undefined;
+    const d = new Date(contract.signDate);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  });
   const [supersedeReason, setSupersedeReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(
@@ -133,7 +139,7 @@ export function ContractSigningPanel({
 
     const filePayload = {
       file: selectedFile,
-      signDate,
+      signDate: format(signDate, "yyyy-MM-dd"),
       currentVersionId: detail.versionId,
       contractRowVersion: detail.contractRowVersion,
       versionRowVersion: detail.versionRowVersion,
@@ -352,16 +358,17 @@ export function ContractSigningPanel({
               <Label htmlFor="contract-sign-date">
                 Ngày ký hợp đồng <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <DateFilter
                 id="contract-sign-date"
-                type="date"
-                value={signDate}
-                max={todayLocalIso()}
+                date={signDate}
+                onChange={setSignDate}
+                placeholder="Chọn ngày ký hợp đồng"
                 disabled={isSubmitting}
-                onChange={(event) => setSignDate(event.target.value)}
+                className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                Đây là ngày ký nghiệp vụ in trên hợp đồng, không phải ngày tải file lên.
+                Đây là ngày ký nghiệp vụ in trên hợp đồng, không phải ngày tải
+                file lên.
               </p>
             </div>
 

@@ -28,6 +28,7 @@ public sealed class ContractAuditWriter : IContractAuditWriter
         ContractAuditSubjectTypes.ApprovalRequest,
         ContractAuditSubjectTypes.SignedEvidence,
         ContractAuditSubjectTypes.ContractAppendix,
+        ContractAuditSubjectTypes.AcceptanceRecord,
         ContractAuditSubjectTypes.AcceptanceEvidence,
         ContractAuditSubjectTypes.Payment
     ];
@@ -56,6 +57,10 @@ public sealed class ContractAuditWriter : IContractAuditWriter
                 SignedEvidenceFields(),
             [ContractAuditActionTypes.AcceptanceEvidenceUploaded] =
                 Fields("AcceptanceEvidenceId", "FileId", "FileType", "Sha256", "CurrentVersionId"),
+            [ContractAuditActionTypes.AcceptanceRecordCreated] = AcceptanceFields(),
+            [ContractAuditActionTypes.AcceptanceRecordUpdated] = AcceptanceFields(),
+            [ContractAuditActionTypes.AcceptanceRecordFinalized] = AcceptanceFields(),
+            [ContractAuditActionTypes.AcceptanceRecordCancelled] = AcceptanceFields(),
             [ContractAuditActionTypes.PaymentAdded] = PaymentFields(),
             [ContractAuditActionTypes.PaymentVoided] = PaymentFields(),
             [ContractAuditActionTypes.PaymentMilestoneAnchored] =
@@ -75,7 +80,11 @@ public sealed class ContractAuditWriter : IContractAuditWriter
                     "CarriedForwardThreadCount", "CarriedForwardCommentCount"),
             [ContractAuditActionTypes.ContractAppendixSelected] =
                 Fields("CurrentVersionId", "AppendixCount"),
+            [ContractAuditActionTypes.ContractAppendixCreated] =
+                Fields("CurrentVersionId", "AppendixCount"),
             [ContractAuditActionTypes.ContractAppendixRemoved] =
+                Fields("CurrentVersionId", "AppendixCount"),
+            [ContractAuditActionTypes.ContractAppendicesReordered] =
                 Fields("CurrentVersionId", "AppendixCount"),
             [ContractAuditActionTypes.ContractAppendixTermCreated] =
                 Fields("CurrentVersionId", "AppendixCount"),
@@ -500,6 +509,12 @@ public sealed class ContractAuditWriter : IContractAuditWriter
         "ContractPaymentId", "PaymentMilestoneId", "CurrentVersionId", "PaymentDate", "Amount",
         "CurrencyCode", "PaymentMethod", "ReferenceCode", "EvidenceFileId",
         "PaymentStatus", "PaidAmount", "RemainingAmount");
+
+    private static HashSet<ContractAuditFieldCode> AcceptanceFields() => Fields(
+        "AcceptanceRecordId", "CurrentVersionId", "TemplateVersionId",
+        "AcceptanceKind", "AcceptanceDate", "AcceptanceStatus",
+        "AppendixCount", "SnapshotHash", "DocxFileId", "DocxHash",
+        "PdfFileId", "PdfHash", "ArtifactCount");
 
     private static HashSet<ContractAuditFieldCode> VerificationPhoneFields() => Fields(
         "VerificationPhoneId", "VerificationPhoneMasked", "PhoneSource",
