@@ -1,0 +1,1288 @@
+"use client";
+
+import Link from "next/link";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  AlertCircle,
+  Bot,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  History,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  DateRangeFilter,
+  type DateRange,
+} from "@/components/ui/custom/date-range-filter";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateTime } from "@/lib/format-date-time";
+import { usePermission } from "@/hooks/use-permission";
+import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import { cn } from "@/lib/utils";
+import {
+  CONTRACT_AUDIT_ACTION_LABELS,
+  CONTRACT_AUDIT_ACTION_TYPES,
+  CONTRACT_AUDIT_ACTOR_LABELS,
+  CONTRACT_AUDIT_ACTOR_TYPES,
+  CONTRACT_AUDIT_RESULT_LABELS,
+  CONTRACT_AUDIT_RESULTS,
+  CONTRACT_AUDIT_SUBJECT_LABELS,
+  CONTRACT_AUDIT_SUBJECT_TYPES,
+  contractAuditApi,
+  type ContractAuditActionType,
+  type ContractAuditActorType,
+  type ContractAuditFilterRequest,
+  type ContractAuditResponse,
+  type ContractAuditResult,
+  type ContractAuditSubjectType,
+} from "@/services/contract-audit-api";
+import {
+  ContractStatus,
+  getContractStatusLabel,
+} from "@/services/contract-api";
+
+interface ContractAuditLogProps {
+  contractId?: number;
+  versionId?: number;
+  mode?: "contract" | "tenant";
+}
+
+interface AuditFilters {
+  contractId: string;
+  versionId: string;
+  actorType: ContractAuditActorType | "all";
+  actorEmployeeId: string;
+  actorCustomerAccessSessionId: string;
+  actionType: ContractAuditActionType | "all";
+  result: ContractAuditResult | "all";
+  correlationId: string;
+  subjectType: ContractAuditSubjectType | "all";
+  subjectId: string;
+  failureCode: string;
+  dateRange: DateRange;
+}
+
+const EMPTY_DATE_RANGE: DateRange = { from: undefined, to: undefined };
+
+const createInitialFilters = (versionId?: number): AuditFilters => ({
+  contractId: "",
+  versionId: versionId ? String(versionId) : "",
+  actorType: "all",
+  actorEmployeeId: "",
+  actorCustomerAccessSessionId: "",
+  actionType: "all",
+  result: "all",
+  correlationId: "",
+  subjectType: "all",
+  subjectId: "",
+  failureCode: "",
+  dateRange: EMPTY_DATE_RANGE,
+});
+
+const RESULT_STYLES: Record<ContractAuditResult, string> = {
+  Succeeded:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300",
+  Failed:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300",
+  Denied:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/50 dark:text-orange-300",
+  RateLimited:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
+  ConcurrencyConflict:
+    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300",
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  Status: "Trạng thái",
+  ResponsibleEmployeeId: "Nhân viên phụ trách",
+  CurrentVersionId: "Phiên bản hiện tại",
+  ContractType: "Loại hợp đồng",
+  LanguageMode: "Ngôn ngữ hợp đồng",
+  TemplateVersionId: "Phiên bản mẫu",
+  ParentContractId: "Hợp đồng nguồn",
+  CustomerId: "Khách hàng",
+  CustomerName: "Tên khách hàng",
+  ContractName: "Tên hợp đồng",
+  ContractNameEn: "Tên hợp đồng (tiếng Anh)",
+  EffectiveDate: "Ngày hiệu lực",
+  ExpireDate: "Ngày hết hạn",
+  CurrencyCode: "Đơn vị tiền tệ",
+  Subtotal: "Tạm tính",
+  TotalDiscount: "Tổng chiết khấu",
+  TotalVat: "Tổng VAT",
+  TotalAmount: "Tổng giá trị",
+  ItemCount: "Số hạng mục",
+  TermCount: "Số điều khoản",
+  CarriedForwardThreadCount: "Số luồng trao đổi chuyển tiếp",
+  CarriedForwardCommentCount: "Số bình luận chuyển tiếp",
+  AddedItems: "Hạng mục thêm mới",
+  UpdatedItems: "Hạng mục đã sửa",
+  RemovedItems: "Hạng mục đã xóa",
+  AddedTerms: "Điều khoản thêm mới",
+  UpdatedTerms: "Điều khoản đã sửa",
+  RemovedTerms: "Điều khoản đã xóa",
+  SourceVersionId: "Phiên bản nguồn",
+  NewVersionId: "Phiên bản mới",
+  SourceCommentId: "Bình luận nguồn",
+  NewCommentId: "Bình luận mới",
+  SourceVersionLocked: "Khóa phiên bản nguồn",
+  Source: "Nguồn",
+  Target: "Đích",
+  TermId: "Điều khoản",
+  ParentCommentId: "Bình luận cha",
+  State: "Trạng thái",
+  VerificationPhoneId: "Số xác minh",
+  VerificationPhoneMasked: "Số xác minh đã che",
+  PhoneSource: "Nguồn số điện thoại",
+  LinkId: "Liên kết truy cập",
+  PreviousLinkId: "Liên kết cũ",
+  NewLinkId: "Liên kết mới",
+  LinkState: "Trạng thái liên kết",
+  ExpiresAt: "Hết hạn lúc",
+  CustomerOtpChallengeId: "Mã thử thách OTP",
+  ChallengeState: "Trạng thái OTP",
+  FailedAttemptCount: "Số lần nhập sai",
+  CustomerAccessSessionId: "Phiên khách hàng",
+  SessionState: "Trạng thái phiên",
+  IdleExpiresAt: "Hết hạn do không hoạt động",
+  HardExpiresAt: "Hết hạn hoàn toàn",
+  RevocationReasonCode: "Mã lý do thu hồi",
+  VersionLocked: "Khóa phiên bản",
+  ApprovalRequestId: "Yêu cầu duyệt",
+  ApprovalStatus: "Trạng thái duyệt",
+  ResolvedByEmployeeId: "Người xử lý duyệt",
+  WorkflowId: "Quy trình duyệt",
+  SnapshotHash: "Mã băm bản lưu",
+  DocxFileId: "Tệp DOCX trình duyệt",
+  DocxHash: "Mã băm DOCX",
+  PdfFileId: "Tệp PDF trình duyệt",
+  PdfHash: "Mã băm PDF",
+  ArtifactCount: "Số tài liệu trình duyệt",
+  InvalidatedLinkCount: "Số liên kết đã vô hiệu hóa",
+  RevokedSessionCount: "Số phiên khách hàng đã thu hồi",
+  AttachmentId: "Tệp đính kèm",
+  FileId: "Tệp",
+  FileName: "Tên tệp",
+  DocumentType: "Loại tài liệu",
+  UploadDate: "Ngày tải lên",
+  SignedEvidenceId: "Bản quét đã ký",
+  EvidenceStatus: "Trạng thái bản quét",
+  FileType: "Định dạng tệp",
+  Sha256: "Mã băm SHA-256",
+  SupersedesEvidenceId: "Thay thế bản quét",
+  AcceptanceEvidenceId: "Biên bản nghiệm thu",
+  ContractPaymentId: "Khoản thanh toán hợp đồng",
+  PaymentDate: "Ngày thanh toán",
+  Amount: "Số tiền",
+  PaymentMethod: "Phương thức thanh toán",
+  ReferenceCode: "Mã tham chiếu",
+  EvidenceFileId: "Tệp chứng từ",
+  PaymentStatus: "Trạng thái thanh toán",
+  PaidAmount: "Đã thanh toán",
+  RemainingAmount: "Còn phải thanh toán",
+  PaidAt: "Ngày thanh toán",
+  PaidByEmployeeId: "Người thanh toán",
+  PaymentMilestoneId: "Đợt thanh toán",
+};
+
+const PHONE_SOURCE_LABELS: Record<string, string> = {
+  CustomerMobile: "Di động khách hàng",
+  CustomerPhone: "Điện thoại khách hàng",
+  Manual: "Nhập thủ công",
+};
+
+const APPROVAL_STATUS_LABELS: Record<number, string> = {
+  0: "Đang chờ duyệt",
+  1: "Đã duyệt",
+  2: "Yêu cầu chỉnh sửa",
+  3: "Đã từ chối",
+  4: "Đã rút",
+};
+
+const CONTRACT_TYPE_LABELS: Record<number, string> = {
+  1: "Cung cấp phần mềm",
+  2: "Bảo trì phần mềm",
+  3: "Duy trì phần mềm",
+};
+
+const LANGUAGE_MODE_LABELS: Record<number, string> = {
+  1: "Tiếng Việt",
+  2: "Song ngữ",
+};
+
+const DOCUMENT_TYPE_LABELS: Record<number, string> = {
+  0: "Báo giá",
+  1: "Biên bản nghiệm thu",
+  2: "Biên bản bàn giao",
+  3: "Biên bản thanh lý",
+  4: "Hóa đơn VAT",
+  5: "Bảo lãnh ngân hàng",
+  6: "Bản quét đã ký",
+  99: "Khác",
+};
+
+const toPositiveInteger = (value: string) => {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const toStartOfDayUtc = (date?: Date) => {
+  if (!date) return undefined;
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value.toISOString();
+};
+
+const toEndOfDayUtc = (date?: Date) => {
+  if (!date) return undefined;
+  const value = new Date(date);
+  value.setHours(23, 59, 59, 999);
+  return value.toISOString();
+};
+
+const buildAuditFilterRequest = (
+  filters: AuditFilters,
+  fixedContractId: number | undefined,
+  pageSize?: number,
+  cursor?: string,
+): ContractAuditFilterRequest => ({
+  contractId: fixedContractId ?? toPositiveInteger(filters.contractId),
+  versionId: toPositiveInteger(filters.versionId),
+  actorType: filters.actorType === "all" ? undefined : filters.actorType,
+  actorEmployeeId: toPositiveInteger(filters.actorEmployeeId),
+  actorCustomerAccessSessionId: toPositiveInteger(
+    filters.actorCustomerAccessSessionId,
+  ),
+  actionType: filters.actionType === "all" ? undefined : filters.actionType,
+  result: filters.result === "all" ? undefined : filters.result,
+  correlationId: filters.correlationId.trim() || undefined,
+  subjectType: filters.subjectType === "all" ? undefined : filters.subjectType,
+  subjectId: toPositiveInteger(filters.subjectId),
+  failureCode: filters.failureCode.trim() || undefined,
+  fromUtc: toStartOfDayUtc(filters.dateRange.from),
+  toUtc: toEndOfDayUtc(filters.dateRange.to),
+  cursor,
+  pageSize,
+});
+
+const formatFieldLabel = (key: string) =>
+  FIELD_LABELS[key] ?? key.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+
+type AuditValueSide = "previous" | "new";
+
+const resolveAuditVersionNo = (
+  audit: ContractAuditResponse,
+  value: unknown,
+  side: AuditValueSide,
+) => {
+  const versionId = Number(value);
+  if (!Number.isInteger(versionId) || versionId <= 0 || !audit.versionNo) {
+    return undefined;
+  }
+
+  if (audit.versionId === versionId) return audit.versionNo;
+
+  if (
+    audit.actionType === "NegotiationRoundCreated" &&
+    side === "previous" &&
+    audit.versionNo > 1
+  ) {
+    const sourceVersionId = Number(
+      audit.previousValues?.SourceVersionId ?? audit.newValues?.SourceVersionId,
+    );
+
+    if (sourceVersionId === versionId) return audit.versionNo - 1;
+  }
+
+  return undefined;
+};
+
+const formatAuditValue = (
+  key: string,
+  value: unknown,
+  audit?: ContractAuditResponse,
+  side: AuditValueSide = "new",
+): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (key === "CurrentVersionId" && audit) {
+    const versionNo = resolveAuditVersionNo(audit, value, side);
+    return versionNo ? `Phiên bản ${versionNo}` : "—";
+  }
+  if (key === "SourceVersionId" && audit) {
+    const versionNo =
+      audit.actionType === "NegotiationRoundCreated" && audit.versionNo
+        ? audit.versionNo - 1
+        : resolveAuditVersionNo(audit, value, side);
+    return versionNo ? `Phiên bản ${versionNo}` : "—";
+  }
+  if (key === "NewVersionId" && audit) {
+    return audit.versionNo ? `Phiên bản ${audit.versionNo}` : "—";
+  }
+  if (key === "Status" && !Number.isNaN(Number(value))) {
+    return getContractStatusLabel(Number(value) as ContractStatus);
+  }
+  if (key === "ApprovalStatus" && !Number.isNaN(Number(value))) {
+    return APPROVAL_STATUS_LABELS[Number(value)] ?? String(value);
+  }
+  if (key === "ContractType" && !Number.isNaN(Number(value))) {
+    return CONTRACT_TYPE_LABELS[Number(value)] ?? String(value);
+  }
+  if (key === "LanguageMode" && !Number.isNaN(Number(value))) {
+    return LANGUAGE_MODE_LABELS[Number(value)] ?? String(value);
+  }
+  if (key === "DocumentType" && !Number.isNaN(Number(value))) {
+    return DOCUMENT_TYPE_LABELS[Number(value)] ?? String(value);
+  }
+  if (key === "EvidenceStatus" && !Number.isNaN(Number(value))) {
+    return Number(value) === 1 ? "Đang hiệu lực" : "Đã thay thế";
+  }
+  if (typeof value === "boolean") return value ? "Có" : "Không";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
+
+const getErrorMessage = (error: unknown) => {
+  const apiError = error as {
+    response?: { status?: number; data?: { message?: string } };
+    message?: string;
+  };
+
+  if (apiError.response?.status === 403) {
+    return "Bạn không có quyền xem phạm vi nhật ký này.";
+  }
+
+  return (
+    apiError.response?.data?.message ??
+    apiError.message ??
+    "Không thể tải lịch sử hoạt động."
+  );
+};
+
+function AuditChanges({ audit }: { audit: ContractAuditResponse }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const previousValues = audit.previousValues ?? {};
+  const newValues = audit.newValues ?? {};
+  const keys = Array.from(
+    new Set([...Object.keys(previousValues), ...Object.keys(newValues)]),
+  );
+  const changedKeys = keys.filter(
+    (key) =>
+      (!key.endsWith("Id") ||
+        key === "CurrentVersionId" ||
+        key === "SourceVersionId" ||
+        key === "NewVersionId") &&
+      formatAuditValue(key, previousValues[key], audit, "previous") !==
+      formatAuditValue(key, newValues[key], audit, "new"),
+  );
+
+  if (changedKeys.length === 0) return null;
+
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="mt-3 overflow-hidden rounded-lg border bg-muted/20"
+    >
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-auto w-full justify-between rounded-none px-3 py-2 text-xs hover:bg-muted/60"
+        >
+          <span className="flex items-center gap-2">
+            <span className="font-medium">Thay đổi dữ liệu</span>
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {changedKeys.length}
+            </Badge>
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-4 text-muted-foreground transition-transform",
+              isOpen && "rotate-180",
+            )}
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="overflow-hidden border-t data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:slide-in-from-top-2">
+        {changedKeys.map((key) => (
+          <div
+            key={key}
+            className="grid gap-1 border-b px-3 py-2 text-xs last:border-b-0 sm:grid-cols-[minmax(130px,0.7fr)_1fr_auto_1fr] sm:items-center"
+          >
+            <span className="font-medium text-foreground">
+              {formatFieldLabel(key)}
+            </span>
+            <span className="break-all text-muted-foreground">
+              {formatAuditValue(key, previousValues[key], audit, "previous")}
+            </span>
+            <span className="hidden text-muted-foreground sm:inline">→</span>
+            <span className="break-all font-medium text-foreground">
+              {formatAuditValue(key, newValues[key], audit, "new")}
+            </span>
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function AuditQuickLink({
+  href,
+  title,
+  children,
+}: {
+  href: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      title={title}
+      className="rounded-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function getAuditSubjectHref(
+  audit: ContractAuditResponse,
+  canReadContract: boolean,
+) {
+  if (!canReadContract) return null;
+
+  switch (audit.subjectType) {
+    case "Contract":
+      return `/contracts/${audit.contractId}`;
+    case "ContractVersion":
+      return `/contracts/${audit.contractId}/versions/${audit.subjectId}`;
+    case "NegotiationComment":
+      return `/contracts/${audit.contractId}#negotiation`;
+    case "CustomerAccessLink":
+    case "CustomerOtpChallenge":
+    case "CustomerAccessSession":
+      return `/contracts/${audit.contractId}#signature`;
+    case "AcceptanceEvidence":
+    case "Payment":
+      return `/contracts/${audit.contractId}#closing`;
+    default:
+      return null;
+  }
+}
+
+function AuditSubject({
+  audit,
+  canReadContract,
+}: {
+  audit: ContractAuditResponse;
+  canReadContract: boolean;
+}) {
+  const href = getAuditSubjectHref(audit, canReadContract);
+  const subjectVersionNo =
+    audit.subjectType === "ContractVersion"
+      ? resolveAuditVersionNo(audit, audit.subjectId, "new")
+      : undefined;
+  const content = (
+    <>
+      {subjectVersionNo
+        ? `Phiên bản ${subjectVersionNo}`
+        : CONTRACT_AUDIT_SUBJECT_LABELS[
+            audit.subjectType as ContractAuditSubjectType
+          ] ?? audit.subjectType}
+    </>
+  );
+
+  return href ? (
+    <AuditQuickLink href={href} title="Mở đối tượng liên quan">
+      {content}
+    </AuditQuickLink>
+  ) : (
+    <span>{content}</span>
+  );
+}
+
+function AuditActor({
+  audit,
+  canReadContract,
+  canViewEmployee,
+}: {
+  audit: ContractAuditResponse;
+  canReadContract: boolean;
+  canViewEmployee: boolean;
+}) {
+  const label = CONTRACT_AUDIT_ACTOR_LABELS[audit.actorType];
+  const actorName = audit.actorDisplayName?.trim() || label;
+  const actorHref =
+    audit.actorType === "Employee" && audit.actorEmployeeId && canViewEmployee
+      ? `/admin/employees?employeeId=${audit.actorEmployeeId}`
+      : audit.actorType === "Customer" && canReadContract
+        ? `/contracts/${audit.contractId}#signature`
+        : null;
+  const actorContent = actorName;
+
+  if (audit.actorType === "System") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Bot className="size-3.5" /> {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <UserRound className="size-3.5" />
+      {actorHref ? (
+        <AuditQuickLink
+          href={actorHref}
+          title={
+            audit.actorType === "Employee"
+              ? "Xem nhanh hồ sơ nhân viên"
+              : "Xem ngữ cảnh truy cập khách hàng"
+          }
+        >
+          <span className="inline-flex items-center gap-1">{actorContent}</span>
+        </AuditQuickLink>
+      ) : (
+        actorContent
+      )}
+      {audit.actorType === "Customer" && audit.actorMaskedPhone && (
+        <span>
+          · {audit.actorMaskedPhone}
+          {audit.actorPhoneSource
+            ? ` · ${PHONE_SOURCE_LABELS[audit.actorPhoneSource] ?? audit.actorPhoneSource}`
+            : ""}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function ContractAuditLog({
+  contractId,
+  versionId,
+  mode = contractId ? "contract" : "tenant",
+}: ContractAuditLogProps) {
+  const { can, canAny } = usePermission();
+  const canReadContract = canAny([
+    RBAC_PERMISSIONS.contractReadOwn,
+    RBAC_PERMISSIONS.contractReadTenant,
+  ]);
+  const canViewEmployee = can(RBAC_PERMISSIONS.employeeManage);
+  const [draftFilters, setDraftFilters] = useState<AuditFilters>(() =>
+    createInitialFilters(versionId),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(() =>
+    createInitialFilters(versionId),
+  );
+  const [items, setItems] = useState<ContractAuditResponse[]>([]);
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+  const [cursorIndex, setCursorIndex] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const currentCursor = cursorHistory[cursorIndex];
+  const activeFilterCount = [
+    mode === "tenant" && appliedFilters.contractId,
+    appliedFilters.versionId,
+    appliedFilters.actorType !== "all",
+    appliedFilters.actorEmployeeId,
+    appliedFilters.actorCustomerAccessSessionId,
+    appliedFilters.actionType !== "all",
+    appliedFilters.result !== "all",
+    appliedFilters.correlationId,
+    appliedFilters.subjectType !== "all",
+    appliedFilters.subjectId,
+    appliedFilters.failureCode,
+    appliedFilters.dateRange.from || appliedFilters.dateRange.to,
+  ].filter(Boolean).length;
+
+  const loadAudits = useCallback(async () => {
+    const params = buildAuditFilterRequest(
+      appliedFilters,
+      contractId,
+      pageSize,
+      currentCursor,
+    );
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await contractAuditApi.getList(params);
+      setItems(response.items);
+      setTotalCount(response.totalCount);
+      setHasMore(response.hasMore);
+      setNextCursor(response.nextCursor ?? null);
+    } catch (loadError) {
+      setItems([]);
+      setTotalCount(0);
+      setHasMore(false);
+      setNextCursor(null);
+      setError(getErrorMessage(loadError));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appliedFilters, contractId, currentCursor, pageSize]);
+
+  useEffect(() => {
+    void loadAudits();
+  }, [loadAudits, refreshKey]);
+
+  const resetPagination = () => {
+    setCursorHistory([undefined]);
+    setCursorIndex(0);
+    setNextCursor(null);
+    setHasMore(false);
+  };
+
+  const applyFilters = () => {
+    const numericFilters = [
+      ...(mode === "tenant"
+        ? [["ID hợp đồng", draftFilters.contractId] as const]
+        : []),
+      ["ID phiên bản", draftFilters.versionId] as const,
+      ["ID nhân viên", draftFilters.actorEmployeeId] as const,
+      [
+        "ID phiên khách hàng",
+        draftFilters.actorCustomerAccessSessionId,
+      ] as const,
+      ["ID đối tượng", draftFilters.subjectId] as const,
+    ];
+    const invalidFilter = numericFilters.find(
+      ([, value]) => value.trim() && !toPositiveInteger(value),
+    );
+    if (invalidFilter) {
+      setFilterError(`${invalidFilter[0]} phải là số nguyên dương.`);
+      return;
+    }
+
+    setFilterError(null);
+    resetPagination();
+    setAppliedFilters(draftFilters);
+    setIsFiltersOpen(false);
+  };
+
+  const clearFilters = () => {
+    const initial = createInitialFilters(versionId);
+    setDraftFilters(initial);
+    setAppliedFilters(initial);
+    setFilterError(null);
+    resetPagination();
+    setIsFiltersOpen(false);
+  };
+
+  const refreshAudits = () => {
+    if (cursorIndex > 0) {
+      resetPagination();
+      return;
+    }
+
+    setRefreshKey((value) => value + 1);
+  };
+
+  const exportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const blob = await contractAuditApi.exportCsv(
+        buildAuditFilterRequest(appliedFilters, contractId),
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `contract-audits-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Đã xuất nhật ký hợp đồng.");
+    } catch (exportError) {
+      toast.error(getErrorMessage(exportError));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="border-b py-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="size-5 text-primary" />
+              Lịch sử hoạt động
+            </CardTitle>
+            <CardDescription className="mt-1.5">
+              {mode === "contract"
+                ? "Theo dõi các thay đổi và thao tác đã xảy ra trên hợp đồng."
+                : "Theo dõi hoạt động hợp đồng trong toàn bộ đơn vị."}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void exportCsv()}
+              disabled={isLoading || isExporting}
+            >
+              <Download
+                className={cn("size-4", isExporting && "animate-pulse")}
+              />
+              Xuất CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={refreshAudits}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={cn("size-4", isLoading && "animate-spin")}
+              />
+              Làm mới
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+        <div className="flex items-center justify-between gap-3 px-6 py-3">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="-ml-3 flex-1 justify-start sm:flex-none"
+            >
+              <SlidersHorizontal className="size-4" />
+              Bộ lọc
+              {activeFilterCount > 0 && (
+                <Badge className="min-w-5 rounded-full px-1.5">
+                  {activeFilterCount}
+                </Badge>
+              )}
+              <ChevronDown
+                className={cn(
+                  "ml-auto size-4 transition-transform duration-200 sm:ml-1",
+                  isFiltersOpen && "rotate-180",
+                )}
+              />
+            </Button>
+          </CollapsibleTrigger>
+          {!isFiltersOpen && activeFilterCount > 0 && (
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Đang áp dụng {activeFilterCount} bộ lọc
+            </span>
+          )}
+        </div>
+
+        <CollapsibleContent className="overflow-hidden border-b data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:slide-in-from-top-2">
+          <CardContent className="py-4">
+            <div
+              className={`grid gap-3 md:grid-cols-2 ${
+                mode === "tenant" ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              }`}
+            >
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="audit-contract-id">Mã hợp đồng</Label>
+                  <Input
+                    id="audit-contract-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.contractId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        contractId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả hợp đồng"
+                  />
+                </div>
+              )}
+
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="audit-version-id">Mã phiên bản nội bộ</Label>
+                  <Input
+                    id="audit-version-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.versionId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        versionId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả phiên bản"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>Người thực hiện</Label>
+                <Select
+                  value={draftFilters.actorType}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      actorType: value as AuditFilters["actorType"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {CONTRACT_AUDIT_ACTOR_TYPES.map((actorType) => (
+                      <SelectItem key={actorType} value={actorType}>
+                        {CONTRACT_AUDIT_ACTOR_LABELS[actorType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Kết quả</Label>
+                <Select
+                  value={draftFilters.result}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      result: value as AuditFilters["result"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {CONTRACT_AUDIT_RESULTS.map((result) => (
+                      <SelectItem key={result} value={result}>
+                        {CONTRACT_AUDIT_RESULT_LABELS[result]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-3 space-y-1.5">
+              <div className="space-y-1.5">
+                <Label>Hành động</Label>
+                <Select
+                  value={draftFilters.actionType}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      actionType: value as AuditFilters["actionType"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả hành động</SelectItem>
+                    {CONTRACT_AUDIT_ACTION_TYPES.map((actionType) => (
+                      <SelectItem key={actionType} value={actionType}>
+                        {CONTRACT_AUDIT_ACTION_LABELS[actionType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Khoảng thời gian</Label>
+                <DateRangeFilter
+                  dateRange={draftFilters.dateRange}
+                  onChange={(dateRange) =>
+                    setDraftFilters((current) => ({ ...current, dateRange }))
+                  }
+                  buttonClassName="bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                <Label htmlFor="audit-actor-employee-id">Mã nhân viên nội bộ</Label>
+                <Input
+                  id="audit-actor-employee-id"
+                  type="number"
+                  min={1}
+                  maxLength={0}
+                  value={draftFilters.actorEmployeeId}
+                  onChange={(event) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      actorEmployeeId: event.target.value,
+                    }))
+                  }
+                  placeholder="Tất cả nhân viên"
+                />
+                </div>
+              )}
+
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                <Label htmlFor="audit-customer-session-id">
+                  Mã phiên khách hàng nội bộ
+                </Label>
+                <Input
+                  id="audit-customer-session-id"
+                  type="number"
+                  min={1}
+                  maxLength={0}
+                  value={draftFilters.actorCustomerAccessSessionId}
+                  onChange={(event) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      actorCustomerAccessSessionId: event.target.value,
+                    }))
+                  }
+                  placeholder="Tất cả phiên"
+                />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>Loại đối tượng</Label>
+                <Select
+                  value={draftFilters.subjectType}
+                  onValueChange={(value) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      subjectType: value as AuditFilters["subjectType"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả đối tượng</SelectItem>
+                    {CONTRACT_AUDIT_SUBJECT_TYPES.map((subjectType) => (
+                      <SelectItem key={subjectType} value={subjectType}>
+                        {CONTRACT_AUDIT_SUBJECT_LABELS[subjectType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {mode === "tenant" && (
+                <div className="space-y-1.5">
+                <Label htmlFor="audit-subject-id">Mã đối tượng nội bộ</Label>
+                <Input
+                  id="audit-subject-id"
+                  type="number"
+                  min={1}
+                  maxLength={0}
+                  value={draftFilters.subjectId}
+                  onChange={(event) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      subjectId: event.target.value,
+                    }))
+                  }
+                  placeholder="Tất cả đối tượng"
+                />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="audit-correlation-id">Mã truy vết</Label>
+                <Input
+                  id="audit-correlation-id"
+                  value={draftFilters.correlationId}
+                  maxLength={100}
+                  onChange={(event) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      correlationId: event.target.value,
+                    }))
+                  }
+                  placeholder="Khớp chính xác mã truy vết"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="audit-failure-code">Mã lỗi</Label>
+                <Input
+                  id="audit-failure-code"
+                  value={draftFilters.failureCode}
+                  maxLength={64}
+                  onChange={(event) =>
+                    setDraftFilters((current) => ({
+                      ...current,
+                      failureCode: event.target.value,
+                    }))
+                  }
+                  placeholder="Ví dụ: StaleRowVersion"
+                />
+              </div>
+            </div>
+
+            {filterError && (
+              <p className="mt-3 text-sm text-destructive">{filterError}</p>
+            )}
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={clearFilters}>
+                Xóa bộ lọc
+              </Button>
+              <Button type="button" onClick={applyFilters}>
+                <Search className="size-4" /> Áp dụng
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <CardContent className="py-5">
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>Không tải được lịch sử</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : isLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex gap-3">
+                <Skeleton className="size-9 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-14 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center">
+            <History className="mx-auto size-10 text-muted-foreground/50" />
+            <p className="mt-3 font-medium">Chưa có hoạt động phù hợp</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Thử thay đổi bộ lọc hoặc làm mới dữ liệu.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {items.map((audit, index) => (
+              <article
+                key={audit.contractAuditId}
+                className="relative grid grid-cols-[36px_minmax(0,1fr)] gap-3 pb-6 last:pb-0"
+              >
+                {index < items.length - 1 && (
+                  <span className="absolute bottom-0 left-[17px] top-9 w-px bg-border" />
+                )}
+                <span className="z-10 flex size-9 items-center justify-center rounded-full border bg-background text-primary shadow-sm">
+                  <History className="size-4" />
+                </span>
+
+                <div className="min-w-0 rounded-lg border p-4">
+                  <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-start">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">
+                          {CONTRACT_AUDIT_ACTION_LABELS[audit.actionType]}
+                        </h3>
+                        <Badge
+                          variant="outline"
+                          className={RESULT_STYLES[audit.result]}
+                        >
+                          {CONTRACT_AUDIT_RESULT_LABELS[audit.result]}
+                        </Badge>
+                      </div>
+                      {mode === "tenant" && (
+                        <p className="mt-1 text-sm text-foreground">
+                          {canReadContract ? (
+                            <AuditQuickLink
+                              href={`/contracts/${audit.contractId}`}
+                              title="Xem chi tiết hợp đồng"
+                            >
+                              {audit.contractCode || audit.contractName || "Hợp đồng"}
+                            </AuditQuickLink>
+                          ) : (
+                            <span className="font-medium">
+                              {audit.contractCode || audit.contractName || "Hợp đồng"}
+                            </span>
+                          )}
+                          {audit.contractName ? ` · ${audit.contractName}` : ""}
+                        </p>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <AuditActor
+                          audit={audit}
+                          canReadContract={canReadContract}
+                          canViewEmployee={canViewEmployee}
+                        />
+                        {audit.versionId &&
+                          (canReadContract ? (
+                            <AuditQuickLink
+                              href={`/contracts/${audit.contractId}/versions/${audit.versionId}`}
+                              title="Xem phiên bản hợp đồng"
+                            >
+                              Phiên bản {audit.versionNo ?? "—"}
+                            </AuditQuickLink>
+                          ) : (
+                            <span>
+                              Phiên bản {audit.versionNo ?? "—"}
+                            </span>
+                          ))}
+                        <AuditSubject
+                          audit={audit}
+                          canReadContract={canReadContract}
+                        />
+                      </div>
+                    </div>
+                    <time className="shrink-0 text-xs text-muted-foreground">
+                      {formatDateTime(audit.occurredAt)}
+                    </time>
+                  </div>
+
+                  {audit.reason && (
+                    <p className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
+                      <span className="font-medium">Lý do: </span>
+                      {audit.reason}
+                    </p>
+                  )}
+
+                  {audit.failureCode && (
+                    <p className="mt-2 text-xs text-destructive">
+                      Mã lỗi: {audit.failureCode}
+                    </p>
+                  )}
+
+                  <AuditChanges audit={audit} />
+
+                  <details className="mt-3 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer select-none hover:text-foreground">
+                      Chi tiết kỹ thuật
+                    </summary>
+                    <div className="mt-2 space-y-1 break-all pl-3">
+                      <p>Mã truy vết: {audit.correlationId}</p>
+                      {audit.ipAddress && <p>Địa chỉ IP: {audit.ipAddress}</p>}
+                      {audit.userAgent && <p>Trình duyệt/thiết bị: {audit.userAgent}</p>}
+                    </div>
+                  </details>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      {!error && totalCount > 0 && (
+        <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {totalCount} hoạt động · Trang {cursorIndex + 1}/
+            {Math.max(Math.ceil(totalCount / pageSize), 1)}
+          </p>
+          <div className="flex items-center gap-2">
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value));
+                resetPagination();
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent showSearch={false}>
+                {[10, 20, 50, 100].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size} / trang
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setCursorIndex((value) => Math.max(0, value - 1))}
+              disabled={cursorIndex <= 0 || isLoading}
+              aria-label="Trang trước"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                if (!nextCursor) return;
+                setCursorHistory((history) => [
+                  ...history.slice(0, cursorIndex + 1),
+                  nextCursor,
+                ]);
+                setCursorIndex((value) => value + 1);
+              }}
+              disabled={!hasMore || !nextCursor || isLoading}
+              aria-label="Trang sau"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}

@@ -1,0 +1,2703 @@
+﻿using System;
+using System.Collections.Generic;
+using ContractManagement.Infrastructure.Persistence.Application.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace ContractManagement.Infrastructure.Persistence.Application;
+
+public partial class DbDtctechContext : DbContext
+{
+    public DbDtctechContext()
+    {
+    }
+
+    public DbDtctechContext(DbContextOptions<DbDtctechContext> options)
+        : base(options)
+    {
+    }
+
+    public virtual DbSet<TblContractApprovalRequest> TblContractApprovalRequests { get; set; }
+
+    public virtual DbSet<TblApprovalHistory> TblApprovalHistories { get; set; }
+
+    public virtual DbSet<TblApprovalWorkflow> TblApprovalWorkflows { get; set; }
+
+    public virtual DbSet<TblCategory> TblCategories { get; set; }
+
+    public virtual DbSet<TblContract> TblContracts { get; set; }
+
+    public virtual DbSet<TblContractAudit> TblContractAudits { get; set; }
+
+    public virtual DbSet<TblContractAuditValue> TblContractAuditValues { get; set; }
+
+    public virtual DbSet<TblContractTemplateAudit>
+        TblContractTemplateAudits { get; set; }
+
+    public virtual DbSet<TblContractTemplateAuditValue>
+        TblContractTemplateAuditValues { get; set; }
+
+    public virtual DbSet<TblContractCustomerVerificationPhone>
+        TblContractCustomerVerificationPhones { get; set; }
+
+    public virtual DbSet<TblContractCustomerAccessLink>
+        TblContractCustomerAccessLinks { get; set; }
+
+    public virtual DbSet<TblContractCustomerOtpChallenge>
+        TblContractCustomerOtpChallenges { get; set; }
+
+    public virtual DbSet<TblContractCustomerAccessSession>
+        TblContractCustomerAccessSessions { get; set; }
+
+    public virtual DbSet<TblContractCustomerOtpDeliveryOutbox>
+        TblContractCustomerOtpDeliveryOutbox { get; set; }
+
+    public virtual DbSet<TblContractNegotiationComment>
+        TblContractNegotiationComments { get; set; }
+
+    public virtual DbSet<TblContractNegotiationCommentEvent>
+        TblContractNegotiationCommentEvents { get; set; }
+
+    public virtual DbSet<TblContractAppendix> TblContractAppendices { get; set; }
+
+    public virtual DbSet<TblContractAppendixTerm> TblContractAppendixTerms { get; set; }
+
+    public virtual DbSet<TblContractAttachment> TblContractAttachments { get; set; }
+
+    public virtual DbSet<TblContractSignedEvidence>
+        TblContractSignedEvidences { get; set; }
+
+    public virtual DbSet<TblContractAcceptanceEvidence>
+        TblContractAcceptanceEvidences { get; set; }
+
+    public virtual DbSet<TblContractAcceptanceRecord> TblContractAcceptanceRecords { get; set; }
+    public virtual DbSet<TblContractAcceptanceReference> TblContractAcceptanceReferences { get; set; }
+    public virtual DbSet<TblContractAcceptanceParty> TblContractAcceptanceParties { get; set; }
+    public virtual DbSet<TblContractAcceptanceSection> TblContractAcceptanceSections { get; set; }
+    public virtual DbSet<TblContractAcceptanceMilestone> TblContractAcceptanceMilestones { get; set; }
+
+    public virtual DbSet<TblContractPaymentLedger>
+        TblContractPaymentLedgers { get; set; }
+
+    public virtual DbSet<TblContractPaymentMilestone>
+        TblContractPaymentMilestones { get; set; }
+
+    public virtual DbSet<TblContractItem> TblContractItems { get; set; }
+
+    public virtual DbSet<TblContractTerm> TblContractTerms { get; set; }
+
+    public virtual DbSet<TblContractLegalBasis> TblContractLegalBases { get; set; }
+
+    public virtual DbSet<TblContractVersion> TblContractVersions { get; set; }
+
+    public virtual DbSet<TblContractVersionLegalSnapshot> TblContractVersionLegalSnapshots { get; set; }
+
+    public virtual DbSet<TblContractVersionPartySnapshot> TblContractVersionPartySnapshots { get; set; }
+
+    public virtual DbSet<TblContractVersionPaymentMilestoneSnapshot> TblContractVersionPaymentMilestoneSnapshots { get; set; }
+
+    /*
+     * Template và TemplateVersion là hai bảng quan trọng nhất.
+     * TemplateVersion là snapshot bất biến của template.
+     * Template có thể có nhiều version, nhưng chỉ có một version được publish.
+     */
+    public virtual DbSet<TblContractTemplate> TblContractTemplates { get; set; }
+
+    public virtual DbSet<TblContractTemplateVersion> TblContractTemplateVersions { get; set; }
+
+    public virtual DbSet<TblContractTemplateItemTableColumnLayout> TblContractTemplateItemTableColumnLayouts { get; set; }
+
+
+    /*
+     * TemplateField và TemplateTerm là hai bảng cấu hình cho template version.
+     * Khi tạo contract version, dữ liệu sẽ được sao chép sang ContractTerm.
+     */
+    public virtual DbSet<TblContractTemplateField> TblContractTemplateFields { get; set; }
+
+    public virtual DbSet<TblContractTemplateTerm> TblContractTemplateTerms { get; set; }
+
+    public virtual DbSet<TblContractTemplateAppendix> TblContractTemplateAppendices { get; set; }
+    public virtual DbSet<TblContractTemplateAppendixTerm> TblContractTemplateAppendixTerms { get; set; }
+
+    public virtual DbSet<TblContractTemplatePaymentMilestone>
+        TblContractTemplatePaymentMilestones { get; set; }
+
+    public virtual DbSet<TblContractTemplateLegalBasis> TblContractTemplateLegalBases { get; set; }
+
+    public virtual DbSet<TblCustomer> TblCustomers { get; set; }
+
+    public virtual DbSet<TblCustomerInteraction> TblCustomerInteractions { get; set; }
+
+    public virtual DbSet<TblDeliveryDetail> TblDeliveryDetails { get; set; }
+
+    public virtual DbSet<TblDeliveryOrder> TblDeliveryOrders { get; set; }
+
+    public virtual DbSet<TblDepartment> TblDepartments { get; set; }
+
+    public virtual DbSet<TblEmployee> TblEmployees { get; set; }
+
+    public virtual DbSet<TblAuthorizationAudit> TblAuthorizationAudits { get; set; }
+
+    public virtual DbSet<TblFileStorage> TblFileStorages { get; set; }
+
+    public virtual DbSet<TblInvoice> TblInvoices { get; set; }
+
+    public virtual DbSet<TblNotification> TblNotifications { get; set; }
+
+    public virtual DbSet<TblOrder> TblOrders { get; set; }
+
+    public virtual DbSet<TblOrderDetail> TblOrderDetails { get; set; }
+
+    public virtual DbSet<TblPayment> TblPayments { get; set; }
+
+    public virtual DbSet<TblProduct> TblProducts { get; set; }
+
+    public virtual DbSet<TblQuotation> TblQuotations { get; set; }
+
+    public virtual DbSet<TblQuotationDetail> TblQuotationDetails { get; set; }
+
+    public virtual DbSet<TblService> TblServices { get; set; }
+
+    public virtual DbSet<TblServiceType> TblServiceTypes { get; set; }
+
+    public virtual DbSet<TblTenantLegalProfile> TblTenantLegalProfiles { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<TblContractApprovalRequest>(entity =>
+        {
+            entity.HasKey(x => x.ApprovalRequestId);
+
+            entity.ToTable("tbl_ContractApprovalRequest", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractApprovalRequest_Status",
+                    "[Status] IN (0, 1, 2, 3, 4)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractApprovalRequest_ContractId",
+                    "[ContractId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractApprovalRequest_VersionId",
+                    "[VersionId] > 0");
+            });
+
+            /*
+             * Mỗi hợp đồng chỉ được có một request Pending.
+             * Các request cũ đã kết thúc vẫn được giữ làm lịch sử.
+             */
+            entity.HasIndex(x => x.ContractId)
+                .IsUnique()
+                .HasFilter("[Status] = 0")
+                .HasDatabaseName(
+                    "UX_tbl_ContractApprovalRequest_PendingContract");
+
+            entity.HasIndex(x => x.VersionId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractApprovalRequest_VersionId");
+
+            entity.HasIndex(x => x.WorkflowId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractApprovalRequest_WorkflowId");
+
+            entity.HasIndex(x => new
+                {
+                    x.Status,
+                    x.SubmittedDate,
+                    x.ApprovalRequestId
+                })
+                .HasDatabaseName(
+                    "IX_tbl_ContractApprovalRequest_Inbox");
+
+            entity.Property(x => x.Status)
+                .HasDefaultValue((byte)0);
+
+            entity.Property(x => x.SubmittedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.Property(x => x.ResolvedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(x => x.DecisionComment)
+                .HasMaxLength(1000);
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblApprovalHistory>(entity =>
+        {
+            entity.HasKey(e => e.ApprovalHistoryId).HasName("PK__tbl_Appr__46B53247FB4F4CF5");
+
+            entity.ToTable("tbl_ApprovalHistory");
+
+            entity.Property(e => e.ActionDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ApprovalAction)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.Comment).HasMaxLength(1000);
+            entity.Property(e => e.ObjectType)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.HasIndex(e => new
+                {
+                    e.ObjectType,
+                    e.ObjectId,
+                    e.ActionDate,
+                    e.ApprovalHistoryId
+                })
+                .HasDatabaseName("IX_tbl_ApprovalHistory_ObjectTimeline");
+        });
+
+        modelBuilder.Entity<TblApprovalWorkflow>(entity =>
+        {
+            entity.HasKey(e => e.WorkflowId).HasName("PK__tbl_Appr__5704A66A2F3CD2A5");
+
+            entity.ToTable("tbl_ApprovalWorkflow");
+
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.ObjectType)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.WorkflowName).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<TblCategory>(entity =>
+        {
+            entity.HasKey(e => e.CategoryId);
+
+            entity.ToTable("tbl_Categories");
+
+            entity.Property(e => e.CategoryId).ValueGeneratedOnAdd();
+            entity.Property(e => e.CategoryName).HasMaxLength(500);
+            entity.Property(e => e.CategoryShortDesc).HasMaxLength(1000);
+            entity.Property(e => e.Image)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblContract>(entity =>
+        {
+            entity.HasKey(e => e.ContractId);
+
+            entity.ToTable("tbl_Contract", table =>
+            {
+                // Chỉ chấp nhận các trạng thái thuộc lifecycle.
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_Status",
+                    "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7)");
+
+                // ContractType hiện có ba loại hợp đồng hợp lệ.
+                // Không cho phép giá trị 0 vì 0 không mang ý nghĩa nghiệp vụ.
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_ContractType",
+                    "[ContractType] IN (1, 2, 3)");
+
+                // 1 = Vietnamese, 2 = Bilingual.
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_LanguageMode",
+                    "[LanguageMode] IN (1, 2)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_TemplateVersionId",
+                    "[TemplateVersionId] > 0");
+
+                // Giá trị hợp đồng không được âm.
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_TotalAmount",
+                    "[TotalAmount] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_Contract_FinancialTotals",
+                    "[Subtotal] >= 0 AND [TotalDiscount] >= 0 " +
+                    "AND [TotalVat] >= 0 AND [TotalAmount] >= 0");
+            });
+            /*
+             * ContractCode có thể null khi còn Draft.
+             * Khi đã có code thì code phải duy nhất trong tenant.
+             */
+            entity.HasIndex(
+                    e => e.ContractCode,
+                    "UX_tbl_Contract_ContractCode")
+                .IsUnique()
+                .HasFilter("[ContractCode] IS NOT NULL");
+
+            /*
+             * Các index phục vụ query theo Customer, Owner và trạng thái.
+             * Dự án không dùng foreign key vật lý nhưng vẫn cần index.
+             */
+            entity.HasIndex(
+                e => e.CustomerId,
+                "IX_tbl_Contract_CustomerId");
+
+            entity.HasIndex(
+                e => new { e.EmployeeId, e.Status },
+                "IX_tbl_Contract_EmployeeId_Status");
+
+            entity.HasIndex(
+                e => e.TemplateVersionId,
+                "IX_tbl_Contract_TemplateVersionId");
+
+            entity.HasIndex(
+                e => e.ParentContractId,
+                "IX_tbl_Contract_ParentContractId");
+
+            entity.HasIndex(
+                e => e.CurrentVersionId,
+                "IX_tbl_Contract_CurrentVersionId");
+
+            entity.HasIndex(e => e.CurrentVerificationPhoneId)
+                .HasDatabaseName("IX_tbl_Contract_CurrentVerificationPhoneId");
+
+            entity.HasIndex(e => e.CurrentCustomerAccessLinkId)
+                .HasDatabaseName("IX_tbl_Contract_CurrentCustomerAccessLinkId");
+
+            entity.Property(e => e.ContractCode)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ContractName)
+                .HasMaxLength(1000)
+                .IsRequired();
+
+            entity.Property(e => e.ContractNameEn)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.SignDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.EffectiveDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.ExpireDate)
+                .HasColumnType("datetime2");
+
+            /*
+             * ContractStatus.Draft = 0.
+             * Không reference API enum từ Infrastructure.
+             */
+            entity.Property(e => e.Status)
+                .HasDefaultValue((byte)0);
+
+            /*
+             * Tiền bắt buộc dùng decimal.
+             */
+            entity.Property(e => e.TotalAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.Subtotal)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.TotalDiscount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.TotalVat)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.CurrencyCode)
+                .HasMaxLength(3)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasDefaultValue("VND");
+
+            /*
+             * ContractLanguageMode.Vietnamese = 1.
+             */
+            entity.Property(e => e.LanguageMode)
+                .HasDefaultValue((byte)1);
+
+            entity.Property(e => e.CreatedDate)
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_Contract_CreatedDate")
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.UpdateDate)
+                .HasColumnType("datetime2");
+
+            /*
+             * RowVersion do SQL Server tự sinh.
+             * Client không được tự gán giá trị cho cột này.
+             */
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractAudit>(entity =>
+        {
+            entity.HasKey(e => e.ContractAuditId)
+                .HasName("PK_tbl_ContractAudit");
+
+            entity.ToTable("tbl_ContractAudit", table =>
+            {
+                table.HasTrigger(
+                    "TR_tbl_ContractAudit_AppendOnly");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_TenantId",
+                    "[TenantId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_ContractId",
+                    "[ContractId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_VersionId",
+                    "[VersionId] IS NULL OR [VersionId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_Subject",
+                    "([SubjectType] IS NULL AND [SubjectId] IS NULL) OR " +
+                    "([SubjectType] IN ('Contract', 'ContractVersion', " +
+                    "'NegotiationComment', 'CustomerAccessLink', " +
+                    "'CustomerOtpChallenge', 'CustomerAccessSession', " +
+                    "'ApprovalRequest', 'SignedEvidence', " +
+                    "'ContractAppendix', 'AcceptanceRecord', " +
+                    "'AcceptanceEvidence', 'Payment') " +
+                    "AND [SubjectId] > 0)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_ActorType",
+                    "LEN(LTRIM(RTRIM([ActorType]))) > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_Actor",
+                    "([ActorType] = 'Employee' " +
+                    "AND [ActorEmployeeId] > 0 " +
+                    "AND [ActorCustomerAccessSessionId] IS NULL) OR " +
+                    "([ActorType] = 'Customer' " +
+                    "AND [ActorEmployeeId] IS NULL " +
+                    "AND [ActorCustomerAccessSessionId] > 0) OR " +
+                    "([ActorType] = 'System' " +
+                    "AND [ActorEmployeeId] IS NULL " +
+                    "AND [ActorCustomerAccessSessionId] IS NULL)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_ActionType",
+                    "LEN(LTRIM(RTRIM([ActionType]))) > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_Result",
+                    "LEN(LTRIM(RTRIM([Result]))) > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_PreviousResponsibleEmployeeId",
+                    "[PreviousResponsibleEmployeeId] IS NULL " +
+                    "OR [PreviousResponsibleEmployeeId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_NewResponsibleEmployeeId",
+                    "[NewResponsibleEmployeeId] IS NULL " +
+                    "OR [NewResponsibleEmployeeId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_CorrelationId",
+                    "LEN(LTRIM(RTRIM([CorrelationId]))) > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractAudit_FailureCode",
+                    "[FailureCode] IS NULL OR " +
+                    "LEN(LTRIM(RTRIM([FailureCode]))) > 0");
+            });
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.ContractId,
+                    e.OccurredAt
+                })
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_TenantId_ContractId_OccurredAt");
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.OccurredAt,
+                    e.ContractAuditId
+                })
+                .IsDescending(false, true, true)
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_TenantId_OccurredAt_ContractAuditId");
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.ActorEmployeeId,
+                    e.OccurredAt,
+                    e.ContractAuditId
+                })
+                .IsDescending(false, false, true, true)
+                .HasFilter("[ActorEmployeeId] IS NOT NULL")
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_Tenant_Employee_OccurredAt");
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.ActorCustomerAccessSessionId,
+                    e.OccurredAt,
+                    e.ContractAuditId
+                })
+                .IsDescending(false, false, true, true)
+                .HasFilter("[ActorCustomerAccessSessionId] IS NOT NULL")
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_Tenant_CustomerSession_OccurredAt");
+
+            entity.HasIndex(e => new { e.TenantId, e.CorrelationId })
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_Tenant_CorrelationId");
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.SubjectType,
+                    e.SubjectId,
+                    e.OccurredAt,
+                    e.ContractAuditId
+                })
+                .IsDescending(false, false, false, true, true)
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_Tenant_Subject_OccurredAt");
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.FailureCode,
+                    e.OccurredAt,
+                    e.ContractAuditId
+                })
+                .IsDescending(false, false, true, true)
+                .HasFilter("[FailureCode] IS NOT NULL")
+                .HasDatabaseName(
+                    "IX_tbl_ContractAudit_Tenant_Failure_OccurredAt");
+
+            entity.Property(e => e.SubjectType)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+
+            entity.Property(e => e.SubjectId);
+
+            entity.Property(e => e.ActorType)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ActionType)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ActorCustomerAccessSessionId);
+
+            entity.Property(e => e.ActorDisplayNameSnapshot)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.ActorMaskedPhoneSnapshot)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ActorPhoneSourceSnapshot)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ContractCodeSnapshot)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ContractNameSnapshot)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.VersionNoSnapshot);
+
+            entity.Property(e => e.Result)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.FailureCode)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+
+            entity.Property(e => e.OccurredAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .IsUnicode(false);
+
+            entity.Property(e => e.UserAgent)
+                .HasMaxLength(1024);
+
+            entity.Property(e => e.CorrelationId)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblContractAuditValue>(entity =>
+        {
+            entity.HasKey(e => e.ContractAuditValueId)
+                .HasName("PK_tbl_ContractAuditValue");
+            entity.ToTable("tbl_ContractAuditValue", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractAuditValue_Side",
+                    "[ValueSide] IN (1, 2)");
+                table.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode",
+                    "[FieldCode] BETWEEN 1 AND 99");
+                table.HasCheckConstraint("CK_tbl_ContractAuditValue_ValueKind",
+                    "[ValueKind] IN (1, 2, 3, 4, 5)");
+                table.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldKind",
+                    "([ValueKind] = 2 AND [FieldCode] IN (11,12,13,14,55,60,61)) OR " +
+                    "([ValueKind] = 4 AND [FieldCode] IN (8,9,45,54,62,63,64,85,91,92,95,98)) OR " +
+                    "([ValueKind] = 5 AND [FieldCode] IN (27,68)) OR " +
+                    "([ValueKind] = 3 AND [FieldCode] IN (5,6,7,10,17,18,19,20,21,22,32,34,36,43,47,48,56,57,73,74,77,79,80,82,87,90,93)) OR " +
+                    "([ValueKind] = 1 AND [FieldCode] NOT IN (5,6,7,8,9,10,11,12,13,14,17,18,19,20,21,22,27,32,34,36,43,45,47,48,54,55,56,57,60,61,62,63,64,68,73,74,77,79,80,82,85,87,90,91,92,93,95,98))");
+                table.HasCheckConstraint("CK_tbl_ContractAuditValue_Value",
+                    "([IsNull] = 1 AND [IntegerValue] IS NULL AND [DecimalValue] IS NULL AND [StringValue] IS NULL AND [DateTimeValue] IS NULL AND [BooleanValue] IS NULL) OR " +
+                    "([IsNull] = 0 AND (([ValueKind] = 1 AND [IntegerValue] IS NOT NULL AND [DecimalValue] IS NULL AND [StringValue] IS NULL AND [DateTimeValue] IS NULL AND [BooleanValue] IS NULL) OR " +
+                    "([ValueKind] = 2 AND [IntegerValue] IS NULL AND [DecimalValue] IS NOT NULL AND [StringValue] IS NULL AND [DateTimeValue] IS NULL AND [BooleanValue] IS NULL) OR " +
+                    "([ValueKind] = 3 AND [IntegerValue] IS NULL AND [DecimalValue] IS NULL AND [StringValue] IS NOT NULL AND [DateTimeValue] IS NULL AND [BooleanValue] IS NULL) OR " +
+                    "([ValueKind] = 4 AND [IntegerValue] IS NULL AND [DecimalValue] IS NULL AND [StringValue] IS NULL AND [DateTimeValue] IS NOT NULL AND [BooleanValue] IS NULL) OR " +
+                    "([ValueKind] = 5 AND [IntegerValue] IS NULL AND [DecimalValue] IS NULL AND [StringValue] IS NULL AND [DateTimeValue] IS NULL AND [BooleanValue] IS NOT NULL)))");
+            });
+            entity.HasIndex(e => new { e.ContractAuditId, e.ValueSide, e.FieldCode })
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractAuditValue_Audit_Side_Field");
+            entity.HasIndex(e => new { e.ContractAuditId, e.ValueSide })
+                .HasDatabaseName("IX_tbl_ContractAuditValue_Audit_Side");
+            entity.Property(e => e.ValueSide).HasConversion<byte>();
+            entity.Property(e => e.ValueKind).HasConversion<byte>();
+            entity.Property(e => e.DecimalValue).HasPrecision(19, 4);
+            entity.Property(e => e.StringValue).HasMaxLength(500);
+            entity.Property(e => e.DateTimeValue).HasColumnType("datetime2");
+            entity.HasOne(e => e.ContractAudit)
+                .WithMany(e => e.Values)
+                .HasForeignKey(e => e.ContractAuditId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TblContractTemplateAudit>(entity =>
+        {
+            entity.HasKey(e => e.ContractTemplateAuditId)
+                .HasName("PK_tbl_ContractTemplateAudit");
+
+            entity.ToTable("tbl_ContractTemplateAudit", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_TenantId", "[TenantId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_TemplateId", "[TemplateId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_TemplateVersionId",
+                    "[TemplateVersionId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_ActorEmployeeId",
+                    "[ActorEmployeeId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_ActionType",
+                    "LEN(LTRIM(RTRIM([ActionType]))) > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_Result",
+                    "LEN(LTRIM(RTRIM([Result]))) > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_CorrelationId",
+                    "LEN(LTRIM(RTRIM([CorrelationId]))) > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateAudit_FailureCode",
+                    "[FailureCode] IS NULL OR " +
+                    "LEN(LTRIM(RTRIM([FailureCode]))) > 0");
+            });
+
+            entity.HasIndex(e => new
+                {
+                    e.TenantId,
+                    e.TemplateVersionId,
+                    e.OccurredAt
+                })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplateAudit_TenantId_Version_OccurredAt");
+
+            entity.Property(e => e.ActionType)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+            entity.Property(e => e.Result)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+            entity.Property(e => e.FailureCode)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+            entity.Property(e => e.OccurredAt)
+                .HasColumnType("datetime2");
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .IsUnicode(false);
+            entity.Property(e => e.UserAgent)
+                .HasMaxLength(1024);
+            entity.Property(e => e.CorrelationId)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblContractNegotiationComment>(entity =>
+        {
+            entity.HasKey(e => e.CommentId)
+                .HasName("PK_tbl_ContractNegotiationComment");
+
+            entity.ToTable("tbl_ContractNegotiationComment", table =>
+            {
+                table.HasTrigger(
+                    "TR_tbl_ContractNegotiationComment_AppendOnly");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_ContractId",
+                    "[ContractId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_VersionId",
+                    "[VersionId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_TermId",
+                    "[TermId] IS NULL OR [TermId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_ParentCommentId",
+                    "[ParentCommentId] IS NULL OR [ParentCommentId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_CarriedForwardFromCommentId",
+                    "[CarriedForwardFromCommentId] IS NULL OR [CarriedForwardFromCommentId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_CarriedForwardFromVersionId",
+                    "[CarriedForwardFromVersionId] IS NULL OR [CarriedForwardFromVersionId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_CarryForwardPair",
+                    "([CarriedForwardFromCommentId] IS NULL AND [CarriedForwardFromVersionId] IS NULL) OR " +
+                    "([CarriedForwardFromCommentId] > 0 AND [CarriedForwardFromVersionId] > 0)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_Content",
+                    "LEN(LTRIM(RTRIM([Content]))) BETWEEN 1 AND 4000");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_Source",
+                    "[Source] IN ('ExternalFeedback', 'Customer')");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_Actor",
+                    "([Source] = 'ExternalFeedback' " +
+                    "AND [RecordedByEmployeeId] > 0 " +
+                    "AND [CustomerAccessSessionId] IS NULL) OR " +
+                    "([Source] = 'Customer' " +
+                    "AND [RecordedByEmployeeId] IS NULL " +
+                    "AND [CustomerAccessSessionId] > 0)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationComment_State",
+                    "[State] IN (0, 1)");
+            });
+
+            entity.HasIndex(e => new
+            {
+                e.ContractId,
+                e.VersionId,
+                e.CreatedDate,
+                e.CommentId
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractNegotiationComment_Version_Chronological");
+
+            entity.HasIndex(e => e.ParentCommentId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractNegotiationComment_ParentCommentId");
+
+            entity.HasIndex(e => e.CarriedForwardFromCommentId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractNegotiationComment_CarriedForwardFromCommentId");
+
+            entity.HasIndex(e => e.CarriedForwardFromVersionId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractNegotiationComment_CarriedForwardFromVersionId");
+
+            entity.HasIndex(e => e.TermId)
+                .HasDatabaseName("IX_tbl_ContractNegotiationComment_TermId");
+
+            entity.Property(e => e.Content)
+                .HasColumnType("nvarchar(4000)")
+                .IsRequired();
+
+            entity.Property(e => e.Source)
+                .HasMaxLength(32)
+                .IsUnicode(false)
+                .HasDefaultValue("ExternalFeedback");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractNegotiationComment_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.State)
+                .HasDefaultValue((byte)0);
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractNegotiationCommentEvent>(entity =>
+        {
+            entity.HasKey(e => e.CommentEventId)
+                .HasName("PK_tbl_ContractNegotiationCommentEvent");
+
+            entity.ToTable("tbl_ContractNegotiationCommentEvent", table =>
+            {
+                table.HasTrigger(
+                    "TR_tbl_ContractNegotiationCommentEvent_AppendOnly");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationCommentEvent_CommentId",
+                    "[CommentId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationCommentEvent_EventType",
+                    "[EventType] IN (1, 2, 3, 4)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractNegotiationCommentEvent_Actor",
+                    "([ActorType] = 'Employee' AND [EmployeeId] > 0 " +
+                    "AND [CustomerAccessSessionId] IS NULL) OR " +
+                    "([ActorType] = 'Customer' AND [EmployeeId] IS NULL " +
+                    "AND [CustomerAccessSessionId] > 0) OR " +
+                    "([ActorType] = 'System' AND [EmployeeId] IS NULL " +
+                    "AND [CustomerAccessSessionId] IS NULL)");
+            });
+
+            entity.HasIndex(e => new
+            {
+                e.CommentId,
+                e.OccurredAt,
+                e.CommentEventId
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractNegotiationCommentEvent_Chronological");
+
+            entity.Property(e => e.OccurredAt)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractNegotiationCommentEvent_OccurredAt");
+
+            entity.Property(e => e.ActorType)
+                .HasMaxLength(32)
+                .IsUnicode(false)
+                .HasDefaultValue("Employee");
+        });
+
+        modelBuilder.Entity<TblContractCustomerVerificationPhone>(entity =>
+        {
+            entity.HasKey(e => e.VerificationPhoneId)
+                .HasName("PK_tbl_ContractCustomerVerificationPhone");
+
+            entity.ToTable("tbl_ContractCustomerVerificationPhone", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_ContractId", "[ContractId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Source", "[PhoneSource] IN ('CustomerMobile', 'CustomerPhone', 'Manual')");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Phone", "LEN(LTRIM(RTRIM([PhoneNumberNormalized]))) BETWEEN 3 AND 32");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Reason", "LEN(LTRIM(RTRIM([Reason]))) BETWEEN 1 AND 1000");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_CreatedBy", "[CreatedByEmployeeId] > 0");
+            });
+
+            entity.HasIndex(e => new { e.ContractId, e.CreatedDate, e.VerificationPhoneId })
+                .HasDatabaseName("IX_tbl_ContractCustomerVerificationPhone_Contract_Chronological");
+            entity.HasIndex(e => new { e.ContractId, e.PhoneNumberNormalized })
+                .HasDatabaseName("IX_tbl_ContractCustomerVerificationPhone_Contract_Phone");
+            entity.Property(e => e.PhoneSource).HasMaxLength(32).IsUnicode(false);
+            entity.Property(e => e.PhoneNumberNormalized).HasMaxLength(32).IsUnicode(false);
+            entity.Property(e => e.Reason).HasMaxLength(1000);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractCustomerAccessLink>(entity =>
+        {
+            entity.HasKey(e => e.CustomerAccessLinkId)
+                .HasName("PK_tbl_ContractCustomerAccessLink");
+
+            entity.ToTable("tbl_ContractCustomerAccessLink", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessLink_LogicalIds", "[TenantId] > 0 AND [ContractId] > 0 AND [VersionId] > 0 AND [VerificationPhoneId] > 0 AND [CreatedByEmployeeId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessLink_TokenHash", "LEN(LTRIM(RTRIM([TokenHash]))) = 64");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessLink_Expiry", "[ExpiresAt] > [CreatedDate]");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessLink_Activation", "[ActivatedAt] IS NULL OR ([ActivatedAt] >= [CreatedDate] AND [ActivatedAt] <= [ExpiresAt])");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessLink_Revocation", "([RevokedAt] IS NULL AND [RevokedByEmployeeId] IS NULL AND [RevocationReason] IS NULL) OR ([RevokedAt] IS NOT NULL AND [RevokedByEmployeeId] > 0 AND LEN(LTRIM(RTRIM([RevocationReason]))) BETWEEN 1 AND 1000)");
+            });
+
+            entity.HasIndex(e => e.TokenHash).IsUnique().HasDatabaseName("UX_tbl_ContractCustomerAccessLink_TokenHash");
+            entity.HasIndex(e => e.ContractId).IsUnique().HasFilter("[RevokedAt] IS NULL").HasDatabaseName("UX_tbl_ContractCustomerAccessLink_ActiveContract");
+            entity.HasIndex(e => new { e.ContractId, e.VersionId, e.VerificationPhoneId }).HasFilter("[RevokedAt] IS NULL").HasDatabaseName("IX_tbl_ContractCustomerAccessLink_ActiveContext");
+            entity.HasIndex(e => new { e.ExpiresAt, e.RevokedAt }).HasDatabaseName("IX_tbl_ContractCustomerAccessLink_Expiry");
+            entity.Property(e => e.TokenHash).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.RevocationReason).HasMaxLength(1000);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.ActivatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.ExpiresAt).HasColumnType("datetime2");
+            entity.Property(e => e.RevokedAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractCustomerOtpChallenge>(entity =>
+        {
+            entity.HasKey(e => e.CustomerOtpChallengeId)
+                .HasName("PK_tbl_ContractCustomerOtpChallenge");
+
+            entity.ToTable("tbl_ContractCustomerOtpChallenge", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_LogicalIds", "[LinkId] > 0 AND [VerificationPhoneId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_PublicId", "LEN(LTRIM(RTRIM([PublicChallengeId]))) BETWEEN 32 AND 64");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_Purpose", "[Purpose] = 'CustomerAccess'");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_OtpHash", "LEN(LTRIM(RTRIM([OtpHash]))) = 64");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_Attempts", "[FailedAttemptCount] BETWEEN 0 AND 5");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_Expiry", "[ExpiresAt] > [CreatedDate]");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpChallenge_Lock", "[LockedAt] IS NULL OR [FailedAttemptCount] = 5");
+            });
+
+            entity.HasIndex(e => e.PublicChallengeId).IsUnique().HasDatabaseName("UX_tbl_ContractCustomerOtpChallenge_PublicChallengeId");
+            entity.HasIndex(e => new { e.LinkId, e.CreatedDate }).HasDatabaseName("IX_tbl_ContractCustomerOtpChallenge_Link_Created");
+            entity.HasIndex(e => new { e.LinkId, e.ExpiresAt }).HasFilter("[UsedAt] IS NULL AND [LockedAt] IS NULL AND [InvalidatedAt] IS NULL").HasDatabaseName("IX_tbl_ContractCustomerOtpChallenge_ActiveLookup");
+            entity.Property(e => e.PublicChallengeId).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.Purpose).HasMaxLength(32).IsUnicode(false);
+            entity.Property(e => e.OtpHash).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.ExpiresAt).HasColumnType("datetime2");
+            entity.Property(e => e.SentAt).HasColumnType("datetime2");
+            entity.Property(e => e.UsedAt).HasColumnType("datetime2");
+            entity.Property(e => e.LockedAt).HasColumnType("datetime2");
+            entity.Property(e => e.InvalidatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractCustomerAccessSession>(entity =>
+        {
+            entity.HasKey(e => e.CustomerAccessSessionId)
+                .HasName("PK_tbl_ContractCustomerAccessSession");
+
+            entity.ToTable("tbl_ContractCustomerAccessSession", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessSession_LogicalIds", "[TenantId] > 0 AND [LinkId] > 0 AND [ContractId] > 0 AND [VersionId] > 0 AND [VerificationPhoneId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessSession_TokenHash", "LEN(LTRIM(RTRIM([SessionTokenHash]))) = 64");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessSession_Expiry", "[IssuedAt] <= [LastActivityAt] AND [IdleExpiresAt] >= [LastActivityAt] AND [HardExpiresAt] >= [IdleExpiresAt]");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerAccessSession_Revocation", "[RevokedAt] IS NULL OR LEN(LTRIM(RTRIM([RevocationReason]))) BETWEEN 1 AND 1000");
+            });
+
+            entity.HasIndex(e => e.SessionTokenHash).IsUnique().HasDatabaseName("UX_tbl_ContractCustomerAccessSession_TokenHash");
+            entity.HasIndex(e => new { e.LinkId, e.RevokedAt, e.IdleExpiresAt }).HasDatabaseName("IX_tbl_ContractCustomerAccessSession_ActiveLink");
+            entity.HasIndex(e => new { e.ContractId, e.VersionId, e.RevokedAt }).HasDatabaseName("IX_tbl_ContractCustomerAccessSession_ContractVersion");
+            entity.Property(e => e.SessionTokenHash).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.RevocationReason).HasMaxLength(1000);
+            entity.Property(e => e.IssuedAt).HasColumnType("datetime2");
+            entity.Property(e => e.LastActivityAt).HasColumnType("datetime2");
+            entity.Property(e => e.IdleExpiresAt).HasColumnType("datetime2");
+            entity.Property(e => e.HardExpiresAt).HasColumnType("datetime2");
+            entity.Property(e => e.RevokedAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractCustomerOtpDeliveryOutbox>(entity =>
+        {
+            entity.HasKey(e => e.CustomerOtpDeliveryOutboxId)
+                .HasName("PK_tbl_ContractCustomerOtpDeliveryOutbox");
+
+            entity.ToTable("tbl_ContractCustomerOtpDeliveryOutbox", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpDeliveryOutbox_Challenge", "[ChallengeId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpDeliveryOutbox_Status", "[Status] IN ('Pending', 'Leased', 'Sent', 'Failed')");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpDeliveryOutbox_Attempts", "[AttemptCount] >= 0");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpDeliveryOutbox_Ciphertexts", "DATALENGTH([PhoneCiphertext]) >= 28 AND DATALENGTH([OtpCiphertext]) >= 28 AND ([EmailCiphertext] IS NULL OR DATALENGTH([EmailCiphertext]) >= 28)");
+                table.HasCheckConstraint("CK_tbl_ContractCustomerOtpDeliveryOutbox_Expiry", "[DeliveryExpiresAt] > [CreatedDate]");
+            });
+
+            entity.HasIndex(e => e.ChallengeId).IsUnique().HasDatabaseName("UX_tbl_ContractCustomerOtpDeliveryOutbox_ChallengeId");
+            entity.HasIndex(e => new { e.Status, e.NextAttemptAt, e.LeaseUntil }).HasDatabaseName("IX_tbl_ContractCustomerOtpDeliveryOutbox_Lease");
+            entity.Property(e => e.PhoneCiphertext).HasMaxLength(256);
+            entity.Property(e => e.OtpCiphertext).HasMaxLength(128);
+            entity.Property(e => e.EmailCiphertext).HasMaxLength(512);
+            entity.Property(e => e.DeliveryExpiresAt).HasColumnType("datetime2");
+            entity.Property(e => e.Status).HasMaxLength(16).IsUnicode(false);
+            entity.Property(e => e.LeaseId).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.LastFailure).HasMaxLength(1000);
+            entity.Property(e => e.NextAttemptAt).HasColumnType("datetime2");
+            entity.Property(e => e.LeaseUntil).HasColumnType("datetime2");
+            entity.Property(e => e.SentAt).HasColumnType("datetime2");
+            entity.Property(e => e.FailedAt).HasColumnType("datetime2");
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractAppendix>(entity =>
+        {
+            entity.HasKey(e => e.AppendixId).HasName("PK__tbl_Cont__44B149C44BC57074");
+
+            entity.ToTable("tbl_ContractAppendix");
+
+            entity.Property(e => e.AppendixCode)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.AppendixDescription).HasMaxLength(2000);
+            entity.Property(e => e.AppendixName).HasMaxLength(1000);
+            entity.Property(e => e.AppendixNameEn)
+                .HasMaxLength(500)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblContractAttachment>(entity =>
+        {
+            entity.HasKey(e => e.AttachmentId).HasName("PK__tbl_Cont__442C64BE6AC2F4CE");
+
+            entity.ToTable("tbl_ContractAttachment");
+
+            entity.Property(e => e.ContractFileName)
+                .HasMaxLength(300)
+                .IsUnicode(false);
+            entity.Property(e => e.ContractFilePath)
+                .HasMaxLength(1000)
+                .IsUnicode(false);
+            entity.Property(e => e.UploadDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DocumentType)
+                .HasDefaultValue((byte)99);
+        });
+
+        modelBuilder.Entity<TblContractTemplateAuditValue>(entity =>
+        {
+            entity.HasKey(e => e.ContractTemplateAuditValueId)
+                .HasName("PK_tbl_ContractTemplateAuditValue");
+            entity.ToTable("tbl_ContractTemplateAuditValue", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractTemplateAuditValue_Side",
+                    "[ValueSide] IN (1, 2)");
+                table.HasCheckConstraint("CK_tbl_ContractTemplateAuditValue_FieldCode",
+                    "[FieldCode] BETWEEN 1 AND 15");
+                table.HasCheckConstraint("CK_tbl_ContractTemplateAuditValue_Value",
+                    "([IsNull] = 1 AND [IntegerValue] IS NULL AND [LongValue] IS NULL AND [StringValue] IS NULL) OR " +
+                    "([IsNull] = 0 AND (([FieldCode] IN (1, 5, 6, 9, 12, 13, 14, 15) AND [IntegerValue] IS NOT NULL AND [LongValue] IS NULL AND [StringValue] IS NULL) OR " +
+                    "([FieldCode] IN (3, 7, 10) AND [IntegerValue] IS NULL AND [LongValue] IS NOT NULL AND [StringValue] IS NULL) OR " +
+                    "([FieldCode] IN (2, 4, 8, 11) AND [IntegerValue] IS NULL AND [LongValue] IS NULL AND [StringValue] IS NOT NULL)))");
+                table.HasCheckConstraint("CK_tbl_ContractTemplateAuditValue_NullField",
+                    "[IsNull] = 0 OR [FieldCode] IN (1, 6, 9)");
+                table.HasCheckConstraint("CK_tbl_ContractTemplateAuditValue_Status",
+                    "([FieldCode] <> 2 OR [StringValue] IN ('doc','docx','docm','dotx','dotm','other')) AND " +
+                    "([FieldCode] <> 4 OR [StringValue] IN ('Valid','Invalid','Unchanged')) AND " +
+                    "([FieldCode] <> 8 OR [StringValue] IN ('Current','Rejected','Stale','Unchanged')) AND " +
+                    "([FieldCode] <> 11 OR [StringValue] IN ('Draft','Published','Retired','Unchanged'))");
+            });
+            entity.HasIndex(e => new { e.ContractTemplateAuditId, e.ValueSide, e.FieldCode })
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractTemplateAuditValue_Audit_Side_Field");
+            entity.HasIndex(e => new { e.ContractTemplateAuditId, e.ValueSide })
+                .HasDatabaseName("IX_tbl_ContractTemplateAuditValue_Audit_Side");
+            entity.Property(e => e.ValueSide).HasConversion<byte>();
+            entity.Property(e => e.StringValue)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+            entity.HasOne(e => e.ContractTemplateAudit)
+                .WithMany(e => e.Values)
+                .HasForeignKey(e => e.ContractTemplateAuditId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TblContractSignedEvidence>(entity =>
+        {
+            entity.HasKey(e => e.SignedEvidenceId)
+                .HasName("PK_tbl_ContractSignedEvidence");
+
+            entity.ToTable("tbl_ContractSignedEvidence", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractSignedEvidence_Status",
+                    "[Status] IN (1, 2)");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractSignedEvidence_ContractId",
+                    "[ContractId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractSignedEvidence_VersionId",
+                    "[VersionId] > 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractSignedEvidence_FileId",
+                    "[FileId] > 0");
+            });
+
+            entity.HasIndex(e => e.FileId)
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractSignedEvidence_FileId");
+            entity.HasIndex(e => new { e.ContractId, e.VersionId })
+                .IsUnique()
+                .HasFilter("[Status] = 1")
+                .HasDatabaseName(
+                    "UX_tbl_ContractSignedEvidence_ActiveVersion");
+
+            entity.Property(e => e.SupersedeReason).HasMaxLength(1000);
+            entity.Property(e => e.UploadedAt).HasColumnType("datetime2");
+            entity.Property(e => e.SupersededAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+
+            entity.HasOne<TblContract>()
+                .WithMany()
+                .HasForeignKey(e => e.ContractId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractVersion>()
+                .WithMany()
+                .HasForeignKey(e => e.VersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblFileStorage>()
+                .WithMany()
+                .HasForeignKey(e => e.FileId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractSignedEvidence>()
+                .WithMany()
+                .HasForeignKey(e => e.SupersedesEvidenceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblEmployee>()
+                .WithMany()
+                .HasForeignKey(e => e.UploadedByEmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblEmployee>()
+                .WithMany()
+                .HasForeignKey(e => e.SupersededByEmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TblContractAcceptanceEvidence>(entity =>
+        {
+            entity.HasKey(e => e.AcceptanceEvidenceId);
+            entity.ToTable("tbl_ContractAcceptanceEvidence", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractAcceptanceEvidence_RecordId", "[AcceptanceRecordId] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractAcceptanceEvidence_FileId", "[FileId] > 0");
+            });
+            entity.HasIndex(e => e.FileId).IsUnique();
+            entity.Property(e => e.UploadedAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasOne<TblFileStorage>().WithMany().HasForeignKey(e => e.FileId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.UploadedByEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TblContractPaymentLedger>(entity =>
+        {
+            entity.HasKey(e => e.ContractPaymentId);
+            entity.ToTable("tbl_ContractPaymentLedger", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractPaymentLedger_Amount", "[Amount] > 0");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentLedger_Status", "[Status] IN (1, 2)");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentLedger_VoidMetadata", "([Status] = 1 AND [VoidReason] IS NULL AND [VoidedByEmployeeId] IS NULL AND [VoidedAt] IS NULL) OR ([Status] = 2 AND [VoidReason] IS NOT NULL AND [VoidedByEmployeeId] IS NOT NULL AND [VoidedAt] IS NOT NULL)");
+            });
+            entity.HasIndex(e => new { e.VersionId, e.ReferenceCode }).IsUnique();
+            entity.HasIndex(e => e.EvidenceFileId).IsUnique().HasFilter("[EvidenceFileId] IS NOT NULL");
+            entity.HasIndex(e => e.PaymentMilestoneId)
+                .IsUnique()
+                .HasFilter("[PaymentMilestoneId] IS NOT NULL AND [Status] = 1")
+                .HasDatabaseName("UX_tbl_ContractPaymentLedger_ActiveMilestone");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CurrencyCode).HasMaxLength(3).IsUnicode(false);
+            entity.Property(e => e.PaymentMethod).HasMaxLength(100);
+            entity.Property(e => e.ReferenceCode).HasMaxLength(100);
+            entity.Property(e => e.VoidReason).HasMaxLength(1000);
+            entity.Property(e => e.PaymentDate).HasColumnType("date");
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.VoidedAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasOne<TblContract>().WithMany().HasForeignKey(e => e.ContractId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractVersion>().WithMany().HasForeignKey(e => e.VersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractPaymentMilestone>().WithMany().HasForeignKey(e => e.PaymentMilestoneId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblFileStorage>().WithMany().HasForeignKey(e => e.EvidenceFileId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.CreatedByEmployeeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.VoidedByEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TblContractPaymentMilestone>(entity =>
+        {
+            entity.HasKey(e => e.PaymentMilestoneId);
+            entity.ToTable("tbl_ContractPaymentMilestone", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_Percent", "[PaymentPercent] > 0 AND [PaymentPercent] <= 100");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_Amount", "[Amount] >= 0");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_DueOffset", "[DueOffsetDays] >= 0");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_DueAnchor", "[DueAnchor] IN (1, 2, 3, 4, 5)");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_DayCount", "[DayCountMode] IN (1, 2)");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_PaymentStatus", "[PaymentStatus] IN (0, 1)");
+                table.HasCheckConstraint("CK_tbl_ContractPaymentMilestone_PaidMetadata", "([PaymentStatus] = 0 AND [PaidAt] IS NULL AND [PaidByEmployeeId] IS NULL) OR ([PaymentStatus] = 1 AND [PaidAt] IS NOT NULL AND [PaidByEmployeeId] IS NOT NULL)");
+            });
+            entity.HasIndex(e => new { e.VersionId, e.MilestoneCode }).IsUnique();
+            entity.HasIndex(e => new { e.ContractId, e.VersionId, e.DisplayOrder });
+            entity.HasIndex(e => e.PaidByEmployeeId);
+            entity.Property(e => e.MilestoneCode).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.TitleVi).HasMaxLength(500);
+            entity.Property(e => e.TitleEn).HasMaxLength(500);
+            entity.Property(e => e.PaymentPercent).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.AnchorDate).HasColumnType("date");
+            entity.Property(e => e.DueDate).HasColumnType("date");
+            entity.Property(e => e.PaymentStatus).HasDefaultValue((byte)0);
+            entity.Property(e => e.PaidAt).HasColumnType("datetime2");
+            entity.Property(e => e.ConditionVi).HasMaxLength(2000);
+            entity.Property(e => e.ConditionEn).HasMaxLength(2000);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasOne<TblContract>().WithMany().HasForeignKey(e => e.ContractId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractVersion>().WithMany().HasForeignKey(e => e.VersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TblContractTerm>().WithMany().HasForeignKey(e => e.TermId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.PaidByEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TblContractTemplate>(entity =>
+        {
+            entity.HasKey(e => e.TemplateId)
+                .HasName("PK_tbl_ContractTemplate");
+
+            entity.ToTable("tbl_ContractTemplate", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplate_TemplateCode",
+                    "LEN(LTRIM(RTRIM([TemplateCode]))) > 0");
+
+                // Các giá trị thuộc TemplateDocumentType.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplate_DocumentType",
+                    "[DocumentType] IN (1, 2, 3, 4, 5, 6, 7, 8, 99)");
+
+                // ContractLanguageMode: Vietnamese hoặc Bilingual.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplate_LanguageMode",
+                    "[LanguageMode] IN (1, 2)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplate_CurrentPublishedVersionId",
+                    "[CurrentPublishedVersionId] IS NULL " +
+                    "OR [CurrentPublishedVersionId] > 0");
+            });
+
+            entity.HasIndex(e => e.TemplateCode)
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractTemplate_TemplateCode");
+
+            entity.HasIndex(e => new { e.DocumentType, e.IsActive })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplate_DocumentType_IsActive");
+
+            entity.HasIndex(e => e.CurrentPublishedVersionId)
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplate_CurrentPublishedVersionId");
+
+            entity.Property(e => e.TemplateCode)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.TemplateName)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.TemplateNameEn)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(
+                    true,
+                    "DF_tbl_ContractTemplate_IsActive");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractTemplate_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractTemplateVersion>(entity =>
+        {
+            entity.HasKey(e => e.TemplateVersionId)
+                .HasName("PK_tbl_ContractTemplateVersion");
+
+            entity.ToTable("tbl_ContractTemplateVersion", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_VersionNo",
+                    "[VersionNo] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_Status",
+                    "[Status] IN (0, 1, 2)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_ValidationStatus",
+                    "[ValidationStatus] IN (0, 1, 2)");
+
+                /*
+                 * Nếu chưa upload DOCX thì cả FileId và Hash đều null.
+                 * Nếu đã upload thì FileId phải dương và hash dài 64 ký tự.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_Document",
+                    "([DocumentFileId] IS NULL AND [DocumentHash] IS NULL) " +
+                    "OR " +
+                    "([DocumentFileId] > 0 " +
+                    "AND [DocumentHash] IS NOT NULL " +
+                    "AND LEN([DocumentHash]) = 64)");
+
+                /*
+                 * Preview chỉ giữ metadata của artifact đã sinh. Khi một DOCX
+                 * mới được upload, FileId được clear sau commit nhưng hash/thời
+                 * điểm cũ được giữ để nhận diện trạng thái stale an toàn.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_Preview",
+                    "([PreviewSourceHash] IS NULL " +
+                    "AND [PreviewedAt] IS NULL " +
+                    "AND [PreviewedByEmployeeId] IS NULL " +
+                    "AND [PreviewFileId] IS NULL) " +
+                    "OR " +
+                    "([PreviewSourceHash] IS NOT NULL " +
+                    "AND LEN([PreviewSourceHash]) = 64 " +
+                    "AND [PreviewedAt] IS NOT NULL " +
+                    "AND [PreviewedByEmployeeId] > 0 " +
+                    "AND ([PreviewFileId] IS NULL OR [PreviewFileId] > 0))");
+
+                /*
+                 * NotValidated: chưa có thông tin người/thời điểm validate.
+                 * Valid: đã lưu người và thời điểm validate.
+                 * Invalid: ngoài audit còn phải có thông báo lỗi.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_Validation",
+                    "([ValidationStatus] = 0 " +
+                    "AND [ValidatedByEmployeeId] IS NULL " +
+                    "AND [ValidatedDate] IS NULL " +
+                    "AND [ValidationMessage] IS NULL) " +
+                    "OR " +
+                    "([ValidationStatus] = 1 " +
+                    "AND [ValidatedByEmployeeId] IS NOT NULL " +
+                    "AND [ValidatedDate] IS NOT NULL) " +
+                    "OR " +
+                    "([ValidationStatus] = 2 " +
+                    "AND [ValidatedByEmployeeId] IS NOT NULL " +
+                    "AND [ValidatedDate] IS NOT NULL " +
+                    "AND LEN(LTRIM(RTRIM(" +
+                    "COALESCE([ValidationMessage], N'')))) > 0)");
+
+                /*
+                 * Draft chưa có publish audit.
+                 * Published/Retired phải từng được publish hợp lệ.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateVersion_PublishState",
+                    "([Status] = 0 " +
+                    "AND [PublishedByEmployeeId] IS NULL " +
+                    "AND [PublishedDate] IS NULL " +
+                    "AND [PublishedPreviewPdfFileId] IS NULL) " +
+                    "OR " +
+                    "([Status] IN (1, 2) " +
+                    "AND [ValidationStatus] = 1 " +
+                    "AND [DocumentFileId] IS NOT NULL " +
+                    "AND [DocumentHash] IS NOT NULL " +
+                    "AND [PreviewFileId] IS NOT NULL " +
+                    "AND [PublishedPreviewPdfFileId] > 0 " +
+                    "AND [PublishedByEmployeeId] IS NOT NULL " +
+                    "AND [PublishedDate] IS NOT NULL)");
+            });
+
+            entity.HasIndex(e => new { e.TemplateId, e.VersionNo })
+                .IsUnique()
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateVersion_TemplateId_VersionNo");
+
+            entity.HasIndex(e => new { e.TemplateId, e.Status })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplateVersion_TemplateId_Status");
+
+            /*
+             * Mỗi Template chỉ có một Draft đang làm việc. Policy/service
+             * cung cấp lỗi nghiệp vụ thân thiện; unique filtered index là
+             * hàng rào cuối cùng khi hai request tạo Draft chạy đồng thời.
+             */
+            entity.HasIndex(e => e.TemplateId)
+                .IsUnique()
+                .HasFilter("[Status] = 0")
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateVersion_OneDraftPerTemplate");
+
+            /*
+             * Một FileStorage record chỉ đại diện cho DOCX
+             * của một template version.
+             */
+            entity.HasIndex(e => e.DocumentFileId)
+                .IsUnique()
+                .HasFilter("[DocumentFileId] IS NOT NULL")
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateVersion_DocumentFileId");
+
+            entity.HasIndex(e => e.PreviewFileId)
+                .IsUnique()
+                .HasFilter("[PreviewFileId] IS NOT NULL")
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateVersion_PreviewFileId");
+
+            entity.HasIndex(e => e.PublishedPreviewPdfFileId)
+                .IsUnique()
+                .HasFilter("[PublishedPreviewPdfFileId] IS NOT NULL")
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateVersion_PublishedPreviewPdfFileId");
+
+            entity.Property(e => e.ChangeNote)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.Status)
+                .HasDefaultValue(
+                    (byte)0,
+                    "DF_tbl_ContractTemplateVersion_Status");
+
+            entity.Property(e => e.ValidationStatus)
+                .HasDefaultValue(
+                    (byte)0,
+                    "DF_tbl_ContractTemplateVersion_ValidationStatus");
+
+            entity.Property(e => e.ValidationMessage)
+                .HasMaxLength(4000);
+
+            entity.Property(e => e.DocumentHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+
+            entity.Property(e => e.PreviewSourceHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+
+            entity.Property(e => e.PreviewedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.ValidatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.PublishedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractTemplateVersion_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractTemplateItemTableColumnLayout>(entity =>
+        {
+            entity.HasKey(e => e.ItemTableColumnLayoutId)
+                .HasName("PK_tbl_ContractTemplateItemTableColumnLayout");
+            entity.ToTable("tbl_ContractTemplateItemTableColumnLayout", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateItemTableColumnLayout_DisplayOrder",
+                    "[DisplayOrder] BETWEEN 0 AND 7");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateItemTableColumnLayout_WidthBps",
+                    "[WidthBps] BETWEEN 250 AND 10000");
+            });
+            entity.HasIndex(e => new { e.TemplateVersionId, e.ColumnKey })
+                .IsUnique()
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateItemTableColumnLayout_Version_Key");
+            entity.HasIndex(e => new { e.TemplateVersionId, e.DisplayOrder })
+                .IsUnique()
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateItemTableColumnLayout_Version_Order");
+            entity.Property(e => e.ColumnKey)
+                .HasMaxLength(32)
+                .IsUnicode(false);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
+            entity.HasOne<TblContractTemplateVersion>()
+                .WithMany()
+                .HasForeignKey(e => e.TemplateVersionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TblContractTemplateField>(entity =>
+        {
+            entity.HasKey(e => e.TemplateFieldId)
+                .HasName("PK_tbl_ContractTemplateField");
+
+            entity.ToTable("tbl_ContractTemplateField", table =>
+            {
+                // Logical reference phải là ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateField_TemplateVersionId",
+                    "[TemplateVersionId] > 0");
+
+                // Placeholder không được rỗng hoặc chỉ chứa khoảng trắng.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateField_PlaceholderKey",
+                    "LEN(LTRIM(RTRIM([PlaceholderKey]))) > 0");
+
+                // Nguồn dữ liệu không được rỗng.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateField_DataSource",
+                    "LEN(LTRIM(RTRIM([DataSource]))) > 0");
+
+                // Thứ tự hiển thị không được âm.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateField_DisplayOrder",
+                    "[DisplayOrder] >= 0");
+            });
+
+            /*
+             * Trong cùng một template version,
+             * mỗi placeholder chỉ được khai báo một lần.
+             */
+            entity.HasIndex(e => new
+            {
+                e.TemplateVersionId,
+                e.PlaceholderKey
+            })
+                .IsUnique()
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateField_Version_Placeholder");
+
+            // Phục vụ lấy danh sách field theo đúng thứ tự.
+            entity.HasIndex(e => new
+            {
+                e.TemplateVersionId,
+                e.DisplayOrder
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplateField_Version_DisplayOrder");
+
+            entity.Property(e => e.PlaceholderKey)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .IsRequired();
+
+            entity.Property(e => e.SourceFieldKey)
+                .HasMaxLength(200)
+                .IsUnicode(false)
+                .IsRequired();
+
+            entity.Property(e => e.FieldLabel)
+                .HasMaxLength(300)
+                .IsRequired();
+
+            entity.Property(e => e.DataSource)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .IsRequired();
+
+            entity.Property(e => e.DefaultValue)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.FormatString)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+
+            entity.Property(e => e.IsRequired)
+                .HasDefaultValue(
+                    false,
+                    "DF_tbl_ContractTemplateField_IsRequired");
+
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(
+                    0,
+                    "DF_tbl_ContractTemplateField_DisplayOrder");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractTemplateField_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractTemplateTerm>(entity =>
+        {
+            entity.HasKey(e => e.TemplateTermId)
+                .HasName("PK_tbl_ContractTemplateTerm");
+
+            entity.ToTable("tbl_ContractTemplateTerm", table =>
+            {
+                // Logical reference phải là ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateTerm_TemplateVersionId",
+                    "[TemplateVersionId] > 0");
+
+                // Mã điều khoản không được rỗng.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateTerm_TermCode",
+                    "LEN(LTRIM(RTRIM([TermCode]))) > 0");
+
+                // Thứ tự hiển thị không được âm.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateTerm_DisplayOrder",
+                    "[DisplayOrder] >= 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTemplateTerm_TermKind",
+                    "[TermKind] IN (0, 1)");
+            });
+
+            /*
+             * Một mã điều khoản chỉ xuất hiện một lần
+             * trong cùng một template version.
+             */
+            entity.HasIndex(e => new
+            {
+                e.TemplateVersionId,
+                e.TermCode
+            })
+                .IsUnique()
+                .HasDatabaseName(
+                    "UX_tbl_ContractTemplateTerm_Version_TermCode");
+
+            // Phục vụ tải điều khoản theo thứ tự hiển thị.
+            entity.HasIndex(e => new
+            {
+                e.TemplateVersionId,
+                e.DisplayOrder
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTemplateTerm_Version_DisplayOrder");
+
+            entity.Property(e => e.TermCode)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .IsRequired();
+
+            entity.Property(e => e.TermTitle)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(e => e.TermTitleEn)
+                .HasMaxLength(500);
+
+            /*
+             * Không giới hạn MaxLength cho nội dung điều khoản.
+             * SQL Server sẽ sử dụng nvarchar(max).
+             */
+            entity.Property(e => e.TermContent);
+
+            entity.Property(e => e.TermContentEn);
+
+            // Mặc định khóa đàm phán để an toàn.
+            entity.Property(e => e.IsNegotiable)
+                .HasDefaultValue(
+                    false,
+                    "DF_tbl_ContractTemplateTerm_IsNegotiable");
+
+            entity.Property(e => e.TermKind)
+                .HasDefaultValue((byte)0, "DF_tbl_ContractTemplateTerm_TermKind");
+
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(
+                    0,
+                    "DF_tbl_ContractTemplateTerm_DisplayOrder");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractTemplateTerm_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractTemplatePaymentMilestone>(entity =>
+        {
+            entity.HasKey(e => e.TemplatePaymentMilestoneId);
+            entity.ToTable("tbl_ContractTemplatePaymentMilestone", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_ContractTemplatePaymentMilestone_Percent", "[PaymentPercent] > 0 AND [PaymentPercent] <= 100");
+                table.HasCheckConstraint("CK_tbl_ContractTemplatePaymentMilestone_DueOffset", "[DueOffsetDays] >= 0");
+                table.HasCheckConstraint("CK_tbl_ContractTemplatePaymentMilestone_DueAnchor", "[DueAnchor] IN (1, 2, 3, 4, 5)");
+                table.HasCheckConstraint("CK_tbl_ContractTemplatePaymentMilestone_DayCount", "[DayCountMode] IN (1, 2)");
+            });
+            entity.HasIndex(e => new { e.TemplateVersionId, e.MilestoneCode }).IsUnique();
+            entity.HasIndex(e => new { e.TemplateTermId, e.DisplayOrder }).IsUnique();
+            entity.Property(e => e.MilestoneCode).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.TitleVi).HasMaxLength(500);
+            entity.Property(e => e.TitleEn).HasMaxLength(500);
+            entity.Property(e => e.PaymentPercent).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.ConditionVi).HasMaxLength(2000);
+            entity.Property(e => e.ConditionEn).HasMaxLength(2000);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasOne<TblContractTemplateTerm>().WithMany().HasForeignKey(e => e.TemplateTermId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TblContractTemplateVersion>().WithMany().HasForeignKey(e => e.TemplateVersionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TblContractTerm>(entity =>
+        {
+            entity.HasKey(e => e.TermId)
+                .HasName("PK_tbl_ContractTerm");
+
+            entity.ToTable("tbl_ContractTerm", table =>
+            {
+                // Contract sở hữu term phải là logical ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_ContractId",
+                    "[ContractId] > 0");
+
+                // Mỗi term bắt buộc phải thuộc một contract version.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_VersionId",
+                    "[VersionId] > 0");
+
+                // Term nhập thủ công có thể không có nguồn template.
+                // Nếu có nguồn thì ID phải hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_SourceTemplateTermId",
+                    "[SourceTemplateTermId] IS NULL OR [SourceTemplateTermId] > 0");
+
+                // Không chấp nhận mã term rỗng hoặc chỉ chứa khoảng trắng.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_TermCode",
+                    "LEN(LTRIM(RTRIM([TermCode]))) > 0");
+
+                // Thứ tự hiển thị không được âm.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_DisplayOrder",
+                    "[DisplayOrder] >= 0");
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractTerm_TermKind",
+                    "[TermKind] IN (0, 1)");
+            });
+
+            /*
+             * Trong một version, mỗi TermCode chỉ được xuất hiện một lần.
+             * Version khác vẫn được phép có cùng TermCode vì đó là snapshot mới.
+             */
+            entity.HasIndex(e => new { e.VersionId, e.TermCode })
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractTerm_VersionId_TermCode");
+
+            // Phục vụ lấy danh sách term đúng thứ tự của một contract/version.
+            entity.HasIndex(e => new
+            {
+                e.ContractId,
+                e.VersionId,
+                e.DisplayOrder
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractTerm_ContractId_VersionId_DisplayOrder");
+
+            entity.HasIndex(e => e.SourceTemplateTermId)
+                .HasDatabaseName("IX_tbl_ContractTerm_SourceTemplateTermId");
+
+            entity.Property(e => e.TermCode)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+
+            entity.Property(e => e.TermTitle)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.TermTitleEn)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.TermContent)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(e => e.TermContentEn)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(e => e.TermKind)
+                .HasDefaultValue((byte)0, "DF_tbl_ContractTerm_TermKind");
+
+            /*
+             * Mặc định đóng:
+             * nếu người tạo template quên cấu hình, khách hàng không được
+             * comment nhầm vào điều khoản cứng.
+             */
+            entity.Property(e => e.IsNegotiable)
+                .HasDefaultValue(
+                    false,
+                    "DF_tbl_ContractTerm_IsNegotiable");
+
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(
+                    0,
+                    "DF_tbl_ContractTerm_DisplayOrder");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractTerm_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractItem>(entity =>
+        {
+            entity.HasKey(e => e.ContractItemId)
+                .HasName("PK_tbl_ContractItem");
+
+            entity.ToTable("tbl_ContractItem", table =>
+            {
+                // Contract và Version phải là logical ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_ContractId",
+                    "[ContractId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_VersionId",
+                    "[VersionId] > 0");
+
+                // 1 = Product, 2 = Service.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_ItemType",
+                    "[ItemType] IN (1, 2)");
+
+                /*
+                 * Product không được tham chiếu Service.
+                 * Service không được tham chiếu Product.
+                 * Cả hai Source ID đều null thì là item nhập ngoài catalog.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_SourceByType",
+                    "([ItemType] = 1 AND [SourceServiceId] IS NULL) " +
+                    "OR ([ItemType] = 2 AND [SourceProductId] IS NULL)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_SourceProductId",
+                    "[SourceProductId] IS NULL OR [SourceProductId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_SourceServiceId",
+                    "[SourceServiceId] IS NULL OR [SourceServiceId] > 0");
+
+                // Tên snapshot bắt buộc phải có nội dung.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_ItemName",
+                    "LEN(LTRIM(RTRIM([ItemName]))) > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_Quantity",
+                    "[Quantity] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_UnitPrice",
+                    "[UnitPrice] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_LineSubtotal",
+                    "[LineSubtotal] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_DiscountPercent",
+                    "[DiscountPercent] >= 0 AND [DiscountPercent] <= 100");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_DiscountMode",
+                    "[DiscountMode] IN (0, 1, 2)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_DiscountInputs",
+                    "([DiscountMode] = 0 AND [DiscountPercent] = 0 " +
+                    "AND [FixedDiscountAmount] = 0) OR " +
+                    "([DiscountMode] = 1 AND [FixedDiscountAmount] = 0) OR " +
+                    "([DiscountMode] = 2 AND [DiscountPercent] = 0 " +
+                    "AND [FixedDiscountAmount] <= [LineSubtotal])");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_DiscountAmount",
+                    "[DiscountAmount] >= 0 AND [DiscountAmount] <= [LineSubtotal]");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_VatPercent",
+                    "[VatPercent] >= 0 AND [VatPercent] <= 100");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_VatAmount",
+                    "[VatAmount] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_TaxableVat",
+                    "[IsTaxable] = 1 OR ([VatPercent] = 0 AND [VatAmount] = 0)");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_LineTotal",
+                    "[LineTotal] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_DisplayOrder",
+                    "[DisplayOrder] >= 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_CreatedEmployeeId",
+                    "[CreatedEmployeeId] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractItem_UpdatedEmployeeId",
+                    "[UpdatedEmployeeId] IS NULL OR [UpdatedEmployeeId] > 0");
+            });
+
+            // Lấy item của một version theo đúng thứ tự hiển thị.
+            entity.HasIndex(e => new
+            {
+                e.VersionId,
+                e.DisplayOrder
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractItem_Version_DisplayOrder");
+
+            // Hỗ trợ truy vấn các item theo hợp đồng và version.
+            entity.HasIndex(e => new
+            {
+                e.ContractId,
+                e.VersionId
+            })
+                .HasDatabaseName(
+                    "IX_tbl_ContractItem_Contract_Version");
+
+            entity.Property(e => e.ItemCode)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+
+            entity.Property(e => e.ItemName)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(e => e.ItemNameEn)
+                .HasMaxLength(500);
+
+            // Không giới hạn độ dài mô tả:
+            // SQL Server sẽ sử dụng nvarchar(max).
+            entity.Property(e => e.ItemDescription);
+
+            entity.Property(e => e.ItemDescriptionEn);
+
+            entity.Property(e => e.UnitName)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.UnitNameEn)
+                .HasMaxLength(100);
+
+            // Hỗ trợ số lượng lẻ, ví dụ 1.5 tháng hoặc 2.25 đơn vị.
+            entity.Property(e => e.Quantity)
+                .HasPrecision(18, 4)
+                .HasDefaultValue(
+                    1m,
+                    "DF_tbl_ContractItem_Quantity");
+
+            // Các giá trị tiền dùng chính xác 2 chữ số thập phân.
+            entity.Property(e => e.UnitPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(e => e.LineSubtotal)
+                .HasPrecision(18, 2);
+
+            entity.Property(e => e.DiscountPercent)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(
+                    0m,
+                    "DF_tbl_ContractItem_DiscountPercent");
+
+            entity.Property(e => e.DiscountMode)
+                .HasDefaultValue(
+                    (byte)0,
+                    "DF_tbl_ContractItem_DiscountMode");
+
+            entity.Property(e => e.FixedDiscountAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(
+                    0m,
+                    "DF_tbl_ContractItem_FixedDiscountAmount");
+
+            entity.Property(e => e.DiscountAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(
+                    0m,
+                    "DF_tbl_ContractItem_DiscountAmount");
+
+            entity.Property(e => e.VatPercent)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(
+                    0m,
+                    "DF_tbl_ContractItem_VatPercent");
+
+            entity.Property(e => e.IsTaxable)
+                .HasDefaultValue(
+                    true,
+                    "DF_tbl_ContractItem_IsTaxable");
+
+            entity.Property(e => e.VatAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(
+                    0m,
+                    "DF_tbl_ContractItem_VatAmount");
+
+            entity.Property(e => e.LineTotal)
+                .HasPrecision(18, 2);
+
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(
+                    0,
+                    "DF_tbl_ContractItem_DisplayOrder");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractItem_CreatedDate");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblContractVersion>(entity =>
+        {
+            entity.HasKey(e => e.VersionId)
+                .HasName("PK_tbl_ContractVersion");
+
+            entity.ToTable("tbl_ContractVersion", table =>
+            {
+                // Contract sở hữu version phải là logical ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_ContractId",
+                    "[ContractId] > 0");
+
+                // Version nguồn có thể null đối với version đầu tiên.
+                // Nếu có thì phải là logical ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_SourceVersionId",
+                    "[SourceVersionId] IS NULL OR [SourceVersionId] > 0");
+
+                // TemplateVersionId phải là logical ID hợp lệ.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_TemplateVersionId",
+                    "[TemplateVersionId] > 0");
+
+                // Version bắt đầu từ 1, không chấp nhận 0 hoặc số âm.
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_VersionNo",
+                    "[VersionNo] > 0");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_CurrencyCode",
+                    "[CurrencyCode] IN ('VND', 'USD')");
+
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_FinancialTotals",
+                    "[Subtotal] >= 0 AND [TotalDiscount] >= 0 " +
+                    "AND [TotalVat] >= 0 AND [TotalAmount] >= 0");
+
+                /*
+                 * Version chưa khóa:
+                 * - không có LockedDate;
+                 * - không có LockedByEmployeeId.
+                 *
+                 * Version đã khóa:
+                 * - phải biết thời điểm/người khóa;
+                 * - phải có snapshot và hash để xác định nội dung bất biến.
+                 */
+                table.HasCheckConstraint(
+                    "CK_tbl_ContractVersion_LockState",
+                    "([IsLocked] = 0 " +
+                    "AND [LockedDate] IS NULL " +
+                    "AND [LockedByEmployeeId] IS NULL) " +
+                    "OR " +
+                    "([IsLocked] = 1 " +
+                    "AND [LockedDate] IS NOT NULL " +
+                    "AND [LockedByEmployeeId] IS NOT NULL " +
+                    "AND [SnapshotHash] IS NOT NULL)");
+            });
+
+            // Một hợp đồng không thể có hai version cùng VersionNo.
+            entity.HasIndex(e => new { e.ContractId, e.VersionNo })
+                .IsUnique()
+                .HasDatabaseName("UX_tbl_ContractVersion_ContractId_VersionNo");
+
+            entity.HasIndex(e => e.SourceVersionId)
+                .HasDatabaseName("IX_tbl_ContractVersion_SourceVersionId");
+
+            entity.HasIndex(e => e.TemplateVersionId)
+                .HasDatabaseName("IX_tbl_ContractVersion_TemplateVersionId");
+
+            entity.Property(e => e.ChangeNote)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.CurrencyCode)
+                .HasMaxLength(3)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasDefaultValue("VND");
+
+            entity.Property(e => e.Subtotal)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.TotalDiscount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.TotalVat)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.TotalAmount)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(e => e.SnapshotHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+
+            entity.Property(e => e.IsLocked)
+                .HasDefaultValue(false, "DF_tbl_ContractVersion_IsLocked");
+
+            entity.Property(e => e.LockedDate)
+                .HasColumnType("datetime2");
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime2")
+                .HasDefaultValueSql(
+                    "(sysutcdatetime())",
+                    "DF_tbl_ContractVersion_CreatedDate");
+
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblCustomer>(entity =>
+        {
+            entity.HasKey(e => e.CustomerId).HasName("PK__tbl_Cust__A4AE64D84BC5AE01");
+
+            entity.ToTable("tbl_Customers");
+
+            entity.Property(e => e.CustomerAccount)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerAddress).HasMaxLength(2000);
+            entity.Property(e => e.CustomerBirthday).HasColumnType("datetime");
+            entity.Property(e => e.CustomerCity).HasMaxLength(1000);
+            entity.Property(e => e.CustomerCode)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerComments).HasMaxLength(2000);
+            entity.Property(e => e.CustomerCompany).HasMaxLength(1000);
+            entity.Property(e => e.CustomerCountry).HasMaxLength(200);
+            entity.Property(e => e.CustomerEmail)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerFaxNumber)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerFullName).HasMaxLength(100);
+            entity.Property(e => e.CustomerImageIcon)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerMobile)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerNotes).HasMaxLength(2000);
+            entity.Property(e => e.CustomerPassword)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerPhone)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerTaxCode)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerRepresentativeName)
+                .HasMaxLength(200);
+            entity.Property(e => e.CustomerRepresentativeTitle)
+                .HasMaxLength(200);
+            entity.Property(e => e.CustomerContactPersonName)
+                .HasMaxLength(200);
+            entity.Property(e => e.CustomerContactPersonPhone)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerContactPersonTitle)
+                .HasMaxLength(200);
+            entity.Property(e => e.CustomerBankAccountNumber)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.CustomerBankName)
+                .HasMaxLength(500);
+            entity.Property(e => e.CustomerWebsite).HasMaxLength(500);
+            entity.Property(e => e.CustomerZipCode)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.DateCreated)
+                .HasDefaultValueSql("(getdate())", "DF_tbl_Customers_DateCreated")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DateModified).HasColumnType("datetime");
+            entity.Property(e => e.Status).HasDefaultValue((byte)0, "DF_tbl_Customers_Status");
+        });
+
+        modelBuilder.Entity<TblCustomerInteraction>(entity =>
+        {
+            entity.HasKey(e => e.InteractionId).HasName("PK__tbl_Cust__922C0496FCECB578");
+
+            entity.ToTable("tbl_CustomerInteraction");
+
+            entity.Property(e => e.InteractionDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.InteractionSubject).HasMaxLength(1000);
+            entity.Property(e => e.InteractionType)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.NextFollowUpDate).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<TblDeliveryDetail>(entity =>
+        {
+            entity.HasKey(e => e.DeliveryDetailId).HasName("PK__tbl_Deli__EFD2C2E7914C480F");
+
+            entity.ToTable("tbl_DeliveryDetail");
+
+            entity.Property(e => e.Note).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<TblDeliveryOrder>(entity =>
+        {
+            entity.HasKey(e => e.DeliveryId).HasName("PK__tbl_Deli__626D8FCEF0133037");
+
+            entity.ToTable("tbl_DeliveryOrder");
+
+            entity.Property(e => e.DeliveryAddress).HasMaxLength(1000);
+            entity.Property(e => e.DeliveryDate).HasColumnType("datetime");
+            entity.Property(e => e.DeliveryNo)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.DeliveryStatus)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasDefaultValue("Pending");
+            entity.Property(e => e.ReceiverName).HasMaxLength(200);
+            entity.Property(e => e.ReceiverPhone)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblDepartment>(entity =>
+        {
+            entity.HasKey(e => e.DepartmentId).HasName("PK_Department_DepartmentID");
+
+            entity.ToTable("tbl_Department");
+
+            entity.Property(e => e.DepartmentId).HasColumnName("DepartmentID");
+            entity.Property(e => e.DepartmentCode)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.DepartmentName).HasMaxLength(200);
+            entity.Property(e => e.ModifiedDate).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<TblEmployee>(entity =>
+        {
+            entity.HasKey(e => e.EmployeeId).HasName("PK__tbl_Empl__7AD04F11C415E4E3");
+
+            entity.ToTable("tbl_Employee");
+
+            entity.Property(e => e.DateCreated).HasColumnType("datetime");
+            entity.Property(e => e.DateModified).HasColumnType("datetime");
+            entity.Property(e => e.DefaultPage)
+                .HasMaxLength(200)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeeAccount)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeeAddress).HasMaxLength(500);
+            entity.Property(e => e.EmployeeBirthDate).HasColumnType("datetime");
+            entity.Property(e => e.EmployeeCode)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeeEmail)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeeFullName).HasMaxLength(100);
+            entity.Property(e => e.EmployeeImageIcon)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeeMobile)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeePassword)
+                .HasMaxLength(255)
+                .IsUnicode(false);
+            entity.Property(e => e.EmployeePhone)
+                .HasMaxLength(15)
+                .IsUnicode(false);
+            entity.Property(e => e.Gender)
+                .HasMaxLength(1)
+                .IsFixedLength();
+            entity.Property(e => e.HireDate).HasColumnType("datetime");
+            entity.Property(e => e.PasswordChangedAt).HasColumnType("datetime2");
+            entity.Property(e => e.MustChangePassword).HasDefaultValue(false);
+            entity.Property(e => e.SessionVersion).HasDefaultValue(1);
+            entity.Property(e => e.AvatarStorageKey).HasMaxLength(500);
+            entity.Property(e => e.AvatarContentType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.AvatarSha256).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.AvatarUpdatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.CoverStorageKey).HasMaxLength(500);
+            entity.Property(e => e.CoverContentType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.CoverSha256).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.CoverUpdatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.MaritalStatus)
+                .HasMaxLength(1)
+                .IsFixedLength();
+            entity.Property(e => e.Others).HasMaxLength(2000);
+            entity.Property(e => e.UserRoles)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblAuthorizationAudit>(entity =>
+        {
+            entity.HasKey(x => x.AuthorizationAuditId);
+            entity.ToTable("tbl_AuthorizationAudit");
+            entity.Property(x => x.ActorType).HasMaxLength(30).IsUnicode(false);
+            entity.Property(x => x.Action).HasMaxLength(100).IsUnicode(false);
+            entity.Property(x => x.Result).HasMaxLength(30).IsUnicode(false);
+            entity.Property(x => x.FailureCode).HasMaxLength(64).IsUnicode(false);
+            entity.Property(x => x.TargetType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(x => x.TargetId).HasMaxLength(100).IsUnicode(false);
+            entity.Property(x => x.ChangedFields).HasMaxLength(1000).IsUnicode(false);
+            entity.Property(x => x.OccurredAt).HasColumnType("datetime2");
+            entity.Property(x => x.IpAddress).HasMaxLength(45).IsUnicode(false);
+            entity.Property(x => x.UserAgent).HasMaxLength(1024);
+            entity.Property(x => x.CorrelationId).HasMaxLength(100).IsUnicode(false);
+            entity.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            entity.HasIndex(x => x.ActorEmployeeId);
+        });
+
+        modelBuilder.Entity<TblFileStorage>(entity =>
+        {
+            entity.HasKey(e => e.FileId).HasName("PK__tbl_File__6F0F98BF777CA8CB");
+
+            entity.ToTable("tbl_FileStorage");
+
+            entity.Property(e => e.FileName).HasMaxLength(300);
+            entity.Property(e => e.FilePath).HasMaxLength(1000);
+            entity.Property(e => e.StorageKey)
+                .HasMaxLength(1000)
+                .IsUnicode(false);
+            entity.Property(e => e.ContentType)
+                .HasMaxLength(255)
+                .IsUnicode(false);
+            entity.Property(e => e.Sha256)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
+            entity.Property(e => e.TenantCode)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.FileType)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.ObjectType)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.UploadedDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<TblTenantLegalProfile>(entity =>
+        {
+            entity.HasKey(x => x.TenantLegalProfileId)
+                .HasName("PK_tbl_TenantLegalProfile");
+
+            entity.ToTable("tbl_TenantLegalProfile", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_tbl_TenantLegalProfile_Singleton",
+                    "[TenantLegalProfileId] = 1");
+                table.HasCheckConstraint(
+                    "CK_tbl_TenantLegalProfile_Employees",
+                    "[CreatedByEmployeeId] > 0 AND [UpdatedByEmployeeId] > 0");
+            });
+
+            entity.Property(x => x.TenantLegalProfileId)
+                .ValueGeneratedNever();
+            entity.Property(x => x.LegalEntityName)
+                .HasMaxLength(500);
+            entity.Property(x => x.TaxCode)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(x => x.Address)
+                .HasMaxLength(2000);
+            entity.Property(x => x.RepresentativeName)
+                .HasMaxLength(200);
+            entity.Property(x => x.RepresentativeTitle)
+                .HasMaxLength(200);
+            entity.Property(x => x.PhoneNumber)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(x => x.FaxNumber)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(x => x.BankAccountNumber)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(x => x.BankName)
+                .HasMaxLength(500);
+            entity.Property(x => x.CreatedAt)
+                .HasColumnType("datetime2");
+            entity.Property(x => x.UpdatedAt)
+                .HasColumnType("datetime2");
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<TblInvoice>(entity =>
+        {
+            entity.HasKey(e => e.InvoiceId).HasName("PK__tbl_Invo__D796AAB5EDC7461D");
+
+            entity.ToTable("tbl_Invoice");
+
+            entity.Property(e => e.InvoiceDate).HasColumnType("datetime");
+            entity.Property(e => e.InvoiceNo)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.InvoiceStatus)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasDefaultValue("Unpaid");
+        });
+
+        modelBuilder.Entity<TblNotification>(entity =>
+        {
+            entity.HasKey(e => e.NotificationId).HasName("PK__tbl_Noti__20CF2E127E71675E");
+
+            entity.ToTable("tbl_Notification");
+
+            entity.Property(e => e.CreatedDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.NotificationTitle).HasMaxLength(300);
+            entity.Property(e => e.ObjectType)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblOrder>(entity =>
+        {
+            entity.HasKey(e => e.OrderId);
+
+            entity.ToTable("tbl_Orders");
+
+            entity.Property(e => e.DateCreated)
+                .HasDefaultValueSql("(getdate())", "DF_tbl_Orders_DateCreated")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DateExpired).HasColumnType("datetime");
+            entity.Property(e => e.NoteFromAdmin).HasMaxLength(1000);
+            entity.Property(e => e.OrderComment).HasMaxLength(4000);
+            entity.Property(e => e.OrderStatus)
+                .HasComment("0: Pending, 1: Approved")
+                .HasDefaultValue((byte)0, "DF_tbl_Orders_OrderStatus");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<TblOrderDetail>(entity =>
+        {
+            entity.HasKey(e => e.OrderDetailsId);
+
+            entity.ToTable("tbl_OrderDetails");
+
+            entity.Property(e => e.DateCreated)
+                .HasDefaultValueSql("(getdate())", "DF_tbl_OrderDetails_DateCreated")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DateExpired).HasColumnType("datetime");
+            entity.Property(e => e.NameDetails).HasMaxLength(2000);
+            entity.Property(e => e.StartDate).HasColumnType("datetime");
+            entity.Property(e => e.Status).HasDefaultValue((byte)0, "DF_tbl_OrderDetails_Status");
+        });
+
+        modelBuilder.Entity<TblPayment>(entity =>
+        {
+            entity.HasKey(e => e.PaymentId).HasName("PK__tbl_Paym__9B556A380D56A7E2");
+
+            entity.ToTable("tbl_Payment");
+
+            entity.Property(e => e.PaymentDate).HasColumnType("datetime");
+            entity.Property(e => e.PaymentMethod)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ReferenceNo)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblProduct>(entity =>
+        {
+            entity.HasKey(e => e.ProductId);
+
+            entity.ToTable("tbl_Products");
+
+            entity.Property(e => e.MetaDescription).HasMaxLength(2000);
+            entity.Property(e => e.MetaKeyword).HasMaxLength(2000);
+            entity.Property(e => e.Others).HasMaxLength(4000);
+            entity.Property(e => e.ProductCode)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.ProductCreatedDate)
+                .HasDefaultValueSql("(getdate())", "DF_tbl_Products_ProductCreatedDate")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ProductDeployment).HasMaxLength(4000);
+            entity.Property(e => e.ProductDocument)
+                .HasMaxLength(200)
+                .IsUnicode(false);
+            entity.Property(e => e.ProductIconClass)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ProductLargeImage)
+                .HasMaxLength(500)
+                .IsUnicode(false);
+            entity.Property(e => e.ProductName).HasMaxLength(500);
+            entity.Property(e => e.ProductShortDesc).HasMaxLength(2000);
+            entity.Property(e => e.ProductShortName).HasMaxLength(100);
+            entity.Property(e => e.ProductSlogan).HasMaxLength(400);
+            entity.Property(e => e.ProductSmallImage)
+                .HasMaxLength(500)
+                .IsUnicode(false);
+            entity.Property(e => e.ProductTags).HasMaxLength(500);
+            entity.Property(e => e.Rewrite)
+                .HasMaxLength(200)
+                .IsUnicode(false);
+            entity.Property(e => e.TitleBrowser).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<TblQuotation>(entity =>
+        {
+            entity.HasKey(e => e.QuotationId).HasName("PK__tbl_Quot__E19752938F4FC112");
+
+            entity.ToTable("tbl_Quotation");
+            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18, 2)");
+
+            entity.Property(e => e.QuatationStatus)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasDefaultValue("Draft");
+            entity.Property(e => e.QuotationDate).HasColumnType("datetime");
+            entity.Property(e => e.QuotationNo)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<TblQuotationDetail>(entity =>
+        {
+            entity.HasKey(e => e.QuotationDetailId).HasName("PK__tbl_Quot__0CEE6AE2EC238ED5");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
+
+            entity.ToTable("tbl_QuotationDetail");
+        });
+
+        modelBuilder.Entity<TblService>(entity =>
+        {
+            entity.HasKey(e => e.ServiceId).HasName("PK__tbl_Serv__C51BB00A20C1E124");
+
+            entity.ToTable("tbl_Services");
+
+            entity.Property(e => e.DateCreated)
+                .HasDefaultValueSql("(getdate())", "DF_tbl_Services_DateCreated")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DateModified).HasColumnType("datetime");
+            entity.Property(e => e.Ftpaccounts).HasColumnName("FTPAccounts");
+            entity.Property(e => e.HasChild).HasDefaultValue(false, "DF_tbl_Services_HasChild");
+            entity.Property(e => e.MetaDescription).HasMaxLength(2000);
+            entity.Property(e => e.MetaKeyword).HasMaxLength(2000);
+            entity.Property(e => e.MySql).HasColumnName("MySQL");
+            entity.Property(e => e.Others).HasMaxLength(4000);
+            entity.Property(e => e.Rewrite)
+                .HasMaxLength(300)
+                .IsUnicode(false);
+            entity.Property(e => e.ServiceImageIcon)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ServiceName).HasMaxLength(2000);
+            entity.Property(e => e.ServiceRegion).HasComment("1. Tên miền Việt Nam; 2. Tên miền quốc tế");
+            entity.Property(e => e.ServiceTypeId).HasComment("1 - Windows Hosting, 2 - Linux Hosting");
+            entity.Property(e => e.Status).HasDefaultValue((byte)0, "DF_tbl_Services_Status");
+            entity.Property(e => e.TitleBrowser).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<TblServiceType>(entity =>
+        {
+            entity.HasKey(e => e.ServiceTypeId);
+
+            entity.ToTable("tbl_ServiceTypes");
+
+            entity.Property(e => e.ServiceTypeId).ValueGeneratedOnAdd();
+            entity.Property(e => e.ServiceTypeName).HasMaxLength(200);
+        });
+
+        ConfigurePlaceholders(modelBuilder);
+        ConfigureLegalBases(modelBuilder);
+        ConfigureContractVersionSnapshots(modelBuilder);
+        AppendixAcceptanceModelConfiguration.Configure(modelBuilder);
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+}

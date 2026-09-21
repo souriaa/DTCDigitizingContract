@@ -1,0 +1,217 @@
+﻿using ContractManagement.API.Common.Enums;
+using System.ComponentModel.DataAnnotations;
+
+namespace ContractManagement.API.Domains.DTOs.Requests.Contract
+{
+    /// <summary>
+    /// Request lập một hợp đồng nháp mới.
+    /// </summary>
+    public class CreateContractRequest : IValidatableObject
+    {
+        [Range(1, int.MaxValue)]
+        public int CustomerId { get; set; }
+
+        /// <summary>
+        /// Nhân viên phụ trách Contract ngay khi tạo.
+        /// Nếu không truyền, người tạo Contract sẽ là người phụ trách.
+        /// </summary>
+        [Range(1, int.MaxValue)]
+        public int? ResponsibleEmployeeId { get; set; }
+
+        [EnumDataType(typeof(ContractType))]
+        public ContractType ContractType { get; set; }
+
+        /// <summary>
+        /// Chỉ chấp nhận TemplateVersion đã Published.
+        /// </summary>
+        [Range(1, int.MaxValue)]
+        public int TemplateVersionId { get; set; }
+
+        /// <summary>
+        /// Hợp đồng nguồn đối với hợp đồng bảo trì hoặc duy trì.
+        /// Không dùng trường này cho phụ lục.
+        /// </summary>
+        [Range(1, int.MaxValue)]
+        public int? ParentContractId { get; set; }
+
+        [Required]
+        [MaxLength(1000)]
+        public string ContractName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Bắt buộc theo business rule khi LanguageMode là Bilingual.
+        /// </summary>
+        [MaxLength(1000)]
+        public string? ContractNameEn { get; set; }
+
+        public DateTime? EffectiveDate { get; set; }
+
+        public DateTime? ExpireDate { get; set; }
+
+        /// <summary>
+        /// Mã tiền tệ ISO 4217: VND, USD...
+        /// </summary>
+        [Required]
+        [StringLength(3, MinimumLength = 3)]
+        [RegularExpression(
+            "^[A-Z]{3}$",
+            ErrorMessage = "CurrencyCode phải gồm đúng 3 chữ cái viết hoa.")]
+        public string CurrencyCode { get; set; } = "VND";
+
+        [EnumDataType(typeof(ContractLanguageMode))]
+        public ContractLanguageMode LanguageMode { get; set; }
+            = ContractLanguageMode.Vietnamese;
+
+        /// <summary>
+        /// Hợp đồng phải có ít nhất một Product hoặc Service.
+        /// </summary>
+        [Required]
+        [MinLength(
+            1,
+            ErrorMessage = "Hợp đồng phải có ít nhất một sản phẩm hoặc dịch vụ.")]
+        public List<CreateContractItemRequest> Items { get; set; } = [];
+
+        /// <summary>
+        /// Danh sách điều khoản đã chỉnh trong wizard tạo hợp đồng.
+        /// Null giữ tương thích với client cũ và sao chép nguyên template;
+        /// danh sách rỗng không hợp lệ.
+        /// </summary>
+        public List<CreateContractTermRequest>? Terms { get; set; }
+
+        /// <summary>
+        /// Các Appendix tùy chọn được người dùng chọn từ đúng template version.
+        /// Backend luôn tự thêm Appendix bắt buộc; không nhận dữ liệu Appendix tự do.
+        /// </summary>
+        public List<int> SelectedOptionalTemplateAppendixIds { get; set; } = [];
+
+        public List<ContractPaymentMilestoneDateRequest> PaymentMilestoneDates { get; set; } = [];
+
+        /// <summary>
+        /// Kiểm tra những business rule liên quan giữa nhiều field.
+        /// Các kiểm tra cần database sẽ được thực hiện trong ContractService.
+        /// </summary>
+        public IEnumerable<ValidationResult> Validate(
+            ValidationContext validationContext)
+        {
+            // Ngày hết hạn không được đứng trước ngày hiệu lực.
+            if (EffectiveDate.HasValue
+                && ExpireDate.HasValue
+                && ExpireDate.Value < EffectiveDate.Value)
+            {
+                yield return new ValidationResult(
+                    "Ngày hết hạn không được trước ngày hiệu lực.",
+                    new[] { nameof(ExpireDate) });
+            }
+
+            // Hợp đồng song ngữ bắt buộc có tên tiếng Anh.
+            if (LanguageMode == ContractLanguageMode.Bilingual
+                && string.IsNullOrWhiteSpace(ContractNameEn))
+            {
+                yield return new ValidationResult(
+                    "Hợp đồng song ngữ bắt buộc có tên hợp đồng tiếng Anh.",
+                    new[] { nameof(ContractNameEn) });
+            }
+
+            // Từng item của hợp đồng song ngữ cũng phải có tên tiếng Anh.
+            if (LanguageMode == ContractLanguageMode.Bilingual)
+            {
+                for (var index = 0; index < Items.Count; index++)
+                {
+                    if (string.IsNullOrWhiteSpace(Items[index].ItemNameEn))
+                    {
+                        yield return new ValidationResult(
+                            $"Item thứ {index + 1} phải có tên tiếng Anh.",
+                            new[] { $"{nameof(Items)}[{index}].ItemNameEn" });
+                    }
+                }
+            }
+
+            if (Terms is { Count: 0 })
+            {
+                yield return new ValidationResult(
+                    "Hợp đồng phải có ít nhất một điều khoản.",
+                    new[] { nameof(Terms) });
+            }
+
+            if (Terms is not null)
+            {
+                var duplicateCode = Terms
+                    .Where(term => !string.IsNullOrWhiteSpace(term.TermCode))
+                    .GroupBy(
+                        term => term.TermCode.Trim(),
+                        StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(group => group.Count() > 1);
+                if (duplicateCode is not null)
+                {
+                    yield return new ValidationResult(
+                        $"Mã điều khoản '{duplicateCode.Key}' bị trùng.",
+                        new[] { nameof(Terms) });
+                }
+
+                if (LanguageMode == ContractLanguageMode.Bilingual)
+                {
+                    foreach (var term in Terms)
+                    {
+                        if (string.IsNullOrWhiteSpace(term.TermTitleEn))
+                        {
+                            yield return new ValidationResult(
+                                $"Điều khoản '{term.TermCode}' phải có tiêu đề tiếng Anh.",
+                                new[] { nameof(Terms) });
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(term.TermContent)
+                            && string.IsNullOrWhiteSpace(term.TermContentEn))
+                        {
+                            yield return new ValidationResult(
+                                $"Điều khoản '{term.TermCode}' phải có nội dung tiếng Anh.",
+                                new[] { nameof(Terms) });
+                        }
+                    }
+                }
+            }
+
+            if (PaymentMilestoneDates
+                .GroupBy(x => x.SourceTemplatePaymentMilestoneId)
+                .Any(group => group.Count() > 1))
+            {
+                yield return new ValidationResult(
+                    "Mỗi đợt thanh toán chỉ được nhập một ngày bắt đầu tính hạn.",
+                    new[] { nameof(PaymentMilestoneDates) });
+            }
+
+            if (SelectedOptionalTemplateAppendixIds.Any(id => id <= 0))
+            {
+                yield return new ValidationResult(
+                    "ID phụ lục tùy chọn phải lớn hơn 0.",
+                    new[] { nameof(SelectedOptionalTemplateAppendixIds) });
+            }
+
+            if (SelectedOptionalTemplateAppendixIds.Count !=
+                SelectedOptionalTemplateAppendixIds.Distinct().Count())
+            {
+                yield return new ValidationResult(
+                    "Danh sách phụ lục tùy chọn không được chứa ID trùng.",
+                    new[] { nameof(SelectedOptionalTemplateAppendixIds) });
+            }
+
+            // Hợp đồng cung cấp phần mềm là hợp đồng gốc.
+            if (ContractType == ContractType.SoftwareSupply
+                && ParentContractId.HasValue)
+            {
+                yield return new ValidationResult(
+                    "Hợp đồng cung cấp phần mềm không được có hợp đồng nguồn.",
+                    new[] { nameof(ParentContractId) });
+            }
+
+            // Bảo trì và duy trì phải phát sinh từ hợp đồng cung cấp phần mềm.
+            if (ContractType is ContractType.SoftwareMaintenance
+                    or ContractType.SoftwareUpkeep
+                && !ParentContractId.HasValue)
+            {
+                yield return new ValidationResult(
+                    "Hợp đồng bảo trì hoặc duy trì bắt buộc có hợp đồng nguồn.",
+                    new[] { nameof(ParentContractId) });
+            }
+        }
+    }
+}

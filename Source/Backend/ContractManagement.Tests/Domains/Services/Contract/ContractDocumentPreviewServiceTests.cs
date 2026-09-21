@@ -1,0 +1,573 @@
+using System.Security.Cryptography;
+using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
+using ContractManagement.Common.Enums;
+using ContractManagement.Domains.DTOs.Responses.File;
+using ContractManagement.Domains.Interfaces.ContractTemplate;
+using ContractManagement.Domains.Interfaces.File;
+using ContractManagement.Domains.Policies.ContractTemplate;
+using ContractManagement.Domains.Services.Contract;
+using ContractManagement.Domains.Services.ContractTemplate;
+using ContractManagement.Infrastructure.Persistence.Application;
+using ContractManagement.Infrastructure.Persistence.Application.Models;
+using DocumentFormat.OpenXml.Packaging;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using W = DocumentFormat.OpenXml.Wordprocessing;
+using static ContractManagement.Tests.ContractRichTextTestData;
+
+namespace ContractManagement.Tests.Domains.Services.Contract;
+
+public sealed class ContractDocumentPreviewServiceTests
+{
+    [Fact]
+    public async Task CustomScalar_RendersFromFrozenValues_AndIsIncludedInSubmissionHashPayload()
+    {
+        await using var context = CreateContext();
+        using var stream = new MemoryStream();
+        stream.Write(CreateSourceDocument());
+        stream.Position = 0;
+        using (var doc = WordprocessingDocument.Open(stream, true))
+        {
+            doc.MainDocumentPart!.Document!.Body!.Append(new W.Paragraph(new W.Run(new W.Text("{{CUSTOM_CONTACT}}"))));
+            doc.MainDocumentPart!.Document!.Save();
+        }
+        var source = stream.ToArray();
+        await SeedAsync(context, source);
+        var customer = await context.TblCustomers.SingleAsync();
+        customer.CustomerContactPersonName = "Frozen contact";
+        context.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = TemplateVersionId, PlaceholderKey = "CUSTOM_CONTACT", FieldLabel = "Contact",
+            SourceFieldKey = "customer.contact-name", DataSource = "Khách hàng / Người liên hệ", IsSystem = false,
+            DataKind = 1, Multiplicity = 2
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, source);
+        var rendered = await service.GenerateDocxAsync(ContractId, OwnerId);
+        using (var doc = WordprocessingDocument.Open(new MemoryStream(rendered.Content), false))
+            Assert.Contains("Frozen contact", doc.MainDocumentPart!.Document!.InnerText);
+        await context.SaveChangesAsync();
+        customer.CustomerContactPersonName = "Changed later";
+        (await context.TblContracts.SingleAsync()).Status = (byte)ContractStatus.Negotiating;
+        await context.SaveChangesAsync();
+        var submission = await service.RenderAsync(ContractId, OwnerId);
+        Assert.Equal("Frozen contact",
+            submission.Snapshot.PlaceholderValues!["CUSTOM_CONTACT"]);
+        Assert.DoesNotContain("Changed later",
+            submission.Snapshot.PlaceholderValues.Values);
+        using var submitted = WordprocessingDocument.Open(new MemoryStream(submission.DocxContent), false);
+        Assert.Contains("Frozen contact", submitted.MainDocumentPart!.Document!.InnerText);
+        Assert.DoesNotContain("{{", submitted.MainDocumentPart!.Document!.InnerText);
+    }
+
+    private const int ContractId = 8101;
+    private const int OwnerId = 8102;
+    private const int OtherEmployeeId = 8103;
+    private const int VersionId = 8104;
+    private const int TemplateId = 8105;
+    private const int TemplateVersionId = 8106;
+    private const int FileId = 8107;
+
+    [Fact]
+    public async Task Owner_GeneratesDocx_FromCurrentVersionAndLegalSnapshots()
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        var service = CreateService(context, source);
+
+        var result = await service.GenerateDocxAsync(ContractId, OwnerId);
+
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            result.ContentType);
+        Assert.Equal("HD-8B-001-preview.docx", result.FileName);
+        using var stream = new MemoryStream(result.Content);
+        using var document = WordprocessingDocument.Open(stream, false);
+        var text = string.Concat(document.MainDocumentPart!.Document!
+            .Descendants<W.Text>()
+            .Select(item => item.Text));
+        Assert.Contains("HD-8B-001", text);
+        Assert.Contains("Ngày 15 tháng 08 năm 2026", text);
+        Assert.DoesNotContain("Ngày 20 tháng 08 năm 2026", text);
+        Assert.Contains("CÔNG TY DTC", text);
+        Assert.Contains("0107654321", text);
+        Assert.Contains("TP. Hồ Chí Minh", text);
+        Assert.Contains("Nguyễn Provider", text);
+        Assert.Contains("Tổng giám đốc", text);
+        Assert.Contains("02473000001", text);
+        Assert.Contains("02473000002", text);
+        Assert.Contains("098765432109", text);
+        Assert.Contains("Ngân hàng DTC", text);
+        Assert.Contains("CÔNG TY KHÁCH HÀNG", text);
+        Assert.Contains("Nguyễn Người liên hệ", text);
+        var customerSignature = document.MainDocumentPart.Document
+            .Descendants<W.Paragraph>()
+            .Single(paragraph => paragraph.InnerText.StartsWith(
+                "ĐẠI DIỆN BÊN KHÁCH HÀNG",
+                StringComparison.Ordinal));
+        Assert.Contains("Lê Đầu mối", customerSignature.InnerText);
+        Assert.Contains("Quản lý dự án", customerSignature.InnerText);
+        Assert.DoesNotContain("Trần Customer", customerSignature.InnerText);
+        Assert.DoesNotContain("Giám đốc", customerSignature.InnerText);
+        Assert.Contains("02473000003", text);
+        Assert.Contains("02473000004", text);
+        Assert.Contains("012345678901", text);
+        Assert.Contains("Ngân hàng Khách hàng", text);
+        Assert.Contains("Phần mềm quản lý hợp đồng", text);
+        Assert.Contains("Phạm vi cung cấp", text);
+        Assert.Contains("Căn cứ Luật Thương mại", text);
+        var legalBasisParagraph = document.MainDocumentPart.Document
+            .Descendants<W.Paragraph>()
+            .Single(paragraph => paragraph.InnerText ==
+                "Căn cứ Luật Thương mại.");
+        Assert.Equal(W.JustificationValues.Center,
+            legalBasisParagraph.ParagraphProperties?.Justification?.Val?.Value);
+        Assert.True(legalBasisParagraph.Descendants<W.Run>().Single()
+            .RunProperties?.Bold?.Val?.Value);
+        Assert.Contains(
+            document.MainDocumentPart.Document.Descendants<W.Paragraph>(),
+            paragraph => paragraph.InnerText == "1.080");
+        Assert.Contains("USD", text);
+        Assert.DoesNotContain("{{", text);
+        Assert.DoesNotContain("DỮ LIỆU MẪU", text);
+    }
+
+    [Fact]
+    public async Task Pdf_ConvertsTheSameRealDataDocx_AndDoesNotPersistArtifact()
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        var pdfRenderer = new CapturingPdfRenderer();
+        var service = CreateService(context, source, pdfRenderer);
+        var fileCountBefore = await context.TblFileStorages.CountAsync();
+
+        var result = await service.GeneratePdfAsync(ContractId, OwnerId);
+
+        Assert.Equal("application/pdf", result.ContentType);
+        Assert.Equal("HD-8B-001-preview.pdf", result.FileName);
+        Assert.True(result.Content.AsSpan().StartsWith("%PDF-"u8));
+        Assert.NotNull(pdfRenderer.InputDocx);
+        using var stream = new MemoryStream(pdfRenderer.InputDocx!);
+        using var document = WordprocessingDocument.Open(stream, false);
+        Assert.Contains("HD-8B-001", string.Concat(document.MainDocumentPart!
+            .Document!.Descendants<W.Text>().Select(item => item.Text)));
+        Assert.Equal(fileCountBefore, await context.TblFileStorages.CountAsync());
+    }
+
+    [Fact]
+    public async Task PackagePreview_RendersAppendixIntoSameDocxPassedToPdfConverter()
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        context.TblContractAppendices.Add(new TblContractAppendix
+        {
+            AppendixId = 8501,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            SourceTemplateAppendixId = 8601,
+            AppendixCode = "PL-01",
+            AppendixName = "Phạm vi triển khai",
+            AppendixNameEn = "Implementation scope",
+            IsRequired = true,
+            DisplayOrder = 1,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractAppendixTerms.Add(new TblContractAppendixTerm
+        {
+            AppendixTermId = 8502,
+            AppendixId = 8501,
+            SourceTemplateAppendixTermId = 8602,
+            TermCode = "PL-SCOPE",
+            TermTitle = "Nội dung triển khai",
+            TermTitleEn = "Implementation details",
+            TermContent = RichText("Nội dung package phụ lục"),
+            TermContentEn = RichText("Appendix package content"),
+            DisplayOrder = 1,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        await context.SaveChangesAsync();
+        var pdfRenderer = new CapturingPdfRenderer();
+        var service = CreateService(context, source, pdfRenderer);
+
+        var submission = await service.RenderAsync(ContractId, OwnerId);
+
+        Assert.Single(submission.Snapshot.Appendices!);
+        Assert.Equal(submission.DocxContent, pdfRenderer.InputDocx);
+        using var document = WordprocessingDocument.Open(
+            new MemoryStream(submission.DocxContent), false);
+        var text = document.MainDocumentPart!.Document!.Body!.InnerText;
+        Assert.Contains("PHỤ LỤC PL-01: Phạm vi triển khai", text);
+        Assert.Contains("Nội dung package phụ lục", text);
+        Assert.DoesNotContain("ký ngày", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Submission_RendersDocxAndPdfFromTheSameTypedSnapshot()
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        var pdfRenderer = new CapturingPdfRenderer();
+        var service = CreateService(context, source, pdfRenderer);
+
+        var result = await service.RenderAsync(ContractId, OwnerId);
+
+        Assert.Equal(TemplateVersionId, result.TemplateVersionId);
+        Assert.Equal("HD-8B-001", result.Snapshot.Contract.ContractCode);
+        Assert.Contains(result.Snapshot.LegalBases!,
+            basis => basis.BasisCode == "COMMERCIAL_LAW");
+        Assert.Equal("HD-8B-001-submitted.docx", result.DocxFileName);
+        Assert.Equal("HD-8B-001-submitted.pdf", result.PdfFileName);
+        Assert.Equal(result.DocxContent, pdfRenderer.InputDocx);
+        Assert.True(result.PdfContent.AsSpan().StartsWith("%PDF-"u8));
+    }
+
+    [Fact]
+    public async Task NonOwner_CannotPreview_EvenWhenTheyCanReadTenantContracts()
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        context.TblEmployees.Add(new TblEmployee
+        {
+            EmployeeId = OtherEmployeeId,
+            EmployeeType = (byte)EmployeeType.Manager,
+            Status = 1,
+            RowVersion = [1]
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, source);
+
+        var exception = await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.GenerateDocxAsync(ContractId, OtherEmployeeId));
+
+        Assert.Equal(StatusCodes.Status404NotFound, exception.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.Negotiating)]
+    public async Task Preview_AllowsEditableLifecycle(ContractStatus status)
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)status;
+        await context.SaveChangesAsync();
+        var service = CreateService(context, source);
+
+        var result = await service.GenerateDocxAsync(ContractId, OwnerId);
+
+        Assert.NotEmpty(result.Content);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.PendingApproval, ContractType.SoftwareSupply)]
+    [InlineData(ContractStatus.Negotiating, ContractType.SoftwareMaintenance)]
+    public async Task Preview_RejectsUnsupportedLifecycleOrContractType(
+        ContractStatus status,
+        ContractType contractType)
+    {
+        await using var context = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(context, source);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)status;
+        contract.ContractType = (byte)contractType;
+        await context.SaveChangesAsync();
+        var service = CreateService(context, source);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GenerateDocxAsync(ContractId, OwnerId));
+    }
+
+    private static ContractDocumentPreviewService CreateService(
+        DbDtctechContext context,
+        byte[] source,
+        IContractTemplatePdfRenderer? pdfRenderer = null) => new(
+        context,
+        new ContractResourceAuthorizationService(context),
+        new SourceFileStorage(source),
+        new ContractTemplatePreviewRenderer(),
+        pdfRenderer ?? new CapturingPdfRenderer());
+
+    private static DbDtctechContext CreateContext()
+    {
+        var options = new DbContextOptionsBuilder<DbDtctechContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(builder => builder.Ignore(
+                InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+        return new DbDtctechContext(options);
+    }
+
+    private static async Task SeedAsync(DbDtctechContext context, byte[] source)
+    {
+        context.TblContracts.Add(new TblContract
+        {
+            ContractId = ContractId,
+            CustomerId = 8201,
+            EmployeeId = OwnerId,
+            ContractType = (byte)ContractType.SoftwareSupply,
+            TemplateVersionId = TemplateVersionId,
+            CurrentVersionId = VersionId,
+            ContractCode = "HD-8B-001",
+            ContractName = "Hợp đồng cung cấp phần mềm",
+            ContractNameEn = "Software Supply Contract",
+            SignDate = new DateTime(2026, 8, 20),
+            EffectiveDate = new DateTime(2026, 9, 1),
+            ExpireDate = new DateTime(2027, 8, 31),
+            Status = (byte)ContractStatus.Negotiating,
+            TotalAmount = 1_080m,
+            Subtotal = 1_000m,
+            TotalDiscount = 0m,
+            TotalVat = 80m,
+            CurrencyCode = "USD",
+            LanguageMode = (byte)ContractLanguageMode.Bilingual,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = new DateTime(2026, 8, 15),
+            RowVersion = [1]
+        });
+        context.TblContractVersions.Add(new TblContractVersion
+        {
+            VersionId = VersionId,
+            ContractId = ContractId,
+            VersionNo = 2,
+            TemplateVersionId = TemplateVersionId,
+            CurrencyCode = "USD",
+            Subtotal = 1_000m,
+            TotalVat = 80m,
+            TotalAmount = 1_080m,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = new DateTime(2026, 8, 19),
+            RowVersion = [1]
+        });
+        context.TblCustomers.Add(new TblCustomer
+        {
+            CustomerId = 8201,
+            CustomerCode = "CUS-8B",
+            CustomerFullName = "Nguyễn Người liên hệ",
+            CustomerCompany = "CÔNG TY KHÁCH HÀNG",
+            CustomerTaxCode = "0101234567",
+            CustomerAddress = "Hà Nội",
+            CustomerEmail = "customer@example.com",
+            CustomerMobile = "0901234567",
+            CustomerPhone = "02473000003",
+            CustomerFaxNumber = "02473000004",
+            CustomerRepresentativeName = "Trần Customer",
+            CustomerRepresentativeTitle = "Giám đốc",
+            CustomerContactPersonName = "Lê Đầu mối",
+            CustomerContactPersonTitle = "Quản lý dự án",
+            CustomerBankAccountNumber = "012345678901",
+            CustomerBankName = "Ngân hàng Khách hàng",
+            CustomerCountry = "Việt Nam"
+        });
+        context.TblTenantLegalProfiles.Add(new TblTenantLegalProfile
+        {
+            TenantLegalProfileId = 1,
+            LegalEntityName = "CÔNG TY DTC",
+            TaxCode = "0107654321",
+            Address = "TP. Hồ Chí Minh",
+            RepresentativeName = "Nguyễn Provider",
+            RepresentativeTitle = "Tổng giám đốc",
+            PhoneNumber = "02473000001",
+            FaxNumber = "02473000002",
+            BankAccountNumber = "098765432109",
+            BankName = "Ngân hàng DTC",
+            CreatedByEmployeeId = OwnerId,
+            UpdatedByEmployeeId = OwnerId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractItems.Add(new TblContractItem
+        {
+            ContractItemId = 8301,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            ItemType = (byte)ContractItemType.Product,
+            ItemName = "Phần mềm quản lý hợp đồng",
+            ItemNameEn = "Contract Management Software",
+            Quantity = 1,
+            UnitPrice = 1_000m,
+            LineSubtotal = 1_000m,
+            DiscountMode = (byte)ContractItemDiscountMode.None,
+            IsTaxable = true,
+            VatPercent = 8m,
+            VatAmount = 80m,
+            LineTotal = 1_080m,
+            DisplayOrder = 1,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractTerms.Add(new TblContractTerm
+        {
+            TermId = 8401,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            TermCode = "SCOPE",
+            TermTitle = "Phạm vi cung cấp",
+            TermTitleEn = "Scope of supply",
+            TermContent = RichText("Cung cấp phần mềm theo danh mục."),
+            TermContentEn = RichText("Supply software as listed."),
+            IsNegotiable = true,
+            DisplayOrder = 1,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractLegalBases.Add(new TblContractLegalBasis
+        {
+            LegalBasisId = 8451,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            BasisCode = "COMMERCIAL_LAW",
+            ContentVi = RichText(
+                "Căn cứ Luật Thương mại.",
+                "center",
+                bold: true),
+            ContentEn = RichText("Pursuant to the Commercial Law."),
+            DisplayOrder = 1,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractTemplates.Add(new TblContractTemplate
+        {
+            TemplateId = TemplateId,
+            TemplateCode = "SS-V1",
+            TemplateName = "Software Supply",
+            DocumentType = (byte)TemplateDocumentType.SoftwareSupplyContract,
+            LanguageMode = (byte)ContractLanguageMode.Bilingual,
+            IsActive = true,
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
+        {
+            TemplateVersionId = TemplateVersionId,
+            TemplateId = TemplateId,
+            VersionNo = 1,
+            Status = (byte)TemplateVersionStatus.Published,
+            ValidationStatus = (byte)TemplateValidationStatus.Valid,
+            DocumentFileId = FileId,
+            DocumentHash = Convert.ToHexString(SHA256.HashData(source)),
+            PlaceholderBindingHash = ContractPlaceholderCatalog.Fingerprint(
+                ContractPlaceholderCatalog.SystemDefinitions),
+            CreatedEmployeeId = OwnerId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = [1]
+        });
+        context.TblContractTemplateFields.AddRange(
+            ContractPlaceholderCatalog.SystemDefinitions.Select(
+                (definition, index) => new TblContractTemplateField
+                {
+                    TemplateVersionId = TemplateVersionId,
+                    PlaceholderKey = definition.Key,
+                    FieldLabel = definition.Label,
+                    DataSource = definition.DataSource,
+                    SourceFieldKey = definition.SourceFieldKey!,
+                    DataKind = (byte)definition.DataKind,
+                    Multiplicity = (byte)definition.Multiplicity,
+                    IsSystem = definition.IsSystem,
+                    IsRequired = definition.IsRequired,
+                    DisplayOrder = index,
+                    CreatedEmployeeId = OwnerId,
+                    CreatedDate = DateTime.UtcNow
+                }));
+        context.TblContractTemplateItemTableColumnLayouts.AddRange(
+            ContractTableLayoutPolicy.ItemColumnKeys.Select((columnKey, index) =>
+                new TblContractTemplateItemTableColumnLayout
+                {
+                    TemplateVersionId = TemplateVersionId,
+                    ColumnKey = columnKey,
+                    DisplayOrder = checked((byte)index),
+                    WidthBps = checked((short)ContractTableLayoutPolicy
+                        .DefaultItemColumnWidthsBps[index]),
+                    CreatedEmployeeId = OwnerId,
+                    CreatedDate = DateTime.UtcNow
+                }));
+        context.TblFileStorages.Add(new TblFileStorage
+        {
+            FileId = FileId,
+            ObjectType = "ContractTemplateVersion",
+            ObjectId = TemplateVersionId,
+            FileName = "software-supply.docx",
+            FilePath = "/test/software-supply.docx",
+            UploadedDate = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+    }
+
+    private static byte[] CreateSourceDocument()
+    {
+        using var stream = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(
+                   stream,
+                   DocumentFormat.OpenXml.WordprocessingDocumentType.Document,
+                   true))
+        {
+            var mainPart = document.AddMainDocumentPart();
+            var body = new W.Body();
+            foreach (var definition in SoftwareSupplyPlaceholderCatalog.GetAll())
+            {
+                body.Append(new W.Paragraph(
+                    new W.Run(new W.Text($"{{{{{definition.Key}}}}}"))));
+            }
+
+            mainPart.Document = new W.Document(body);
+            mainPart.Document.Save();
+        }
+
+        return stream.ToArray();
+    }
+
+    private sealed class SourceFileStorage(byte[] source) : IFileStorageService
+    {
+        public Task<(Stream Stream, string FileName)?> DownloadAsync(int fileId) =>
+            Task.FromResult<(Stream, string)?>(
+                fileId == FileId
+                    ? (new MemoryStream(source, writable: false), "software-supply.docx")
+                    : null);
+
+        public Task<FileStorageResponse> UploadAsync(
+            IFormFile file,
+            string objectType,
+            int objectId,
+            int uploadedBy) => throw new NotSupportedException();
+
+        public Task<List<FileStorageResponse>> GetByObjectAsync(
+            string objectType,
+            int objectId) => throw new NotSupportedException();
+
+        public Task DeleteAsync(int fileId) => throw new NotSupportedException();
+
+        public Task DeleteUploadedArtifactAsync(FileStorageResponse file) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class CapturingPdfRenderer : IContractTemplatePdfRenderer
+    {
+        public byte[]? InputDocx { get; private set; }
+
+        public Task<byte[]> ConvertPreviewToPdfAsync(
+            byte[] previewDocx,
+            CancellationToken cancellationToken = default)
+        {
+            InputDocx = previewDocx;
+            return Task.FromResult("%PDF-test"u8.ToArray());
+        }
+    }
+}

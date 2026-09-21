@@ -1,0 +1,90 @@
+﻿using ContractManagement.API.Common.Enums;
+
+namespace ContractManagement.API.Domains.DTOs.Responses.Contract
+{
+    /// <summary>
+    /// Kết quả trả về sau khi tạo thành công hợp đồng nháp.
+    /// </summary>
+    public class CreateContractResponse
+    {
+        /// <summary>
+        /// ID của hợp đồng vừa tạo.
+        /// </summary>
+        public int ContractId { get; set; }
+
+        /// <summary>
+        /// Mã hợp đồng do Backend sinh.
+        /// </summary>
+        public string ContractCode { get; set; } = string.Empty;
+
+        public string ContractName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Hợp đồng mới luôn bắt đầu ở trạng thái Draft.
+        /// </summary>
+        public ContractStatus Status { get; set; }
+
+        /// <summary>
+        /// ID của Version 1 vừa được tạo.
+        /// </summary>
+        public int CurrentVersionId { get; set; }
+
+        /// <summary>
+        /// Hợp đồng mới luôn bắt đầu từ Version 1.
+        /// </summary>
+        public int VersionNo { get; set; }
+
+        public int CustomerId { get; set; }
+
+        public ContractType ContractType { get; set; }
+
+        public int TemplateVersionId { get; set; }
+
+        /// <summary>
+        /// Tổng tiền do Backend tính từ toàn bộ ContractItem.
+        /// </summary>
+        public decimal TotalAmount { get; set; }
+
+        public decimal Subtotal { get; set; }
+
+        public decimal TotalDiscount { get; set; }
+
+        public decimal TotalVat { get; set; }
+
+        public decimal TotalPayment { get; set; }
+
+        public string CurrencyCode { get; set; } = string.Empty;
+
+        public ContractLanguageMode LanguageMode { get; set; }
+
+        /// <summary>
+        /// ID nhân viên phụ trách Contract ngay sau khi tạo.
+        /// </summary>
+        public int EmployeeId { get; set; }
+
+        public DateTime CreatedDate { get; set; }
+
+        /// <summary>
+        /// Số item đã được snapshot vào Version 1.
+        /// </summary>
+        public int ItemCount { get; set; }
+
+        /// <summary>
+        /// Số điều khoản đã được snapshot từ template.
+        /// </summary>
+        public int TermCount { get; set; }
+
+        public int AppendixCount { get; set; }
+
+        /// <summary>
+        /// RowVersion của Contract.
+        /// Frontend gửi lại giá trị này khi cập nhật Draft.
+        /// </summary>
+        public string RowVersion { get; set; } = string.Empty;
+
+        /// <summary>
+        /// RowVersion của Version 1 vừa được tạo.
+        /// </summary>
+        public string CurrentVersionRowVersion { get; set; } = string.Empty;
+    }
+}

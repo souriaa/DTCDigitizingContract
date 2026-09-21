@@ -1,0 +1,198 @@
+using ContractManagement.API.Common.Responses;
+using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
+using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
+using ContractManagement.Common.Enums;
+
+namespace ContractManagement.Domains.Interfaces.ContractTemplate;
+
+public interface IContractTemplateService
+{
+    Task<IReadOnlyList<AvailableContractTemplateVersionResponse>>
+        ListAvailableAsync(CancellationToken cancellationToken = default);
+
+    Task<PagedResult<AvailableContractTemplateVersionResponse>>
+        SearchAvailableAsync(
+            AvailableContractTemplateFilterRequest filter,
+            CancellationToken cancellationToken = default);
+
+    Task<AvailableContractTemplateVersionDetailResponse> GetAvailableAsync(
+        int templateVersionId,
+        CancellationToken cancellationToken = default);
+
+    Task<SoftwareSupplyPlaceholderCatalogResponse> GetPlaceholderCatalogAsync(
+        TemplateDocumentType documentType,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<ContractTemplateResponse>> ListAsync(
+        ContractTemplateFilterRequest filter,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateDetailResponse> GetAsync(
+        int templateId,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateDetailResponse> CreateAsync(
+        CreateContractTemplateRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateDetailResponse> UpdateAsync(
+        int templateId,
+        UpdateContractTemplateRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> GetVersionAsync(
+        int versionId,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> UpdateItemTableLayoutAsync(
+        int versionId,
+        UpdateContractTemplateItemTableLayoutRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> CopyVersionAsync(
+        int sourceVersionId,
+        CopyContractTemplateVersionRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> UploadDocumentAsync(
+        int versionId,
+        UploadContractTemplateDocumentRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplatePreviewResponse> GeneratePreviewAsync(
+        int versionId,
+        GenerateContractTemplatePreviewRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<(Stream Stream, string FileName)> DownloadPreviewAsync(
+        int versionId,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> PublishAsync(
+        int versionId,
+        PublishContractTemplateVersionRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> RetireAsync(
+        int versionId,
+        RetireContractTemplateVersionRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<(Stream Stream, string FileName)> DownloadPreviewPdfAsync(
+        int versionId,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateTermResponse> AddTermAsync(
+        int versionId,
+        CreateContractTemplateTermRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateTermResponse> UpdateTermAsync(
+        int versionId,
+        int termId,
+        UpdateContractTemplateTermRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteTermAsync(
+        int versionId,
+        int termId,
+        DeleteContractTemplateTermRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> ReorderTermsAsync(
+        int versionId,
+        ReorderContractTemplateTermsRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateAppendixResponse> AddAppendixAsync(int versionId,
+        CreateContractTemplateAppendixRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+    Task<ContractTemplateAppendixResponse> UpdateAppendixAsync(int versionId,
+        int appendixId, UpdateContractTemplateAppendixRequest request,
+        int employeeId, CancellationToken cancellationToken = default);
+    Task DeleteAppendixAsync(int versionId, int appendixId,
+        DeleteContractTemplateAppendixRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+    Task<ContractTemplateVersionDetailResponse> ReorderAppendicesAsync(
+        int versionId, ReorderContractTemplateAppendicesRequest request,
+        int employeeId, CancellationToken cancellationToken = default);
+    Task<ContractTemplateAppendixTermResponse> AddAppendixTermAsync(
+        int versionId, int appendixId,
+        CreateContractTemplateAppendixTermRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+    Task<ContractTemplateAppendixTermResponse> UpdateAppendixTermAsync(
+        int versionId, int appendixId, int termId,
+        UpdateContractTemplateAppendixTermRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+    Task DeleteAppendixTermAsync(int versionId, int appendixId, int termId,
+        DeleteContractTemplateAppendixTermRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+    Task<ContractTemplateAppendixResponse> ReorderAppendixTermsAsync(
+        int versionId, int appendixId,
+        ReorderContractTemplateAppendixTermsRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplatePaymentMilestoneResponse> AddPaymentMilestoneAsync(
+        int versionId, int termId,
+        CreateContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplatePaymentMilestoneResponse> UpdatePaymentMilestoneAsync(
+        int versionId, int termId, int milestoneId,
+        UpdateContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task DeletePaymentMilestoneAsync(
+        int versionId, int termId, int milestoneId,
+        DeleteContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> ReorderPaymentMilestonesAsync(
+        int versionId, int termId,
+        ReorderContractTemplatePaymentMilestonesRequest request, int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateLegalBasisResponse> AddLegalBasisAsync(
+        int versionId,
+        CreateContractTemplateLegalBasisRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateLegalBasisResponse> UpdateLegalBasisAsync(
+        int versionId,
+        int legalBasisId,
+        UpdateContractTemplateLegalBasisRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteLegalBasisAsync(
+        int versionId,
+        int legalBasisId,
+        DeleteContractTemplateLegalBasisRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContractTemplateVersionDetailResponse> ReorderLegalBasesAsync(
+        int versionId,
+        ReorderContractTemplateLegalBasesRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+}
