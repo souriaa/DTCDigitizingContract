@@ -37,12 +37,27 @@ using ContractManagement.Infrastructure.Persistence.Central.Entities;
 using ContractManagement.Middleware;
 using ContractManagement.Middleware.MultiTenancy;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 using ContractManagement.API.Helpers;
 using ContractManagement.API.Domains.CustomerAccess;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
 ValidateProductionConfiguration(builder.Configuration, builder.Environment);
+
+// Chỉ tin X-Forwarded-* do reverse proxy trên cùng máy gửi tới Kestrel.
+// Điều này giúp HTTPS redirect, HSTS và URL trong response phản ánh đúng
+// giao thức của client khi Nginx kết thúc TLS phía trước API.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+});
 
 var allowedCorsOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -456,6 +471,8 @@ if (app.Environment.IsDevelopment())
 #endregion
 
 #region 10. HTTP middleware pipeline
+
+app.UseForwardedHeaders();
 
 /*
  * Chuyển HTTP sang HTTPS.

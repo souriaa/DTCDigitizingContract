@@ -1458,9 +1458,9 @@
     "semantic_hash": "1433496fa70d3edcb05cbe7f92dbd1a3"
   },
   "Backend/ContractManagement.API/Program.cs": {
-    "mtime": 1789817799.4497154,
-    "seen": 1789818659.2908592,
-    "ast_hash": "96ee0cf422e17081661315e339a9dd5d",
+    "mtime": 1789998768.956524,
+    "seen": 1789998996.124372,
+    "ast_hash": "23b76807fa86c34b903d981a1e0805f9",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Properties/launchSettings.json": {
@@ -2388,9 +2388,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/versions/[versionId]/page.tsx": {
-    "mtime": 1789967664.8245766,
-    "seen": 1789967827.2783382,
-    "ast_hash": "533fe59e92f67387df0fcd49fc0dc084",
+    "mtime": 1789975470.2336824,
+    "seen": 1789998996.1249216,
+    "ast_hash": "befda71bbb41666cb72aef95a40e06ba",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/page.tsx": {
@@ -2478,9 +2478,9 @@
     "semantic_hash": "850e742b43f11a8eadde00ec3ae9e097"
   },
   "Frontend/app/(protected)/contracts/[id]/page.tsx": {
-    "mtime": 1789969591.8265433,
-    "seen": 1789970361.0450492,
-    "ast_hash": "fd68c56f47d6787d0b7aaf840d446363",
+    "mtime": 1789975614.8824153,
+    "seen": 1789998996.1249623,
+    "ast_hash": "e8e765cb999827785f4613adde4ad40c",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/[id]/versions/[versionId]/page.tsx": {
@@ -7815,6 +7815,12 @@
     "mtime": 1789965283.6837282,
     "seen": 1789965789.7374108,
     "ast_hash": "6e6c48b832b1a43001f36c0ebfc5d8f0",
+    "semantic_hash": ""
+  },
+  "Documentation/production/NON_DOCKER_DEPLOYMENT_PLAN.md": {
+    "mtime": 1789998875.8978677,
+    "seen": 1789998996.1258476,
+    "ast_hash": "3fe6053b32205e10fd770724f7fd5e7c",
     "semantic_hash": ""
   }
 }
