@@ -734,7 +734,7 @@ export function ContractAcceptanceRecords({
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 sm:p-5 space-y-4">
-                    <div className="grid gap-3.5 sm:grid-cols-2 bg-muted/10 p-3.5 rounded-lg border border-border/60">
+                    <div className="grid gap-3.5 sm:grid-cols-2 p-3.5 rounded-lg border border-border/60">
                       <Field
                         label="Mã biên bản"
                         value={selected.acceptanceCode}
@@ -1132,9 +1132,7 @@ export function ContractAcceptanceRecords({
                         {new Date(selected.finalizedAt).toLocaleString("vi-VN")}
                       </div>
                       <div>
-                        <span className="text-muted-foreground">
-                          Chốt bởi:
-                        </span>{" "}
+                        <span className="text-muted-foreground">Chốt bởi:</span>{" "}
                         {selected.finalizedByEmployeeName ?? "—"}
                       </div>
                     </>
@@ -1148,47 +1146,49 @@ export function ContractAcceptanceRecords({
                   ))}
                 </div>
                 <Collapsible className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">Nội dung biên bản</p>
-                      <p className="text-xs text-muted-foreground">
-                        {selected.sections.length} mục nghiệm thu
-                      </p>
+                  <Card>
+                    <div className="flex flex-row items-center justify-between gap-3 px-4">
+                      <div className="flex flex-col gap-2">
+                        <p className="font-medium">Nội dung biên bản</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selected.sections.length} mục nghiệm thu
+                        </p>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="group"
+                          aria-label="Thu gọn hoặc mở rộng nội dung biên bản"
+                        >
+                          <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                        </Button>
+                      </CollapsibleTrigger>
                     </div>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="group"
-                        aria-label="Thu gọn hoặc mở rộng nội dung biên bản"
-                      >
-                        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                  <CollapsibleContent className="space-y-3">
-                    {selected.sections.map((section) => (
-                      <ContractTermCard
-                        key={section.acceptanceSectionId}
-                        term={{
-                          termCode: section.sectionCode,
-                          termTitle: section.titleVi,
-                          termTitleEn: section.titleEn,
-                          termContent: section.contentVi,
-                          termContentEn: section.contentEn,
-                          displayOrder: section.displayOrder,
-                          isNegotiable: false,
-                        }}
-                        inputId={`acceptance-readonly-${selected.acceptanceRecordId}-${section.acceptanceSectionId}`}
-                        isBilingual={Boolean(
-                          section.titleEn || section.contentEn,
-                        )}
-                        orderLabel="Mục nghiệm thu"
-                        showNegotiation={false}
-                      />
-                    ))}
-                  </CollapsibleContent>
+                    <CollapsibleContent className="space-y-3 px-3">
+                      {selected.sections.map((section) => (
+                        <ContractTermCard
+                          key={section.acceptanceSectionId}
+                          term={{
+                            termCode: section.sectionCode,
+                            termTitle: section.titleVi,
+                            termTitleEn: section.titleEn,
+                            termContent: section.contentVi,
+                            termContentEn: section.contentEn,
+                            displayOrder: section.displayOrder,
+                            isNegotiable: false,
+                          }}
+                          inputId={`acceptance-readonly-${selected.acceptanceRecordId}-${section.acceptanceSectionId}`}
+                          isBilingual={Boolean(
+                            section.titleEn || section.contentEn,
+                          )}
+                          orderLabel="Mục nghiệm thu"
+                          showNegotiation={false}
+                        />
+                      ))}
+                    </CollapsibleContent>
+                  </Card>
                 </Collapsible>
               </div>
             )}
@@ -1452,15 +1452,15 @@ export function ContractAcceptanceRecords({
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt hoặc đã
-                    ký.
+                    Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt
+                    hoặc đã ký.
                   </p>
                 )}
               <Alert>
                 <AlertDescription>
-                  Sau khi tạo bản nháp, hệ thống lưu thông tin hai bên và các mục nghiệm thu từ
-                  mẫu. Bạn có thể chỉnh người tham gia và nội dung trước
-                  khi chốt.
+                  Sau khi tạo bản nháp, hệ thống lưu thông tin hai bên và các
+                  mục nghiệm thu từ mẫu. Bạn có thể chỉnh người tham gia và nội
+                  dung trước khi chốt.
                 </AlertDescription>
               </Alert>
             </div>

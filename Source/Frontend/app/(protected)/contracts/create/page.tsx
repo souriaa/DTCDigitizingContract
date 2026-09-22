@@ -228,7 +228,7 @@ const getPaymentAnchorLabel = (anchor: PaymentDueAnchor) => {
     case PaymentDueAnchor.PreviousMilestonePaid:
       return "ngày thanh toán đủ đợt trước";
     case PaymentDueAnchor.ManualDate:
-      return "Lịch thủ công (Tự điền ngày)";
+      return "Lịch thủ công";
     default:
       return "mốc chưa xác định";
   }
@@ -246,6 +246,7 @@ function PaymentPlanReview({
   currencyCode,
   manualDates,
   onManualDateChange,
+  viewOnly = false,
 }: {
   milestones: Array<
     ContractTemplatePaymentMilestoneResponse & { amount: number }
@@ -253,6 +254,7 @@ function PaymentPlanReview({
   currencyCode: string;
   manualDates: Record<number, string>;
   onManualDateChange: (milestoneId: number, date: string) => void;
+  viewOnly?: boolean;
 }) {
   if (milestones.length === 0) return null;
 
@@ -292,7 +294,15 @@ function PaymentPlanReview({
             </p>
             <p className="mt-1 text-muted-foreground">
               Trong {milestone.dueOffsetDays} ngày kể từ{" "}
-              {getPaymentAnchorLabel(milestone.dueAnchor)}.
+              {getPaymentAnchorLabel(milestone.dueAnchor)}
+              {milestone.dueAnchor === PaymentDueAnchor.ManualDate &&
+                viewOnly &&
+                manualDates[milestone.templatePaymentMilestoneId] && (
+                  <span className="mt-1">
+                    <span>:</span>{" "}
+                    {manualDates[milestone.templatePaymentMilestoneId]}
+                  </span>
+                )}
             </p>
             {milestone.conditionVi && (
               <p className="mt-1 text-muted-foreground">
@@ -304,29 +314,31 @@ function PaymentPlanReview({
                 Ngày làm việc hiện chỉ loại trừ thứ Bảy và Chủ nhật.
               </p>
             )}
-            {milestone.dueAnchor === PaymentDueAnchor.ManualDate && (
-              <div className="mt-3 space-y-1.5">
-                <Label
-                  htmlFor={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
-                >
-                  Ngày bắt đầu tính hạn
-                </Label>
-                <DateFilter
-                  id={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
-                  date={parseDateString(
-                    manualDates[milestone.templatePaymentMilestoneId],
-                  )}
-                  onChange={(date) =>
-                    onManualDateChange(
-                      milestone.templatePaymentMilestoneId,
-                      date ? format(date, "yyyy-MM-dd") : "",
-                    )
-                  }
-                  placeholder="Chọn ngày bắt đầu tính hạn"
-                  className="flex-1"
-                />
-              </div>
-            )}
+            {milestone.dueAnchor === PaymentDueAnchor.ManualDate &&
+              !viewOnly && (
+                <div className="mt-3 space-y-1.5">
+                  <Label
+                    htmlFor={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
+                  >
+                    Ngày bắt đầu tính hạn{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <DateFilter
+                    id={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
+                    date={parseDateString(
+                      manualDates[milestone.templatePaymentMilestoneId],
+                    )}
+                    onChange={(date) =>
+                      onManualDateChange(
+                        milestone.templatePaymentMilestoneId,
+                        date ? format(date, "yyyy-MM-dd") : "",
+                      )
+                    }
+                    placeholder="Chọn ngày bắt đầu tính hạn"
+                    className="flex-1"
+                  />
+                </div>
+              )}
           </div>
         ))}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3 text-sm md:col-span-2">
@@ -1646,8 +1658,7 @@ export default function CreateContractPage() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                       <div>
                         <Label>
-                          Mẫu hợp đồng{" "}
-                          <span className="text-red-500">*</span>
+                          Mẫu hợp đồng <span className="text-red-500">*</span>
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Chọn mẫu phù hợp để nạp sẵn bộ điều khoản.
@@ -2276,7 +2287,10 @@ export default function CreateContractPage() {
                 <div className="space-y-5">
                   <div className="rounded-2xl border bg-muted/20 p-4">
                     <div className="space-y-2">
-                      <Label>Thời hạn hiệu lực</Label>
+                      <Label>
+                        Thời hạn hiệu lực{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
                       <DateRangeFilter
                         dateRange={{
                           from: effectiveDate
@@ -2563,6 +2577,7 @@ export default function CreateContractPage() {
                           [id]: date,
                         }))
                       }
+                      viewOnly={true}
                     />
 
                     {paymentPlan.length > 0 && <Separator className="my-5" />}
@@ -2784,7 +2799,7 @@ export default function CreateContractPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium line-clamp-1">
-                          {selectedTemplate?.name || "Chưa chọn mẫu"}
+                      {selectedTemplate?.name || "Chưa chọn mẫu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {getContractTypeLabel(contractType)}

@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  Delete,
   Download,
   Eye,
   FileCheck2,
@@ -71,6 +72,7 @@ export function ContractSigningPanel({
   const [detail, setDetail] = useState<ContractSigningDetailResponse | null>(
     null,
   );
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -113,14 +115,20 @@ export function ContractSigningPanel({
 
   const selectFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (!file) return;
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
     if (!ACCEPTED_EXTENSIONS.includes(getExtension(file.name))) {
       toast.error("Chỉ chấp nhận PDF, JPG, JPEG hoặc PNG.");
+      event.target.value = "";
+      setSelectedFile(null);
       return;
     }
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
       toast.error("Tệp phải có nội dung và không vượt quá 20 MB.");
+      event.target.value = "";
+      setSelectedFile(null);
       return;
     }
     setSelectedFile(file);
@@ -163,6 +171,9 @@ export function ContractSigningPanel({
         toast.success("Đã lưu bản quét. Hợp đồng đã chuyển sang Đã ký.");
       }
       setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       setSupersedeReason("");
       await Promise.all([loadDetail(), Promise.resolve(onContractRefetch())]);
     } catch (error) {
@@ -240,15 +251,15 @@ export function ContractSigningPanel({
 
   return (
     <div className="space-y-6">
-      <Alert className="border-blue-500/30 bg-blue-500/5">
-        <ShieldCheck className="size-4 text-blue-600" />
-        <AlertTitle>Ký giấy và lưu bằng chứng</AlertTitle>
-        <AlertDescription>
-          Tải một bản quét đã có đủ chữ ký hai bên. Hệ thống không thực hiện ký
-          điện tử hoặc ký bằng OTP trong luồng này.
-        </AlertDescription>
-      </Alert>
-
+      {detail.contractStatus === ContractStatus.PendingSignature && (
+        <Alert className="border-blue-500/30 bg-blue-500/5">
+          <ShieldCheck className="size-4 text-blue-600" />
+          <AlertTitle>Ký giấy và lưu bằng chứng</AlertTitle>
+          <AlertDescription>
+            Tải một bản quét đã có đủ chữ ký hai bên.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -262,8 +273,8 @@ export function ContractSigningPanel({
               <Alert variant="destructive">
                 <AlertTitle>Chưa có tài liệu đã duyệt hợp lệ</AlertTitle>
                 <AlertDescription>
-                  Không thể tải bản quét cho đến khi DOCX/PDF bất biến của
-                  phiên bản đã được người quản lý duyệt đầy đủ.
+                  Không thể tải bản quét cho đến khi DOCX/PDF bất biến của phiên
+                  bản đã được người quản lý duyệt đầy đủ.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -375,9 +386,10 @@ export function ContractSigningPanel({
 
             <div className="space-y-2">
               <Label htmlFor="signed-evidence-file">
-                Bản quét đã ký <span className="text-destructive">*</span>
+                Bản hợp đồng đã ký <span className="text-destructive">*</span>
               </Label>
               <Input
+                ref={fileInputRef}
                 id="signed-evidence-file"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
@@ -388,9 +400,26 @@ export function ContractSigningPanel({
                 PDF, JPG, JPEG hoặc PNG · Tối đa 20 MB
               </p>
               {selectedFile && (
-                <p className="text-sm font-medium">
-                  {selectedFile.name} · {formatFileSize(selectedFile.size)}
-                </p>
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-2 text-sm">
+                  <span className="truncate font-medium text-foreground">
+                    {selectedFile.name} · {formatFileSize(selectedFile.size)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                  >
+                    <Delete className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -465,9 +494,8 @@ function EvidenceCard({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatFileSize(evidence.fileSize)} · Tải bởi{" "}
-            {evidence.uploadedByEmployeeName ||
-              "Không rõ nhân viên"}{" "}
-            lúc {formatDateTime(evidence.uploadedAt)}
+            {evidence.uploadedByEmployeeName || "Không rõ nhân viên"} lúc{" "}
+            {formatDateTime(evidence.uploadedAt)}
           </p>
         </div>
         <Button
