@@ -404,7 +404,7 @@ function AuditChanges({ audit }: { audit: ContractAuditResponse }) {
         key === "SourceVersionId" ||
         key === "NewVersionId") &&
       formatAuditValue(key, previousValues[key], audit, "previous") !==
-      formatAuditValue(key, newValues[key], audit, "new"),
+        formatAuditValue(key, newValues[key], audit, "new"),
   );
 
   if (changedKeys.length === 0) return null;
@@ -466,10 +466,24 @@ function AuditQuickLink({
   title: string;
   children: ReactNode;
 }) {
+  const handleClick = () => {
+    if (!href) return;
+    const [path, hash] = href.split("#");
+    if (hash && typeof window !== "undefined") {
+      const currentPath = window.location.pathname.replace(/\/$/, "");
+      const targetPath = path.replace(/\/$/, "");
+      if (currentPath === targetPath) {
+        window.location.hash = hash;
+        window.dispatchEvent(new Event("hashchange"));
+      }
+    }
+  };
+
   return (
     <Link
       href={href}
       title={title}
+      onClick={handleClick}
       className="rounded-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
@@ -493,8 +507,11 @@ function getAuditSubjectHref(
     case "CustomerAccessLink":
     case "CustomerOtpChallenge":
     case "CustomerAccessSession":
+      return `/contracts/${audit.contractId}#customer-access`;
+    case "SignedEvidence":
       return `/contracts/${audit.contractId}#signature`;
     case "AcceptanceEvidence":
+    case "AcceptanceRecord":
     case "Payment":
       return `/contracts/${audit.contractId}#closing`;
     default:
@@ -518,9 +535,9 @@ function AuditSubject({
     <>
       {subjectVersionNo
         ? `Phiên bản ${subjectVersionNo}`
-        : CONTRACT_AUDIT_SUBJECT_LABELS[
+        : (CONTRACT_AUDIT_SUBJECT_LABELS[
             audit.subjectType as ContractAuditSubjectType
-          ] ?? audit.subjectType}
+          ] ?? audit.subjectType)}
     </>
   );
 
@@ -957,43 +974,45 @@ export function ContractAuditLog({
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {mode === "tenant" && (
                 <div className="space-y-1.5">
-                <Label htmlFor="audit-actor-employee-id">Mã nhân viên nội bộ</Label>
-                <Input
-                  id="audit-actor-employee-id"
-                  type="number"
-                  min={1}
-                  maxLength={0}
-                  value={draftFilters.actorEmployeeId}
-                  onChange={(event) =>
-                    setDraftFilters((current) => ({
-                      ...current,
-                      actorEmployeeId: event.target.value,
-                    }))
-                  }
-                  placeholder="Tất cả nhân viên"
-                />
+                  <Label htmlFor="audit-actor-employee-id">
+                    Mã nhân viên nội bộ
+                  </Label>
+                  <Input
+                    id="audit-actor-employee-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.actorEmployeeId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        actorEmployeeId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả nhân viên"
+                  />
                 </div>
               )}
 
               {mode === "tenant" && (
                 <div className="space-y-1.5">
-                <Label htmlFor="audit-customer-session-id">
-                  Mã phiên khách hàng nội bộ
-                </Label>
-                <Input
-                  id="audit-customer-session-id"
-                  type="number"
-                  min={1}
-                  maxLength={0}
-                  value={draftFilters.actorCustomerAccessSessionId}
-                  onChange={(event) =>
-                    setDraftFilters((current) => ({
-                      ...current,
-                      actorCustomerAccessSessionId: event.target.value,
-                    }))
-                  }
-                  placeholder="Tất cả phiên"
-                />
+                  <Label htmlFor="audit-customer-session-id">
+                    Mã phiên khách hàng nội bộ
+                  </Label>
+                  <Input
+                    id="audit-customer-session-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.actorCustomerAccessSessionId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        actorCustomerAccessSessionId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả phiên"
+                  />
                 </div>
               )}
 
@@ -1024,21 +1043,21 @@ export function ContractAuditLog({
 
               {mode === "tenant" && (
                 <div className="space-y-1.5">
-                <Label htmlFor="audit-subject-id">Mã đối tượng nội bộ</Label>
-                <Input
-                  id="audit-subject-id"
-                  type="number"
-                  min={1}
-                  maxLength={0}
-                  value={draftFilters.subjectId}
-                  onChange={(event) =>
-                    setDraftFilters((current) => ({
-                      ...current,
-                      subjectId: event.target.value,
-                    }))
-                  }
-                  placeholder="Tất cả đối tượng"
-                />
+                  <Label htmlFor="audit-subject-id">Mã đối tượng nội bộ</Label>
+                  <Input
+                    id="audit-subject-id"
+                    type="number"
+                    min={1}
+                    maxLength={0}
+                    value={draftFilters.subjectId}
+                    onChange={(event) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        subjectId: event.target.value,
+                      }))
+                    }
+                    placeholder="Tất cả đối tượng"
+                  />
                 </div>
               )}
             </div>
@@ -1156,11 +1175,15 @@ export function ContractAuditLog({
                               href={`/contracts/${audit.contractId}`}
                               title="Xem chi tiết hợp đồng"
                             >
-                              {audit.contractCode || audit.contractName || "Hợp đồng"}
+                              {audit.contractCode ||
+                                audit.contractName ||
+                                "Hợp đồng"}
                             </AuditQuickLink>
                           ) : (
                             <span className="font-medium">
-                              {audit.contractCode || audit.contractName || "Hợp đồng"}
+                              {audit.contractCode ||
+                                audit.contractName ||
+                                "Hợp đồng"}
                             </span>
                           )}
                           {audit.contractName ? ` · ${audit.contractName}` : ""}
@@ -1181,9 +1204,7 @@ export function ContractAuditLog({
                               Phiên bản {audit.versionNo ?? "—"}
                             </AuditQuickLink>
                           ) : (
-                            <span>
-                              Phiên bản {audit.versionNo ?? "—"}
-                            </span>
+                            <span>Phiên bản {audit.versionNo ?? "—"}</span>
                           ))}
                         <AuditSubject
                           audit={audit}
@@ -1218,7 +1239,9 @@ export function ContractAuditLog({
                     <div className="mt-2 space-y-1 break-all pl-3">
                       <p>Mã truy vết: {audit.correlationId}</p>
                       {audit.ipAddress && <p>Địa chỉ IP: {audit.ipAddress}</p>}
-                      {audit.userAgent && <p>Trình duyệt/thiết bị: {audit.userAgent}</p>}
+                      {audit.userAgent && (
+                        <p>Trình duyệt/thiết bị: {audit.userAgent}</p>
+                      )}
                     </div>
                   </details>
                 </div>
