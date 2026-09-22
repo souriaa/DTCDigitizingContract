@@ -2490,8 +2490,8 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/create/page.tsx": {
-    "mtime": 1790000690.1916816,
-    "seen": 1790050649.2772095,
+    "mtime": 1790051332.4643862,
+    "seen": 1790052200.7018564,
     "ast_hash": "352fba3b860c2336e5912add089ae247",
     "semantic_hash": ""
   },
@@ -6065,30 +6065,6 @@
     "ast_hash": "c65ba82e0b8bba04c65bc5431a2a2677",
     "semantic_hash": ""
   },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/48/7acb978865a54cb8b6a1e5f7bc7f8f11.pdf": {
-    "mtime": 1790000689.5246866,
-    "seen": 1790050649.2776828,
-    "ast_hash": "d9fee3ec287765785541f2a6a495b7ed",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/50/8239113e3a4f42e9af18be4442eede4b.pdf": {
-    "mtime": 1790000689.5266864,
-    "seen": 1790050649.277684,
-    "ast_hash": "d39f3fbb34f4e58771f8b96b59a53a92",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/51/3853163f11cf47e6bad6757e5e917397.pdf": {
-    "mtime": 1790000689.5296865,
-    "seen": 1790050649.2776852,
-    "ast_hash": "cafc970bc0b1e396d2132b37948e4a4c",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/52/ccb153deba7141ed9abe319b9588132c.pdf": {
-    "mtime": 1790000689.531686,
-    "seen": 1790050649.2776864,
-    "ast_hash": "4dc5874368286347444c5c610a738c67",
-    "semantic_hash": ""
-  },
   "Backend/private-storage/hungnd/ContractTemplatePublishedPreviewPdf/10/1aacff6792ef4c5d9836bfd28c7d83f5.pdf": {
     "mtime": 1790000689.9453032,
     "seen": 1790050649.2777328,
@@ -6299,130 +6275,10 @@
     "ast_hash": "5ce6086da48c8f2afdcec031591097e9",
     "semantic_hash": ""
   },
-  "Backend/private-storage/dtctest/ContractTemplatePublishedPreviewPdf/4/c8dc9ed6fd094d86b3675e6e62b31c49.pdf": {
-    "mtime": 1790000689.5146883,
-    "seen": 1790050649.2776778,
-    "ast_hash": "f6904fbdd02c61ce94e595ae2fe70eab",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractTemplatePublishedPreviewPdf/5/ff19711f298f48cbb79d25596dcf892e.pdf": {
-    "mtime": 1790000689.5156875,
-    "seen": 1790050649.2776792,
-    "ast_hash": "56b21680dc5f7b9b6bc1eeec8298f14b",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractTemplatePublishedPreviewPdf/6/3ecee2895a1442ffaa1b98ae7ea1b6f9.pdf": {
-    "mtime": 1790000689.5166867,
-    "seen": 1790050649.2776804,
-    "ast_hash": "97d37e5d2aba1aeec93d06207758e225",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractTemplatePublishedPreviewPdf/7/797fe1c0c2534fe49bbbf5bc6b2a58f3.pdf": {
-    "mtime": 1790000689.5176873,
-    "seen": 1790050649.2776814,
-    "ast_hash": "009cbd322065d046154aa4d1a39c43e3",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/54/139b16a0c93e46ffb681d889213b3e49.pdf": {
-    "mtime": 1790000689.533686,
-    "seen": 1790050649.2776875,
-    "ast_hash": "445f864dcfd8c012e23d794e7268d89e",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/55/1b345ec9ad3b4815a1ec0664e3617107.pdf": {
-    "mtime": 1790000689.5366862,
-    "seen": 1790050649.2776885,
-    "ast_hash": "0c60b25d8a2dec59faff89ed6759ef32",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/58/caa5a2c5a42742009e127f2383ffd505.pdf": {
-    "mtime": 1790000689.538689,
-    "seen": 1790050649.27769,
-    "ast_hash": "40dbe155d4df016d3bbc2e2312dca8fd",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/59/57477fbc94f64d06ba301a8aa74b2bc9.pdf": {
-    "mtime": 1790000689.5416863,
-    "seen": 1790050649.277691,
-    "ast_hash": "c76099bb736cefa01f5180a415afcd0d",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractVersionArtifact/62/9e68e8b8a90440839b2ad7fe5c9e6831.pdf": {
-    "mtime": 1790000689.544686,
-    "seen": 1790050649.2776918,
-    "ast_hash": "e567cf016bd204fbaf318af636bef795",
-    "semantic_hash": ""
-  },
   "Backend/private-storage/hungnd/ContractVersionArtifact/1033/d0cf0bdc922844ae99738e47dc4f86ec.pdf": {
     "mtime": 1790000690.1153388,
     "seen": 1790050649.277778,
     "ast_hash": "c517821c4b822bf17114af44082ba7bc",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractAcceptanceEvidence/36/2ab06539efb8416a8a9cbb876489d9b6.png": {
-    "mtime": 1790000689.5026865,
-    "seen": 1790050649.2778046,
-    "ast_hash": "9de7fa0ffea9128e9d88e103744e8cfb",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractAcceptanceEvidence/38/0e70be9e7b354b769ec0d33093df8460.png": {
-    "mtime": 1790000689.5046868,
-    "seen": 1790050649.2778058,
-    "ast_hash": "b67b56bda9ac08808d3800a840ea545c",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractAcceptanceEvidence/39/fb60b7d31cc44a13a97f124d8dcb9651.png": {
-    "mtime": 1790000689.5056863,
-    "seen": 1790050649.277807,
-    "ast_hash": "9de7fa0ffea9128e9d88e103744e8cfb",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractSignedEvidence/36/77e5061c2a8244babaffccbdc6417090.png": {
-    "mtime": 1790000689.5056863,
-    "seen": 1790050649.2778082,
-    "ast_hash": "9de7fa0ffea9128e9d88e103744e8cfb",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractSignedEvidence/38/d91cb2f0c78c41cb926cffd30aafa8f1.png": {
-    "mtime": 1790000689.5066874,
-    "seen": 1790050649.2778091,
-    "ast_hash": "9de7fa0ffea9128e9d88e103744e8cfb",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractSignedEvidence/38/fbce6c6a3b6e481eb06e5184fe77f1f1.png": {
-    "mtime": 1790000689.5066874,
-    "seen": 1790050649.2778106,
-    "ast_hash": "a8d1ab2608c0f089da6f193373e32729",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractSignedEvidence/39/508942e222b24f9c8df794fee3ae8921.png": {
-    "mtime": 1790000689.5076873,
-    "seen": 1790050649.2778118,
-    "ast_hash": "1136b5ca86cc652a3c317ec039c75c9d",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/ContractSignedEvidence/39/fb2cd6dd1e0a46f1988384d83547a0f1.png": {
-    "mtime": 1790000689.5076873,
-    "seen": 1790050649.277813,
-    "ast_hash": "3e76b32f3d072701f24bcfa4721a66a8",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/Contract/38/62ca31e75dd4412284e7930e303c2cd9.png": {
-    "mtime": 1790000689.5026865,
-    "seen": 1790050649.2778144,
-    "ast_hash": "a8d1ab2608c0f089da6f193373e32729",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/EmployeeProfileAvatar/1/b0f1d5336d47438a9f81208cc84b70db.png": {
-    "mtime": 1790000689.546686,
-    "seen": 1790050649.2778153,
-    "ast_hash": "9b0db52f1da3885f951d230cad04953b",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/dtctest/EmployeeProfileCover/1/cd0f77ea09304293b02978b028669efa.png": {
-    "mtime": 1790000689.5476868,
-    "seen": 1790050649.2778165,
-    "ast_hash": "ede6f5eb6fd3fd13d98d422df42e12f0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260909115747_RemoveSigningEvidenceLegacyMetadata.cs": {
@@ -7395,36 +7251,6 @@
     "mtime": 1790013151.2519207,
     "seen": 1790050649.2776608,
     "ast_hash": "de98034c01f8d180810e5316ec4db6f5",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/hungnd/ContractAcceptanceArtifact/9/2b495dbe089041cc9fe50d4417dbbd4e.pdf": {
-    "mtime": 1790049021.0542953,
-    "seen": 1790050649.2777033,
-    "ast_hash": "fed61f4fa03472d6d8be8e46b21011de",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/hungnd/ContractAcceptanceEvidence/8/3c1f167423734d25a6a667997e220f87.pdf": {
-    "mtime": 1790049042.1269972,
-    "seen": 1790050649.2777143,
-    "ast_hash": "b6352633094f2c1a859c2384bd47ab8c",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/hungnd/ContractSignedEvidence/8/7d51e9bb1bf849f78e23920672ca9ba5.pdf": {
-    "mtime": 1790048864.1062286,
-    "seen": 1790050649.2777302,
-    "ast_hash": "9f3d63789c4c6be986d66eff1a171b6e",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/hungnd/ContractSignedEvidence/8/88e3a808eb614b3aaa14bd4dd7f9a747.pdf": {
-    "mtime": 1790048899.1083531,
-    "seen": 1790050649.2777317,
-    "ast_hash": "00d9d78523c1fffd6523f10c29632590",
-    "semantic_hash": ""
-  },
-  "Backend/private-storage/hungnd/ContractVersionArtifact/13/8872069ebf0b4f63b8d4e2d56ce79228.pdf": {
-    "mtime": 1790048792.8298697,
-    "seen": 1790050649.2777932,
-    "ast_hash": "eab2dea12c14cf27a71f9d06b9f3d718",
     "semantic_hash": ""
   }
 }
