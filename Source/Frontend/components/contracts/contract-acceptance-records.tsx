@@ -274,8 +274,11 @@ export function ContractAcceptanceRecords({
     );
   };
 
-  const saveAllDraftChanges = async () => {
-    if (!selected || selected.status !== AcceptanceRecordStatus.Draft) return;
+  const saveAllDraftChanges = async (
+    quiet = false,
+  ): Promise<ContractAcceptanceRecord | null> => {
+    if (!selected || selected.status !== AcceptanceRecordStatus.Draft)
+      return null;
     const draft = selected;
     const customer = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Customer,
@@ -283,7 +286,7 @@ export function ContractAcceptanceRecords({
     const tenant = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Tenant,
     );
-    if (!customer || !tenant) return;
+    if (!customer || !tenant) return null;
     let latest = draft;
     try {
       setBusy(true);
@@ -341,7 +344,10 @@ export function ContractAcceptanceRecords({
           ),
         ];
       });
-      toast.success("Đã lưu toàn bộ thay đổi của biên bản.");
+      if (!quiet) {
+        toast.success("Đã lưu toàn bộ thay đổi của biên bản.");
+      }
+      return latest;
     } catch (error) {
       setSelected((current) =>
         current ? { ...current, rowVersion: latest.rowVersion } : current,
@@ -349,6 +355,7 @@ export function ContractAcceptanceRecords({
       toast.error(
         getApiErrorMessage(error, "Không thể lưu toàn bộ thay đổi biên bản."),
       );
+      return null;
     } finally {
       setBusy(false);
     }
@@ -676,15 +683,6 @@ export function ContractAcceptanceRecords({
                 >
                   <Download className="mr-2 size-4" /> DOCX
                 </Button>
-                {isDraft && canManage && (
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => setFinalizeOpen(true)}
-                  >
-                    <FileSignature className="mr-2 size-4" /> Chốt biên bản
-                  </Button>
-                )}
               </div>
             </div>
 
@@ -1107,6 +1105,48 @@ export function ContractAcceptanceRecords({
                     })}
                   </CollapsibleContent>
                 </Collapsible>
+
+                {/* 5. Khối hành động: Hoàn tất & Chốt biên bản */}
+                {canManage && (
+                  <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50/70 via-background to-emerald-50/30 p-5 shadow-sm dark:border-emerald-900/50 dark:from-emerald-950/20 dark:via-background dark:to-emerald-950/10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3.5">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                          <CheckCircle2 className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">
+                              Hoàn tất & Chốt biên bản nghiệm thu
+                            </h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                            Vui lòng kiểm tra kỹ thông tin các bên, căn cứ và
+                            các mục nghiệm thu. Khi chốt, hệ thống sẽ tự động
+                            lưu lại toàn bộ thay đổi mới nhất, xuất file chính
+                            thức và khóa nội dung để chuẩn bị ký kết.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 sm:shrink-0">
+                        <Button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setFinalizeOpen(true)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
+                        >
+                          {busy ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <FileSignature className="size-4" />
+                          )}
+                          Chốt biên bản
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               </div>
             ) : (
               <div className="space-y-4 text-sm">
@@ -1267,7 +1307,7 @@ export function ContractAcceptanceRecords({
               <Alert variant="destructive">
                 <XCircle className="size-4" />
                 <AlertDescription>
-                  {selected.cancellationReason}
+                  Lý do: {selected.cancellationReason}
                 </AlertDescription>
               </Alert>
             )}
@@ -1509,20 +1549,25 @@ export function ContractAcceptanceRecords({
       <ConfirmDialog
         isOpen={finalizeOpen}
         onClose={() => setFinalizeOpen(false)}
-        onConfirm={() =>
-          selected &&
-          void commit(
+        onConfirm={async () => {
+          if (!selected) return;
+          const saved = await saveAllDraftChanges(true);
+          if (!saved) return;
+
+          const finalized = await commit(
             () =>
               contractAcceptanceApi.finalize(
                 contract.contractId,
-                selected.acceptanceRecordId,
-                selected.rowVersion,
+                saved.acceptanceRecordId,
+                saved.rowVersion,
               ),
             "Đã chốt biên bản nghiệm thu.",
-          ).then((result) => result && setFinalizeOpen(false))
-        }
+            true,
+          );
+          if (finalized) setFinalizeOpen(false);
+        }}
         title="Chốt biên bản nghiệm thu?"
-        description="Hệ thống sẽ tạo và khóa DOCX/PDF chính thức. Sau bước này không thể sửa nội dung."
+        description="Hệ thống sẽ lưu lại toàn bộ các sửa đổi hiện tại, sau đó tạo và khóa file DOCX/PDF chính thức. Sau bước này không thể sửa đổi nội dung biên bản."
         confirmText="Chốt biên bản"
         isLoading={busy}
       />

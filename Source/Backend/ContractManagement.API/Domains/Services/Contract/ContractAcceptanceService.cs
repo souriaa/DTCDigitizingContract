@@ -1,6 +1,7 @@
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
@@ -153,6 +154,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await EnsureSignedSourceAsync(contract, version, cancellationToken);
             await EnsureCanStartNewRecordAsync(
                 contractId, version.VersionId, cancellationToken);
+            var acceptanceCode = Required(request.AcceptanceCode, 100,
+                "Mã biên bản").ToUpperInvariant();
+            await EnsureAcceptanceCodeAvailableAsync(contractId,
+                acceptanceCode, null, cancellationToken);
 
             var template = await LoadPublishedTemplateAsync(
                 request.TemplateVersionId, cancellationToken);
@@ -205,8 +210,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ContractId = contractId,
                 ContractVersionId = version.VersionId,
                 TemplateVersionId = template.Version.TemplateVersionId,
-                AcceptanceCode = Required(request.AcceptanceCode, 100,
-                    "Mã biên bản").ToUpperInvariant(),
+                AcceptanceCode = acceptanceCode,
                 AcceptanceDate = request.AcceptanceDate.Date,
                 Location = Required(request.Location, 500, "Địa điểm"),
                 AcceptanceKind = (byte)request.AcceptanceKind,
@@ -300,8 +304,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         {
             var row = await RequireDraftAsync(contractId, acceptanceRecordId,
                 request.RowVersion, cancellationToken);
-            row.AcceptanceCode = Required(request.AcceptanceCode, 100,
+            var acceptanceCode = Required(request.AcceptanceCode, 100,
                 "Mã biên bản").ToUpperInvariant();
+            await EnsureAcceptanceCodeAvailableAsync(contractId,
+                acceptanceCode, acceptanceRecordId, cancellationToken);
+            row.AcceptanceCode = acceptanceCode;
             row.AcceptanceDate = request.AcceptanceDate.Date;
             row.Location = Required(request.Location, 500, "Địa điểm");
             row.AcceptanceKind = (byte)request.AcceptanceKind;
@@ -1442,6 +1449,29 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         UploadedDate = file.CreatedAt
     };
 
+    private async Task EnsureAcceptanceCodeAvailableAsync(int contractId,
+        string acceptanceCode, int? currentRecordId, CancellationToken ct)
+    {
+        var exists = await _db.TblContractAcceptanceRecords.AsNoTracking()
+            .AnyAsync(record => record.ContractId == contractId
+                && record.AcceptanceCode == acceptanceCode
+                && record.AcceptanceRecordId != currentRecordId, ct);
+        if (exists) throw DuplicateAcceptanceCode();
+    }
+
+    private static BusinessRuleException DuplicateAcceptanceCode() =>
+        Rule("AcceptanceCodeAlreadyExists",
+            "Mã biên bản đã tồn tại trong hợp đồng này. Vui lòng nhập mã khác.",
+            StatusCodes.Status409Conflict);
+
+    private static bool IsAcceptanceCodeUniqueViolation(Exception exception) =>
+        exception is DbUpdateException
+        {
+            InnerException: SqlException { Number: 2601 or 2627 } sqlException
+        } && sqlException.Message.Contains(
+            "IX_tbl_ContractAcceptanceRecord_ContractId_AcceptanceCode",
+            StringComparison.OrdinalIgnoreCase);
+
     private async Task<T> ExecuteAsync<T>(Func<Task<T>> action,
         CancellationToken ct)
     {
@@ -1456,10 +1486,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await transaction.CommitAsync(ct);
                 return result;
             }
-            catch
+            catch (Exception exception)
             {
                 await transaction.RollbackAsync(ct);
                 _db.ChangeTracker.Clear();
+                if (IsAcceptanceCodeUniqueViolation(exception))
+                    throw DuplicateAcceptanceCode();
                 throw;
             }
         });

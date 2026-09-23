@@ -244,6 +244,69 @@ public sealed class ContractAcceptanceServicePhase7Tests
     }
 
     [Fact]
+    public async Task Create_RejectsDuplicateCodeEvenWhenPriorRecordWasCancelled()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Cancelled, AcceptanceKind.Partial));
+        await db.SaveChangesAsync();
+        var request = CreateRequest();
+        request.AcceptanceCode = " bbnt-900 ";
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(
+                ContractId, request, EmployeeId));
+
+        Assert.Equal("AcceptanceCodeAlreadyExists", exception.Code);
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+        Assert.Contains("Mã biên bản đã tồn tại", exception.Message);
+    }
+
+    [Fact]
+    public async Task Update_RejectsDuplicateCode()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Cancelled, AcceptanceKind.Partial));
+        await db.SaveChangesAsync();
+        var customer = draft.Parties.Single(party =>
+            party.PartyRole == AcceptancePartyRole.Customer);
+        var tenant = draft.Parties.Single(party =>
+            party.PartyRole == AcceptancePartyRole.Tenant);
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UpdateAsync(ContractId, draft.AcceptanceRecordId,
+                new UpdateContractAcceptanceRecordRequest
+                {
+                    AcceptanceCode = " bbnt-900 ",
+                    AcceptanceDate = draft.AcceptanceDate,
+                    Location = draft.Location,
+                    AcceptanceKind = draft.AcceptanceKind,
+                    CustomerParty = new ContractAcceptancePartyInput
+                    {
+                        LegalName = customer.LegalName,
+                        RepresentativeName = customer.RepresentativeName
+                    },
+                    TenantParty = new ContractAcceptancePartyInput
+                    {
+                        LegalName = tenant.LegalName,
+                        RepresentativeName = tenant.RepresentativeName
+                    },
+                    RowVersion = draft.RowVersion
+                }, EmployeeId));
+
+        Assert.Equal("AcceptanceCodeAlreadyExists", exception.Code);
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_AfterSignedPartial_AllowsOnlyRemainingMilestone()
     {
         await using var db = CreateContext();
