@@ -121,18 +121,51 @@ export default function ContractDetailPage() {
     useState<KnownCustomerAccessLink | null>(null);
 
   useEffect(() => {
-    const syncTabFromHash = () => {
-      const tabFromHash = window.location.hash.slice(1);
+    let isMounted = true;
 
-      if (isContractTab(tabFromHash)) {
-        setActiveTab(tabFromHash);
+    const syncTabFromHash = () => {
+      if (!isMounted) return;
+      const tabFromHash = window.location.hash.slice(1);
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabFromQuery = searchParams.get("tab");
+      const targetTab = tabFromHash || tabFromQuery || "";
+
+      if (isContractTab(targetTab)) {
+        setActiveTab((current) =>
+          current === targetTab ? current : targetTab,
+        );
       }
     };
 
     syncTabFromHash();
-    window.addEventListener("hashchange", syncTabFromHash);
+    const timer = setTimeout(syncTabFromHash, 50);
 
-    return () => window.removeEventListener("hashchange", syncTabFromHash);
+    window.addEventListener("hashchange", syncTabFromHash);
+    window.addEventListener("popstate", syncTabFromHash);
+
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    window.history.pushState = function (...args) {
+      const result = originalPushState.apply(this, args);
+      setTimeout(syncTabFromHash, 0);
+      return result;
+    };
+
+    window.history.replaceState = function (...args) {
+      const result = originalReplaceState.apply(this, args);
+      setTimeout(syncTabFromHash, 0);
+      return result;
+    };
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", syncTabFromHash);
+      window.removeEventListener("popstate", syncTabFromHash);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
   }, []);
 
   const handleTabChange = (value: string) => {

@@ -57,7 +57,10 @@ interface ContractApprovalDecisionDialogProps {
   isSubmitting?: boolean;
   downloadingFileId?: number | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (decision: ApprovalDecision, comment: string) => void | Promise<void>;
+  onSubmit: (
+    decision: ApprovalDecision,
+    comment: string,
+  ) => void | Promise<void>;
   onDownloadArtifact?: (
     artifact: ContractApprovalArtifactResponse,
     openPdf: boolean,
@@ -82,10 +85,11 @@ export function ContractApprovalDecisionDialog({
 
   const normalizedComment = comment.trim();
   const requiresReason = decision !== "approve";
-  const canSubmit = requests.length > 0
-    && !isLoadingDetail
-    && !isSubmitting
-    && (!requiresReason || normalizedComment.length > 0);
+  const canSubmit =
+    requests.length > 0 &&
+    !isLoadingDetail &&
+    !isSubmitting &&
+    (!requiresReason || normalizedComment.length > 0);
   const config = APPROVAL_DECISION_CONFIG[decision];
 
   return (
@@ -109,8 +113,10 @@ export function ContractApprovalDecisionDialog({
               <DialogTitle>
                 {mode === "bulk"
                   ? `Xử lý ${requests.length} yêu cầu duyệt`
-                  : detail?.contractCode
-                    || detail?.contractName || requests[0]?.contractName || "Hợp đồng"}
+                  : detail?.contractCode ||
+                    detail?.contractName ||
+                    requests[0]?.contractName ||
+                    "Hợp đồng"}
                 {mode === "single" && (detail || requests[0])
                   ? ` · Phiên bản ${(detail ?? requests[0]).versionNo}`
                   : ""}
@@ -133,7 +139,9 @@ export function ContractApprovalDecisionDialog({
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">
-                        {request.contractCode || request.contractName || "Hợp đồng"}
+                        {request.contractCode ||
+                          request.contractName ||
+                          "Hợp đồng"}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {request.contractName}
@@ -161,9 +169,9 @@ export function ContractApprovalDecisionDialog({
                             <p className="truncate font-medium">
                               {artifact.fileName}
                             </p>
-                            <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                            {/* <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                               SHA-256: {artifact.sha256}
-                            </p>
+                            </p> */}
                           </div>
                         </div>
                         <Button
@@ -190,7 +198,7 @@ export function ContractApprovalDecisionDialog({
 
                 <div className="rounded-lg border bg-muted/20 p-4 text-sm">
                   <p className="font-medium">
-                    Phụ lục trong package ({detail.appendices?.length ?? 0})
+                    Phụ lục đính kèm ({detail.appendices?.length ?? 0})
                   </p>
                   {(detail.appendices?.length ?? 0) > 0 ? (
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
@@ -201,7 +209,9 @@ export function ContractApprovalDecisionDialog({
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-1 text-muted-foreground">Không có phụ lục.</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Không có phụ lục.
+                    </p>
                   )}
                 </div>
 
@@ -220,22 +230,23 @@ export function ContractApprovalDecisionDialog({
             <div className="space-y-3">
               <Label>Quyết định</Label>
               <div className="grid gap-2 sm:grid-cols-2">
-                {(Object.keys(APPROVAL_DECISION_CONFIG) as ApprovalDecision[])
-                  .map((value) => {
-                    const itemConfig = APPROVAL_DECISION_CONFIG[value];
-                    const Icon = itemConfig.icon;
-                    return (
-                      <Button
-                        key={value}
-                        type="button"
-                        variant={decision === value ? "default" : "outline"}
-                        onClick={() => setDecision(value)}
-                      >
-                        <Icon className="size-4" />
-                        {itemConfig.label}
-                      </Button>
-                    );
-                  })}
+                {(
+                  Object.keys(APPROVAL_DECISION_CONFIG) as ApprovalDecision[]
+                ).map((value) => {
+                  const itemConfig = APPROVAL_DECISION_CONFIG[value];
+                  const Icon = itemConfig.icon;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={decision === value ? "default" : "outline"}
+                      onClick={() => setDecision(value)}
+                    >
+                      <Icon className="size-4" />
+                      {itemConfig.label}
+                    </Button>
+                  );
+                })}
               </div>
               <p className="text-xs text-muted-foreground">
                 {config.description}

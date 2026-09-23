@@ -61,6 +61,10 @@ export const CONTRACT_AUDIT_ACTION_TYPES = [
   "PublicAccessDenied",
   "ConcurrencyConflict",
   "PaymentMilestoneStatusChanged",
+  "PaymentMilestoneAnchored",
+  "AcceptanceRecordFinalized",
+  "AcceptanceRecordUpdated",
+  "AcceptanceRecordCreated",
 ] as const;
 
 export const CONTRACT_AUDIT_SUBJECT_TYPES = [
@@ -74,6 +78,7 @@ export const CONTRACT_AUDIT_SUBJECT_TYPES = [
   "SignedEvidence",
   "AcceptanceEvidence",
   "Payment",
+  "AcceptanceRecord",
 ] as const;
 
 export type ContractAuditActorType =
@@ -167,8 +172,9 @@ export const CONTRACT_AUDIT_SUBJECT_LABELS: Record<
   CustomerAccessSession: "Phiên khách hàng",
   ApprovalRequest: "Yêu cầu duyệt",
   SignedEvidence: "Bản scan đã ký",
-  AcceptanceEvidence: "Biên bản nghiệm thu",
+  AcceptanceEvidence: "Chứng từ nghiệm thu",
   Payment: "Khoản thanh toán",
+  AcceptanceRecord: "Biên bản nghiệm thu",
 };
 
 export const CONTRACT_AUDIT_ACTION_LABELS: Record<
@@ -219,6 +225,10 @@ export const CONTRACT_AUDIT_ACTION_LABELS: Record<
   PublicAccessDenied: "Từ chối truy cập công khai",
   ConcurrencyConflict: "Xung đột khi cập nhật",
   PaymentMilestoneStatusChanged: "Thay đổi trạng thái thanh toán",
+  PaymentMilestoneAnchored: "Chốt thanh toán",
+  AcceptanceRecordFinalized: "Kết thúc biên bản nghiệm thu",
+  AcceptanceRecordUpdated: "Cập nhật biên bản nghiệm thu",
+  AcceptanceRecordCreated: "Tạo biên bản nghiệm thu",
 };
 
 export const contractAuditApi = {

@@ -96,7 +96,7 @@ function Input({
 
       {(showClearButton || showCharCount) && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 bg-transparent">
-          {showClearButton && (
+          {showClearButton && type != "file" && (
             <button
               type="button"
               onClick={handleClear}
@@ -108,7 +108,7 @@ function Input({
             </button>
           )}
 
-          {showCharCount && (
+          {showCharCount && type != "file" && (
             <div className="text-[11px] font-medium text-muted-foreground/70 min-w-[28px] text-right select-none shrink-0">
               {charCount}/{maxLength}
             </div>
