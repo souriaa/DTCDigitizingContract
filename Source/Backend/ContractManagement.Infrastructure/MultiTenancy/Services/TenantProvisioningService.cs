@@ -65,10 +65,22 @@ public sealed class TenantProvisioningService
             TenantProvisioningCommand command,
             CancellationToken cancellationToken = default)
     {
-        string tenantCode =
-            command.TenantCode
-                .Trim()
-                .ToLowerInvariant();
+        string tenantCode = command.TenantCode.Trim();
+        if (tenantCode.Length is < 3 or > 50
+            || tenantCode.Any(character => !char.IsAsciiLetterOrDigit(character)
+                && character != '-'))
+        {
+            throw new ArgumentException(
+                "Mã tenant phải dài 3–50 ký tự và chỉ chứa chữ cái, số hoặc dấu gạch ngang.",
+                nameof(command));
+        }
+        string normalizedTenantCode = tenantCode.ToLowerInvariant();
+        string tenantName = command.TenantName.Trim();
+        if (tenantName.Length is < 1 or > 500)
+        {
+            throw new ArgumentException(
+                "Tên tổ chức phải có từ 1 đến 500 ký tự.", nameof(command));
+        }
 
         /*
          * Kiểm tra tenant đã tồn tại chưa.
@@ -76,7 +88,7 @@ public sealed class TenantProvisioningService
         bool tenantExists =
             await _centralDbContext.Tenants
                 .AnyAsync(
-                    x => x.TenantCode == tenantCode,
+                    x => x.TenantCode.ToLower() == normalizedTenantCode,
                     cancellationToken);
 
         if (tenantExists)
@@ -86,13 +98,13 @@ public sealed class TenantProvisioningService
         }
 
         /*
-         * TenantCode được validate chỉ chứa:
-         * chữ thường, số và dấu gạch ngang.
+         * DatabaseKey và tên database dùng mã chuẩn hóa chữ thường,
+         * TenantCode hiển thị vẫn giữ đúng chữ hoa/thường được nhập.
          *
          * Khi đặt tên database, đổi dấu gạch ngang thành gạch dưới.
          */
         string safeSuffix =
-            tenantCode.Replace("-", "_");
+            normalizedTenantCode.Replace("-", "_");
 
         string databaseName =
             $"{_options.DatabasePrefix}{safeSuffix}";
@@ -102,7 +114,7 @@ public sealed class TenantProvisioningService
 
         var tenantDatabase = new TenantDatabase
         {
-            DatabaseKey = $"dedicated-{tenantCode}",
+            DatabaseKey = $"dedicated-{normalizedTenantCode}",
             DatabaseName = databaseName,
             ConnectionString = connectionString,
             Mode = TenantDatabaseMode.Dedicated,
@@ -112,7 +124,7 @@ public sealed class TenantProvisioningService
         var tenant = new Tenant
         {
             TenantCode = tenantCode,
-            TenantName = command.TenantName.Trim(),
+            TenantName = tenantName,
             Status = TenantStatus.Provisioning,
             TenantDatabase = tenantDatabase,
             CreatedAt = DateTime.UtcNow

@@ -181,7 +181,7 @@ export default function TenantsPage() {
     setCreating(true);
     try {
       const created = await adminTenantsApi.create({
-        tenantCode: form.tenantCode.trim().toLowerCase(),
+        tenantCode: form.tenantCode.trim(),
         tenantName: form.tenantName.trim(),
         initialManager: {
           employeeCode: form.employeeCode.trim() || null,
@@ -636,19 +636,18 @@ export default function TenantsPage() {
                       required
                       placeholder="vd: fpt-telecom, vinfast"
                       value={form.tenantCode}
+                      maxLength={50}
                       onChange={(event) =>
                         updateField(
                           "tenantCode",
-                          event.target.value
-                            .replace(/[^a-zA-Z0-9-]/g, "")
-                            .toLowerCase(),
+                          event.target.value.replace(/[^a-zA-Z0-9-]/g, ""),
                         )
                       }
                       className="font-mono text-sm"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Dùng làm định danh và tiền tố database (chữ thường, số,
-                      dấu gạch ngang).
+                      Từ 3 đến 50 ký tự: chữ hoa, chữ thường, số và dấu gạch ngang.
+                      Mã không phân biệt hoa/thường khi đăng nhập.
                     </p>
                   </div>
 
@@ -662,6 +661,7 @@ export default function TenantsPage() {
                       required
                       placeholder="vd: Công ty Cổ phần Công nghệ FPT"
                       value={form.tenantName}
+                      maxLength={500}
                       onChange={(event) =>
                         updateField("tenantName", event.target.value)
                       }

@@ -151,7 +151,9 @@ export function ContractTemplateTermsEditor({
   ) => {
     if (!isDraft) return;
     if (isAddingPayment) {
-      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi sửa điều khoản.");
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form thêm đợt trước khi sửa điều khoản.",
+      );
       return;
     }
     if (isOrderDirty) {
@@ -251,7 +253,9 @@ export function ContractTemplateTermsEditor({
   const saveOrder = async () => {
     if (!isDraft) return;
     if (hasUnsavedContent) {
-      throw new Error("Vui lòng lưu nội dung các điều khoản trước khi lưu thứ tự.");
+      throw new Error(
+        "Vui lòng lưu nội dung các điều khoản trước khi lưu thứ tự.",
+      );
     }
     await contractTemplateApi.reorderTerms(version.templateVersionId, {
       versionRowVersion: (
@@ -308,7 +312,9 @@ export function ContractTemplateTermsEditor({
   const saveChanges = async () => {
     if (!isDraft || isSavingChanges || !hasUnsavedChanges) return;
     if (isAddingPayment) {
-      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi lưu thay đổi chung.");
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form thêm đợt trước khi lưu thay đổi chung.",
+      );
       return;
     }
     try {
@@ -385,7 +391,9 @@ export function ContractTemplateTermsEditor({
   const openAddDialog = () => {
     if (!isDraft) return;
     if (isAddingPayment) {
-      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi thêm điều khoản.");
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form thêm đợt trước khi thêm điều khoản.",
+      );
       return;
     }
     if (hasUnsavedChanges) {
@@ -471,7 +479,9 @@ export function ContractTemplateTermsEditor({
   const requestDeleteTerm = (term: ContractTemplateTermResponse) => {
     if (!isDraft) return;
     if (isAddingPayment) {
-      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi xóa điều khoản.");
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form thêm đợt trước khi xóa điều khoản.",
+      );
       return;
     }
     if (hasUnsavedChanges) {
@@ -535,11 +545,15 @@ export function ContractTemplateTermsEditor({
               : (value) => {
                   if (!isDraft) return;
                   if (isOrderDirty) {
-                    toast.error("Vui lòng lưu thứ tự trước khi đổi loại điều khoản.");
+                    toast.error(
+                      "Vui lòng lưu thứ tự trước khi đổi loại điều khoản.",
+                    );
                     return;
                   }
                   if (isAddingPayment) {
-                    toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi đổi loại điều khoản.");
+                    toast.error(
+                      "Hãy hoàn tất hoặc hủy form thêm đợt trước khi đổi loại điều khoản.",
+                    );
                     return;
                   }
                   if (
@@ -742,20 +756,22 @@ export function ContractTemplateTermsEditor({
           className="fixed bottom-6 right-6 z-50 w-[calc(100%-3rem)] max-w-md animate-in fade-in-0 slide-in-from-bottom-8 border-destructive/50 bg-background shadow-lg duration-300"
           aria-live="polite"
         >
-          <AlertTitle>Điều khoản hoặc đợt thanh toán có thay đổi chưa được lưu</AlertTitle>
+          <AlertTitle>
+            Điều khoản hoặc đợt thanh toán có thay đổi chưa được lưu
+          </AlertTitle>
           <AlertDescription className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
               {[
-                    isOrderDirty ? "Thứ tự điều khoản đã thay đổi" : null,
-                    dirtyIds.size > 0
-                      ? `${dirtyIds.size} điều khoản đang chỉnh sửa`
-                      : null,
-                    hasUnsavedPayments
-                      ? `${pendingPaymentRows.length} đợt thanh toán đang chỉnh sửa`
-                      : null,
-                ]
-                  .filter(Boolean)
-                  .join("; ")}
+                isOrderDirty ? "Thứ tự điều khoản đã thay đổi" : null,
+                dirtyIds.size > 0
+                  ? `${dirtyIds.size} điều khoản đang chỉnh sửa`
+                  : null,
+                hasUnsavedPayments
+                  ? `${pendingPaymentRows.length} đợt thanh toán đang chỉnh sửa`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join("; ")}
             </span>
             <Button
               onClick={saveChanges}
@@ -764,11 +780,14 @@ export function ContractTemplateTermsEditor({
               className="shrink-0"
             >
               {isSavingChanges ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Save className="mr-2 size-4" />
+                <Save className="size-4" />
               )}
               Lưu thay đổi
+              <kbd className="hidden rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-mono text-primary-foreground sm:inline-block">
+                Ctrl+S
+              </kbd>
             </Button>
           </AlertDescription>
         </Alert>

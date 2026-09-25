@@ -655,6 +655,49 @@ public sealed class ContractServiceSlice04Tests
     [Theory]
     [InlineData(ContractStatus.Draft)]
     [InlineData(ContractStatus.Negotiating)]
+    public async Task Appendices_EditableVersion_CanRemoveOptionalTemplateAppendix(
+        ContractStatus status)
+    {
+        await using var context = CreateContext();
+        var versionId = await SeedNegotiatingContractAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)status;
+        context.TblContractAppendices.Add(new TblContractAppendix
+        {
+            AppendixId = 104,
+            ContractId = 100,
+            VersionId = versionId,
+            SourceTemplateAppendixId = 64,
+            AppendixCode = "PL-02",
+            AppendixName = "Phụ lục tùy chọn",
+            IsRequired = false,
+            DisplayOrder = 1,
+            CreatedEmployeeId = EmployeeId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = InitialRowVersion()
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var rowVersion = Convert.ToBase64String(InitialRowVersion());
+
+        await CreateService(context).DeleteAppendixAsync(
+            100, versionId, 104,
+            new DeleteContractAppendixRequest
+            {
+                RowVersion = rowVersion,
+                VersionRowVersion = rowVersion
+            },
+            EmployeeId);
+
+        Assert.Empty(await context.TblContractAppendices.AsNoTracking().ToListAsync());
+        Assert.Contains(await context.TblContractAudits.AsNoTracking().ToListAsync(),
+            audit => audit.ActionType == ContractAuditActionTypes.ContractAppendixRemoved
+                && audit.SubjectId == 104);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.Negotiating)]
     public async Task Appendices_EditableVersion_CanCreateCustomAppendix(
         ContractStatus status)
     {

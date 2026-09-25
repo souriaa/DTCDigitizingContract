@@ -1,18 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
   FileStack,
   Loader2,
+  Minus,
   Plus,
-  Save,
-  Trash2,
 } from "lucide-react";
 
 import { ContractTermCard } from "@/components/contracts/contract-term-card";
+import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,16 +41,36 @@ import {
   type ContractDetailResponse,
 } from "@/services/contract-api";
 
-type DraftTerm = ContractAppendixTermResponse;
+const isTermDirty = (
+  draft: ContractAppendixTermResponse,
+  saved: ContractAppendixTermResponse,
+) =>
+  draft.termCode.trim() !== saved.termCode.trim() ||
+  draft.termTitle.trim() !== saved.termTitle.trim() ||
+  (draft.termTitleEn?.trim() || "") !== (saved.termTitleEn?.trim() || "") ||
+  (draft.termContent?.trim() || "") !== (saved.termContent?.trim() || "") ||
+  (draft.termContentEn?.trim() || "") !== (saved.termContentEn?.trim() || "");
 
 export function ContractAppendices({
   contract,
   canEdit,
   onRefetch,
+  drafts,
+  onTermDraftChange,
+  hasUnsavedChanges,
+  isSaving,
+  onPendingFormChange,
+  onOperationChange,
 }: {
   contract: ContractDetailResponse;
   canEdit: boolean;
   onRefetch: () => void | Promise<void>;
+  drafts: Record<number, ContractAppendixTermResponse>;
+  onTermDraftChange: (term: ContractAppendixTermResponse) => void;
+  hasUnsavedChanges: boolean;
+  isSaving: boolean;
+  onPendingFormChange: (open: boolean) => void;
+  onOperationChange: (busy: boolean) => void;
 }) {
   const appendices = useMemo(
     () =>
@@ -61,14 +81,8 @@ export function ContractAppendices({
   );
   const availableOptions =
     contract.currentVersion.availableOptionalAppendices ?? [];
-  const [drafts, setDrafts] = useState<Record<number, DraftTerm>>(() =>
-    Object.fromEntries(
-      appendices.flatMap((appendix) =>
-        appendix.terms.map((term) => [term.appendixTermId, { ...term }]),
-      ),
-    ),
-  );
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const operationInFlightRef = useRef(false);
   const [addingTo, setAddingTo] = useState<number | null>(null);
   const [newTerm, setNewTerm] = useState({ code: "", title: "", titleEn: "" });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -79,9 +93,31 @@ export function ContractAppendices({
     description: "",
   });
 
+  useEffect(() => {
+    onPendingFormChange(addingTo !== null || isCreateOpen);
+  }, [addingTo, isCreateOpen, onPendingFormChange]);
+
+  useEffect(() => () => onPendingFormChange(false), [onPendingFormChange]);
+
   const run = async (key: string, action: () => Promise<unknown>) => {
+    if (operationInFlightRef.current) return;
+    if (
+      (addingTo !== null && key !== `add-${addingTo}`) ||
+      (isCreateOpen && key !== "create-appendix")
+    ) {
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form đang mở trước khi cập nhật phụ lục.",
+      );
+      return;
+    }
+    if (hasUnsavedChanges || isSaving) {
+      toast.error("Vui lòng lưu thay đổi hiện tại trước khi cập nhật phụ lục.");
+      return;
+    }
     try {
+      operationInFlightRef.current = true;
       setBusyKey(key);
+      onOperationChange(true);
       await action();
       await Promise.resolve(onRefetch());
     } catch (error) {
@@ -92,36 +128,10 @@ export function ContractAppendices({
         toast.error(getApiErrorMessage(error, "Không thể cập nhật phụ lục."));
       }
     } finally {
+      operationInFlightRef.current = false;
       setBusyKey(null);
+      onOperationChange(false);
     }
-  };
-
-  const saveTerm = (appendix: ContractAppendixResponse, termId: number) => {
-    const term = drafts[termId];
-    if (!term?.termCode.trim() || !term.termTitle.trim()) {
-      toast.error("Mã và tiêu đề điều khoản là bắt buộc.");
-      return;
-    }
-    void run(`save-${termId}`, async () => {
-      await contractApi.updateAppendixTerm(
-        contract.contractId,
-        contract.currentVersion.versionId,
-        appendix.appendixId,
-        termId,
-        {
-          termCode: term.termCode.trim(),
-          termTitle: term.termTitle.trim(),
-          termTitleEn: term.termTitleEn?.trim() || null,
-          termContent: term.termContent?.trim() || null,
-          termContentEn: term.termContentEn?.trim() || null,
-          displayOrder: term.displayOrder,
-          rowVersion: term.rowVersion,
-          appendixRowVersion: appendix.rowVersion,
-          versionRowVersion: contract.currentVersion.rowVersion,
-        },
-      );
-      toast.success("Đã lưu điều khoản phụ lục.");
-    });
   };
 
   const addTerm = (appendix: ContractAppendixResponse) => {
@@ -157,20 +167,30 @@ export function ContractAppendices({
     appendix: ContractAppendixResponse,
     term: ContractAppendixTermResponse,
   ) => {
-    if (!window.confirm(`Xóa điều khoản “${term.termTitle}”?`)) return;
-    void run(`delete-${term.appendixTermId}`, () =>
-      contractApi.deleteAppendixTerm(
-        contract.contractId,
-        contract.currentVersion.versionId,
-        appendix.appendixId,
-        term.appendixTermId,
-        {
-          rowVersion: term.rowVersion,
-          appendixRowVersion: appendix.rowVersion,
-          versionRowVersion: contract.currentVersion.rowVersion,
-        },
-      ),
-    );
+    if (hasUnsavedChanges || isSaving || addingTo !== null || isCreateOpen) {
+      toast.error("Vui lòng lưu thay đổi hiện tại trước khi xóa điều khoản.");
+      return;
+    }
+    showConfirmToast({
+      title: "Xóa điều khoản phụ lục?",
+      description: `Điều khoản “${term.termTitle}” sẽ bị xóa khỏi phụ lục hiện tại.`,
+      confirmLabel: "Xóa điều khoản",
+      cancelLabel: "Hủy",
+      onConfirm: () =>
+        run(`delete-${term.appendixTermId}`, () =>
+          contractApi.deleteAppendixTerm(
+            contract.contractId,
+            contract.currentVersion.versionId,
+            appendix.appendixId,
+            term.appendixTermId,
+            {
+              rowVersion: term.rowVersion,
+              appendixRowVersion: appendix.rowVersion,
+              versionRowVersion: contract.currentVersion.rowVersion,
+            },
+          ),
+        ),
+    });
   };
 
   const moveTerm = (
@@ -204,20 +224,30 @@ export function ContractAppendices({
   };
 
   const removeAppendix = (appendix: ContractAppendixResponse) => {
-    if (
-      appendix.isRequired ||
-      !window.confirm(`Bỏ phụ lục “${appendix.appendixName}”?`)
-    )
+    if (hasUnsavedChanges || isSaving || addingTo !== null || isCreateOpen) {
+      toast.error("Vui lòng lưu thay đổi hiện tại trước khi rút phụ lục.");
       return;
-    void run(`appendix-${appendix.appendixId}`, () =>
-      contractApi.deleteAppendix(
-        contract.contractId,
-        contract.currentVersion.versionId,
-        appendix.appendixId,
-        appendix.rowVersion,
-        contract.currentVersion.rowVersion,
-      ),
-    );
+    }
+    const fromTemplate = appendix.sourceTemplateAppendixId != null;
+    if (appendix.isRequired) return;
+    showConfirmToast({
+      title: fromTemplate ? "Rút phụ lục khỏi hợp đồng?" : "Xóa phụ lục?",
+      description: fromTemplate
+        ? `Phụ lục “${appendix.appendixName}” cùng các điều khoản sẽ bị rút khỏi phiên bản hiện tại. Mẫu phụ lục không thay đổi.`
+        : `Phụ lục “${appendix.appendixName}” cùng các điều khoản sẽ bị xóa khỏi phiên bản hiện tại.`,
+      confirmLabel: fromTemplate ? "Rút phụ lục" : "Xóa phụ lục",
+      cancelLabel: "Hủy",
+      onConfirm: () =>
+        run(`appendix-${appendix.appendixId}`, () =>
+          contractApi.deleteAppendix(
+            contract.contractId,
+            contract.currentVersion.versionId,
+            appendix.appendixId,
+            appendix.rowVersion,
+            contract.currentVersion.rowVersion,
+          ),
+        ),
+    });
   };
 
   const moveAppendix = (appendixIndex: number, direction: -1 | 1) => {
@@ -258,6 +288,12 @@ export function ContractAppendices({
   };
 
   const openCreateAppendix = () => {
+    if (hasUnsavedChanges || isSaving || addingTo !== null) {
+      toast.error(
+        "Hãy lưu thay đổi hoặc hoàn tất form đang mở trước khi tạo phụ lục.",
+      );
+      return;
+    }
     let index = 1;
     const codes = new Set(
       appendices.map((item) => item.appendixCode.toUpperCase()),
@@ -362,60 +398,91 @@ export function ContractAppendices({
           </CardContent>
         </Card>
       )}
-      {appendices.map((appendix, appendixIndex) => (
-        <Collapsible
-          key={appendix.appendixId}
-          defaultOpen={appendixIndex === 0}
-        >
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
-              <div className="space-y-1">
-                <CardTitle className="text-base">
-                  {appendix.appendixCode} — {appendix.appendixName}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge variant={appendix.isRequired ? "default" : "outline"}>
-                    {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {appendix.terms.length} điều khoản
-                  </span>
+      {appendices.map((appendix, appendixIndex) => {
+        const hasDirtyTerms = appendix.terms.some((term) => {
+          const draft = drafts[term.appendixTermId];
+          return draft && isTermDirty(draft, term);
+        });
+        return (
+          <Collapsible
+            key={appendix.appendixId}
+            defaultOpen={appendixIndex === 0}
+          >
+            <Card
+              className={
+                hasDirtyTerms
+                  ? "border-destructive ring-1 ring-destructive/40"
+                  : undefined
+              }
+            >
+              <CardHeader className="flex flex-row items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <CardTitle className="text-base">
+                    {appendix.appendixCode} — {appendix.appendixName}
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={appendix.isRequired ? "default" : "outline"}
+                    >
+                      {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
+                    </Badge>
+                    {hasDirtyTerms && (
+                      <Badge variant="destructive">Chưa lưu</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {appendix.terms.length} điều khoản
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {canEdit && (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={busyKey !== null || appendixIndex === 0}
-                    aria-label={`Đưa phụ lục ${appendix.appendixName} lên`}
-                    onClick={() => moveAppendix(appendixIndex, -1)}
-                  >
-                    <ArrowUp className="size-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={
-                      busyKey !== null ||
-                      appendixIndex === appendices.length - 1
-                    }
-                    aria-label={`Đưa phụ lục ${appendix.appendixName} xuống`}
-                    onClick={() => moveAppendix(appendixIndex, 1)}
-                  >
-                    <ArrowDown className="size-4" />
-                  </Button>
-                  {!appendix.isRequired && (
+                {canEdit && (
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={busyKey !== null}
-                      aria-label="Bỏ phụ lục"
-                      onClick={() => removeAppendix(appendix)}
+                      disabled={busyKey !== null || appendixIndex === 0}
+                      aria-label={`Đưa phụ lục ${appendix.appendixName} lên`}
+                      onClick={() => moveAppendix(appendixIndex, -1)}
                     >
-                      <Trash2 className="size-4 text-destructive" />
+                      <ArrowUp className="size-4" />
                     </Button>
-                  )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={
+                        busyKey !== null ||
+                        appendixIndex === appendices.length - 1
+                      }
+                      aria-label={`Đưa phụ lục ${appendix.appendixName} xuống`}
+                      onClick={() => moveAppendix(appendixIndex, 1)}
+                    >
+                      <ArrowDown className="size-4" />
+                    </Button>
+                    {!appendix.isRequired && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busyKey !== null || isSaving}
+                        onClick={() => removeAppendix(appendix)}
+                      >
+                        <Minus className="size-4" />
+                        {appendix.sourceTemplateAppendixId != null
+                          ? "Rút phụ lục"
+                          : "Xóa phụ lục"}
+                      </Button>
+                    )}
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
+                        className="group"
+                      >
+                        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                )}
+                {!canEdit && (
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
@@ -426,137 +493,119 @@ export function ContractAppendices({
                       <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
                     </Button>
                   </CollapsibleTrigger>
-                </div>
-              )}
-              {!canEdit && (
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
-                    className="group"
-                  >
-                    <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </Button>
-                </CollapsibleTrigger>
-              )}
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                {appendix.appendixDescription && (
-                  <p className="text-sm text-muted-foreground">
-                    {appendix.appendixDescription}
-                  </p>
                 )}
-                {appendix.terms.map((sourceTerm, index) => {
-                  const term = drafts[sourceTerm.appendixTermId] ?? sourceTerm;
-                  const busy = busyKey?.endsWith(String(term.appendixTermId));
-                  return (
-                    <ContractTermCard
-                      key={term.appendixTermId}
-                      term={{ ...term, isNegotiable: false }}
-                      inputId={`appendix-${appendix.appendixId}-${term.appendixTermId}`}
-                      editable={canEdit}
-                      isBilingual={Boolean(contract.languageMode === 2)}
-                      canMoveUp={index > 0}
-                      canMoveDown={index < appendix.terms.length - 1}
-                      onChange={(field, value) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [term.appendixTermId]: { ...term, [field]: value },
-                        }))
-                      }
-                      onMove={(direction) =>
-                        moveTerm(appendix, index, direction)
-                      }
-                      onRemove={() => removeTerm(appendix, sourceTerm)}
-                    >
-                      {canEdit && (
-                        <Button
-                          size="sm"
-                          disabled={busyKey !== null}
-                          onClick={() =>
-                            saveTerm(appendix, term.appendixTermId)
-                          }
-                        >
-                          {busy ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Save className="size-4" />
-                          )}
-                          Lưu điều khoản
-                        </Button>
-                      )}
-                    </ContractTermCard>
-                  );
-                })}
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  {appendix.appendixDescription && (
+                    <p className="text-sm text-muted-foreground">
+                      {appendix.appendixDescription}
+                    </p>
+                  )}
+                  {appendix.terms.map((sourceTerm, index) => {
+                    const term =
+                      drafts[sourceTerm.appendixTermId] ?? sourceTerm;
+                    const isDirty = isTermDirty(term, sourceTerm);
+                    return (
+                      <ContractTermCard
+                        key={term.appendixTermId}
+                        term={{ ...term, isNegotiable: false }}
+                        inputId={`appendix-${appendix.appendixId}-${term.appendixTermId}`}
+                        className={
+                          isDirty
+                            ? "border-destructive ring-1 ring-destructive/40"
+                            : undefined
+                        }
+                        editable={canEdit && !isSaving && busyKey === null}
+                        isBilingual={Boolean(contract.languageMode === 2)}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < appendix.terms.length - 1}
+                        onChange={(field, value) =>
+                          onTermDraftChange({ ...term, [field]: value })
+                        }
+                        onMove={(direction) =>
+                          moveTerm(appendix, index, direction)
+                        }
+                        onRemove={() => removeTerm(appendix, sourceTerm)}
+                      />
+                    );
+                  })}
 
-                {canEdit && addingTo === appendix.appendixId ? (
-                  <div className="grid gap-3 rounded-xl border border-dashed p-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Mã điều khoản</Label>
-                      <Input
-                        value={newTerm.code}
-                        onChange={(event) =>
-                          setNewTerm((current) => ({
-                            ...current,
-                            code: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tiêu đề</Label>
-                      <Input
-                        value={newTerm.title}
-                        onChange={(event) =>
-                          setNewTerm((current) => ({
-                            ...current,
-                            title: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    {contract.languageMode === 2 && (
-                      <div className="space-y-2 sm:col-span-2">
-                        <Label>Tiêu đề tiếng Anh</Label>
+                  {canEdit && addingTo === appendix.appendixId ? (
+                    <div className="grid gap-3 rounded-xl border border-dashed p-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Mã điều khoản</Label>
                         <Input
-                          value={newTerm.titleEn}
+                          value={newTerm.code}
                           onChange={(event) =>
                             setNewTerm((current) => ({
                               ...current,
-                              titleEn: event.target.value,
+                              code: event.target.value,
                             }))
                           }
                         />
                       </div>
-                    )}
-                    <div className="flex gap-2 sm:col-span-2">
-                      <Button size="sm" onClick={() => addTerm(appendix)}>
-                        <Plus className="size-4" /> Thêm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAddingTo(null)}
-                      >
-                        Hủy
-                      </Button>
+                      <div className="space-y-2">
+                        <Label>Tiêu đề</Label>
+                        <Input
+                          value={newTerm.title}
+                          onChange={(event) =>
+                            setNewTerm((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      {contract.languageMode === 2 && (
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Tiêu đề tiếng Anh</Label>
+                          <Input
+                            value={newTerm.titleEn}
+                            onChange={(event) =>
+                              setNewTerm((current) => ({
+                                ...current,
+                                titleEn: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className="flex gap-2 sm:col-span-2">
+                        <Button size="sm" onClick={() => addTerm(appendix)}>
+                          <Plus className="size-4" /> Thêm
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAddingTo(null)}
+                        >
+                          Hủy
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : canEdit ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddingTo(appendix.appendixId)}
-                  >
-                    <Plus className="size-4" /> Thêm điều khoản
-                  </Button>
-                ) : null}
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      ))}
+                  ) : canEdit ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (hasUnsavedChanges || isSaving) {
+                          toast.error(
+                            "Hãy lưu thay đổi trước khi thêm điều khoản.",
+                          );
+                        } else {
+                          setAddingTo(appendix.appendixId);
+                        }
+                      }}
+                    >
+                      <Plus className="size-4" /> Thêm điều khoản
+                    </Button>
+                  ) : null}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-xl">

@@ -14,7 +14,7 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 /// </summary>
 public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRenderer
 {
-    public const string FormatVersion = "V10";
+    public const string FormatVersion = "V11";
 
     private const string GeneratedContentFont = "Times New Roman";
     private const string GeneratedContentFontSize = "24";
@@ -283,11 +283,10 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
 
         paragraph.Remove();
-        // Word requires a table cell to end with a paragraph. A standalone
-        // dynamic table in a cell gets a blank terminator without altering its
-        // standardized table payload.
+        // Word requires a table cell to end with a paragraph, including when
+        // an appendix block ends with its signature table.
         if (parent is W.TableCell
-            && !materialized.Any(element => element is W.Paragraph))
+            && (materialized.Count == 0 || materialized[^1] is not W.Paragraph))
         {
             parent.Append(new W.Paragraph());
         }
@@ -476,9 +475,48 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                         availableWidthDxa));
                 }
             }
+
+            elements.Add(CreateAppendixSignatureTable(availableWidthDxa));
         }
 
         return elements;
+    }
+
+    private static W.Table CreateAppendixSignatureTable(int availableWidthDxa)
+    {
+        var columnWidths = new[]
+        {
+            availableWidthDxa / 2,
+            availableWidthDxa - availableWidthDxa / 2
+        };
+        var table = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth
+                {
+                    Type = W.TableWidthUnitValues.Dxa,
+                    Width = availableWidthDxa.ToString()
+                },
+                new W.TableLayout { Type = W.TableLayoutValues.Fixed },
+                new W.TableBorders(
+                    new W.TopBorder { Val = W.BorderValues.Nil },
+                    new W.LeftBorder { Val = W.BorderValues.Nil },
+                    new W.BottomBorder { Val = W.BorderValues.Nil },
+                    new W.RightBorder { Val = W.BorderValues.Nil },
+                    new W.InsideHorizontalBorder { Val = W.BorderValues.Nil },
+                    new W.InsideVerticalBorder { Val = W.BorderValues.Nil })));
+        table.Append(new W.TableGrid(
+            new W.GridColumn { Width = columnWidths[0].ToString() },
+            new W.GridColumn { Width = columnWidths[1].ToString() }));
+        table.Append(new W.TableRow(
+            new W.TableCell(
+                CreateFixedCellProperties(columnWidths, 0, 1),
+                CreateStyledParagraph("ĐẠI DIỆN BÊN KHÁCH HÀNG",
+                    bold: true, justification: W.JustificationValues.Center)),
+            new W.TableCell(
+                CreateFixedCellProperties(columnWidths, 1, 1),
+                CreateStyledParagraph("ĐẠI DIỆN BÊN CUNG CẤP",
+                    bold: true, justification: W.JustificationValues.Center))));
+        return table;
     }
 
     private static IEnumerable<OpenXmlElement> CreateLegalBasisElements(
@@ -798,30 +836,30 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                 FormatMoney(item.TotalAmount, renderData.CurrencyCode)
             ]));
 
-        var total = renderData.Items.Sum(item => item.TotalAmount);
-        rows.Add(
-        [
-            string.Empty,
-            string.Empty,
-            renderData.Notice,
-            string.Empty,
-            string.Empty,
-            string.Empty,
-            "TỔNG CỘNG",
-            FormatMoney(total, renderData.CurrencyCode)
-        ]);
-
         var columnWidths = ContractTableLayoutPolicy.MapToDxa(
             ContractTableLayoutPolicy.RequireCanonicalWidths(
                 renderData.ItemTableColumnWidthsBps,
                 ContractTableLayoutPolicy.ItemColumnKeys.Count,
                 "ItemTableLayoutInvalid"),
             availableWidthDxa);
-        return CreateTable(
+        var table = CreateTable(
             rows,
             headerRow: true,
             columnWidths,
             availableWidthDxa);
+        var labelColumnCount = columnWidths.Count - 1;
+        var totalRow = new W.TableRow(
+            new W.TableCell(
+                CreateFixedCellProperties(columnWidths, 0, labelColumnCount),
+                CreateStyledParagraph("TỔNG CỘNG", bold: true,
+                    justification: W.JustificationValues.Right)),
+            new W.TableCell(
+                CreateFixedCellProperties(columnWidths, labelColumnCount, 1),
+                CreateParagraph(FormatMoney(
+                    renderData.Items.Sum(item => item.TotalAmount),
+                    renderData.CurrencyCode))));
+        table.Append(totalRow);
+        return table;
     }
 
     private static W.Table CreateTable(

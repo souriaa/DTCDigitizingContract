@@ -182,10 +182,11 @@ public sealed class CentralDbContext : DbContext
             entity.Property(x => x.TenantCode)
                 .HasMaxLength(50)
                 .IsUnicode(false)
+                .UseCollation("Latin1_General_100_CI_AS")
                 .IsRequired();
 
             entity.Property(x => x.TenantName)
-                .HasMaxLength(200)
+                .HasMaxLength(500)
                 .IsRequired();
 
             /*

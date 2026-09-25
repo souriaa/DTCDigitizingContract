@@ -6,14 +6,14 @@ public sealed class CreateTenantRequest
 {
     [Required]
     [RegularExpression(
-        "^[a-z0-9-]{3,50}$",
+        "^[A-Za-z0-9-]{3,50}$",
         ErrorMessage =
-            "TenantCode chỉ được chứa chữ thường, "
+            "TenantCode chỉ được chứa chữ hoa, chữ thường, "
             + "số và dấu gạch ngang.")]
     public string TenantCode { get; set; } = null!;
 
     [Required]
-    [MaxLength(200)]
+    [MaxLength(500)]
     public string TenantName { get; set; } = null!;
 
     [Required]
