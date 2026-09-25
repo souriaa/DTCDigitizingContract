@@ -344,6 +344,257 @@ public sealed class ContractAcceptanceServicePhase7Tests
     }
 
     [Fact]
+    public async Task Create_FinalAfterCancelledPartial_RemainsLockedToPartialMode()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Cancelled, AcceptanceKind.Partial));
+        await db.SaveChangesAsync();
+        var request = CreateRequest();
+        request.AcceptanceKind = AcceptanceKind.Final;
+        request.PaymentMilestoneIds = [];
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(
+                ContractId, request, EmployeeId));
+
+        Assert.Equal("AcceptancePartialFlowLocked", exception.Code);
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task FinalBeforeAnyPartial_CanBeSignedAndBlocksFurtherRecords()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var request = CreateRequest();
+        request.AcceptanceKind = AcceptanceKind.Final;
+        request.PaymentMilestoneIds = [];
+
+        var draft = await service.CreateAsync(
+            ContractId, request, EmployeeId);
+        var finalized = await service.FinalizeAsync(ContractId,
+            draft.AcceptanceRecordId,
+            new() { RowVersion = draft.RowVersion }, EmployeeId);
+        await service.UploadSignedEvidenceAsync(ContractId,
+            finalized.AcceptanceRecordId, new()
+            {
+                RowVersion = finalized.RowVersion,
+                File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
+            }, EmployeeId);
+
+        var next = CreateRequest();
+        next.AcceptanceCode = "BBNT-002";
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.CreateAsync(ContractId, next, EmployeeId));
+
+        Assert.Equal("AcceptanceFinalAlreadySigned", exception.Code);
+    }
+
+    [Fact]
+    public async Task Update_PartialDraftCannotBecomeFinal()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        var customer = draft.Parties.Single(x =>
+            x.PartyRole == AcceptancePartyRole.Customer);
+        var tenant = draft.Parties.Single(x =>
+            x.PartyRole == AcceptancePartyRole.Tenant);
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UpdateAsync(ContractId, draft.AcceptanceRecordId,
+                new UpdateContractAcceptanceRecordRequest
+                {
+                    AcceptanceCode = draft.AcceptanceCode,
+                    AcceptanceDate = draft.AcceptanceDate,
+                    Location = draft.Location,
+                    AcceptanceKind = AcceptanceKind.Final,
+                    CustomerParty = new ContractAcceptancePartyInput
+                    {
+                        LegalName = customer.LegalName,
+                        RepresentativeName = customer.RepresentativeName
+                    },
+                    TenantParty = new ContractAcceptancePartyInput
+                    {
+                        LegalName = tenant.LegalName,
+                        RepresentativeName = tenant.RepresentativeName
+                    },
+                    RowVersion = draft.RowVersion
+                }, EmployeeId));
+
+        Assert.Equal("AcceptancePartialFlowLocked", exception.Code);
+        Assert.Equal(AcceptanceKind.Partial,
+            (await service.GetAsync(ContractId, draft.AcceptanceRecordId,
+                EmployeeId)).AcceptanceKind);
+    }
+
+    [Fact]
+    public async Task DraftMutations_RejectWhenCurrentVersionChanges()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        var contract = await db.TblContracts.SingleAsync();
+        contract.CurrentVersionId = VersionId + 1;
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var update = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UpdateAsync(ContractId, draft.AcceptanceRecordId,
+                new UpdateContractAcceptanceRecordRequest
+                {
+                    AcceptanceCode = draft.AcceptanceCode,
+                    AcceptanceDate = draft.AcceptanceDate,
+                    Location = draft.Location,
+                    AcceptanceKind = draft.AcceptanceKind,
+                    CustomerParty = new ContractAcceptancePartyInput(),
+                    TenantParty = new ContractAcceptancePartyInput(),
+                    RowVersion = draft.RowVersion
+                }, EmployeeId));
+        var milestones = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.ReplaceMilestonesAsync(ContractId,
+                draft.AcceptanceRecordId, new()
+                {
+                    RowVersion = draft.RowVersion,
+                    PaymentMilestoneIds = [MilestoneId]
+                }, EmployeeId));
+
+        Assert.Equal("AcceptanceSourceChanged", update.Code);
+        Assert.Equal("AcceptanceSourceChanged", milestones.Code);
+    }
+
+    [Fact]
+    public async Task Create_WhenSignedPartialsCoverAllMilestones_IsRejected()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        foreach (var index in new[] { 0, 1 })
+        {
+            var recordId = 900 + index;
+            var fileId = 910 + index;
+            db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+                recordId, AcceptanceRecordStatus.Signed,
+                AcceptanceKind.Partial));
+            db.TblContractAcceptanceMilestones.Add(new()
+            {
+                AcceptanceRecordId = recordId,
+                PaymentMilestoneId = MilestoneId + index
+            });
+            db.TblFileStorages.Add(new TblFileStorage
+            {
+                FileId = fileId,
+                ObjectType = "ContractAcceptanceEvidence",
+                ObjectId = ContractId,
+                FileName = $"signed-{index}.pdf",
+                FilePath = string.Empty,
+                StorageKey = $"acceptance/signed-{index}.pdf",
+                TenantCode = "TENANT-PHASE7",
+                ContentType = "application/pdf",
+                FileType = "pdf",
+                FileSize = 12,
+                Sha256 = new string('a', 64)
+            });
+            db.TblContractAcceptanceEvidences.Add(new()
+            {
+                AcceptanceEvidenceId = 920 + index,
+                AcceptanceRecordId = recordId,
+                FileId = fileId,
+                UploadedByEmployeeId = EmployeeId,
+                UploadedAt = DateTime.UtcNow,
+                RowVersion = InitialVersion.ToArray()
+            });
+        }
+        await db.SaveChangesAsync();
+        var request = CreateRequest();
+        request.AcceptanceCode = "BBNT-NEW";
+        request.PaymentMilestoneIds = [MilestoneId + 1];
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(
+                ContractId, request, EmployeeId));
+
+        Assert.Equal("AcceptanceAlreadyCompleted", exception.Code);
+    }
+
+    [Fact]
+    public async Task Finalize_RechecksScopeAndCleansArtifactsOnOverlap()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Signed, AcceptanceKind.Partial));
+        db.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = 900,
+            PaymentMilestoneId = MilestoneId
+        });
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.FinalizeAsync(ContractId, draft.AcceptanceRecordId,
+                new() { RowVersion = draft.RowVersion }, EmployeeId));
+
+        Assert.Equal("AcceptanceMilestoneAlreadyFinalized", exception.Code);
+        Assert.Equal((byte)AcceptanceRecordStatus.Draft,
+            (await db.TblContractAcceptanceRecords.AsNoTracking()
+                .SingleAsync(x => x.AcceptanceRecordId ==
+                    draft.AcceptanceRecordId)).Status);
+        Assert.DoesNotContain(db.TblFileStorages,
+            x => x.ObjectType == "ContractAcceptanceArtifact");
+        Assert.Equal(2, storage.DeletedKeys.Count);
+    }
+
+    [Fact]
+    public async Task SignedEvidence_RechecksScopeAndDeletesUploadedFileOnOverlap()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(
+            ContractId, CreateRequest(), EmployeeId);
+        var finalized = await service.FinalizeAsync(
+            ContractId, draft.AcceptanceRecordId,
+            new() { RowVersion = draft.RowVersion }, EmployeeId);
+        db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
+            900, AcceptanceRecordStatus.Signed, AcceptanceKind.Partial));
+        db.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = 900,
+            PaymentMilestoneId = MilestoneId
+        });
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UploadSignedEvidenceAsync(ContractId,
+                finalized.AcceptanceRecordId, new()
+                {
+                    RowVersion = finalized.RowVersion,
+                    File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
+                }, EmployeeId));
+
+        Assert.Equal("AcceptanceMilestoneAlreadyFinalized", exception.Code);
+        Assert.Empty(db.TblContractAcceptanceEvidences);
+        Assert.Single(storage.DeletedKeys);
+    }
+
+    [Fact]
     public async Task Mutations_EnforceRbac_AndRowVersion()
     {
         await using var db = CreateContext();

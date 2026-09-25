@@ -63,11 +63,123 @@ public sealed class ContractCompletionServicePhase10Tests
 
         Assert.False(readiness.Ready);
         Assert.False(readiness.Signed);
-        Assert.False(readiness.AcceptanceEvidenceAvailable);
+        Assert.False(readiness.AcceptanceCompleted);
         Assert.Equal(ContractTotal, readiness.RemainingAmount);
         Assert.Equal(
-            ["NOT_SIGNED", "ACCEPTANCE_MISSING", "PAYMENT_NOT_FULLY_PAID"],
+            ["NOT_SIGNED", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
             readiness.Blockers.Select(blocker => blocker.Code));
+    }
+
+    [Fact]
+    public async Task SignedPartial_DoesNotAllowCompletionUntilEveryMilestoneIsAccepted()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
+        var milestones = await SeedPaymentMilestonesAsync(context,
+            (PaymentDueAnchor.ContractSigned, 0, 400m),
+            (PaymentDueAnchor.ContractSigned, 0, 600m));
+        var first = await context.TblContractAcceptanceRecords.SingleAsync();
+        first.AcceptanceKind = (byte)AcceptanceKind.Partial;
+        context.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = first.AcceptanceRecordId,
+            PaymentMilestoneId = milestones[0].PaymentMilestoneId
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, new TrackingPrivateStorage());
+        await service.CompletePaymentMilestoneAsync(ContractId, VersionId,
+            milestones[0].PaymentMilestoneId,
+            CompleteMilestoneRequest("PARTIAL-PAID-1"), AccountantId);
+        await service.CompletePaymentMilestoneAsync(ContractId, VersionId,
+            milestones[1].PaymentMilestoneId,
+            CompleteMilestoneRequest("PARTIAL-PAID-2"), AccountantId);
+
+        var incomplete = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.Equal(ContractTotal, incomplete.PaidAmount);
+        Assert.False(incomplete.AcceptanceCompleted);
+        Assert.Equal(1, incomplete.AcceptedMilestoneCount);
+        Assert.Equal(2, incomplete.TotalMilestoneCount);
+        Assert.Equal([milestones[1].PaymentMilestoneId],
+            incomplete.RemainingAcceptanceMilestoneIds);
+        Assert.Equal(["ACCEPTANCE_INCOMPLETE"],
+            incomplete.Blockers.Select(x => x.Code));
+        Assert.False(incomplete.Ready);
+        var rejected = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.CompleteAsync(ContractId, CompleteRequest(), ManagerId));
+        Assert.Equal("ContractNotReadyForCompletion", rejected.Code);
+
+        context.TblContractAcceptanceRecords.Add(new()
+        {
+            AcceptanceRecordId = 12013,
+            ContractId = ContractId,
+            ContractVersionId = VersionId,
+            TemplateVersionId = 0,
+            AcceptanceCode = "BBNT-PHASE12-2",
+            AcceptanceDate = DateTime.UtcNow.Date,
+            Location = "Hà Nội",
+            AcceptanceKind = (byte)AcceptanceKind.Partial,
+            Status = (byte)AcceptanceRecordStatus.Signed,
+            SignedAt = DateTime.UtcNow,
+            SignedByEmployeeId = TechnicalId,
+            CreatedEmployeeId = TechnicalId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = InitialRowVersion.ToArray()
+        });
+        context.TblFileStorages.Add(FileMetadata(
+            12014, "ContractAcceptanceEvidence", "acceptance-2.pdf"));
+        context.TblContractAcceptanceEvidences.Add(new()
+        {
+            AcceptanceEvidenceId = 12015,
+            AcceptanceRecordId = 12013,
+            FileId = 12014,
+            UploadedByEmployeeId = OwnerId,
+            UploadedAt = DateTime.UtcNow,
+            RowVersion = InitialRowVersion.ToArray()
+        });
+        context.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = 12013,
+            PaymentMilestoneId = milestones[1].PaymentMilestoneId
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var complete = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.True(complete.AcceptanceCompleted);
+        Assert.Equal(2, complete.AcceptedMilestoneCount);
+        Assert.Empty(complete.RemainingAcceptanceMilestoneIds);
+        Assert.True(complete.Ready);
+        Assert.Equal(ContractStatus.Completed,
+            (await service.CompleteAsync(ContractId, CompleteRequest(),
+                ManagerId)).ContractStatus);
+    }
+
+    [Fact]
+    public async Task SignedFinalWithoutMilestones_CompletesAcceptanceOnlyWithValidEvidence()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
+        var service = CreateService(context, new TrackingPrivateStorage());
+
+        var ready = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.True(ready.AcceptanceCompleted);
+        Assert.Equal(0, ready.TotalMilestoneCount);
+        Assert.Empty(ready.RemainingAcceptanceMilestoneIds);
+
+        var file = await context.TblFileStorages.SingleAsync(x =>
+            x.ObjectType == "ContractAcceptanceEvidence");
+        file.Sha256 = null;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var invalid = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.False(invalid.AcceptanceCompleted);
+        Assert.Contains(invalid.Blockers,
+            x => x.Code == "ACCEPTANCE_NOT_STARTED");
+        Assert.Null((await service.GetAsync(ContractId, ManagerId))
+            .AcceptanceEvidence);
     }
 
     [Fact]

@@ -263,10 +263,19 @@ export function ContractClosing({
   );
   const checks = [
     detail.readiness.signed,
-    detail.readiness.acceptanceEvidenceAvailable,
+    detail.readiness.acceptanceCompleted,
     detail.readiness.remainingAmount === 0,
   ];
   const completed = checks.filter(Boolean).length;
+  const remainingAcceptanceMilestones = detail.paymentMilestones.filter(
+    (milestone) =>
+      detail.readiness.remainingAcceptanceMilestoneIds.includes(
+        milestone.paymentMilestoneId,
+      ),
+  );
+  const hasPartialAcceptance =
+    detail.readiness.acceptedMilestoneCount > 0 &&
+    !detail.readiness.acceptanceCompleted;
 
   return (
     <div className="space-y-6">
@@ -282,7 +291,7 @@ export function ContractClosing({
           <Progress value={(completed / 3) * 100} />
           {[
             ["Hợp đồng có bản scan đã ký hợp lệ", checks[0]],
-            ["Đã tải biên bản nghiệm thu", checks[1]],
+            ["Đã nghiệm thu đủ phạm vi", checks[1]],
             ["Đã thanh toán đủ giá trị hợp đồng", checks[2]],
           ].map(([label, ok]) => (
             <div
@@ -299,6 +308,31 @@ export function ContractClosing({
               <span className="text-sm">{label}</span>
             </div>
           ))}
+          {detail.readiness.totalMilestoneCount > 0 && (
+            <div className="space-y-2 rounded-lg border p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">
+                  Đã nghiệm thu {detail.readiness.acceptedMilestoneCount}/
+                  {detail.readiness.totalMilestoneCount} đợt
+                </span>
+                {hasPartialAcceptance && (
+                  <Badge variant="secondary">Đang nghiệm thu một phần</Badge>
+                )}
+              </div>
+              {remainingAcceptanceMilestones.length > 0 && (
+                <div className="text-muted-foreground">
+                  <p>Các đợt chưa nghiệm thu:</p>
+                  <ul className="list-disc pl-5">
+                    {remainingAcceptanceMilestones.map((milestone) => (
+                      <li key={milestone.paymentMilestoneId}>
+                        {milestone.milestoneCode} — {milestone.titleVi}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           {detail.readiness.blockers.length > 0 && (
             <Alert>
               <AlertTitle>Chưa thể hoàn tất</AlertTitle>
@@ -346,6 +380,7 @@ export function ContractClosing({
       <ContractAcceptanceRecords
         contract={contract}
         paymentMilestones={detail.paymentMilestones}
+        readiness={detail.readiness}
         signedActive={detail.readiness.signed}
         canManage={canManageAcceptance}
         onChanged={async () => {

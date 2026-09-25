@@ -14,13 +14,18 @@
         ContractMustBeSigned = 1,
 
         /// <summary>
-        /// Chưa có biên bản nghiệm thu cho version đã ký.
+        /// Chưa có biên bản nghiệm thu đã ký cho version hiện hành.
         /// </summary>
-        AcceptanceEvidenceMissing = 2,
+        AcceptanceNotStarted = 2,
 
         /// <summary>
         /// Tổng các khoản thanh toán còn hiệu lực chưa bằng giá trị hợp đồng.
         /// </summary>
-        PaymentNotFullyPaid = 3
+        PaymentNotFullyPaid = 3,
+
+        /// <summary>
+        /// Đã nghiệm thu một phần nhưng còn đợt chưa được nghiệm thu.
+        /// </summary>
+        AcceptanceIncomplete = 4
     }
 }

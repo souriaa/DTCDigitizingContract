@@ -62,7 +62,10 @@ import {
   ContractStatus,
   type ContractDetailResponse,
 } from "@/services/contract-api";
-import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
+import type {
+  ContractCompletionReadinessResponse,
+  ContractPaymentMilestoneResponse,
+} from "@/services/contract-completion-api";
 import {
   AcceptanceKind,
   AcceptancePartyRole,
@@ -78,6 +81,7 @@ import {
 interface Props {
   contract: ContractDetailResponse;
   paymentMilestones: ContractPaymentMilestoneResponse[];
+  readiness: ContractCompletionReadinessResponse;
   signedActive: boolean;
   canManage: boolean;
   onChanged: () => void | Promise<void>;
@@ -120,6 +124,7 @@ const partyInput = (party: ContractAcceptanceParty) => ({
 export function ContractAcceptanceRecords({
   contract,
   paymentMilestones,
+  readiness,
   signedActive,
   canManage,
   onChanged,
@@ -203,7 +208,9 @@ export function ContractAcceptanceRecords({
         return [summary, ...remaining];
       });
       toast.success(message);
-      if (refreshClosing) await onChanged();
+      if (refreshClosing) {
+        await Promise.all([load(), onChanged()]);
+      }
       return next;
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Thao tác không thành công."));
@@ -227,6 +234,7 @@ export function ContractAcceptanceRecords({
 
   const startCreate = () => {
     const next = emptyCreate();
+    if (hasPartialHistory) next.acceptanceKind = AcceptanceKind.Partial;
     if (templates.length === 1)
       next.templateVersionId = templates[0].templateVersionId;
     setCreateForm(next);
@@ -472,6 +480,22 @@ export function ContractAcceptanceRecords({
       record.status === AcceptanceRecordStatus.Signed &&
       record.acceptanceKind === AcceptanceKind.Final,
   );
+  const hasPartialHistory = currentVersionRecords.some(
+    (record) => record.acceptanceKind === AcceptanceKind.Partial,
+  );
+  const hasSignedPartial = currentVersionRecords.some(
+    (record) =>
+      record.status === AcceptanceRecordStatus.Signed &&
+      record.acceptanceKind === AcceptanceKind.Partial,
+  );
+  const awaitingSignatureMilestoneIds = new Set(
+    currentVersionRecords
+      .filter((record) => record.status === AcceptanceRecordStatus.Finalized)
+      .flatMap((record) => record.paymentMilestoneIds),
+  );
+  const remainingMilestoneIds = new Set(
+    readiness.remainingAcceptanceMilestoneIds,
+  );
   const unavailableMilestoneIds = new Set(
     currentVersionRecords
       .filter(
@@ -489,7 +513,9 @@ export function ContractAcceptanceRecords({
     contract.status === ContractStatus.Signed &&
     signedActive &&
     !activeRecord &&
-    !signedFinalRecord;
+    !signedFinalRecord &&
+    !readiness.acceptanceCompleted &&
+    (!hasPartialHistory || availablePaymentMilestones.length > 0);
   const customer = selected?.parties.find(
     (party) => party.partyRole === AcceptancePartyRole.Customer,
   );
@@ -510,7 +536,8 @@ export function ContractAcceptanceRecords({
             onClick={startCreate}
             disabled={busy || templates.length === 0}
           >
-            <Plus className="mr-2 size-4" /> Tạo biên bản
+            <Plus className="mr-2 size-4" />
+            {hasSignedPartial ? "Tạo biên bản nghiệm thu tiếp" : "Tạo biên bản"}
           </Button>
         )}
       </CardHeader>
@@ -551,6 +578,59 @@ export function ContractAcceptanceRecords({
               thêm biên bản nghiệm thu.
             </AlertDescription>
           </Alert>
+        )}
+        {canManage &&
+          signedActive &&
+          !activeRecord &&
+          !signedFinalRecord &&
+          readiness.acceptanceCompleted && (
+            <Alert>
+              <AlertDescription>
+                Toàn bộ các đợt đã được nghiệm thu bằng biên bản có bản ký.
+                Không cần tạo thêm biên bản.
+              </AlertDescription>
+            </Alert>
+          )}
+        {canManage &&
+          signedActive &&
+          !activeRecord &&
+          hasPartialHistory &&
+          !readiness.acceptanceCompleted &&
+          availablePaymentMilestones.length === 0 && (
+            <Alert>
+              <AlertDescription>
+                Không còn đợt khả dụng để lập biên bản mới. Hãy kiểm tra các
+                biên bản đã chốt hoặc liên hệ quản trị viên nếu tiến độ chưa
+                đúng.
+              </AlertDescription>
+            </Alert>
+          )}
+        {hasSignedPartial && !readiness.acceptanceCompleted && (
+          <div className="space-y-2 rounded-lg border p-3 text-sm">
+            <p className="font-medium">
+              Đã nghiệm thu {readiness.acceptedMilestoneCount}/
+              {readiness.totalMilestoneCount} đợt
+            </p>
+            <p className="text-muted-foreground">
+              {activeRecord?.status === AcceptanceRecordStatus.Finalized
+                ? "Biên bản đang chờ bản ký; các đợt trong đó chưa được tính là đã nghiệm thu."
+                : "Các đợt còn lại cần lập biên bản nghiệm thu một phần và tải bản ký."}
+            </p>
+            <ul className="list-disc pl-5">
+              {paymentMilestones
+                .filter((milestone) =>
+                  remainingMilestoneIds.has(milestone.paymentMilestoneId),
+                )
+                .map((milestone) => (
+                  <li key={milestone.paymentMilestoneId}>
+                    {milestone.milestoneCode} — {milestone.titleVi}
+                    {awaitingSignatureMilestoneIds.has(
+                      milestone.paymentMilestoneId,
+                    ) && " (đang chờ ký)"}
+                  </li>
+                ))}
+            </ul>
+          </div>
         )}
         {templates.length === 0 && canCreate && (
           <Alert>
@@ -903,8 +983,9 @@ export function ContractAcceptanceRecords({
                           Phạm vi nghiệm thu
                         </CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Nghiệm thu toàn bộ hoặc chọn từng đợt thanh toán cụ
-                          thể
+                          {hasPartialHistory
+                            ? "Chỉ nghiệm thu một phần cho các đợt còn lại"
+                            : "Nghiệm thu toàn bộ hoặc chọn từng đợt thanh toán cụ thể"}
                         </p>
                       </div>
                     </div>
@@ -933,15 +1014,24 @@ export function ContractAcceptanceRecords({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={String(AcceptanceKind.Final)}>
-                            Nghiệm thu toàn bộ
-                          </SelectItem>
+                          {!hasPartialHistory && (
+                            <SelectItem value={String(AcceptanceKind.Final)}>
+                              Nghiệm thu toàn bộ
+                            </SelectItem>
+                          )}
                           <SelectItem value={String(AcceptanceKind.Partial)}>
                             Nghiệm thu một phần
                           </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {hasPartialHistory && (
+                      <p className="text-sm text-muted-foreground">
+                        Hợp đồng đã bắt đầu nghiệm thu một phần nên không thể
+                        chuyển sang nghiệm thu toàn bộ, kể cả khi biên bản trước
+                        đã hủy.
+                      </p>
+                    )}
 
                     {selected.acceptanceKind === AcceptanceKind.Final ? (
                       <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-sm text-emerald-800 dark:text-emerald-300">
@@ -968,19 +1058,31 @@ export function ContractAcceptanceRecords({
                                   item.paymentMilestoneId ===
                                   milestone.paymentMilestoneId,
                               );
+                              const isAccepted = !remainingMilestoneIds.has(
+                                milestone.paymentMilestoneId,
+                              );
+                              const isAwaitingSignature =
+                                awaitingSignatureMilestoneIds.has(
+                                  milestone.paymentMilestoneId,
+                                );
+                              const isUnavailable =
+                                isAccepted || isAwaitingSignature;
                               return (
                                 <label
                                   key={milestone.paymentMilestoneId}
                                   className={cn(
                                     "flex items-center justify-between gap-3 rounded-lg border p-3 text-sm transition-colors cursor-pointer select-none",
-                                    isChecked
-                                      ? "border-primary/40 bg-card shadow-xs"
-                                      : "border-border/60 bg-muted/20 hover:bg-muted/40 text-muted-foreground",
+                                    isUnavailable
+                                      ? "cursor-not-allowed opacity-60"
+                                      : isChecked
+                                        ? "border-primary/40 bg-card shadow-xs"
+                                        : "border-border/60 bg-muted/20 hover:bg-muted/40 text-muted-foreground",
                                   )}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     <Checkbox
                                       checked={isChecked}
+                                      disabled={isUnavailable}
                                       onCheckedChange={(value) =>
                                         toggleMilestone(
                                           milestone.paymentMilestoneId,
@@ -999,7 +1101,11 @@ export function ContractAcceptanceRecords({
                                     variant="outline"
                                     className="shrink-0 text-xs"
                                   >
-                                    {milestone.paymentPercent}%
+                                    {isAccepted
+                                      ? "Đã nghiệm thu"
+                                      : isAwaitingSignature
+                                        ? "Đang chờ ký"
+                                        : `${milestone.paymentPercent}%`}
                                   </Badge>
                                 </label>
                               );
@@ -1452,14 +1558,22 @@ export function ContractAcceptanceRecords({
                     <SelectValue placeholder="Chọn loại nghiệm thu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={String(AcceptanceKind.Final)}>
-                      Nghiệm thu toàn bộ
-                    </SelectItem>
+                    {!hasPartialHistory && (
+                      <SelectItem value={String(AcceptanceKind.Final)}>
+                        Nghiệm thu toàn bộ
+                      </SelectItem>
+                    )}
                     <SelectItem value={String(AcceptanceKind.Partial)}>
                       Nghiệm thu một phần
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {hasPartialHistory && (
+                  <p className="text-sm text-muted-foreground">
+                    Đã từng tạo biên bản nghiệm thu một phần cho phiên bản này;
+                    các vòng tiếp theo chỉ được nghiệm thu một phần.
+                  </p>
+                )}
               </div>
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.map((milestone) => (
@@ -1603,6 +1717,7 @@ export function ContractAcceptanceRecords({
                       selected.rowVersion,
                     ),
                   "Đã hủy biên bản.",
+                  true,
                 ).then((result) => {
                   if (result) {
                     setCancelOpen(false);
