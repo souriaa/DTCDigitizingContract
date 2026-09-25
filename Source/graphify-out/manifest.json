@@ -2556,15 +2556,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/layout.tsx": {
-    "mtime": 1790336330.8171363,
-    "seen": 1790336819.78817,
+    "mtime": 1790350670.1239438,
+    "seen": 1790350753.5394132,
     "ast_hash": "97ad68862a7361b974413296b2402a15",
     "semantic_hash": ""
   },
   "Frontend/app/page.tsx": {
-    "mtime": 1790337123.3718219,
-    "seen": 1790337219.0823298,
-    "ast_hash": "bf1b26661f85c3c690c3a7792c24bfe1",
+    "mtime": 1790352138.3216348,
+    "seen": 1790352199.654158,
+    "ast_hash": "1f4b0348931a732f6b50afab8a5cca68",
     "semantic_hash": ""
   },
   "Frontend/components.json": {
@@ -3096,9 +3096,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/sonner.tsx": {
-    "mtime": 1790000690.2875876,
-    "seen": 1790050649.2773736,
-    "ast_hash": "6a04b61127a737dc1b320ce03289f778",
+    "mtime": 1790351011.0228448,
+    "seen": 1790351126.5272105,
+    "ast_hash": "daf88b7f485535ef10b5c6c2f9f2d485",
     "semantic_hash": ""
   },
   "Frontend/components/ui/spinner.tsx": {
@@ -3132,9 +3132,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/toast.tsx": {
-    "mtime": 1790000690.2909288,
-    "seen": 1790050649.27738,
-    "ast_hash": "64abcd969b1443af7093c65c76f9fe23",
+    "mtime": 1790352118.4613154,
+    "seen": 1790352129.1867626,
+    "ast_hash": "2cecd1cff4cfeaae6b4286f166aa0aec",
     "semantic_hash": ""
   },
   "Frontend/components/ui/toaster.tsx": {
@@ -6594,9 +6594,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-acceptance-records.tsx": {
-    "mtime": 1790348618.8305337,
-    "seen": 1790348672.0942698,
-    "ast_hash": "73d224a18f6effc513ffc3ed3936ce41",
+    "mtime": 1790349534.3621702,
+    "seen": 1790350376.751295,
+    "ast_hash": "bb33b2d320a5a861f60ef534e2b8be10",
     "semantic_hash": ""
   },
   "Frontend/services/contract-acceptance-api.ts": {
@@ -6657,6 +6657,12 @@
     "mtime": 1790347676.9112887,
     "seen": 1790347988.8860936,
     "ast_hash": "45607c5913be796e4d5331debf481a6a",
+    "semantic_hash": ""
+  },
+  "Documentation/NOTIFICATION_SIGNALR_CONTRACT_PLAN.md": {
+    "mtime": 1790349211.7260008,
+    "seen": 1790350376.751843,
+    "ast_hash": "094f0c059bc006084683c127a0063fec",
     "semantic_hash": ""
   }
 }

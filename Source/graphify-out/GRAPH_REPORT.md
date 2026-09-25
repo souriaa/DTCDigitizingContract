@@ -1,16 +1,16 @@
 # Graph Report - Source  (2026-09-25)
 
 ## Corpus Check
-- 955 files · ~655,433 words
+- 956 files · ~658,466 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 12109 nodes · 29004 edges · 533 communities (402 shown, 131 thin omitted)
+- 12128 nodes · 29022 edges · 549 communities (419 shown, 130 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 1934 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `17725528`
+- Built from commit: `2b00607a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -18,15 +18,15 @@
 - cn
 - PrivateFileSaveRequest
 - cn
-- security-audits/page.tsx
+- TblContractTemplate
 - create/page.tsx
 - BusinessRuleException
 - [templateId]/versions/[versionId]/page.tsx
-- ContractApprovalBulkDecisionResponse
+- Frontend/components/ui/custom/header.tsx
 - .Supersede
-- ContractService
+- TblContractAppendix
 - ContractServiceResponsibilityTransferTests
-- CreateContractNegotiationCommentRequest
+- ContractVersionDetailResponse
 - EmployeeType
 - Frontend/components/ui/card.tsx
 - DbDtctechContext
@@ -37,9 +37,9 @@
 - tenants/page.tsx
 - QuotationResponseDto
 - ContractTemplatePreviewTests
-- CreateContractRequest
+- ContractService
 - service_list_page.dart
-- DepartmentResponse
+- ControllerBase
 - app_quick_actions_card.dart
 - app_colors.dart
 - central-security-audit-log.tsx
@@ -49,7 +49,7 @@
 - .UpdateCustomerVerificationPhoneAsync
 - .SeedPendingApprovalAsync
 - SystemAdminAccountService
-- Frontend/components/ui/custom/header.tsx
+- TblContractVersionLegalSnapshot
 - ContractDetailResponse
 - app_mobile_data_table.dart
 - services_api.dart
@@ -58,12 +58,12 @@
 - ContractAcceptanceService
 - ApprovalRequestStatus
 - TestFileStorage
-- ContractPlaceholderSourceProviderBase
+- FileStorageResponse
 - ContractAuditFieldCode
 - Frontend/hooks/use-toast.ts
 - service_dto.dart
-- ContractAttachmentResponse
-- .Ok
+- ContractAttachmentController
+- ContractTemplateController
 - ContractController
 - CategoryResponse
 - TblService
@@ -77,7 +77,7 @@
 - api_client.dart
 - TestSession
 - ContractAuditResponse
-- .Evaluate
+- ContractManagement.API.Domains.Models.Contract
 - AcceptanceRecordStatus
 - TblProduct
 - dashboard_page.dart
@@ -97,33 +97,33 @@
 - ContractManagement.API
 - contract-acceptance-api.ts
 - .TryParse
-- FileStorageResponse
+- .SeedAsync
 - TblContractPlaceholderDefinition
 - contract-attachments.tsx
 - ContractPaymentResponse
 - ContractItemDetailResponse
 - ResolvedTenant
-- IContractService
+- CreateContractAppendixTermRequest
 - ContractDocumentPreviewService
-- ContractAcceptanceDocumentRenderData
-- DashboardService.cs
+- Task
+- EligibleParentContractResponse
 - TblEmployee
 - .SeedAsync
-- ContractVersionDetailResponse
-- ContractStatus
-- UpdateContractTemplateTermRequest
-- contract-approvals/page.tsx
-- TblContractTemplate
 - CreateContractItemRequest
+- ContractStatus
+- TblContractTemplateField
+- contract-approvals/page.tsx
+- ContractTemplateTermResponse
+- TblContractVersion
 - .SeedReadyContractAsync
-- Program.cs
-- ContractAcceptanceSectionInput
+- SecurityAuditSlice05Tests.cs
+- security-audits/page.tsx
+- EmployeeService
 - RbacOperationException
-- ContractResourceAuthorizationService
 - ServiceResponse
 - devDependencies
 - HardCopyStatus
-- .DraftAppendix_AddTermAndSwapOrder_SucceedsOnSqlServer
+- SystemAdminManagerGovernanceServiceTests
 - CreateContractResponse
 - my_application.cc
 - SystemAdmin/components/ui/form.tsx
@@ -150,9 +150,9 @@
 - ContractCompletionDetailResponse
 - .InitializeAsync
 - ContractTemplatePreviewRenderer
-- ControllerBase
+- AdminDashboardResponse
 - TemplateDocumentType
-- DeploymentOverrideStatus
+- TblContractTemplateItemTableColumnLayout
 - .HandleExceptionAsync
 - contract-api.ts
 - ContractApprovalController
@@ -160,11 +160,11 @@
 - CentralDbContext
 - ContractPlaceholderController
 - TblAuthorizationAudit
-- TenantProvisioningServiceTests
+- TenantProvisioningService
 - .Create
 - service_type_dto.dart
 - app_toast.dart
-- TblContractVersionLegalSnapshot
+- EmployeeResponse
 - TenantSecurityAuditResponse
 - CreateServiceRequest
 - UpdateServiceRequest
@@ -172,7 +172,7 @@
 - ContractApprovalRequestResponse
 - EmployeeProfileResponse
 - .SeedAsync
-- TblContractAcceptanceReference
+- Kế hoạch module thông báo tái sử dụng với SignalR — triển khai đầu tiên cho hợp đồng
 - CreateProductRequest
 - UpdateProductRequest
 - TblContractPaymentLedger
@@ -184,31 +184,31 @@
 - Frontend/components.json
 - SystemAdmin/components.json
 - PagedResult
-- .NormalizePaymentMilestone
+- CreateContractTemplateAppendixRequest
 - CreateContractAcceptanceRecordRequest
 - TblContractPaymentMilestone
-- TenantProvisioningService
+- ContractAcceptanceReferenceResponse
 - TblContractTemplatePaymentMilestone
-- .SeedContractAsync
+- .DraftToNegotiating_OtpCustomerCommentAndNewRound_ShouldRevokeOldAccess
 - ContractPaymentMilestoneResponse
 - TblContractNegotiationComment
-- TblContractAuditValue
+- TblContractTemplateAudit
 - TblContractAcceptanceRecord
 - ContractSignedEvidenceResponse
 - GeneratedPluginRegistrant.swift
 - Win32Window
-- .InvokeAsync
+- CustomerInteractionController.cs
 - ServiceController
 - CustomerLookupResponse
 - CategoryController
 - app_services_bottom_sheet.dart
-- .AddAppendix
+- .Ok
 - TblContractCustomerOtpDeliveryOutbox
 - .Get
 - Create
 - ServiceFilterRequest
 - .UpsertAsync
-- DepartmentService.cs
+- ContractTemplatePaymentMilestoneResponse
 - ContractAcceptanceController
 - TblContractTerm
 - ContractServiceSlice04Tests
@@ -220,25 +220,25 @@
 - compilerOptions
 - .CreateDedicatedTenant
 - AppDelegate
-- TblContractTemplateField
-- UpsertTenantLegalProfileRequest
+- TblContractPlaceholderAudit
+- .Upsert
 - SystemAdmin/lib/utils.ts
 - TblContractTemplateTerm
 - TblApprovalHistory
-- TblContractLegalBasis
-- .GetAsync
+- CustomerOtpSmtpTests
+- DashboardResponse
 - IFileStorageService
-- EmployeePreferenceRoutes
-- CreateEmployeeRequest
-- CustomerOtpOptions
+- EmployeePreferencesResponse
+- UpdateEmployeeRequest
+- CustomerOtpDeliveryMessage
 - MessageHandler
 - CustomerFilterRequest
 - .SaveAsync
-- TblContractAppendixTerm
-- SubmitContractForApprovalResponse
+- TblContractLegalBasis
+- ContractAcceptanceDocumentRenderData
 - DocumentType
-- ContractCompletionController
-- EmployeeResponse
+- .BuildMailMessage
+- TblContractAuditValue
 - AddEmployeeProfileImages
 - AddContractAuditFoundation
 - contract-rich-text-editor.tsx
@@ -257,9 +257,9 @@
 - InMemoryPrivateFileStorage
 - AddContractLegalBases
 - TestSession
-- CentralSecurityAudit
+- .SeedContractAsync
 - SoftwareSupplyPlaceholderDefinition
-- ContractManagement.Infrastructure.MultiTenancy.Enums
+- Program.cs
 - Phase9SignedContractEvidence
 - ContractSignedEvidenceFileRequest
 - ProductService
@@ -274,54 +274,54 @@
 - .GetRequiredPermissions
 - Frontend/package.json
 - PrivateFileUploadPolicy
-- .BuildVolumeSeries
+- FileResourceAuthorizationService
 - DashboardPhase02Tests
 - SystemAdmin/package.json
 - TblContractApprovalRequest
-- TblContractAcceptanceEvidence
+- ContractApprovalBulkDecisionResponse
 - TblOrder
-- TblQuotationDetail
+- .GetList
 - ContractApprovalInboxFilterRequest
 - ContractAcceptancePartyResponse
-- .CalculateHash
-- TblContractCustomerOtpChallenge
+- UpsertTenantLegalProfileRequest
+- .EnsureNotReused
 - ContractAcceptanceSectionResponse
 - ProductController
 - SystemAdmin/components/ui/carousel.tsx
-- MultiTenancyOptions
-- DashboardResponse
+- ContractCompletionController
+- TblContractVersionPaymentMilestoneSnapshot
 - TblContractTemplateLegalBasis
 - .RealLibreOffice_ConvertsAcceptanceRecordWithGeneratedReferences
 - InitialManagerRequest
 - ApiResponse
-- .ExportCsv
-- IPrivateFileStorageHealthProbe
-- ContractAuditValueInput
-- TestWebHostEnvironment
+- TblTenantLegalProfile
+- TblContractCustomerOtpChallenge
+- ContractAttachmentResponse
+- ContractAppendixController
 - employees/page.tsx
 - TblContractSignedEvidence
 - Phase6_Slice06CustomerAccessAndPublicComments
-- TestSession
-- TblTenantLegalProfile
+- ContractNegotiationCommentEventResponse
+- .ProcessTenantAsync
 - SignatureStatus
 - IServiceService
 - ContractManagement.Tests
 - .OnModelCreating
-- ContractTemplateTermResponse
+- TblContractAppendixTerm
 - Migration
 - Phase6_ContractCoreFoundation
 - Phase6_ContractVersionFoundation
-- TransferContractResponsibilityResponse
-- .TryWriteAsync
+- .Create
+- CustomerOtpOptions
 - RemoveSigningEvidenceLegacyMetadata
-- Phase7_Slice02CentralSecurityAudit
-- Phase7_Slice02EmployeeGovernanceAndAudit
+- ContractPlaceholderSourceProviderBase
+- ContractManagement.Infrastructure.Migrations.Application
 - AddQuotationDatabaseObjects
 - SystemHealthResponse
 - ProductFilterRequest
 - ContractPlaceholderCatalog
 - AddEmployeeAccountSecurity
-- .AddContractManagementInfrastructure
+- CustomerOtpSmtpOptions
 - CanonicalTemplateTableLayoutV4
 - ContractManagement.Infrastructure.Migrations.Central
 - TblDeliveryOrder
@@ -331,43 +331,43 @@
 - SystemAdmin/app/layout.tsx
 - SystemAdmin/components/ui/drawer.tsx
 - SystemAdmin/lib/filter-utils.ts
-- ContractManagement.Infrastructure.Migrations.Application
+- Phase6_Slice10TemplatePreview
 - CentralDbContextFactory
 - Phase6_Slice07AuditCoverageAndVisibility
-- ContractType
+- EmployeeDirectoryResponse
 - ContractAuditWriter
-- VietnameseMoneyTextFormatter
+- CustomerAccessCryptography
 - SystemAdmin/components/ui/chart.tsx
 - TestAuthorization
-- Phase7_Slice05AuthorizationAuditAppendOnly
+- SecurityAuditFilterRequest
 - TblContractCustomerVerificationPhone
-- TblContractAcceptanceMilestone
+- ContractTermDetailResponse
 - AddContractTemplateTables
 - win32_window.cpp
-- CustomerController.cs
-- clsx
+- .CalculateHash
+- Frontend/app/layout.tsx
 - MainActivity.kt
 - app_date_utils.dart
 - dtc_digitizingcontract
-- SystemAdminLoginRequest
-- EmployeeDirectoryResponse
+- ContractVersionHistoryResponse
+- EmployeeFilterRequest
 - Frontend/components/google-sign-in-button.tsx
 - StructuredContractPaymentMilestones
 - RemoveLegacyPaymentSchedule
-- AllowCustomContractAppendices
-- TenantAuthorizationAuditWriter
-- .OnAuthorizationAsync
+- CreateEmployeeRequest
+- ContractTemplateAuditWriter
+- ContractType
 - @radix-ui/react-accordion
-- ContractVersionHistoryResponse
-- PrivateFileStorageOptions
+- TblCategory
+- TestWebHostEnvironment
 - UpdateCategoryRequest
-- Phase6_ContractTermVersioning
+- .SeedLockedVersionAsync
 - AddContractVersionSnapshotConstraints
 - ContractManagement.API.Common.Enums
 - Phase8C_CarryForwardOpenNegotiationThreads
 - Phase10AcceptancePaymentCompletion
-- FixContractAuditAppendixAcceptanceSubjects
-- .SeedLockedVersionAsync
+- app_theme.dart
+- ContractAcceptancePartyInput
 - tailwindcss-animate
 - @tanstack/react-table
 - @radix-ui/react-progress
@@ -376,28 +376,31 @@
 - @radix-ui/react-separator
 - @radix-ui/react-slider
 - ContractAuditTraceabilitySnapshots
-- InitialCentral
+- TblNotification
 - Phase6_Slice05NegotiationCommentsAndLifecycle
-- TenantLegalProfileService.cs
-- Frontend/app/layout.tsx
+- FixContractAuditAppendixAcceptanceFieldCodes
+- TblApprovalWorkflow
 - Phase8A_PrivateFileMetadata
 - ContractTemplateRequests.cs
-- TenantStatus
-- Size
+- IFileResourceAuthorizationService
+- TblQuotation
 - tailwind-merge
 - SystemAdmin/components/google-sign-in-button.tsx
 - AGENTS.md
 - LaunchImage.imageset/README.md
 - Frontend/next.config.mjs
 - Frontend/postcss.config.mjs
-- ContractAcceptancePartyInput
+- ContractApprovalBulkDecisionRequest
 - SystemAdmin/next.config.mjs
 - axios
 - ContractTemplateRenderData
-- SubmitContractForApprovalRequest
+- ContractFilterRequest
+- ReopenContractPaymentMilestoneRequest
+- .Upsert_RejectsStaleRowVersion
+- ContractAcceptanceArtifactResponse
 - react-dom
-- IContractAuditWriter.cs
-- FixContractAuditAppendixAcceptanceFieldCodes
+- ContractAcceptanceMilestoneResponse
+- UploadFileRequest
 - .GetDetailedAsync
 - AddContractTemplateFieldAndTermTables
 - DateTime?
@@ -406,50 +409,63 @@
 - Phase8DApprovalRequestAuditSubject
 - .ReadAsync
 - AddContractPaymentMilestoneStatus
-- app_theme.dart
+- TenantStatus
 - ContractNegotiationCommentEventType
 - CreateCategoryRequest
 - CapturingAuditWriter
 - Kế hoạch triển khai không Docker, chuẩn bị trước khi có VPS/domain
-- ContractPlaceholderResolveContext
+- PlaceholderOperationException
 - @radix-ui/react-progress
 - CustomerSharedContractResponse
 - @radix-ui/react-context-menu
 - @radix-ui/react-radio-group
+- IPrivateFileStorageHealthProbe
 - @radix-ui/react-radio-group
 - @radix-ui/react-scroll-area
 - @radix-ui/react-slider
 - class-variance-authority
 - bool?
+- Phase8A_LegalProfileAndCustomerLegalRepresentative
 - Exception
 - List
 - ServiceResponse
 - ServiceTypeResponse
-- VolumePeriod
+- Phase7_Slice02EmployeeGovernanceAndAudit
+- EnforceActivePaymentPerMilestone
 - @radix-ui/react-tabs
 - @radix-ui/react-scroll-area
 - AddContractPaymentRequest
-- AddCustomerContactPersonDetails
+- AllowCustomContractAppendices
 - react-day-picker
 - Phase8DInternalApprovalWorkflow
 - zustand
 - AddDocumentTypeToContractAttachment
 - recharts
-- EnforceAcceptanceRecordLifecycle
+- CustomerController.cs
 - tailwind-merge
+- CreateContractAppendixRequest
 - @tanstack/react-table
 - vaul
 - @vercel/analytics
 - zod
+- FixContractAuditAppendixAcceptanceSubjects
 - ContractCompletionService
+- SubmitContractForApprovalRequest
+- AddSystemAdmins
 - .SaveAsync
 - NormalizeOtpAndContractSnapshotStoragePhase45
+- PrivateFileStorageOptions
+- AddSystemAdminProfileImages
+- VolumePeriod
+- ITenantOwnedEntity.cs
 - Phase8A_AddLegalContactAndBankDetails
+- @radix-ui/react-collapsible
 - RemoveContractLegacyCompatibility
-- class-variance-authority
+- clsx
+- AddCustomerContactPersonDetails
 - cmdk
 - UploadContractAcceptanceSignedEvidenceRequest
-- ReopenContractPaymentMilestoneRequest
+- .Validate
 - next-themes
 - next
 - axios
@@ -485,7 +501,7 @@
 - @radix-ui/react-avatar
 - @tiptap/extension-table
 - @tiptap/extension-text-style
-- TblContractAcceptanceSection
+- .ConfigureAcceptance
 - TenantDatabase
 - @tiptap/starter-kit
 - lucide-react
@@ -549,7 +565,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (533 total, 131 thin omitted)
+## Communities (549 total, 130 thin omitted)
 
 ### Community 0 - "cn"
 Cohesion: 0.01
@@ -563,9 +579,9 @@ Nodes (9): PrivateFileSaveRequest, LocalPrivateFileStorageTests, ArgumentExcepti
 Cohesion: 0.02
 Nodes (129): TenantStatusBadge(), AccordionContent(), AccordionItem(), AccordionTrigger(), BreadcrumbEllipsis(), BreadcrumbItem(), BreadcrumbLink(), BreadcrumbList() (+121 more)
 
-### Community 3 - "security-audits/page.tsx"
-Cohesion: 0.08
-Nodes (34): EMPLOYEE_TYPE_OPTIONS, EmployeeFormModalProps, EmployeeListPageContent(), ACTION_LABELS, createInitialFilters(), RESULT_LABELS, RESULT_STYLES, SecurityAuditChanges() (+26 more)
+### Community 3 - "TblContractTemplate"
+Cohesion: 0.03
+Nodes (58): ContractTemplateDetailResponse, Versions, ContractTemplateLegalBasisResponse, BasisCode, ContentEn, ContentVi, CreatedDate, CreatedEmployeeId (+50 more)
 
 ### Community 4 - "create/page.tsx"
 Cohesion: 0.02
@@ -579,29 +595,29 @@ Nodes (24): BusinessRuleException, Code, StatusCode, CalendarDueDateService, Con
 Cohesion: 0.03
 Nodes (98): ACCEPTANCE_SECTION_ERROR_CODES, APPENDIX_PUBLISH_ERROR_CODES, CONTRACT_DOCUMENT_TYPES, CONTRACT_ONLY_TABS, ContractTemplateVersionWorkspacePage(), isAppendixPublishError(), isLegalBasesRenderError(), isWorkspaceTab() (+90 more)
 
-### Community 7 - "ContractApprovalBulkDecisionResponse"
-Cohesion: 0.09
-Nodes (22): ContractApprovalAppendixSummaryResponse, AppendixCode, AppendixId, AppendixName, DisplayOrder, ContractApprovalArtifactResponse, ContentType, FileId (+14 more)
+### Community 7 - "Frontend/components/ui/custom/header.tsx"
+Cohesion: 0.07
+Nodes (40): ProtectedLayout(), EmployeeProfileFormProps, ProfileHeroBanner(), ProfileHeroBannerProps, useSidebar(), NavItem, navItems, Sidebar() (+32 more)
 
 ### Community 8 - ".Supersede"
 Cohesion: 0.20
 Nodes (13): ContractSigningController, CancellationToken, Consumes, HttpGet, HttpPost, IActionResult, ProducesResponseType, SessionAuthorize (+5 more)
 
-### Community 9 - "ContractService"
-Cohesion: 0.05
-Nodes (37): EmployeeContractAuditWriteRequest, IReadOnlyCollection, Task, ContractService, ContractAppendixOptionResponse, IEnumerable, IReadOnlyList, List (+29 more)
+### Community 9 - "TblContractAppendix"
+Cohesion: 0.12
+Nodes (16): TblContractAppendix, AppendixCode, AppendixDescription, AppendixId, AppendixName, AppendixNameEn, ContractId, CreatedDate (+8 more)
 
 ### Community 10 - "ContractServiceResponsibilityTransferTests"
-Cohesion: 0.08
-Nodes (39): CreateContractCustomerAccessLinkRequest, RowVersion, StartContractNegotiationRequest, RowVersion, UpdateContractCustomerVerificationPhoneRequest, ManualPhoneNumber, PhoneSource, Reason (+31 more)
+Cohesion: 0.11
+Nodes (29): UpdateContractTermRequest, DisplayOrder, IsNegotiable, RowVersion, TermCode, TermContent, TermContentEn, TermId (+21 more)
 
-### Community 11 - "CreateContractNegotiationCommentRequest"
-Cohesion: 0.29
-Nodes (6): CreateContractNegotiationCommentRequest, Content, CurrentVersionId, ParentCommentId, TermId, CreateExternalFeedbackRequest
+### Community 11 - "ContractVersionDetailResponse"
+Cohesion: 0.03
+Nodes (58): ContractAppendixOptionResponse, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, DisplayOrder, TemplateAppendixId, ContractAppendixResponse (+50 more)
 
 ### Community 12 - "EmployeeType"
-Cohesion: 0.11
-Nodes (18): EmployeeType, Accountant, AdminOfficer, Manager, Marketing, Sale, Technical, EmployeePermissionCatalog (+10 more)
+Cohesion: 0.06
+Nodes (32): DeploymentOverrideStatus, Approved, Expired, Pending, Rejected, Revoked, EmployeeType, Accountant (+24 more)
 
 ### Community 13 - "Frontend/components/ui/card.tsx"
 Cohesion: 0.04
@@ -621,7 +637,7 @@ Nodes (36): ServiceTypeController, HttpDelete, HttpGet, HttpPost, HttpPut, IActi
 
 ### Community 17 - "ContractTemplateService"
 Cohesion: 0.11
-Nodes (14): ContractTemplateService, TemplatePreviewInput, AvailableContractTemplateVersionDetailResponse, CancellationToken, FileName, Func, IEnumerable, ILogger (+6 more)
+Nodes (15): ContractTemplateService, TemplatePreviewInput, AvailableContractTemplateVersionResponse, CancellationToken, FileName, Func, IEnumerable, ILogger (+7 more)
 
 ### Community 18 - "login_page.dart"
 Cohesion: 0.04
@@ -632,24 +648,24 @@ Cohesion: 0.07
 Nodes (57): LoginPage(), ChangePasswordPage(), formatDateTime(), DashboardPage(), getGreeting(), getTenantStatusBadgeClass(), initialRange(), PresetKey (+49 more)
 
 ### Community 20 - "QuotationResponseDto"
-Cohesion: 0.05
+Cohesion: 0.06
 Nodes (42): QuotationController, HttpDelete, HttpGet, HttpPost, IActionResult, Task, CreateQuotationRequestDto, CustomerId (+34 more)
 
 ### Community 21 - "ContractTemplatePreviewTests"
 Cohesion: 0.08
-Nodes (41): UploadContractTemplateDocumentRequest, File, VersionRowVersion, IFormFile, IContractTemplatePdfRenderer, ContractTemplatePreviewException, FailureCode, ContractTemplatePreviewTests (+33 more)
+Nodes (42): UploadContractTemplateDocumentRequest, File, VersionRowVersion, IFormFile, IContractTemplatePdfRenderer, ContractTemplatePreviewException, FailureCode, IEnumerable (+34 more)
 
-### Community 22 - "CreateContractRequest"
-Cohesion: 0.03
-Nodes (58): ContractPaymentMilestoneDateRequest, AnchorDate, SourceTemplatePaymentMilestoneId, DateTime, CreateContractRequest, ContractName, ContractNameEn, ContractType (+50 more)
+### Community 22 - "ContractService"
+Cohesion: 0.05
+Nodes (42): CreateContractRequest, ContractName, ContractNameEn, ContractType, CurrencyCode, CustomerId, EffectiveDate, ExpireDate (+34 more)
 
 ### Community 23 - "service_list_page.dart"
 Cohesion: 0.04
 Nodes (52): build, createState, _fetchServiceTypes, _handleDeleteBulk, _handleDeleteSingle, _hasMore, initState, _isLoading (+44 more)
 
-### Community 24 - "DepartmentResponse"
-Cohesion: 0.07
-Nodes (36): DepartmentController, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, Task, CreateDepartmentRequest (+28 more)
+### Community 24 - "ControllerBase"
+Cohesion: 0.06
+Nodes (37): DepartmentController, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, Task, CreateDepartmentRequest (+29 more)
 
 ### Community 25 - "app_quick_actions_card.dart"
 Cohesion: 0.07
@@ -668,8 +684,8 @@ Cohesion: 0.07
 Nodes (28): PaymentProgressStatus, FullyPaid, PartiallyPaid, Pending, PaymentRecordStatus, Confirmed, Pending, Voided (+20 more)
 
 ### Community 29 - "ContractManagement.Infrastructure.Persistence.Application.Models"
-Cohesion: 0.10
-Nodes (17): ContractSigningErrorCodes, ContractManagement.Infrastructure.MultiTenancy.Models, ContractManagement.API.Domains.DTOs.Responses.Public, ContractManagement.API.Common.Exceptions, ContractManagement.Infrastructure.MultiTenancy.Services, ContractManagement.Domains.Services.Contract, ContractManagement.Domains.Services.File, ContractManagement.Tests.Domains.Services.File (+9 more)
+Cohesion: 0.11
+Nodes (16): ContractManagement.Infrastructure.MultiTenancy.Models, ContractManagement.Tests.Domains.Security, ContractManagement.API.Domains.DTOs.Responses.Public, ContractManagement.API.Common.Exceptions, ContractManagement.Infrastructure.MultiTenancy.Interfaces, ContractManagement.Infrastructure.MultiTenancy.Services, ContractManagement.Domains.Services.Contract, ContractManagement.Domains.DTOs.Responses.Contract (+8 more)
 
 ### Community 30 - "service_form_dialog.dart"
 Cohesion: 0.04
@@ -677,19 +693,19 @@ Nodes (49): bool get, build, createState, dispose, _handleSubmit, initState, isE
 
 ### Community 31 - ".UpdateCustomerVerificationPhoneAsync"
 Cohesion: 0.06
-Nodes (30): ReplaceContractCustomerAccessLinkRequest, Reason, RowVersion, RevokeContractCustomerAccessLinkRequest, Reason, RowVersion, ContractCustomerAccessLinkResponse, ExpiresAt (+22 more)
+Nodes (29): ReplaceContractCustomerAccessLinkRequest, Reason, RowVersion, RevokeContractCustomerAccessLinkRequest, Reason, RowVersion, ContractCustomerAccessLinkResponse, ExpiresAt (+21 more)
 
 ### Community 32 - ".SeedPendingApprovalAsync"
 Cohesion: 0.16
 Nodes (16): IContractAuditWriter, ContractApprovalServicePhase8DTests, MemoryPrivateFileStorage, RecordingAuditWriter, Requests, ArgumentException, CancellationToken, DbUpdateConcurrencyException (+8 more)
 
 ### Community 33 - "SystemAdminAccountService"
-Cohesion: 0.07
-Nodes (33): ChangeSystemAdminPasswordRequest, CurrentPassword, NewPassword, SystemAdminProfileResponse, CoverImageUrl, Email, FullName, ImageUrl (+25 more)
+Cohesion: 0.08
+Nodes (28): ChangeSystemAdminPasswordRequest, CurrentPassword, NewPassword, SystemAdminProfileResponse, CoverImageUrl, Email, FullName, ImageUrl (+20 more)
 
-### Community 34 - "Frontend/components/ui/custom/header.tsx"
-Cohesion: 0.07
-Nodes (40): ProtectedLayout(), EmployeeProfileFormProps, ProfileHeroBanner(), ProfileHeroBannerProps, useSidebar(), NavItem, navItems, Sidebar() (+32 more)
+### Community 34 - "TblContractVersionLegalSnapshot"
+Cohesion: 0.04
+Nodes (45): CancellationToken, Task, ModelBuilder, TblContractVersionLegalSnapshot, ContractCode, ContractCreatedDate, ContractId, ContractName (+37 more)
 
 ### Community 35 - "ContractDetailResponse"
 Cohesion: 0.04
@@ -704,28 +720,28 @@ Cohesion: 0.07
 Nodes (30): ../api_client.dart, _apiClient, AuthApi, getMe, login, logout, _apiClient, _baseUrl (+22 more)
 
 ### Community 38 - "PublicCustomerContractAccessController"
-Cohesion: 0.09
-Nodes (24): PublicCustomerContractAccessController, HttpGet, HttpPost, IActionResult, IWebHostEnvironment, Task, CreateCustomerNegotiationCommentRequest, Content (+16 more)
+Cohesion: 0.10
+Nodes (21): PublicCustomerContractAccessController, HttpGet, HttpPost, IActionResult, IWebHostEnvironment, Task, CreateCustomerNegotiationCommentRequest, Content (+13 more)
 
 ### Community 39 - "SessionAuthorizeAttribute"
-Cohesion: 0.30
-Nodes (11): AuthorizationErrorResponse, SessionAuthorizeAttribute, AllowWhenPasswordChangeRequired, ObjectResult, SessionAuthorizeAttributeTests, AuthorizationFilterContext, EmployeeType, Fact (+3 more)
+Cohesion: 0.11
+Nodes (26): AuthenticatedEmployee, AuthorizationErrorResponse, DateTime, IReadOnlyList, SessionAuthorizeAttribute, AllowWhenPasswordChangeRequired, AuthorizationFilterContext, HttpContext (+18 more)
 
 ### Community 40 - "ContractAcceptanceService"
-Cohesion: 0.13
-Nodes (13): ContractAcceptanceService, AcceptanceKind, CancellationToken, DateTime, Exception, Func, IFormFile, IReadOnlyCollection (+5 more)
+Cohesion: 0.14
+Nodes (10): ContractAcceptanceService, AcceptanceKind, CancellationToken, DateTime, Exception, Func, IReadOnlyCollection, List (+2 more)
 
 ### Community 41 - "ApprovalRequestStatus"
-Cohesion: 0.15
-Nodes (14): ApprovalRequestStatus, Approved, Pending, Rejected, Returned, Withdrawn, ApprovalRequestPolicy, HashSet (+6 more)
+Cohesion: 0.08
+Nodes (30): ApprovalRequestStatus, Approved, Pending, Rejected, Returned, Withdrawn, SubmitContractForApprovalResponse, ApprovalRequestId (+22 more)
 
 ### Community 42 - "TestFileStorage"
 Cohesion: 0.14
 Nodes (24): IContractTemplateAuditWriter, ContractTemplateDocumentUploadServiceTests, TestFileStorage, CompensatedFileIds, DeleteAttempts, DeletedFileIds, FailOnDelete, UploadedFileIds (+16 more)
 
-### Community 43 - "ContractPlaceholderSourceProviderBase"
-Cohesion: 0.22
-Nodes (12): ContractPlaceholderSourceBinding, IContractPlaceholderSourceProvider, Func, ContractOwnerPlaceholderSourceProvider, ContractPlaceholderSourceProvider, ContractPlaceholderSourceProviderBase, ContractVersionPlaceholderSourceProvider, CustomerPlaceholderSourceProvider (+4 more)
+### Community 43 - "FileStorageResponse"
+Cohesion: 0.09
+Nodes (17): FileStorageResponse, FileId, FilePath, FileSize, FileType, ObjectId, ObjectType, StorageKey (+9 more)
 
 ### Community 44 - "ContractAuditFieldCode"
 Cohesion: 0.02
@@ -739,37 +755,37 @@ Nodes (38): Toast, ToastAction, ToastActionElement, ToastClose, ToastDescription
 Cohesion: 0.05
 Nodes (40): double?, CreateServiceRequest, dateCreated, dateModified, fromDate, fromJson, getServiceStatusLabel, keyword (+32 more)
 
-### Community 47 - "ContractAttachmentResponse"
-Cohesion: 0.08
-Nodes (26): ContractAttachmentController, HttpDelete, HttpGet, HttpPost, IActionResult, Task, UploadContractAttachmentRequest, DocumentType (+18 more)
+### Community 47 - "ContractAttachmentController"
+Cohesion: 0.14
+Nodes (15): ContractAttachmentController, HttpDelete, HttpGet, HttpPost, IActionResult, Task, UploadContractAttachmentRequest, DocumentType (+7 more)
 
-### Community 48 - ".Ok"
-Cohesion: 0.24
+### Community 48 - "ContractTemplateController"
+Cohesion: 0.23
 Nodes (14): ContractTemplateController, CancellationToken, Consumes, HttpDelete, HttpGet, HttpPost, HttpPut, IActionResult (+6 more)
 
 ### Community 49 - "ContractController"
-Cohesion: 0.17
-Nodes (14): ContractController, Consumes, HttpGet, HttpPost, HttpPut, IActionResult, Produces, ProducesResponseType (+6 more)
+Cohesion: 0.21
+Nodes (10): ContractController, Consumes, HttpGet, HttpPost, HttpPut, IActionResult, Produces, ProducesResponseType (+2 more)
 
 ### Community 50 - "CategoryResponse"
-Cohesion: 0.10
-Nodes (24): CategoryResponse, CategoryId, CategoryName, CategoryOrder, CategoryParentId, CategoryShortDesc, Image, Items (+16 more)
+Cohesion: 0.11
+Nodes (20): CategoryFilterRequest, Keyword, Page, PageSize, CategoryResponse, CategoryId, CategoryName, CategoryOrder (+12 more)
 
 ### Community 51 - "TblService"
 Cohesion: 0.05
 Nodes (37): TblService, Bandwidth, DateCreated, DateModified, DiskStorage, EmailAccounts, EmailForwarders, Ftpaccounts (+29 more)
 
 ### Community 52 - "ContractAuditQueryService"
-Cohesion: 0.08
-Nodes (26): AuditCursor, AuditLookupContext, AuditValueLookup, AuditCursor, AuditLookupContext, AuditValueLookup, ContractAuditQueryService, ContractLookup (+18 more)
+Cohesion: 0.09
+Nodes (25): AuditCursor, AuditLookupContext, AuditValueLookup, AuditCursor, AuditLookupContext, AuditValueLookup, ContractAuditQueryService, ContractLookup (+17 more)
 
 ### Community 53 - "SystemAdmin/services/profile-api.ts"
 Cohesion: 0.05
 Nodes (32): AdminDashboardSummaryCards(), Definition, definitions, SecurityTrendChartProps, axiosClient, adminDashboardApi, AdminDashboardResponse, AdminDashboardSummary (+24 more)
 
 ### Community 54 - "ContractManagement.Domains.Policies.ContractTemplate"
-Cohesion: 0.12
-Nodes (14): ContractTemplateErrorCodes, ContractRichTextTestData, ContractSnapshotTestData, ContractManagement.Tests.Domains.Policies.ContractTemplate, ContractManagement.Domains.Controllers.ContractTemplate, ContractManagement.Tests, ContractManagement.Domains.Interfaces.ContractTemplate, ContractManagement.Tests.Domains.Services.ContractTemplate (+6 more)
+Cohesion: 0.10
+Nodes (14): ContractTemplateErrorCodes, ContractManagement.Tests.Domains.Policies.ContractTemplate, ContractManagement.Domains.Controllers.ContractTemplate, ContractManagement.Domains.Interfaces.ContractTemplate, ContractManagement.Tests.Domains.Services.ContractTemplate, ContractManagement.Domains.Services.File, ContractManagement.Tests.Domains.Services.File, ContractManagement.Domains.Services.ContractTemplate (+6 more)
 
 ### Community 55 - "ContractApprovalService"
 Cohesion: 0.15
@@ -784,7 +800,7 @@ Cohesion: 0.05
 Nodes (37): accountName, dateCreated, dateModified, defaultPage, departmentId, employeeAccount, employeeAddress, employeeBirthDate (+29 more)
 
 ### Community 58 - "CustomContractPlaceholderTests"
-Cohesion: 0.24
+Cohesion: 0.25
 Nodes (9): CustomContractPlaceholderTests, Fact, IFormFile, InlineData, InvalidOperationException, KeyNotFoundException, Task, Theory (+1 more)
 
 ### Community 59 - "api_client.dart"
@@ -792,16 +808,16 @@ Cohesion: 0.06
 Nodes (32): ../config/app_config.dart, dart:convert, dart:io, Exception, ApiClient, ApiException, _baseUrl, _buildHeaders (+24 more)
 
 ### Community 60 - "TestSession"
-Cohesion: 0.09
-Nodes (21): UpdateSystemAdminProfileRequest, Email, FullName, RowVersion, SystemAdminSelfServiceTests, TestSession, Id, IsAvailable (+13 more)
+Cohesion: 0.06
+Nodes (35): UpdateSystemAdminProfileRequest, Email, FullName, RowVersion, CentralSecurityAuditWriteRequest, ICentralSecurityAuditWriter, CancellationToken, HttpContext (+27 more)
 
 ### Community 61 - "ContractAuditResponse"
 Cohesion: 0.06
 Nodes (34): ContractAuditCursorPageResponse, HasMore, Items, NextCursor, PageSize, TotalCount, ContractAuditResponse, ActionType (+26 more)
 
-### Community 62 - ".Evaluate"
-Cohesion: 0.12
-Nodes (16): ContractCompletionBlockerCode, AcceptanceIncomplete, AcceptanceNotStarted, ContractMustBeSigned, PaymentNotFullyPaid, ContractCompletionBlocker, ContractCompletionEvaluation, Blockers (+8 more)
+### Community 62 - "ContractManagement.API.Domains.Models.Contract"
+Cohesion: 0.07
+Nodes (21): ContractCompletionBlockerCode, AcceptanceIncomplete, AcceptanceNotStarted, ContractMustBeSigned, PaymentNotFullyPaid, ContractCompletionBlocker, ContractCompletionEvaluation, Blockers (+13 more)
 
 ### Community 63 - "AcceptanceRecordStatus"
 Cohesion: 0.16
@@ -825,7 +841,7 @@ Nodes (42): AccessStep, getErrorMessage(), getStatus(), PublicContractPage(), Co
 
 ### Community 68 - "dependencies"
 Cohesion: 0.07
-Nodes (29): dependencies, autoprefixer, clsx, @radix-ui/react-alert-dialog, @radix-ui/react-aspect-ratio, @radix-ui/react-collapsible, @radix-ui/react-hover-card, @radix-ui/react-select (+21 more)
+Nodes (29): dependencies, autoprefixer, class-variance-authority, clsx, @radix-ui/react-alert-dialog, @radix-ui/react-aspect-ratio, @radix-ui/react-hover-card, @radix-ui/react-select (+21 more)
 
 ### Community 69 - "CustomerService"
 Cohesion: 0.18
@@ -833,11 +849,11 @@ Nodes (10): CustomerService, CustomerResponse, Dictionary, IQueryable, List, Pag
 
 ### Community 70 - "CentralSecurityAuditResponse"
 Cohesion: 0.10
-Nodes (20): CentralSecurityAuditResponse, Action, ActorDisplayName, ActorSystemAdminId, CentralSecurityAuditId, ChangedFields, CorrelationId, FailureCode (+12 more)
+Nodes (21): CentralSecurityAuditResponse, Action, ActorDisplayName, ActorSystemAdminId, CentralSecurityAuditId, ChangedFields, CorrelationId, FailureCode (+13 more)
 
 ### Community 71 - "ContractTemplateServiceTests"
-Cohesion: 0.12
-Nodes (30): CopyContractTemplateVersionRequest, ChangeNote, RowVersion, CreateContractTemplateAppendixRequest, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn (+22 more)
+Cohesion: 0.17
+Nodes (19): CopyContractTemplateVersionRequest, ChangeNote, RowVersion, CreateContractTemplatePaymentMilestoneRequest, UpdateContractTemplateItemTableLayoutRequest, ColumnWidthsBps, VersionRowVersion, ContractTemplateServiceTests (+11 more)
 
 ### Community 72 - ".SeedAsync"
 Cohesion: 0.19
@@ -845,7 +861,7 @@ Nodes (13): ContractCompletionServicePhase10Tests, TrackingPrivateStorage, Delet
 
 ### Community 73 - ".ValidateAsync"
 Cohesion: 0.06
-Nodes (38): IContractTemplateDocumentValidator, CancellationToken, IFormFile, Task, ContractTemplateDocumentValidationResult, CatalogRevision, Definitions, IReadOnlyCollection (+30 more)
+Nodes (39): IContractTemplateDocumentValidator, CancellationToken, IFormFile, Task, ContractTemplateDocumentValidationResult, CatalogRevision, Definitions, IReadOnlyCollection (+31 more)
 
 ### Community 74 - "TblContractItem"
 Cohesion: 0.06
@@ -872,48 +888,48 @@ Cohesion: 0.07
 Nodes (25): AcceptanceKind, Final, Partial, AcceptancePartyRole, Customer, Tenant, AcceptanceRecordStatus, Cancelled (+17 more)
 
 ### Community 81 - ".TryParse"
-Cohesion: 0.09
-Nodes (25): ContractTermRichText, ContractTermRichTextBlock, Alignment, ColumnWidthsBps, Rows, Runs, Type, ContractTermRichTextCell (+17 more)
+Cohesion: 0.10
+Nodes (24): ContractTermRichText, ContractTermRichTextBlock, Alignment, ColumnWidthsBps, Rows, Runs, Type, ContractTermRichTextCell (+16 more)
 
-### Community 82 - "FileStorageResponse"
-Cohesion: 0.06
-Nodes (40): FileStorageResponse, FileId, FilePath, FileSize, FileType, ObjectId, ObjectType, StorageKey (+32 more)
+### Community 82 - ".SeedAsync"
+Cohesion: 0.24
+Nodes (13): CapturingPdfRenderer, InputDocx, ContractDocumentPreviewServiceTests, CancellationToken, ContractType, Fact, InlineData, InvalidOperationException (+5 more)
 
 ### Community 83 - "TblContractPlaceholderDefinition"
-Cohesion: 0.14
-Nodes (22): PlaceholderOperationException, Code, ContractPlaceholderDefinitionService, PlaceholderAuditSnapshot, CancellationToken, IReadOnlyList, Task, TblContractPlaceholderDefinition (+14 more)
+Cohesion: 0.15
+Nodes (19): ContractPlaceholderDefinitionService, PlaceholderAuditSnapshot, CancellationToken, IReadOnlyList, Task, TblContractPlaceholderDefinition, CreatedDate, CreatedEmployeeId (+11 more)
 
 ### Community 84 - "contract-attachments.tsx"
 Cohesion: 0.18
 Nodes (16): ACCEPTED_EXTENSIONS, ContractAttachmentItem, ContractAttachments(), ContractAttachmentsProps, ContractDocuments(), documentTypeLabel(), formatFileSize(), getExtension() (+8 more)
 
 ### Community 85 - "ContractPaymentResponse"
-Cohesion: 0.06
-Nodes (31): ContractPaymentStatus, Active, Voided, CompletePaymentMilestoneResponse, Milestone, Payment, ContractPaymentResponse, Amount (+23 more)
+Cohesion: 0.08
+Nodes (25): ContractPaymentStatus, Active, Voided, ContractPaymentResponse, Amount, ContractId, ContractPaymentId, CreatedAt (+17 more)
 
 ### Community 86 - "ContractItemDetailResponse"
 Cohesion: 0.06
 Nodes (32): ContractItemDiscountMode, FixedAmount, None, Percentage, ContractItemType, Product, Service, ContractItemDetailResponse (+24 more)
 
 ### Community 87 - "ResolvedTenant"
-Cohesion: 0.12
-Nodes (14): ICurrentTenant, IsResolved, Value, ITenantResolver, CancellationToken, Task, ResolvedTenant, CurrentTenant (+6 more)
+Cohesion: 0.06
+Nodes (34): Attribute, AllowWithoutTenantAttribute, PublicCustomerAccessAttribute, TenantResolutionMiddleware, HttpContext, RequestDelegate, Task, DependencyInjection (+26 more)
 
-### Community 88 - "IContractService"
-Cohesion: 0.04
-Nodes (52): ContractAppendixController, HttpDelete, HttpPost, HttpPut, IActionResult, Task, AddContractAppendixRequest, TemplateAppendixId (+44 more)
+### Community 88 - "CreateContractAppendixTermRequest"
+Cohesion: 0.07
+Nodes (34): CreateContractAppendixTermRequest, AppendixRowVersion, DisplayOrder, TermCode, TermContent, TermContentEn, TermTitle, TermTitleEn (+26 more)
 
 ### Community 89 - "ContractDocumentPreviewService"
-Cohesion: 0.13
-Nodes (12): ContractDocumentPreviewResult, IContractDocumentPreviewService, CancellationToken, Task, CancellationToken, Task, ContractDocumentPreviewService, RenderedContractDocx (+4 more)
+Cohesion: 0.09
+Nodes (18): ContractDocumentPreviewResult, IContractDocumentPreviewService, CancellationToken, Task, CancellationToken, Task, IContractTemplatePreviewRenderer, IReadOnlyDictionary (+10 more)
 
-### Community 90 - "ContractAcceptanceDocumentRenderData"
-Cohesion: 0.14
-Nodes (18): ContractAcceptanceDocumentRenderData, CustomValues, ContractAcceptanceDocumentRenderer, Body, FontSize, FontSizeComplexScript, Func, IEnumerable (+10 more)
+### Community 90 - "Task"
+Cohesion: 0.15
+Nodes (10): AllowContractAuthorizationService, ContractAttachmentAuditTests, FakeFileStorageService, CancellationToken, Fact, FileName, IFormFile, List (+2 more)
 
-### Community 91 - "DashboardService.cs"
-Cohesion: 0.39
-Nodes (5): ContractManagement.API.Domains.DTOs.Responses.Dashboard, ContractManagement.API.Domains.Services.Dashboard, ContractManagement.API.Domains.Controllers.Dashboard, ContractManagement.API.Domains.Interfaces.Dashboard, ContractManagement.API.Domains.DTOs.Requests.Dashboard
+### Community 91 - "EligibleParentContractResponse"
+Cohesion: 0.09
+Nodes (21): EligibleParentContractFilterRequest, CustomerId, Keyword, Page, PageSize, TargetContractType, ContractType, EligibleParentContractResponse (+13 more)
 
 ### Community 92 - "TblEmployee"
 Cohesion: 0.05
@@ -923,49 +939,49 @@ Nodes (41): TblEmployee, AvatarContentType, AvatarFileSize, AvatarSha256, Avatar
 Cohesion: 0.17
 Nodes (14): ContractSigningServicePhase9Tests, TrackingPrivateStorage, DeletedKeys, SavedKeys, ArgumentException, CancellationToken, EmployeeType, Fact (+6 more)
 
-### Community 94 - "ContractVersionDetailResponse"
-Cohesion: 0.03
-Nodes (58): ContractAppendixOptionResponse, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, DisplayOrder, TemplateAppendixId, ContractAppendixResponse (+50 more)
+### Community 94 - "CreateContractItemRequest"
+Cohesion: 0.04
+Nodes (48): ContractPaymentMilestoneDateRequest, AnchorDate, SourceTemplatePaymentMilestoneId, DateTime, CreateContractItemRequest, DiscountMode, DiscountPercent, DisplayOrder (+40 more)
 
 ### Community 95 - "ContractStatus"
 Cohesion: 0.12
 Nodes (17): ContractStatus, Cancelled, Completed, Draft, Negotiating, PendingApproval, PendingSignature, Rejected (+9 more)
 
-### Community 96 - "UpdateContractTemplateTermRequest"
-Cohesion: 0.08
-Nodes (24): ContractTermKind, General, Payment, CreateContractTemplateTermRequest, DisplayOrder, IsNegotiable, TermCode, TermContent (+16 more)
+### Community 96 - "TblContractTemplateField"
+Cohesion: 0.10
+Nodes (20): TblContractTemplateField, CreatedDate, CreatedEmployeeId, DataKind, DataSource, DefaultValue, DefinitionRowVersion, DisplayOrder (+12 more)
 
 ### Community 97 - "contract-approvals/page.tsx"
 Cohesion: 0.05
 Nodes (72): EmployeeFormModal(), ContractApprovalsPage(), formatFilterDate(), formatShortDate(), formatWaitingTime(), ContractDetailPage(), downloadBlob(), ContractAppendices() (+64 more)
 
-### Community 98 - "TblContractTemplate"
-Cohesion: 0.02
-Nodes (89): ContractTemplateAppendixTermResponse, CreatedDate, CreatedEmployeeId, DisplayOrder, RowVersion, TemplateAppendixId, TemplateAppendixTermId, TermCode (+81 more)
+### Community 98 - "ContractTemplateTermResponse"
+Cohesion: 0.05
+Nodes (41): ContractTermKind, General, Payment, CreateContractTemplateTermRequest, DisplayOrder, IsNegotiable, TermCode, TermContent (+33 more)
 
-### Community 99 - "CreateContractItemRequest"
-Cohesion: 0.07
-Nodes (29): CreateContractItemRequest, DiscountMode, DiscountPercent, DisplayOrder, FixedDiscountAmount, IsTaxable, ItemCode, ItemDescription (+21 more)
+### Community 99 - "TblContractVersion"
+Cohesion: 0.08
+Nodes (24): IContractPlaceholderValueService, CancellationToken, IReadOnlyDictionary, Task, TblContractVersion, ChangeNote, ContractId, CreatedDate (+16 more)
 
 ### Community 100 - ".SeedReadyContractAsync"
 Cohesion: 0.14
 Nodes (25): ContractSubmissionArtifactRenderResult, IContractSubmissionArtifactRenderer, CancellationToken, Task, ContractServicePhase8CSubmissionTests, StubRenderer, CallCount, ThrowingRenderer (+17 more)
 
-### Community 101 - "Program.cs"
+### Community 101 - "SecurityAuditSlice05Tests.cs"
+Cohesion: 0.07
+Nodes (31): LoginRequest, AccountName, Password, AuthorizationAuditActionTypes, AuthorizationAuditResultTypes, ContractManagement.Tests.Integration, ContractManagement.Tests.TestDoubles, ContractManagement.Tests.Domains.Authentication (+23 more)
+
+### Community 102 - "security-audits/page.tsx"
 Cohesion: 0.08
-Nodes (25): LoginRequest, AccountName, Password, ContractManagement.API.Domains.DTOs.Requests.CustomerInteraction, ContractManagement.Tests.TestDoubles, ContractManagement.Tests.Domains.Authentication, ContractManagement.API.Domains.DTOs.Requests.SystemAuthentication, ContractManagement.Domains.Controllers.SystemAuth (+17 more)
+Nodes (34): EMPLOYEE_TYPE_OPTIONS, EmployeeFormModalProps, EmployeeListPageContent(), ACTION_LABELS, createInitialFilters(), RESULT_LABELS, RESULT_STYLES, SecurityAuditChanges() (+26 more)
 
-### Community 102 - "ContractAcceptanceSectionInput"
-Cohesion: 0.12
-Nodes (17): ContractAcceptanceSectionInput, ContentEn, ContentVi, DisplayOrder, SectionCode, TitleEn, TitleVi, ReplaceContractAcceptanceMilestonesRequest (+9 more)
+### Community 103 - "EmployeeService"
+Cohesion: 0.13
+Nodes (16): EmployeeDirectoryFilterRequest, Keyword, Page, PageSize, EmployeeService, CancellationToken, Dictionary, EmployeeDirectoryResponse (+8 more)
 
-### Community 103 - "RbacOperationException"
-Cohesion: 0.11
-Nodes (19): AccountPasswordPolicy, AccountSessionKeys, IPasswordHasher, RbacOperationException, Code, StatusCode, EmployeeService, CancellationToken (+11 more)
-
-### Community 104 - "ContractResourceAuthorizationService"
-Cohesion: 0.11
-Nodes (18): IFileResourceAuthorizationService, CancellationToken, Task, ContractResourceAuthorizationService, CancellationToken, IReadOnlyList, Task, FileResourceAuthorizationService (+10 more)
+### Community 104 - "RbacOperationException"
+Cohesion: 0.18
+Nodes (13): RbacOperationException, Code, StatusCode, ContractResourceAuthorizationService, CancellationToken, IReadOnlyList, Task, NoOpContractAuditWriter (+5 more)
 
 ### Community 105 - "ServiceResponse"
 Cohesion: 0.07
@@ -979,9 +995,9 @@ Nodes (21): devDependencies, eslint, eslint-config-next, postcss, tailwindcss, @
 Cohesion: 0.08
 Nodes (24): DeliveryStatus, Accepted, InProgress, Pending, HardCopyStatus, CustomerReceived, NotPrepared, Prepared (+16 more)
 
-### Community 108 - ".DraftAppendix_AddTermAndSwapOrder_SucceedsOnSqlServer"
-Cohesion: 0.21
-Nodes (11): Phase12SqlServerReleaseGateTests, SeededTenantA, ThrowingAuditWriter, DbUpdateConcurrencyException, EmployeeType, InvalidOperationException, IReadOnlyCollection, Task (+3 more)
+### Community 108 - "SystemAdminManagerGovernanceServiceTests"
+Cohesion: 0.27
+Nodes (9): ChangeEmployeeRoleRequest, EmployeeType, RowVersion, InMemoryTenantDbContextFactory, SystemAdminManagerGovernanceServiceTests, EmployeeType, Fact, Task (+1 more)
 
 ### Community 109 - "CreateContractResponse"
 Cohesion: 0.07
@@ -1004,12 +1020,12 @@ Cohesion: 0.04
 Nodes (52): ContractTemplateAuditActionTypes, ContractTemplateAuditFieldCode, AppendixCount, AppendixTermCount, DocumentExtension, DocumentFileId, DocumentSizeBytes, PreviewFileId (+44 more)
 
 ### Community 114 - "ContractManagement.API.Common.Security"
-Cohesion: 0.08
-Nodes (27): ContractManagement.API.Domains.Controllers.Employee, ContractManagement.API.Domains.Controllers.Catalog, ContractManagement.API.Common.Responses, ContractManagement.API.Domains.Interfaces.Security, ContractManagement.Domains.Controllers.Contract, ContractManagement.API.Domains.Controllers.Security, ContractManagement.API.Domains.DTOs.Requests.Catalog, ContractManagement.API.Domains.Interfaces.Catalog (+19 more)
+Cohesion: 0.09
+Nodes (23): ContractManagement.API.Domains.Controllers.Employee, ContractManagement.API.Domains.Services.Employee, ContractManagement.API.Domains.DTOs.Responses.Employee, ContractManagement.API.Domains.Controllers.Catalog, ContractManagement.Contracts.Tenants, ContractManagement.API.Common.Responses, ContractManagement.Domains.Controllers.Contract, ContractManagement.API.Domains.DTOs.Requests.Catalog (+15 more)
 
 ### Community 115 - "ContractServiceResponsibilityTests"
-Cohesion: 0.24
-Nodes (11): ContractServiceResponsibilityTests, ThrowOnceAfterStagingAuditWriter, CreateContractRequest, EmployeeType, Fact, Func, InlineData, InvalidOperationException (+3 more)
+Cohesion: 0.25
+Nodes (10): ContractServiceResponsibilityTests, CreateContractRequest, EmployeeType, Fact, Func, InlineData, InvalidOperationException, KeyNotFoundException (+2 more)
 
 ### Community 116 - "app_text_field.dart"
 Cohesion: 0.08
@@ -1017,14 +1033,14 @@ Nodes (24): autocorrect, autofillHints, build, contentPadding, controller, enabl
 
 ### Community 117 - "ContractNegotiationCommentResponse"
 Cohesion: 0.04
-Nodes (51): ContractNegotiationCommentEventType, CarriedForward, Created, Reopened, Resolved, ContractNegotiationCommentState, Open, Resolved (+43 more)
+Nodes (42): CreateContractNegotiationCommentRequest, Content, CurrentVersionId, ParentCommentId, TermId, CreateExternalFeedbackRequest, TransferContractResponsibilityRequest, NewResponsibleEmployeeId (+34 more)
 
 ### Community 118 - "LocalPrivateFileStorage"
 Cohesion: 0.17
 Nodes (9): LocalPrivateFileStorage, CancellationToken, Regex, Stream, Task, FileSize, GeneratedRegex, ReadOnlySpan (+1 more)
 
 ### Community 119 - "wWinMain"
-Cohesion: 0.19
+Cohesion: 0.24
 Nodes (8): wWinMain(), wchar_t, CreateAndAttachConsole(), GetCommandLineArguments(), Utf8FromUtf16(), _In_, _In_opt_, vector
 
 ### Community 120 - "app_filter_bar.dart"
@@ -1036,16 +1052,16 @@ Cohesion: 0.07
 Nodes (27): CustomerResponse, CustomerAddress, CustomerBankAccountNumber, CustomerBankName, CustomerCity, CustomerCode, CustomerCompany, CustomerContactPersonName (+19 more)
 
 ### Community 122 - ".ChangeManagerRoleAsync"
-Cohesion: 0.11
-Nodes (19): ManagerGovernanceResponse, EmployeeId, EmployeeType, EmployeeTypeName, RowVersion, Status, ISystemAdminManagerGovernanceService, CancellationToken (+11 more)
+Cohesion: 0.10
+Nodes (20): ManagerGovernanceResponse, EmployeeId, EmployeeType, EmployeeTypeName, RowVersion, Status, ISystemAdminManagerGovernanceService, CancellationToken (+12 more)
 
 ### Community 123 - "SystemAdmin/components/account/profile-hero-banner.tsx"
 Cohesion: 0.11
 Nodes (21): ProfileHeroBannerProps, SystemAdminProfileFormProps, Command(), CommandDialog(), CommandGroup(), CommandInput(), CommandItem(), CommandList() (+13 more)
 
 ### Community 124 - "EmployeeAccountService"
-Cohesion: 0.09
-Nodes (19): ChangeOwnPasswordRequest, CurrentPassword, NewPassword, EmployeePreferencesResponse, AvailableLandingPages, DefaultPage, RowVersion, IReadOnlyList (+11 more)
+Cohesion: 0.10
+Nodes (18): ChangeOwnPasswordRequest, CurrentPassword, NewPassword, IEmployeeAccountService, CancellationToken, Task, ProfileImageFile, ProfileImageKind (+10 more)
 
 ### Community 125 - "ProductResponse"
 Cohesion: 0.09
@@ -1068,56 +1084,56 @@ Cohesion: 0.07
 Nodes (30): ContractTemplateVersionDetailResponse, Appendices, ChangeNote, CreatedDate, DocumentFileId, DocumentHash, ItemTableLayout, LegalBases (+22 more)
 
 ### Community 130 - "DateTime"
-Cohesion: 0.06
-Nodes (44): ContractAuditWriteRequest, CustomerAccessSessionContext, ContractId, VersionId, CustomerContractAccessService, CancellationToken, CustomerOtpRequestAcceptedResponse, CustomerSharedContractResponse (+36 more)
+Cohesion: 0.05
+Nodes (51): CustomerAccessLinkAvailabilityResponse, IsAvailable, State, ContractAuditWriteRequest, CustomerPublicNegotiationCommentResponse, CustomerAccessSessionContext, ContractId, VersionId (+43 more)
 
 ### Community 131 - "SystemAdmin"
-Cohesion: 0.08
-Nodes (33): ChangeEmployeeRoleRequest, EmployeeType, RowVersion, SystemAdmin, AvatarContentType, AvatarFileSize, AvatarSha256, AvatarStorageKey (+25 more)
+Cohesion: 0.05
+Nodes (38): CentralSeedData, CancellationToken, ILogger, IPasswordHasher, Task, ICentralSeedData, CancellationToken, Task (+30 more)
 
 ### Community 132 - "ContractCompletionDetailResponse"
 Cohesion: 0.07
 Nodes (28): ContractCompletionBlockerResponse, Code, Message, ContractCompletionDetailResponse, AcceptanceEvidence, ContractId, ContractRowVersion, ContractStatus (+20 more)
 
 ### Community 133 - ".InitializeAsync"
-Cohesion: 0.20
-Nodes (8): TenantSeedData, CancellationToken, IPasswordHasher, Task, Phase1AccountSecuritySqlServerMigrationTests, Task, Trait, Phase1SqlServerFact
+Cohesion: 0.15
+Nodes (12): TenantSeedData, CancellationToken, IPasswordHasher, Task, Phase12LibreOfficeFactAttribute, Phase12SqlServerFactAttribute, Phase1AccountSecuritySqlServerMigrationTests, Phase1SqlServerFactAttribute (+4 more)
 
 ### Community 134 - "ContractTemplatePreviewRenderer"
-Cohesion: 0.07
-Nodes (40): ContractLanguageMode, Bilingual, Vietnamese, ContractTermRichTextRow, Cells, ContractTermRichTextRun, Bold, FontSize (+32 more)
+Cohesion: 0.06
+Nodes (41): ContractLanguageMode, Bilingual, Vietnamese, ContractTermRichTextRun, Bold, FontSize, Italic, Text (+33 more)
 
-### Community 135 - "ControllerBase"
+### Community 135 - "AdminDashboardResponse"
 Cohesion: 0.07
-Nodes (36): AdminDashboardController, ActionResult, CancellationToken, HttpGet, ProducesResponseType, Task, AdminDashboardFilterRequest, From (+28 more)
+Nodes (35): AdminDashboardController, ActionResult, CancellationToken, HttpGet, ProducesResponseType, Task, AdminDashboardFilterRequest, From (+27 more)
 
 ### Community 136 - "TemplateDocumentType"
-Cohesion: 0.04
-Nodes (52): TemplateDocumentType, AcceptanceRecord, HandoverRecord, LiquidationRecord, Other, PaymentRequest, Quotation, SoftwareMaintenanceContract (+44 more)
+Cohesion: 0.07
+Nodes (28): TemplateDocumentType, AcceptanceRecord, HandoverRecord, LiquidationRecord, Other, PaymentRequest, Quotation, SoftwareMaintenanceContract (+20 more)
 
-### Community 137 - "DeploymentOverrideStatus"
-Cohesion: 0.13
-Nodes (14): DeploymentOverrideStatus, Approved, Expired, Pending, Rejected, Revoked, DeploymentOverridePolicy, DateTime (+6 more)
+### Community 137 - "TblContractTemplateItemTableColumnLayout"
+Cohesion: 0.11
+Nodes (16): ContractTemplateItemTableColumnLayoutResponse, ColumnKey, DisplayOrder, ItemTableColumnLayoutId, TemplateVersionId, WidthBps, TblContractTemplateItemTableColumnLayout, ColumnKey (+8 more)
 
 ### Community 138 - ".HandleExceptionAsync"
-Cohesion: 0.10
-Nodes (19): SecurityAuditEndpointClassifier, SecurityAuditTarget, HttpContext, SecurityAuditHttpContextItems, HttpContext, ExceptionHandlingMiddleware, Exception, HttpContext (+11 more)
+Cohesion: 0.06
+Nodes (29): SecurityAuditEndpointClassifier, SecurityAuditTarget, HttpContext, SecurityAuditHttpContextItems, HttpContext, ITenantAuthorizationAuditWriter, CancellationToken, HttpContext (+21 more)
 
 ### Community 139 - "contract-api.ts"
 Cohesion: 0.02
 Nodes (136): appendixTermMatches(), CONTRACT_TABS, ContractTab, isContractTab(), KnownCustomerAccessLink, ContractVersionDetailPage(), getApiErrorMessage(), ContractListPage() (+128 more)
 
 ### Community 140 - "ContractApprovalController"
-Cohesion: 0.20
-Nodes (15): ContractApprovalController, CancellationToken, HttpGet, HttpPost, IActionResult, ProducesResponseType, SessionAuthorize, Task (+7 more)
+Cohesion: 0.18
+Nodes (18): ContractApprovalController, CancellationToken, HttpGet, HttpPost, IActionResult, ProducesResponseType, SessionAuthorize, Task (+10 more)
 
 ### Community 141 - "ServiceService"
 Cohesion: 0.22
 Nodes (7): ServiceService, Dictionary, IQueryable, List, PagedResult, ServiceResponse, Task
 
 ### Community 142 - "CentralDbContext"
-Cohesion: 0.11
-Nodes (19): CentralDbContext, SecurityAudits, SystemAdmins, TenantDatabases, Tenants, DbSet, ModelBuilder, Tenant (+11 more)
+Cohesion: 0.06
+Nodes (39): CentralDbContext, SecurityAudits, SystemAdmins, TenantDatabases, Tenants, DbSet, ModelBuilder, CentralSecurityAudit (+31 more)
 
 ### Community 143 - "ContractPlaceholderController"
 Cohesion: 0.16
@@ -1127,12 +1143,12 @@ Nodes (18): ContractPlaceholderController, CancellationToken, Func, HttpDelete, 
 Cohesion: 0.10
 Nodes (19): TblAuthorizationAudit, Action, ActorEmployeeId, ActorType, AuthorizationAuditId, ChangedFields, CorrelationId, FailureCode (+11 more)
 
-### Community 145 - "TenantProvisioningServiceTests"
-Cohesion: 0.20
-Nodes (13): InitialManagerProvisioningCommand, RecordingInitializer, WasCalled, RecordingSeedData, InitialManager, TenantProvisioningServiceTests, ArgumentException, CancellationToken (+5 more)
+### Community 145 - "TenantProvisioningService"
+Cohesion: 0.09
+Nodes (27): ITenantSeedData, CancellationToken, Task, InitialManagerProvisioningCommand, SecurityOperationContext, TenantProvisioningCommand, ITenantDatabaseInitializer, CancellationToken (+19 more)
 
 ### Community 146 - ".Create"
-Cohesion: 0.16
+Cohesion: 0.12
 Nodes (21): ContractAppendixLegalSnapshot, ContractAppendixTermLegalSnapshot, ContractItemLegalSnapshot, ContractLegalBasisSnapshot, ContractLegalSnapshot, ContractPaymentMilestoneSnapshot, ContractTermLegalSnapshot, TermKind (+13 more)
 
 ### Community 147 - "service_type_dto.dart"
@@ -1143,13 +1159,13 @@ Nodes (19): CreateServiceTypeRequest, fromJson, items, keyword, langId, page, Pa
 Cohesion: 0.05
 Nodes (51): Animation, AnimationController, Duration, EdgeInsetsGeometry?, ServiceTypeListPage, _ServiceTypeListPageState, AppToast, build (+43 more)
 
-### Community 149 - "TblContractVersionLegalSnapshot"
-Cohesion: 0.03
-Nodes (68): CancellationToken, Task, ModelBuilder, TblContractVersionLegalSnapshot, ContractCode, ContractCreatedDate, ContractId, ContractName (+60 more)
+### Community 149 - "EmployeeResponse"
+Cohesion: 0.12
+Nodes (16): EmployeeResponse, DateCreated, DateModified, DepartmentId, DepartmentName, EmployeeAccount, EmployeeCode, EmployeeEmail (+8 more)
 
 ### Community 150 - "TenantSecurityAuditResponse"
 Cohesion: 0.10
-Nodes (21): TenantSecurityAuditResponse, Action, ActorDisplayName, ActorEmployeeId, ActorType, AuthorizationAuditId, ChangedFields, CorrelationId (+13 more)
+Nodes (20): TenantSecurityAuditResponse, Action, ActorDisplayName, ActorEmployeeId, ActorType, AuthorizationAuditId, ChangedFields, CorrelationId (+12 more)
 
 ### Community 151 - "CreateServiceRequest"
 Cohesion: 0.11
@@ -1175,9 +1191,9 @@ Nodes (26): EmployeeProfileResponse, Account, Address, BirthDate, CoverImageUrl,
 Cohesion: 0.34
 Nodes (7): ContractAuditQueryServiceTests, DateTime, EmployeeType, Fact, InvalidOperationException, Task, UnauthorizedAccessException
 
-### Community 157 - "TblContractAcceptanceReference"
-Cohesion: 0.29
-Nodes (6): TblContractAcceptanceReference, AcceptanceRecordId, AcceptanceReferenceId, AppendixId, DisplayOrder, ReferenceType
+### Community 157 - "Kế hoạch module thông báo tái sử dụng với SignalR — triển khai đầu tiên cho hợp đồng"
+Cohesion: 0.11
+Nodes (18): API/FE chung, Các phase và trạng thái, Dữ liệu và delivery, Giao diện nội bộ module, Hiện trạng đã xác minh, Kế hoạch module thông báo tái sử dụng với SignalR — triển khai đầu tiên cho hợp đồng, Ma trận sự kiện hợp đồng (đợt triển khai đầu tiên), Mục tiêu và phạm vi (+10 more)
 
 ### Community 158 - "CreateProductRequest"
 Cohesion: 0.11
@@ -1200,8 +1216,8 @@ Cohesion: 0.09
 Nodes (21): UpdateCustomerRequest, CustomerAddress, CustomerBankAccountNumber, CustomerBankName, CustomerCity, CustomerCode, CustomerCompany, CustomerContactPersonName (+13 more)
 
 ### Community 163 - "TblContract"
-Cohesion: 0.03
-Nodes (69): CancellationToken, IReadOnlyDictionary, Task, AppendixAcceptanceModelConfiguration, ModelBuilder, TblContract, ContractCode, ContractId (+61 more)
+Cohesion: 0.06
+Nodes (39): TblContract, ContractCode, ContractId, ContractName, ContractNameEn, ContractType, CreatedDate, CreatedEmployeeId (+31 more)
 
 ### Community 164 - "TenantLegalProfileResponse"
 Cohesion: 0.11
@@ -1220,44 +1236,44 @@ Cohesion: 0.11
 Nodes (17): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+9 more)
 
 ### Community 168 - "PagedResult"
-Cohesion: 0.05
-Nodes (46): PagedResult, Items, Page, PageSize, TotalCount, TotalPages, List, CentralSecurityAuditsController (+38 more)
+Cohesion: 0.15
+Nodes (15): PagedResult, Items, Page, PageSize, TotalCount, TotalPages, List, TenantSecurityAuditQueryService (+7 more)
 
-### Community 169 - ".NormalizePaymentMilestone"
+### Community 169 - "CreateContractTemplateAppendixRequest"
 Cohesion: 0.06
-Nodes (32): Anchor, Code, ContentEn, Order, TitleEn, AvailableContractTemplateVersionResponse, Code, ContentEn (+24 more)
+Nodes (30): CreateContractTemplateAppendixRequest, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, DisplayOrder, IsRequired, IsSelectedByDefault (+22 more)
 
 ### Community 170 - "CreateContractAcceptanceRecordRequest"
-Cohesion: 0.10
-Nodes (21): CreateContractAcceptanceRecordRequest, AcceptanceCode, AcceptanceDate, AcceptanceKind, AppendixIds, ContractRowVersion, ContractVersionId, Location (+13 more)
+Cohesion: 0.05
+Nodes (38): ContractAcceptanceSectionInput, ContentEn, ContentVi, DisplayOrder, SectionCode, TitleEn, TitleVi, CreateContractAcceptanceRecordRequest (+30 more)
 
 ### Community 171 - "TblContractPaymentMilestone"
 Cohesion: 0.07
 Nodes (27): TblContractPaymentMilestone, Amount, AnchorDate, ConditionEn, ConditionVi, ContractId, CreatedDate, CreatedEmployeeId (+19 more)
 
-### Community 172 - "TenantProvisioningService"
-Cohesion: 0.11
-Nodes (16): ITenantSeedData, CancellationToken, Task, TenantProvisioningResult, ITenantDatabaseInitializer, CancellationToken, Task, EfCoreTenantDatabaseInitializer (+8 more)
+### Community 172 - "ContractAcceptanceReferenceResponse"
+Cohesion: 0.12
+Nodes (16): AcceptanceKind, Final, Partial, AcceptancePartyRole, Customer, Tenant, AcceptanceReferenceType, Appendix (+8 more)
 
 ### Community 173 - "TblContractTemplatePaymentMilestone"
 Cohesion: 0.10
 Nodes (19): TblContractTemplatePaymentMilestone, ConditionEn, ConditionVi, CreatedDate, CreatedEmployeeId, DayCountMode, DisplayOrder, DueAnchor (+11 more)
 
-### Community 174 - ".SeedContractAsync"
-Cohesion: 0.25
-Nodes (12): CreateContractNegotiationRoundRequest, ChangeNote, CurrentVersionId, CurrentVersionRowVersion, RowVersion, ContractServiceSlice05Tests, CreateContractNegotiationCommentRequest, DbUpdateConcurrencyException (+4 more)
+### Community 174 - ".DraftToNegotiating_OtpCustomerCommentAndNewRound_ShouldRevokeOldAccess"
+Cohesion: 0.11
+Nodes (23): CreateContractCustomerAccessLinkRequest, RowVersion, CreateContractNegotiationRoundRequest, ChangeNote, CurrentVersionId, CurrentVersionRowVersion, RowVersion, StartContractNegotiationRequest (+15 more)
 
 ### Community 175 - "ContractPaymentMilestoneResponse"
 Cohesion: 0.05
-Nodes (41): ContractPaymentMilestoneStatus, Paid, Unpaid, PaymentDayCountMode, BusinessDays, CalendarDays, PaymentDueAnchor, AcceptanceCompleted (+33 more)
+Nodes (39): ContractPaymentMilestoneStatus, Paid, Unpaid, PaymentDayCountMode, BusinessDays, CalendarDays, PaymentDueAnchor, AcceptanceCompleted (+31 more)
 
 ### Community 176 - "TblContractNegotiationComment"
 Cohesion: 0.10
-Nodes (18): TblContractNegotiationComment, CarriedForwardFromCommentId, CarriedForwardFromVersionId, CommentId, ContractId, CreatedDate, CreatedEmployeeId, CustomerAccessSessionId (+10 more)
+Nodes (19): TblContractNegotiationComment, CarriedForwardFromCommentId, CarriedForwardFromVersionId, CommentId, Content, ContractId, CreatedDate, CreatedEmployeeId (+11 more)
 
-### Community 177 - "TblContractAuditValue"
-Cohesion: 0.04
-Nodes (46): ContractTemplateAuditWriter, HashSet, IHttpContextAccessor, IReadOnlyCollection, AuditValueSide, New, Previous, TblContractAuditValue (+38 more)
+### Community 177 - "TblContractTemplateAudit"
+Cohesion: 0.07
+Nodes (26): TblContractTemplateAuditValue, ContractTemplateAudit, ContractTemplateAuditId, ContractTemplateAuditValueId, FieldCode, IntegerValue, IsNull, LongValue (+18 more)
 
 ### Community 178 - "TblContractAcceptanceRecord"
 Cohesion: 0.08
@@ -1272,31 +1288,31 @@ Cohesion: 0.18
 Nodes (9): Cocoa, RegisterGeneratedPlugins(), MainFlutterWindow, FlutterMacOS, FlutterPluginRegistry, FlutterViewController, Foundation, NSWindow (+1 more)
 
 ### Community 181 - "Win32Window"
-Cohesion: 0.12
+Cohesion: 0.11
 Nodes (21): RegisterPlugins(), FlutterWindow, flutter_controller_, OnCreate, OnDestroy, project_, DartProject, HWND (+13 more)
 
-### Community 182 - ".InvokeAsync"
-Cohesion: 0.13
-Nodes (13): Attribute, AllowWithoutTenantAttribute, PublicCustomerAccessAttribute, SystemAdminAuthorizeAttribute, AllowWhenPasswordChangeRequired, AuthorizationFilterContext, Task, TenantResolutionMiddleware (+5 more)
+### Community 182 - "CustomerInteractionController.cs"
+Cohesion: 0.25
+Nodes (5): ContractManagement.API.Domains.DTOs.Requests.CustomerInteraction, ContractManagement.API.Domains.DTOs.Responses.CustomerInteraction, ContractManagement.API.Domains.Services.CustomerInteraction, ContractManagement.Domains.Controllers.CRM, ContractManagement.API.Domains.Interfaces.CustomerInteraction
 
 ### Community 183 - "ServiceController"
 Cohesion: 0.29
 Nodes (9): ServiceController, HttpDelete, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, SessionAuthorize (+1 more)
 
 ### Community 184 - "CustomerLookupResponse"
-Cohesion: 0.12
-Nodes (15): CustomerLookupResponse, CustomerCode, CustomerCompany, CustomerContactPersonName, CustomerContactPersonPhone, CustomerContactPersonTitle, CustomerFullName, CustomerId (+7 more)
+Cohesion: 0.11
+Nodes (17): CustomerLookupResponse, CustomerCode, CustomerCompany, CustomerContactPersonName, CustomerContactPersonPhone, CustomerContactPersonTitle, CustomerFullName, CustomerId (+9 more)
 
 ### Community 185 - "CategoryController"
-Cohesion: 0.16
-Nodes (14): CategoryController, HttpDelete, HttpGet, HttpPost, HttpPut, IActionResult, SessionAuthorize, Task (+6 more)
+Cohesion: 0.22
+Nodes (10): CategoryController, HttpDelete, HttpGet, HttpPost, HttpPut, IActionResult, SessionAuthorize, Task (+2 more)
 
 ### Community 186 - "app_services_bottom_sheet.dart"
 Cohesion: 0.11
 Nodes (19): class, _getQuickActionsCatalog, AppServicesBottomSheet, _AppServicesBottomSheetContent, __AppServicesBottomSheetContentState, build, _buildItem, _buildSectionTitle (+11 more)
 
-### Community 187 - ".AddAppendix"
-Cohesion: 0.35
+### Community 187 - ".Ok"
+Cohesion: 0.38
 Nodes (6): CancellationToken, HttpDelete, HttpPost, HttpPut, IActionResult, Task
 
 ### Community 188 - "TblContractCustomerOtpDeliveryOutbox"
@@ -1308,36 +1324,36 @@ Cohesion: 0.13
 Nodes (14): DashboardController, ActionResult, CancellationToken, HttpGet, ProducesResponseType, Task, DashboardFilterRequest, ExpiryDays (+6 more)
 
 ### Community 190 - "Create"
-Cohesion: 0.14
-Nodes (14): wchar_t, Point, x, y, Scale(), Create, Destroy, Win32Window::Win32Window() (+6 more)
+Cohesion: 0.11
+Nodes (17): wchar_t, Point, x, y, Scale(), Size, height, width (+9 more)
 
 ### Community 191 - "ServiceFilterRequest"
 Cohesion: 0.18
 Nodes (10): ServiceFilterRequest, FromDate, Keyword, LangId, Page, PageSize, ServiceTypeId, Status (+2 more)
 
 ### Community 192 - ".UpsertAsync"
-Cohesion: 0.24
-Nodes (7): TenantLegalProfileService, CancellationToken, Task, TenantLegalProfileServiceTests, DbUpdateConcurrencyException, Fact, Task
+Cohesion: 0.31
+Nodes (4): TenantLegalProfileService, CancellationToken, Task, TenantLegalProfileResponse
 
-### Community 193 - "DepartmentService.cs"
-Cohesion: 0.28
-Nodes (4): ContractManagement.API.Domains.Services.Department, ContractManagement.API.Domains.DTOs.Responses.Department, ContractManagement.API.Domains.DTOs.Requests.Department, ContractManagement.API.Domains.Interfaces.Department
+### Community 193 - "ContractTemplatePaymentMilestoneResponse"
+Cohesion: 0.05
+Nodes (40): AvailableContractTemplateTermResponse, DisplayOrder, IsNegotiable, PaymentMilestones, TemplateTermId, TermCode, TermContent, TermContentEn (+32 more)
 
 ### Community 194 - "ContractAcceptanceController"
 Cohesion: 0.25
 Nodes (14): ContractAcceptanceController, CancellationToken, Consumes, HttpGet, HttpPost, HttpPut, IActionResult, SessionAuthorize (+6 more)
 
 ### Community 195 - "TblContractTerm"
-Cohesion: 0.06
-Nodes (32): ContractTermDetailResponse, DisplayOrder, IsNegotiable, RowVersion, SourceTemplateTermId, TermCode, TermContent, TermContentEn (+24 more)
+Cohesion: 0.11
+Nodes (18): TblContractTerm, ContractId, CreatedDate, CreatedEmployeeId, DisplayOrder, IsNegotiable, RowVersion, SourceTemplateTermId (+10 more)
 
 ### Community 196 - "ContractServiceSlice04Tests"
 Cohesion: 0.22
 Nodes (13): ContractServiceSlice04Tests, ArgumentException, CreateContractItemRequest, CreateContractNegotiationRoundRequest, CreateContractRequest, DbUpdateConcurrencyException, Fact, InlineData (+5 more)
 
 ### Community 197 - "CustomerController"
-Cohesion: 0.17
-Nodes (13): CustomerController, CancellationToken, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, SessionAuthorize (+5 more)
+Cohesion: 0.20
+Nodes (11): CustomerController, CancellationToken, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, SessionAuthorize (+3 more)
 
 ### Community 198 - "quick_actions_store.dart"
 Cohesion: 0.09
@@ -1345,7 +1361,7 @@ Nodes (20): apiTimeoutSeconds, AppConfig, appName, defaultIds, _key, loadQuickAc
 
 ### Community 199 - "TblFileStorage"
 Cohesion: 0.07
-Nodes (27): IPrivateFileStorage, StoredPrivateFile, CancellationToken, DateTime, Stream, Task, FileStorageService, FileName (+19 more)
+Nodes (28): IPrivateFileStorage, StoredPrivateFile, CancellationToken, DateTime, Stream, Task, IFormFile, FileStorageService (+20 more)
 
 ### Community 200 - "UpdateEmployeeSelfProfileRequest"
 Cohesion: 0.14
@@ -1361,19 +1377,19 @@ Nodes (27): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModu
 
 ### Community 203 - ".CreateDedicatedTenant"
 Cohesion: 0.10
-Nodes (22): TenantResponse, DatabaseMode, DatabaseName, Status, TenantCode, TenantId, TenantName, TenantsController (+14 more)
+Nodes (24): TenantResponse, DatabaseMode, DatabaseName, Status, TenantCode, TenantId, TenantName, TenantsController (+16 more)
 
 ### Community 204 - "AppDelegate"
 Cohesion: 0.16
 Nodes (10): Any, AppDelegate, Bool, AppDelegate, Bool, FlutterAppDelegate, FlutterImplicitEngineBridge, FlutterImplicitEngineDelegate (+2 more)
 
-### Community 205 - "TblContractTemplateField"
-Cohesion: 0.04
-Nodes (43): ModelBuilder, TblContractPlaceholderAudit, ActionType, ActorEmployeeId, NewFormatString, NewIsActive, NewSourceFieldKey, OccurredAt (+35 more)
+### Community 205 - "TblContractPlaceholderAudit"
+Cohesion: 0.08
+Nodes (23): ModelBuilder, TblContractPlaceholderAudit, ActionType, ActorEmployeeId, NewFormatString, NewIsActive, NewSourceFieldKey, OccurredAt (+15 more)
 
-### Community 206 - "UpsertTenantLegalProfileRequest"
-Cohesion: 0.10
-Nodes (20): TenantLegalProfileController, CancellationToken, HttpGet, HttpPut, IActionResult, Task, UpsertTenantLegalProfileRequest, Address (+12 more)
+### Community 206 - ".Upsert"
+Cohesion: 0.23
+Nodes (9): TenantLegalProfileController, CancellationToken, HttpGet, HttpPut, IActionResult, Task, ITenantLegalProfileService, CancellationToken (+1 more)
 
 ### Community 207 - "SystemAdmin/lib/utils.ts"
 Cohesion: 0.06
@@ -1387,29 +1403,29 @@ Nodes (16): TblContractTemplateTerm, CreatedDate, CreatedEmployeeId, DisplayOrde
 Cohesion: 0.18
 Nodes (10): TblApprovalHistory, ActionDate, ApprovalAction, ApprovalHistoryId, ApproverEmployeeId, Comment, ObjectId, ObjectType (+2 more)
 
-### Community 210 - "TblContractLegalBasis"
-Cohesion: 0.12
-Nodes (15): ModelBuilder, TblContractLegalBasis, BasisCode, ContentEn, ContentVi, ContractId, CreatedDate, CreatedEmployeeId (+7 more)
+### Community 210 - "CustomerOtpSmtpTests"
+Cohesion: 0.24
+Nodes (7): CustomerOtpSmtpTests, Fact, InlineData, InvalidOperationException, Task, Theory, ContractManagement.Tests.Domains.CustomerAccess
 
-### Community 211 - ".GetAsync"
-Cohesion: 0.20
-Nodes (10): ContractMetricRow, DashboardRange, DashboardService, CancellationToken, DashboardResponse, DateTime, Task, TimeSpan (+2 more)
+### Community 211 - "DashboardResponse"
+Cohesion: 0.08
+Nodes (34): DashboardCurrencyAmountResponse, DashboardResponse, AmountByCurrency, ExpiringContracts, FromUtc, GeneratedAt, RecentActivities, Scope (+26 more)
 
 ### Community 212 - "IFileStorageService"
-Cohesion: 0.09
-Nodes (24): FileController, HttpDelete, HttpGet, HttpPost, IActionResult, IDbContextTransaction, Task, UploadFileRequest (+16 more)
+Cohesion: 0.17
+Nodes (13): FileController, HttpDelete, HttpGet, HttpPost, IActionResult, IDbContextTransaction, Task, FileName (+5 more)
 
-### Community 213 - "EmployeePreferenceRoutes"
-Cohesion: 0.33
-Nodes (6): EmployeeLandingPageOption, EmployeePreferenceRoutes, RouteDefinition, IReadOnlyCollection, IReadOnlyList, RouteDefinition
+### Community 213 - "EmployeePreferencesResponse"
+Cohesion: 0.18
+Nodes (12): EmployeeLandingPageOption, EmployeePreferenceRoutes, RouteDefinition, IReadOnlyCollection, IReadOnlyList, EmployeePreferencesResponse, AvailableLandingPages, DefaultPage (+4 more)
 
-### Community 214 - "CreateEmployeeRequest"
-Cohesion: 0.10
-Nodes (22): CreateEmployeeRequest, DepartmentId, EmployeeAccount, EmployeeCode, EmployeeEmail, EmployeeFullName, EmployeeMobile, EmployeePassword (+14 more)
+### Community 214 - "UpdateEmployeeRequest"
+Cohesion: 0.18
+Nodes (13): UpdateEmployeeRequest, DepartmentId, EmployeeCode, EmployeeEmail, EmployeeFullName, EmployeeMobile, EmployeeType, RowVersion (+5 more)
 
-### Community 215 - "CustomerOtpOptions"
-Cohesion: 0.03
-Nodes (55): AuthenticationTagMismatchException, CustomerAccessCryptography, CustomerOtpDeliveryOutboxWorker, CancellationToken, ILogger, IReadOnlyList, Task, CustomerOtpEmailTemplate (+47 more)
+### Community 215 - "CustomerOtpDeliveryMessage"
+Cohesion: 0.12
+Nodes (13): FakeCustomerOtpDeliveryProvider, CancellationToken, ILogger, Task, HttpCustomerOtpDeliveryProvider, CancellationToken, Task, CustomerOtpDeliveryMessage (+5 more)
 
 ### Community 216 - "MessageHandler"
 Cohesion: 0.22
@@ -1423,25 +1439,25 @@ Nodes (8): CustomerFilterRequest, FromDate, Keyword, Page, PageSize, Status, ToD
 Cohesion: 0.21
 Nodes (8): ContractSigningService, CancellationToken, ContractSignedEvidenceResponse, ContractSigningDetailResponse, IFormFile, IReadOnlyList, Task, ContractSigningArtifactResponse
 
-### Community 219 - "TblContractAppendixTerm"
+### Community 219 - "TblContractLegalBasis"
 Cohesion: 0.12
-Nodes (15): TblContractAppendixTerm, AppendixId, AppendixTermId, CreatedDate, CreatedEmployeeId, DisplayOrder, RowVersion, SourceTemplateAppendixTermId (+7 more)
+Nodes (15): ModelBuilder, TblContractLegalBasis, BasisCode, ContentEn, ContentVi, ContractId, CreatedDate, CreatedEmployeeId (+7 more)
 
-### Community 220 - "SubmitContractForApprovalResponse"
-Cohesion: 0.12
-Nodes (16): SubmitContractForApprovalResponse, ApprovalRequestId, ApprovalStatus, ContractId, ContractRowVersion, ContractStatus, SnapshotHash, SubmittedDate (+8 more)
+### Community 220 - "ContractAcceptanceDocumentRenderData"
+Cohesion: 0.14
+Nodes (18): ContractAcceptanceDocumentRenderData, CustomValues, ContractAcceptanceDocumentRenderer, Body, FontSize, FontSizeComplexScript, Func, IEnumerable (+10 more)
 
 ### Community 221 - "DocumentType"
 Cohesion: 0.20
 Nodes (9): DocumentType, AcceptanceRecord, BankGuarantee, HandoverRecord, LiquidationRecord, Other, QuotationFile, SignedScanCopy (+1 more)
 
-### Community 222 - "ContractCompletionController"
-Cohesion: 0.41
-Nodes (8): ContractCompletionController, CancellationToken, Consumes, HttpGet, HttpPost, IActionResult, SessionAuthorize, Task
+### Community 222 - ".BuildMailMessage"
+Cohesion: 0.18
+Nodes (8): CustomerOtpEmailTemplate, DateTime, SmtpCustomerOtpDeliveryProvider, CancellationToken, DateTime, IOptions, Task, MailMessage
 
-### Community 223 - "EmployeeResponse"
-Cohesion: 0.12
-Nodes (16): EmployeeResponse, DateCreated, DateModified, DepartmentId, DepartmentName, EmployeeAccount, EmployeeCode, EmployeeEmail (+8 more)
+### Community 223 - "TblContractAuditValue"
+Cohesion: 0.10
+Nodes (17): IEnumerable, AuditValueSide, New, Previous, TblContractAuditValue, BooleanValue, ContractAudit, ContractAuditId (+9 more)
 
 ### Community 224 - "AddEmployeeProfileImages"
 Cohesion: 0.40
@@ -1460,20 +1476,20 @@ Cohesion: 0.28
 Nodes (6): SignaturePolicy, SignaturePolicyTests, Fact, InlineData, InvalidOperationException, Theory
 
 ### Community 228 - "TblContractTemplateAppendix"
-Cohesion: 0.05
-Nodes (51): ContractTemplateAppendixResponse, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, CreatedDate, CreatedEmployeeId, DisplayOrder (+43 more)
+Cohesion: 0.04
+Nodes (65): ContractTemplateAppendixResponse, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, CreatedDate, CreatedEmployeeId, DisplayOrder (+57 more)
 
 ### Community 229 - "ContractApprovalActionResponse"
 Cohesion: 0.11
 Nodes (19): ContractApprovalActionResponse, ApprovalRequestId, ApprovalRequestRowVersion, ApprovalStatus, ContractId, ContractRowVersion, ContractStatus, DecisionComment (+11 more)
 
 ### Community 230 - "ContractAuditFilterRequest"
-Cohesion: 0.11
-Nodes (17): ContractAuditFilterRequest, ActionType, ActorCustomerAccessSessionId, ActorEmployeeId, ActorType, ContractId, CorrelationId, Cursor (+9 more)
+Cohesion: 0.08
+Nodes (28): ContractAuditController, CancellationToken, HttpGet, IActionResult, Produces, ProducesResponseType, Task, ContractAuditFilterRequest (+20 more)
 
 ### Community 231 - "IContractCompletionService"
-Cohesion: 0.16
-Nodes (13): CompleteContractRequest, ContractRowVersion, CurrentVersionId, VersionRowVersion, VoidContractPaymentRequest, ContractRowVersion, PaymentRowVersion, Reason (+5 more)
+Cohesion: 0.11
+Nodes (19): CompleteContractRequest, ContractRowVersion, CurrentVersionId, VersionRowVersion, VoidContractPaymentRequest, ContractRowVersion, PaymentRowVersion, Reason (+11 more)
 
 ### Community 232 - "ContractAcceptanceEvidenceResponse"
 Cohesion: 0.12
@@ -1488,8 +1504,8 @@ Cohesion: 0.18
 Nodes (10): background_color, description, display, icons, name, orientation, prefer_related_applications, short_name (+2 more)
 
 ### Community 235 - "ContractListItemResponse"
-Cohesion: 0.04
-Nodes (53): ContractFilterRequest, ContractType, CustomerId, Keyword, Page, PageSize, Status, ContractType (+45 more)
+Cohesion: 0.08
+Nodes (24): ContractListItemResponse, ContractCode, ContractId, ContractName, ContractType, CreatedDate, CurrencyCode, CurrentVersionId (+16 more)
 
 ### Community 236 - "ContractSigningDetailResponse"
 Cohesion: 0.10
@@ -1512,20 +1528,20 @@ Cohesion: 0.40
 Nodes (3): AddContractLegalBases, DateTime, MigrationBuilder
 
 ### Community 241 - "TestSession"
-Cohesion: 0.10
-Nodes (17): AuthMeResponse, DateTime, IReadOnlyList, AuthControllerRbacTests, TestSession, Id, IsAvailable, Keys (+9 more)
+Cohesion: 0.09
+Nodes (18): AuthMeResponse, DateTime, IReadOnlyList, AuthControllerRbacTests, TestSession, Id, IsAvailable, Keys (+10 more)
 
-### Community 242 - "CentralSecurityAudit"
-Cohesion: 0.10
-Nodes (20): CentralSecurityAudit, Action, ActorSystemAdminId, CentralSecurityAuditId, ChangedFields, CorrelationId, FailureCode, IpAddress (+12 more)
+### Community 242 - ".SeedContractAsync"
+Cohesion: 0.38
+Nodes (7): ContractServiceSlice05Tests, CreateContractNegotiationCommentRequest, DbUpdateConcurrencyException, Fact, InvalidOperationException, KeyNotFoundException, Task
 
 ### Community 243 - "SoftwareSupplyPlaceholderDefinition"
-Cohesion: 0.08
-Nodes (24): AcceptanceRecordPlaceholderCatalog, All, IReadOnlyList, SoftwareSupplyPlaceholderCatalog, All, SoftwareSupplyPlaceholderDefinition, DefaultValue, FormatString (+16 more)
+Cohesion: 0.09
+Nodes (23): AcceptanceRecordPlaceholderCatalog, All, IReadOnlyList, SoftwareSupplyPlaceholderCatalog, All, SoftwareSupplyPlaceholderDefinition, DefaultValue, FormatString (+15 more)
 
-### Community 244 - "ContractManagement.Infrastructure.MultiTenancy.Enums"
-Cohesion: 0.07
-Nodes (25): ITenantOwnedEntity, TenantId, AuthorizationAuditActionTypes, AuthorizationAuditResultTypes, ContractManagement.API.Domains.Services.Employee, ContractManagement.API.Domains.DTOs.Responses.Employee, ContractManagement.API.Domains.Services.Admin, ContractManagement.Tests.Domains.Security (+17 more)
+### Community 244 - "Program.cs"
+Cohesion: 0.08
+Nodes (26): ContractManagement.API.Domains.DTOs.Requests.LegalProfiles, ContractManagement.API.Domains.DTOs.Responses.LegalProfiles, ContractManagement.API.Domains.Services.Admin, ContractManagement.API.Domains.DTOs.Responses.Dashboard, ContractManagement.API.Domains.Interfaces.LegalProfiles, ContractManagement.Tests.Domains.Dashboard, ContractManagement.API.Domains.Services.Dashboard, ContractManagement.API.Domains.Interfaces.Admin (+18 more)
 
 ### Community 245 - "Phase9SignedContractEvidence"
 Cohesion: 0.40
@@ -1536,7 +1552,7 @@ Cohesion: 0.18
 Nodes (11): ContractSignedEvidenceFileRequest, ContractRowVersion, CurrentVersionId, File, SignDate, VersionRowVersion, SupersedeContractSignedEvidenceRequest, EvidenceRowVersion (+3 more)
 
 ### Community 247 - "ProductService"
-Cohesion: 0.22
+Cohesion: 0.24
 Nodes (7): ProductService, Dictionary, IQueryable, List, PagedResult, ProductResponse, Task
 
 ### Community 248 - "CreateContractTermRequest"
@@ -1548,8 +1564,8 @@ Cohesion: 0.18
 Nodes (8): Flutter, SceneDelegate, RunnerTests, RunnerTests, FlutterSceneDelegate, UIKit, XCTest, XCTestCase
 
 ### Community 250 - "QuotationController.cs"
-Cohesion: 0.27
-Nodes (7): QuotationMappingProfile, ContractManagement.Domains.DTOs.Responses.Quotation, ContractManagement.Domains.Services.Quotation, ContractManagement.Domains.Mappings.Quotation, ContractManagement.Domains.DTOs.Requests.Quotation, ContractManagement.Domains.Interfaces.Quotation, Profile
+Cohesion: 0.18
+Nodes (8): QuotationMappingProfile, ContractManagement.Domains.DTOs.Responses.Quotation, ContractManagement.Domains.Controllers.Quotation, ContractManagement.Domains.Services.Quotation, ContractManagement.Domains.Mappings.Quotation, ContractManagement.Domains.DTOs.Requests.Quotation, ContractManagement.Domains.Interfaces.Quotation, Profile
 
 ### Community 251 - "DocumentType"
 Cohesion: 0.22
@@ -1564,8 +1580,8 @@ Cohesion: 0.07
 Nodes (97): ContractTemplateDetailPage(), CategoryFormModalProps, ContractPlaceholderForm(), placeholderTypeLabel(), AppendixForm, ContractTemplateAppendicesEditor(), emptyAppendixForm, emptyTermForm (+89 more)
 
 ### Community 254 - "TestSession"
-Cohesion: 0.11
-Nodes (17): ICentralSecurityAuditWriter, CentralSecurityAuditWriter, ILogger, SecurityAuditSlice05Tests, TestSession, Id, IsAvailable, Keys (+9 more)
+Cohesion: 0.10
+Nodes (17): SystemAdminLoginRequest, Password, Username, SecurityAuditSlice05Tests, TestSession, Id, IsAvailable, Keys (+9 more)
 
 ### Community 255 - ".RequireItemColumnWidths"
 Cohesion: 0.36
@@ -1583,9 +1599,9 @@ Nodes (9): name, private, scripts, build, dev, lint, start, typecheck (+1 more)
 Cohesion: 0.23
 Nodes (8): PrivateFileUploadPolicy, IReadOnlyCollection, IReadOnlyDictionary, IReadOnlyList, PrivateFileUploadPolicies, IReadOnlyCollection, IReadOnlyDictionary, IReadOnlyList
 
-### Community 259 - ".BuildVolumeSeries"
-Cohesion: 0.24
-Nodes (7): DashboardSummaryItemResponse, DashboardVolumePointResponse, Func, IEnumerable, IReadOnlyCollection, IReadOnlyList, ContractMetricRow
+### Community 259 - "FileResourceAuthorizationService"
+Cohesion: 0.41
+Nodes (5): FileResourceAuthorizationService, CancellationToken, Task, ObjectId, ObjectType
 
 ### Community 260 - "DashboardPhase02Tests"
 Cohesion: 0.24
@@ -1599,33 +1615,37 @@ Nodes (9): name, private, scripts, build, dev, lint, start, typecheck (+1 more)
 Cohesion: 0.11
 Nodes (16): ContractApprovalInboxQuery, CancellationToken, IQueryable, Task, TblContractApprovalRequest, ApprovalRequestId, ContractId, DecisionComment (+8 more)
 
-### Community 263 - "TblContractAcceptanceEvidence"
-Cohesion: 0.25
-Nodes (7): TblContractAcceptanceEvidence, AcceptanceEvidenceId, AcceptanceRecordId, FileId, RowVersion, UploadedAt, UploadedByEmployeeId
+### Community 263 - "ContractApprovalBulkDecisionResponse"
+Cohesion: 0.09
+Nodes (22): ContractApprovalAppendixSummaryResponse, AppendixCode, AppendixId, AppendixName, DisplayOrder, ContractApprovalArtifactResponse, ContentType, FileId (+14 more)
 
 ### Community 264 - "TblOrder"
 Cohesion: 0.15
 Nodes (12): TblOrder, ContractId, DateCreated, DateExpired, NoteFromAdmin, OrderComment, OrderId, OrderStatus (+4 more)
 
-### Community 265 - "TblQuotationDetail"
-Cohesion: 0.25
-Nodes (7): TblQuotationDetail, Amount, ProductId, Quantity, QuotationDetailId, QuotationId, UnitPrice
+### Community 265 - ".GetList"
+Cohesion: 0.11
+Nodes (17): CentralSecurityAuditsController, CancellationToken, HttpGet, IActionResult, ProducesResponseType, Task, SecurityAuditsController, CancellationToken (+9 more)
 
 ### Community 266 - "ContractApprovalInboxFilterRequest"
-Cohesion: 0.11
-Nodes (18): ContractApprovalBulkDecisionItemRequest, ApprovalRequestId, RowVersion, ContractApprovalBulkDecisionRequest, Comment, Decision, Items, ContractApprovalInboxFilterRequest (+10 more)
+Cohesion: 0.29
+Nodes (7): ContractApprovalInboxFilterRequest, FromDate, Keyword, Page, PageSize, ToDate, DateTime
 
 ### Community 267 - "ContractAcceptancePartyResponse"
-Cohesion: 0.06
-Nodes (30): AcceptanceKind, Final, Partial, AcceptancePartyRole, Customer, Tenant, AcceptanceReferenceType, Appendix (+22 more)
+Cohesion: 0.09
+Nodes (21): ContractAcceptancePartyResponse, AcceptancePartyId, Address, Fax, LegalName, PartyRole, Phone, RepresentativeName (+13 more)
 
-### Community 269 - "TblContractCustomerOtpChallenge"
-Cohesion: 0.12
-Nodes (15): TblContractCustomerOtpChallenge, CreatedDate, CustomerOtpChallengeId, ExpiresAt, FailedAttemptCount, InvalidatedAt, LinkId, LockedAt (+7 more)
+### Community 268 - "UpsertTenantLegalProfileRequest"
+Cohesion: 0.15
+Nodes (11): UpsertTenantLegalProfileRequest, Address, BankAccountNumber, BankName, FaxNumber, LegalEntityName, PhoneNumber, RepresentativeName (+3 more)
+
+### Community 269 - ".EnsureNotReused"
+Cohesion: 0.31
+Nodes (4): AccountPasswordPolicy, AccountSessionKeys, IPasswordHasher, PasswordVerificationResult
 
 ### Community 270 - "ContractAcceptanceSectionResponse"
-Cohesion: 0.05
-Nodes (36): ContractAcceptanceArtifactResponse, ContentType, FileId, FileName, FileSize, Format, Sha256, ContractAcceptanceMilestoneResponse (+28 more)
+Cohesion: 0.22
+Nodes (9): ContractAcceptanceSectionResponse, AcceptanceSectionId, ContentEn, ContentVi, DisplayOrder, RowVersion, SectionCode, TitleEn (+1 more)
 
 ### Community 271 - "ProductController"
 Cohesion: 0.29
@@ -1635,21 +1655,21 @@ Nodes (9): ProductController, HttpDelete, HttpGet, HttpPatch, HttpPost, HttpPut,
 Cohesion: 0.19
 Nodes (13): Carousel(), CarouselApi, CarouselContent(), CarouselContext, CarouselContextProps, CarouselItem(), CarouselNext(), CarouselOptions (+5 more)
 
-### Community 273 - "MultiTenancyOptions"
-Cohesion: 0.29
-Nodes (6): MultiTenancyOptions, AllowHeaderFallback, DatabasePrefix, HeaderName, TemplateConnectionName, TenantClaimType
+### Community 273 - "ContractCompletionController"
+Cohesion: 0.41
+Nodes (8): ContractCompletionController, CancellationToken, Consumes, HttpGet, HttpPost, IActionResult, SessionAuthorize, Task
 
-### Community 274 - "DashboardResponse"
-Cohesion: 0.15
-Nodes (17): DashboardCurrencyAmountResponse, DashboardResponse, AmountByCurrency, ExpiringContracts, FromUtc, GeneratedAt, RecentActivities, Scope (+9 more)
+### Community 274 - "TblContractVersionPaymentMilestoneSnapshot"
+Cohesion: 0.09
+Nodes (23): TblContractVersionPaymentMilestoneSnapshot, Amount, AnchorDate, ConditionEn, ConditionVi, ContractVersionLegalSnapshotId, ContractVersionPaymentMilestoneSnapshotId, DayCountMode (+15 more)
 
 ### Community 275 - "TblContractTemplateLegalBasis"
 Cohesion: 0.15
 Nodes (12): TblContractTemplateLegalBasis, BasisCode, ContentEn, ContentVi, CreatedDate, CreatedEmployeeId, DisplayOrder, RowVersion (+4 more)
 
 ### Community 276 - ".RealLibreOffice_ConvertsAcceptanceRecordWithGeneratedReferences"
-Cohesion: 0.08
-Nodes (23): ContractTemplatePdfRenderingException, FailureCode, LibreOfficeContractTemplatePdfRenderer, CancellationToken, IEnumerable, Task, TemplatePdfRenderingOptions, ExecutablePath (+15 more)
+Cohesion: 0.09
+Nodes (19): ContractTemplatePdfRenderingException, FailureCode, LibreOfficeContractTemplatePdfRenderer, CancellationToken, IEnumerable, Task, TemplatePdfRenderingOptions, ExecutablePath (+11 more)
 
 ### Community 277 - "InitialManagerRequest"
 Cohesion: 0.17
@@ -1659,17 +1679,21 @@ Nodes (11): CreateTenantRequest, InitialManager, TenantCode, TenantName, Initial
 Cohesion: 0.29
 Nodes (6): ApiResponse, Data, Errors, Message, Success, List
 
-### Community 279 - ".ExportCsv"
-Cohesion: 0.22
-Nodes (11): ContractAuditController, CancellationToken, HttpGet, IActionResult, Produces, ProducesResponseType, Task, ContractAuditExportFile (+3 more)
+### Community 279 - "TblTenantLegalProfile"
+Cohesion: 0.12
+Nodes (16): TblTenantLegalProfile, Address, BankAccountNumber, BankName, CreatedAt, CreatedByEmployeeId, FaxNumber, LegalEntityName (+8 more)
 
-### Community 280 - "IPrivateFileStorageHealthProbe"
-Cohesion: 0.40
-Nodes (4): IPrivateFileStorageHealthProbe, PrivateFileStorageHealthResult, CancellationToken, Task
+### Community 280 - "TblContractCustomerOtpChallenge"
+Cohesion: 0.12
+Nodes (15): TblContractCustomerOtpChallenge, CreatedDate, CustomerOtpChallengeId, ExpiresAt, FailedAttemptCount, InvalidatedAt, LinkId, LockedAt (+7 more)
 
-### Community 282 - "TestWebHostEnvironment"
-Cohesion: 0.22
-Nodes (9): TestWebHostEnvironment, ApplicationName, ContentRootFileProvider, ContentRootPath, EnvironmentName, WebRootFileProvider, WebRootPath, IFileProvider (+1 more)
+### Community 281 - "ContractAttachmentResponse"
+Cohesion: 0.17
+Nodes (11): ContractAttachmentResponse, AttachmentId, ContractFileName, ContractFilePath, ContractId, DocumentType, DocumentTypeName, UploadDate (+3 more)
+
+### Community 282 - "ContractAppendixController"
+Cohesion: 0.29
+Nodes (9): ContractAppendixController, HttpDelete, HttpPost, HttpPut, IActionResult, Task, AddContractAppendixRequest, TemplateAppendixId (+1 more)
 
 ### Community 283 - "employees/page.tsx"
 Cohesion: 0.05
@@ -1683,13 +1707,13 @@ Nodes (13): TblContractSignedEvidence, ContractId, FileId, RowVersion, SignedEvi
 Cohesion: 0.40
 Nodes (3): Phase6_Slice06CustomerAccessAndPublicComments, DateTime, MigrationBuilder
 
-### Community 286 - "TestSession"
-Cohesion: 0.15
-Nodes (8): TestSession, Id, IsAvailable, Keys, CancellationToken, Dictionary, IEnumerable, ISession
+### Community 286 - "ContractNegotiationCommentEventResponse"
+Cohesion: 0.12
+Nodes (15): ContractNegotiationCommentEventType, CarriedForward, Created, Reopened, Resolved, ContractNegotiationCommentState, Open, Resolved (+7 more)
 
-### Community 287 - "TblTenantLegalProfile"
-Cohesion: 0.11
-Nodes (17): TenantLegalProfileResponse, TblTenantLegalProfile, Address, BankAccountNumber, BankName, CreatedAt, CreatedByEmployeeId, FaxNumber (+9 more)
+### Community 287 - ".ProcessTenantAsync"
+Cohesion: 0.35
+Nodes (7): CustomerOtpDeliveryOutboxWorker, CancellationToken, ILogger, IReadOnlyList, Task, BackgroundService, IServiceScopeFactory
 
 ### Community 288 - "SignatureStatus"
 Cohesion: 0.33
@@ -1700,12 +1724,12 @@ Cohesion: 0.22
 Nodes (9): ContractManagement.Tests, net10.0, DocumentFormat.OpenXml (3.5.1), Microsoft.NET.Sdk, coverlet.collector (6.0.4), Microsoft.EntityFrameworkCore.InMemory (10.0.0), Microsoft.NET.Test.Sdk (18.8.1), xunit (2.9.3) (+1 more)
 
 ### Community 291 - ".OnModelCreating"
-Cohesion: 0.03
-Nodes (58): ModelBuilder, TblApprovalWorkflow, ApproverEmployeeId, ApproverRoleId, IsActive, ObjectType, StepNo, WorkflowId (+50 more)
-
-### Community 292 - "ContractTemplateTermResponse"
 Cohesion: 0.06
-Nodes (32): ContractTemplatePaymentMilestoneResponse, ConditionEn, ConditionVi, DayCountMode, DisplayOrder, DueAnchor, DueOffsetDays, MilestoneCode (+24 more)
+Nodes (30): ModelBuilder, TblDeliveryDetail, DeliveryDetailId, DeliveryId, Note, ProductId, Quantity, TblInvoice (+22 more)
+
+### Community 292 - "TblContractAppendixTerm"
+Cohesion: 0.12
+Nodes (15): TblContractAppendixTerm, AppendixId, AppendixTermId, CreatedDate, CreatedEmployeeId, DisplayOrder, RowVersion, SourceTemplateAppendixTermId (+7 more)
 
 ### Community 293 - "Migration"
 Cohesion: 0.14
@@ -1719,25 +1743,25 @@ Nodes (3): Phase6_ContractCoreFoundation, DateTime, MigrationBuilder
 Cohesion: 0.47
 Nodes (3): Phase6_ContractVersionFoundation, DateTime, MigrationBuilder
 
-### Community 296 - "TransferContractResponsibilityResponse"
-Cohesion: 0.22
-Nodes (8): TransferContractResponsibilityResponse, ContractId, PreviousResponsibleEmployeeId, ResponsibleEmployeeId, RowVersion, TransferredAt, TransferredByEmployeeId, DateTime
+### Community 296 - ".Create"
+Cohesion: 0.04
+Nodes (57): ReopenContractNegotiationCommentRequest, ResolveContractNegotiationCommentRequest, UpdateContractNegotiationCommentStateRequest, RowVersion, ContractAuditActionTypes, ContractAuditActorTypes, ContractAuditFailureCodes, ContractAuditFieldKinds (+49 more)
 
-### Community 297 - ".TryWriteAsync"
-Cohesion: 0.22
-Nodes (7): CentralSecurityAuditWriteRequest, CancellationToken, HttpContext, Task, CancellationToken, HttpContext, Task
+### Community 297 - "CustomerOtpOptions"
+Cohesion: 0.18
+Nodes (10): CustomerOtpOptions, EncryptionKey, HashKey, MaxDeliveryAttempts, Provider, ProviderApiKey, ProviderEndpoint, RetryDelaySeconds (+2 more)
 
 ### Community 298 - "RemoveSigningEvidenceLegacyMetadata"
 Cohesion: 0.40
 Nodes (3): RemoveSigningEvidenceLegacyMetadata, DateTime, MigrationBuilder
 
-### Community 299 - "Phase7_Slice02CentralSecurityAudit"
-Cohesion: 0.40
-Nodes (3): Phase7_Slice02CentralSecurityAudit, DateTime, MigrationBuilder
+### Community 299 - "ContractPlaceholderSourceProviderBase"
+Cohesion: 0.22
+Nodes (12): ContractPlaceholderSourceBinding, IContractPlaceholderSourceProvider, Func, ContractOwnerPlaceholderSourceProvider, ContractPlaceholderSourceProvider, ContractPlaceholderSourceProviderBase, ContractVersionPlaceholderSourceProvider, CustomerPlaceholderSourceProvider (+4 more)
 
-### Community 300 - "Phase7_Slice02EmployeeGovernanceAndAudit"
-Cohesion: 0.40
-Nodes (3): Phase7_Slice02EmployeeGovernanceAndAudit, DateTime, MigrationBuilder
+### Community 300 - "ContractManagement.Infrastructure.Migrations.Application"
+Cohesion: 0.14
+Nodes (8): Phase6_ContractTermVersioning, DateTime, MigrationBuilder, Phase7_Slice05AuthorizationAuditAppendOnly, MigrationBuilder, EnforceAcceptanceRecordLifecycle, MigrationBuilder, ContractManagement.Infrastructure.Migrations.Application
 
 ### Community 302 - "SystemHealthResponse"
 Cohesion: 0.06
@@ -1748,16 +1772,16 @@ Cohesion: 0.20
 Nodes (9): ProductFilterRequest, CategoryId, FromDate, Keyword, Page, PageSize, Status, ToDate (+1 more)
 
 ### Community 304 - "ContractPlaceholderCatalog"
-Cohesion: 0.18
-Nodes (10): IContractPlaceholderCatalog, CancellationToken, Task, ContractPlaceholderCatalog, CustomEnabled, SystemDefinitions, CancellationToken, IOptions (+2 more)
+Cohesion: 0.14
+Nodes (13): IContractPlaceholderCatalog, CancellationToken, Task, CustomContractPlaceholderOptions, Enabled, TenantCodes, ContractPlaceholderCatalog, CustomEnabled (+5 more)
 
 ### Community 305 - "AddEmployeeAccountSecurity"
 Cohesion: 0.40
 Nodes (3): AddEmployeeAccountSecurity, DateTime, MigrationBuilder
 
-### Community 306 - ".AddContractManagementInfrastructure"
-Cohesion: 0.09
-Nodes (19): CentralSeedData, CancellationToken, ILogger, IPasswordHasher, Task, ICentralSeedData, CancellationToken, Task (+11 more)
+### Community 306 - "CustomerOtpSmtpOptions"
+Cohesion: 0.20
+Nodes (8): CustomerOtpSmtpOptions, AppPassword, FromAddress, FromName, Host, Port, TimeoutSeconds, Username
 
 ### Community 307 - "CanonicalTemplateTableLayoutV4"
 Cohesion: 0.40
@@ -1765,7 +1789,7 @@ Nodes (3): CanonicalTemplateTableLayoutV4, DateTime, MigrationBuilder
 
 ### Community 308 - "ContractManagement.Infrastructure.Migrations.Central"
 Cohesion: 0.07
-Nodes (18): AddSystemAdmins, DateTime, MigrationBuilder, Phase7_Slice05CentralSecurityAuditAppendOnly, MigrationBuilder, AddSystemAdminAccountSecurity, DateTime, MigrationBuilder (+10 more)
+Nodes (18): InitialCentral, DateTime, MigrationBuilder, Phase7_Slice02CentralSecurityAudit, DateTime, MigrationBuilder, Phase7_Slice05CentralSecurityAuditAppendOnly, MigrationBuilder (+10 more)
 
 ### Community 309 - "TblDeliveryOrder"
 Cohesion: 0.20
@@ -1787,21 +1811,21 @@ Nodes (6): metadata, SidebarContext, SidebarContextType, SidebarProvider(), Them
 Cohesion: 0.18
 Nodes (6): DrawerContent(), DrawerDescription(), DrawerFooter(), DrawerHeader(), DrawerOverlay(), DrawerTitle()
 
-### Community 316 - "ContractManagement.Infrastructure.Migrations.Application"
-Cohesion: 0.13
-Nodes (9): Phase6_Slice10TemplatePreview, DateTime, MigrationBuilder, Phase8A_LegalProfileAndCustomerLegalRepresentative, DateTime, MigrationBuilder, EnforceActivePaymentPerMilestone, MigrationBuilder (+1 more)
+### Community 316 - "Phase6_Slice10TemplatePreview"
+Cohesion: 0.40
+Nodes (3): Phase6_Slice10TemplatePreview, DateTime, MigrationBuilder
 
 ### Community 317 - "CentralDbContextFactory"
 Cohesion: 0.21
 Nodes (6): CentralDbContextFactory, DbDtctechContextFactory, DesignTimeConfiguration, ContractManagement.Infrastructure.DesignTime, IConfigurationRoot, IDesignTimeDbContextFactory
 
-### Community 319 - "ContractType"
-Cohesion: 0.40
-Nodes (4): ContractType, SoftwareMaintenance, SoftwareSupply, SoftwareUpkeep
+### Community 319 - "EmployeeDirectoryResponse"
+Cohesion: 0.18
+Nodes (10): EmployeeDirectoryResponse, DepartmentId, DepartmentName, EmployeeCode, EmployeeFullName, EmployeeId, EmployeeMobile, EmployeeType (+2 more)
 
 ### Community 320 - "ContractAuditWriter"
-Cohesion: 0.33
-Nodes (4): ContractAuditWriter, HashSet, IHttpContextAccessor, IReadOnlyDictionary
+Cohesion: 0.17
+Nodes (5): ContractAuditWriter, HashSet, IHttpContextAccessor, IReadOnlyCollection, IReadOnlyDictionary
 
 ### Community 322 - "SystemAdmin/components/ui/chart.tsx"
 Cohesion: 0.25
@@ -1811,13 +1835,17 @@ Nodes (9): ChartConfig, ChartContainer(), ChartContext, ChartContextProps, Chart
 Cohesion: 0.17
 Nodes (5): FakePdfRenderer, TestAuthorization, CancellationToken, Stream, IOException
 
+### Community 324 - "SecurityAuditFilterRequest"
+Cohesion: 0.15
+Nodes (14): CentralSecurityAuditFilterRequest, ActorSystemAdminId, TenantCode, TenantId, SecurityAuditFilterRequest, Action, FromUtc, Page (+6 more)
+
 ### Community 325 - "TblContractCustomerVerificationPhone"
 Cohesion: 0.20
 Nodes (9): TblContractCustomerVerificationPhone, ContractId, CreatedByEmployeeId, CreatedDate, PhoneNumberNormalized, PhoneSource, Reason, RowVersion (+1 more)
 
-### Community 326 - "TblContractAcceptanceMilestone"
-Cohesion: 0.40
-Nodes (4): TblContractAcceptanceMilestone, AcceptanceMilestoneId, AcceptanceRecordId, PaymentMilestoneId
+### Community 326 - "ContractTermDetailResponse"
+Cohesion: 0.14
+Nodes (13): ContractTermDetailResponse, DisplayOrder, IsNegotiable, RowVersion, SourceTemplateTermId, TermCode, TermContent, TermContentEn (+5 more)
 
 ### Community 327 - "AddContractTemplateTables"
 Cohesion: 0.40
@@ -1827,17 +1855,17 @@ Nodes (3): AddContractTemplateTables, DateTime, MigrationBuilder
 Cohesion: 0.32
 Nodes (11): HWND, LPARAM, LRESULT, UINT, WPARAM, EnableFullDpiSupportIfAvailable(), GetHandle, GetThisFromHandle (+3 more)
 
-### Community 329 - "CustomerController.cs"
-Cohesion: 0.36
-Nodes (5): ContractManagement.API.Domains.DTOs.Responses.Customer, ContractManagement.Tests.Domains.Services.Customer, ContractManagement.API.Domains.DTOs.Requests.Customer, ContractManagement.API.Domains.Interfaces.Customer, ContractManagement.API.Domains.Services.Customer
+### Community 330 - "Frontend/app/layout.tsx"
+Cohesion: 0.24
+Nodes (6): metadata, SidebarContext, SidebarContextType, SidebarProvider(), ThemeProvider(), Toaster()
 
-### Community 334 - "SystemAdminLoginRequest"
-Cohesion: 0.50
-Nodes (3): SystemAdminLoginRequest, Password, Username
+### Community 334 - "ContractVersionHistoryResponse"
+Cohesion: 0.15
+Nodes (12): ContractVersionHistoryResponse, ChangeNote, CreatedDate, CreatedEmployeeId, IsLocked, LockedByEmployeeId, LockedDate, RowVersion (+4 more)
 
-### Community 335 - "EmployeeDirectoryResponse"
-Cohesion: 0.05
-Nodes (45): EmployeeController, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, Task, EmployeeDirectoryController (+37 more)
+### Community 335 - "EmployeeFilterRequest"
+Cohesion: 0.07
+Nodes (31): EmployeeController, HttpGet, HttpPatch, HttpPost, HttpPut, IActionResult, Task, EmployeeDirectoryController (+23 more)
 
 ### Community 337 - "StructuredContractPaymentMilestones"
 Cohesion: 0.40
@@ -1847,93 +1875,113 @@ Nodes (3): StructuredContractPaymentMilestones, DateTime, MigrationBuilder
 Cohesion: 0.40
 Nodes (3): RemoveLegacyPaymentSchedule, DateTime, MigrationBuilder
 
-### Community 340 - "TenantAuthorizationAuditWriter"
-Cohesion: 0.18
-Nodes (9): ITenantAuthorizationAuditWriter, CancellationToken, HttpContext, Task, TenantAuthorizationAuditWriter, CancellationToken, HttpContext, ILogger (+1 more)
+### Community 339 - "CreateEmployeeRequest"
+Cohesion: 0.20
+Nodes (9): CreateEmployeeRequest, DepartmentId, EmployeeAccount, EmployeeCode, EmployeeEmail, EmployeeFullName, EmployeeMobile, EmployeePassword (+1 more)
 
-### Community 341 - ".OnAuthorizationAsync"
-Cohesion: 0.25
-Nodes (6): AuthenticatedEmployee, DateTime, IReadOnlyList, AuthorizationFilterContext, HttpContext, Task
+### Community 340 - "ContractTemplateAuditWriter"
+Cohesion: 0.36
+Nodes (4): ContractTemplateAuditWriter, HashSet, IHttpContextAccessor, IReadOnlyCollection
 
-### Community 343 - "ContractVersionHistoryResponse"
-Cohesion: 0.15
-Nodes (12): ContractVersionHistoryResponse, ChangeNote, CreatedDate, CreatedEmployeeId, IsLocked, LockedByEmployeeId, LockedDate, RowVersion (+4 more)
+### Community 341 - "ContractType"
+Cohesion: 0.40
+Nodes (4): ContractType, SoftwareMaintenance, SoftwareSupply, SoftwareUpkeep
 
-### Community 344 - "PrivateFileStorageOptions"
-Cohesion: 0.50
-Nodes (3): PrivateFileStorageOptions, MinimumFreeSpaceBytes, RootPath
+### Community 343 - "TblCategory"
+Cohesion: 0.22
+Nodes (8): TblCategory, CategoryId, CategoryName, CategoryOrder, CategoryParentId, CategoryShortDesc, Image, LangId
+
+### Community 344 - "TestWebHostEnvironment"
+Cohesion: 0.22
+Nodes (9): TestWebHostEnvironment, ApplicationName, ContentRootFileProvider, ContentRootPath, EnvironmentName, WebRootFileProvider, WebRootPath, IFileProvider (+1 more)
 
 ### Community 345 - "UpdateCategoryRequest"
 Cohesion: 0.25
 Nodes (7): UpdateCategoryRequest, CategoryName, CategoryOrder, CategoryParentId, CategoryShortDesc, Image, LangId
 
-### Community 346 - "Phase6_ContractTermVersioning"
-Cohesion: 0.40
-Nodes (3): Phase6_ContractTermVersioning, DateTime, MigrationBuilder
+### Community 346 - ".SeedLockedVersionAsync"
+Cohesion: 0.47
+Nodes (4): ContractVersionImmutabilityTests, Fact, InvalidOperationException, Task
 
 ### Community 348 - "ContractManagement.API.Common.Enums"
 Cohesion: 0.05
-Nodes (18): SignatureMethod, OtpElectronic, WetInkScan, SignerParty, Customer, Provider, AuthorizationErrorCodes, EmployeeAuthorizationContext (+10 more)
+Nodes (17): SignatureMethod, OtpElectronic, WetInkScan, SignerParty, Customer, Provider, AuthorizationErrorCodes, EmployeeAuthorizationContext (+9 more)
 
 ### Community 350 - "Phase10AcceptancePaymentCompletion"
 Cohesion: 0.40
 Nodes (3): Phase10AcceptancePaymentCompletion, DateTime, MigrationBuilder
 
-### Community 352 - ".SeedLockedVersionAsync"
-Cohesion: 0.47
-Nodes (4): ContractVersionImmutabilityTests, Fact, InvalidOperationException, Task
+### Community 351 - "app_theme.dart"
+Cohesion: 0.25
+Nodes (7): app_colors.dart, AppTheme, radiusLarge, radiusMedium, radiusSmall, radiusXLarge, static const double
+
+### Community 352 - "ContractAcceptancePartyInput"
+Cohesion: 0.25
+Nodes (8): ContractAcceptancePartyInput, Address, Fax, LegalName, Phone, RepresentativeName, RepresentativeTitle, TaxCode
 
 ### Community 356 - "SystemAdmin/components/ui/input-group.tsx"
 Cohesion: 0.24
 Nodes (9): InputGroup(), InputGroupAddon(), inputGroupAddonVariants, InputGroupButton(), inputGroupButtonVariants, InputGroupInput(), InputGroupText(), InputGroupTextarea() (+1 more)
 
 ### Community 357 - "ContractTemplatePolicyTests"
-Cohesion: 0.08
-Nodes (19): TemplateOutputKind, Contract, SupportingDocument, TemplateValidationStatus, Invalid, NotValidated, Valid, TemplateVersionStatus (+11 more)
+Cohesion: 0.06
+Nodes (30): TemplateOutputKind, Contract, SupportingDocument, TemplateValidationStatus, Invalid, NotValidated, Valid, TemplateVersionStatus (+22 more)
 
-### Community 361 - "InitialCentral"
-Cohesion: 0.40
-Nodes (3): InitialCentral, DateTime, MigrationBuilder
+### Community 361 - "TblNotification"
+Cohesion: 0.20
+Nodes (9): TblNotification, CreatedDate, IsRead, NotificationId, NotificationMessage, NotificationTitle, ObjectId, ObjectType (+1 more)
 
 ### Community 362 - "Phase6_Slice05NegotiationCommentsAndLifecycle"
 Cohesion: 0.40
 Nodes (3): Phase6_Slice05NegotiationCommentsAndLifecycle, DateTime, MigrationBuilder
 
-### Community 363 - "TenantLegalProfileService.cs"
-Cohesion: 0.36
-Nodes (5): ContractManagement.API.Domains.DTOs.Requests.LegalProfiles, ContractManagement.API.Domains.DTOs.Responses.LegalProfiles, ContractManagement.API.Domains.Interfaces.LegalProfiles, ContractManagement.Tests.Domains.Services.Tenant, ContractManagement.API.Domains.Services.LegalProfiles
-
-### Community 364 - "Frontend/app/layout.tsx"
-Cohesion: 0.24
-Nodes (6): metadata, SidebarContext, SidebarContextType, SidebarProvider(), ThemeProvider(), Toaster()
+### Community 364 - "TblApprovalWorkflow"
+Cohesion: 0.22
+Nodes (8): TblApprovalWorkflow, ApproverEmployeeId, ApproverRoleId, IsActive, ObjectType, StepNo, WorkflowId, WorkflowName
 
 ### Community 366 - "ContractTemplateRequests.cs"
 Cohesion: 0.02
-Nodes (97): CreateContractTemplateAppendixTermRequest, AppendixRowVersion, DisplayOrder, TermCode, TermContent, TermContentEn, TermTitle, TermTitleEn (+89 more)
+Nodes (107): Anchor, CreateContractTemplateAppendixTermRequest, AppendixRowVersion, DisplayOrder, TermCode, TermContent, TermContentEn, TermTitle (+99 more)
 
-### Community 367 - "TenantStatus"
-Cohesion: 0.29
-Nodes (6): TenantStatus, Active, Failed, Pending, Provisioning, Suspended
+### Community 367 - "IFileResourceAuthorizationService"
+Cohesion: 0.46
+Nodes (3): IFileResourceAuthorizationService, CancellationToken, Task
 
-### Community 368 - "Size"
-Cohesion: 0.50
-Nodes (3): Size, height, width
+### Community 368 - "TblQuotation"
+Cohesion: 0.22
+Nodes (8): TblQuotation, CreatedEmployeeId, CustomerId, QuatationStatus, QuotationDate, QuotationId, QuotationNo, TotalAmount
 
-### Community 385 - "ContractAcceptancePartyInput"
+### Community 385 - "ContractApprovalBulkDecisionRequest"
 Cohesion: 0.25
-Nodes (8): ContractAcceptancePartyInput, Address, Fax, LegalName, Phone, RepresentativeName, RepresentativeTitle, TaxCode
+Nodes (8): ContractApprovalBulkDecisionItemRequest, ApprovalRequestId, RowVersion, ContractApprovalBulkDecisionRequest, Comment, Decision, Items, List
 
 ### Community 394 - "ContractTemplateRenderData"
-Cohesion: 0.07
-Nodes (41): IContractTemplatePreviewRenderer, IReadOnlyDictionary, IReadOnlyList, ContractTemplateAuthoringPreviewData, Appendices, ItemTableColumnWidthsBps, LegalBases, Terms (+33 more)
+Cohesion: 0.09
+Nodes (34): ContractTemplateAuthoringPreviewData, Appendices, ItemTableColumnWidthsBps, LegalBases, Terms, ContractTemplateRenderAppendix, ContractTemplateRenderAppendixTerm, ContractTemplateRenderData (+26 more)
 
-### Community 395 - "SubmitContractForApprovalRequest"
+### Community 395 - "ContractFilterRequest"
+Cohesion: 0.25
+Nodes (8): ContractFilterRequest, ContractType, CustomerId, Keyword, Page, PageSize, Status, ContractType
+
+### Community 396 - "ReopenContractPaymentMilestoneRequest"
+Cohesion: 0.29
+Nodes (7): ReopenContractPaymentMilestoneRequest, ContractRowVersion, CurrentVersionId, MilestoneRowVersion, PaymentRowVersion, Reason, VersionRowVersion
+
+### Community 397 - ".Upsert_RejectsStaleRowVersion"
+Cohesion: 0.50
+Nodes (4): TenantLegalProfileServiceTests, DbUpdateConcurrencyException, Fact, Task
+
+### Community 398 - "ContractAcceptanceArtifactResponse"
+Cohesion: 0.29
+Nodes (7): ContractAcceptanceArtifactResponse, ContentType, FileId, FileName, FileSize, Format, Sha256
+
+### Community 400 - "ContractAcceptanceMilestoneResponse"
 Cohesion: 0.33
-Nodes (5): SubmitContractForApprovalRequest, CurrentVersionId, CurrentVersionRowVersion, RowVersion, WorkflowId
+Nodes (6): ContractAcceptanceMilestoneResponse, AcceptanceMilestoneId, MilestoneCode, PaymentMilestoneId, TitleEn, TitleVi
 
-### Community 400 - "IContractAuditWriter.cs"
-Cohesion: 0.13
-Nodes (12): ContractAuditActionTypes, ContractAuditActorTypes, ContractAuditFailureCodes, ContractAuditFieldKinds, ContractAuditResults, ContractAuditSubjectTypes, ContractAuditValues, AuditScalarValueKind (+4 more)
+### Community 401 - "UploadFileRequest"
+Cohesion: 0.29
+Nodes (6): UploadFileRequest, File, ObjectId, ObjectType, IFormFile, ContractManagement.Domains.DTOs.Requests.File
 
 ### Community 402 - ".GetDetailedAsync"
 Cohesion: 0.15
@@ -1955,16 +2003,16 @@ Nodes (5): ContractAcceptanceProgress, ContractAcceptanceProgressReader, Cancell
 Cohesion: 0.40
 Nodes (3): AddContractPaymentMilestoneStatus, DateTime, MigrationBuilder
 
-### Community 410 - "app_theme.dart"
-Cohesion: 0.25
-Nodes (7): app_colors.dart, AppTheme, radiusLarge, radiusMedium, radiusSmall, radiusXLarge, static const double
+### Community 410 - "TenantStatus"
+Cohesion: 0.29
+Nodes (6): TenantStatus, Active, Failed, Pending, Provisioning, Suspended
 
 ### Community 411 - "ContractNegotiationCommentEventType"
 Cohesion: 0.40
 Nodes (5): ContractNegotiationCommentEventType, CarriedForward, Created, Reopened, Resolved
 
 ### Community 412 - "CreateCategoryRequest"
-Cohesion: 0.25
+Cohesion: 0.22
 Nodes (7): CreateCategoryRequest, CategoryName, CategoryOrder, CategoryParentId, CategoryShortDesc, Image, LangId
 
 ### Community 413 - "CapturingAuditWriter"
@@ -1975,57 +2023,93 @@ Nodes (4): CapturingAuditWriter, EmployeeRequests, IReadOnlyCollection, List
 Cohesion: 0.07
 Nodes (25): Kiến trúc mục tiêu, Kế hoạch triển khai không Docker, chuẩn bị trước khi có VPS/domain, Kết luận và những điểm cần sửa so với hướng dẫn ban đầu, Nguồn kỹ thuật dùng để xác minh, Phase 0 — Rà soát repo và sửa điều kiện tiên quyết — **Đã hoàn thành**, Phase 1 — Build và kiểm thử trên local — **Chưa thực hiện**, Phase 2 — Test reverse proxy không cần domain/VPS — **Chưa thực hiện**, Phase 3 — Chuẩn bị artifact/config Ubuntu — **Chưa thực hiện** (+17 more)
 
-### Community 415 - "ContractPlaceholderResolveContext"
-Cohesion: 0.08
-Nodes (24): IContractPlaceholderSourceRegistry, IReadOnlyList, IContractPlaceholderValueService, ContractPlaceholderResolveContext, ContractPlaceholderSourceField, CustomContractPlaceholderOptions, Enabled, TenantCodes (+16 more)
+### Community 415 - "PlaceholderOperationException"
+Cohesion: 0.09
+Nodes (23): IContractPlaceholderSourceRegistry, IReadOnlyList, ContractPlaceholderResolveContext, ContractPlaceholderSourceField, PlaceholderOperationException, Code, PlaceholderUsage, PlaceholderValueType (+15 more)
 
 ### Community 417 - "CustomerSharedContractResponse"
 Cohesion: 0.05
-Nodes (42): CustomerAccessLinkAvailabilityResponse, IsAvailable, State, CustomerPublicContractItemResponse, DisplayOrder, ItemDescription, ItemName, ItemNameEn (+34 more)
+Nodes (42): CustomerOtpRequestAcceptedResponse, DeliveryChannel, PublicChallengeId, CustomerPublicContractItemResponse, DisplayOrder, ItemDescription, ItemName, ItemNameEn (+34 more)
 
-### Community 438 - "VolumePeriod"
-Cohesion: 0.50
-Nodes (4): VolumePeriod, Day, Month, Week
+### Community 420 - "IPrivateFileStorageHealthProbe"
+Cohesion: 0.40
+Nodes (4): IPrivateFileStorageHealthProbe, PrivateFileStorageHealthResult, CancellationToken, Task
+
+### Community 433 - "Phase8A_LegalProfileAndCustomerLegalRepresentative"
+Cohesion: 0.40
+Nodes (3): Phase8A_LegalProfileAndCustomerLegalRepresentative, DateTime, MigrationBuilder
+
+### Community 438 - "Phase7_Slice02EmployeeGovernanceAndAudit"
+Cohesion: 0.40
+Nodes (3): Phase7_Slice02EmployeeGovernanceAndAudit, DateTime, MigrationBuilder
 
 ### Community 442 - "AddContractPaymentRequest"
 Cohesion: 0.10
 Nodes (21): AddContractPaymentRequest, Amount, ContractRowVersion, CurrencyCode, CurrentVersionId, EvidenceFile, PaymentDate, PaymentMethod (+13 more)
 
+### Community 449 - "CustomerController.cs"
+Cohesion: 0.36
+Nodes (5): ContractManagement.API.Domains.DTOs.Responses.Customer, ContractManagement.Tests.Domains.Services.Customer, ContractManagement.API.Domains.DTOs.Requests.Customer, ContractManagement.API.Domains.Interfaces.Customer, ContractManagement.API.Domains.Services.Customer
+
+### Community 451 - "CreateContractAppendixRequest"
+Cohesion: 0.33
+Nodes (6): CreateContractAppendixRequest, AppendixCode, AppendixDescription, AppendixName, AppendixNameEn, VersionRowVersion
+
 ### Community 458 - "ContractCompletionService"
 Cohesion: 0.16
 Nodes (14): ContractCompletionService, CancellationToken, CompletePaymentMilestoneResponse, ContractCompletionDetailResponse, ContractCompletionReadinessResponse, ContractPaymentMilestoneResponse, DateTimeOffset, Func (+6 more)
+
+### Community 459 - "SubmitContractForApprovalRequest"
+Cohesion: 0.33
+Nodes (5): SubmitContractForApprovalRequest, CurrentVersionId, CurrentVersionRowVersion, RowVersion, WorkflowId
+
+### Community 460 - "AddSystemAdmins"
+Cohesion: 0.40
+Nodes (3): AddSystemAdmins, DateTime, MigrationBuilder
 
 ### Community 462 - "NormalizeOtpAndContractSnapshotStoragePhase45"
 Cohesion: 0.40
 Nodes (3): NormalizeOtpAndContractSnapshotStoragePhase45, DateTime, MigrationBuilder
 
+### Community 463 - "PrivateFileStorageOptions"
+Cohesion: 0.50
+Nodes (3): PrivateFileStorageOptions, MinimumFreeSpaceBytes, RootPath
+
+### Community 464 - "AddSystemAdminProfileImages"
+Cohesion: 0.40
+Nodes (3): AddSystemAdminProfileImages, DateTime, MigrationBuilder
+
+### Community 465 - "VolumePeriod"
+Cohesion: 0.50
+Nodes (4): VolumePeriod, Day, Month, Week
+
 ### Community 473 - "UploadContractAcceptanceSignedEvidenceRequest"
 Cohesion: 0.50
 Nodes (4): UploadContractAcceptanceSignedEvidenceRequest, File, RowVersion, IFormFile
 
-### Community 474 - "ReopenContractPaymentMilestoneRequest"
-Cohesion: 0.29
-Nodes (7): ReopenContractPaymentMilestoneRequest, ContractRowVersion, CurrentVersionId, MilestoneRowVersion, PaymentRowVersion, Reason, VersionRowVersion
+### Community 474 - ".Validate"
+Cohesion: 0.50
+Nodes (3): IEnumerable, ValidationContext, ValidationResult
 
 ### Community 482 - "AddContractItemSnapshotTable"
 Cohesion: 0.40
 Nodes (3): AddContractItemSnapshotTable, DateTime, MigrationBuilder
 
 ### Community 508 - "IContractResourceAuthorizationService"
-Cohesion: 0.23
-Nodes (4): ContractAcceptanceDocumentContent, IContractResourceAuthorizationService, CancellationToken, Task
+Cohesion: 0.09
+Nodes (18): ContractAcceptanceTemplateOptionResponse, LanguageMode, TemplateCode, TemplateId, TemplateName, TemplateVersionId, VersionNo, IContractResourceAuthorizationService (+10 more)
 
 ### Community 509 - "ContractAcceptanceRecordResponse"
 Cohesion: 0.07
-Nodes (35): ContractAcceptanceRecordResponse, Artifacts, CancellationReason, CancelledAt, ContractId, FinalizedAt, FinalizedByEmployeeId, FinalizedByEmployeeName (+27 more)
+Nodes (36): ContractAcceptanceDocumentContent, ContractAcceptanceRecordResponse, Artifacts, CancellationReason, CancelledAt, ContractId, FinalizedAt, FinalizedByEmployeeId (+28 more)
 
-### Community 549 - "TblContractAcceptanceSection"
-Cohesion: 0.18
-Nodes (10): TblContractAcceptanceSection, AcceptanceRecordId, AcceptanceSectionId, ContentEn, ContentVi, DisplayOrder, RowVersion, SectionCode (+2 more)
+### Community 549 - ".ConfigureAcceptance"
+Cohesion: 0.08
+Nodes (23): AppendixAcceptanceModelConfiguration, ModelBuilder, TblContractAcceptanceEvidence, AcceptanceEvidenceId, AcceptanceRecordId, FileId, RowVersion, UploadedAt (+15 more)
 
 ### Community 552 - "TenantDatabase"
-Cohesion: 0.14
-Nodes (13): TenantDatabaseMode, Dedicated, Shared, TenantDatabase, ConnectionString, CreatedAt, DatabaseKey, DatabaseName (+5 more)
+Cohesion: 0.20
+Nodes (10): TenantDatabase, ConnectionString, CreatedAt, DatabaseKey, DatabaseName, Mode, TenantDatabaseId, Tenants (+2 more)
 
 ### Community 559 - "CustomContractPlaceholders"
 Cohesion: 0.40
@@ -2052,24 +2136,24 @@ Cohesion: 0.40
 Nodes (3): Phase6_Slice09TemplateDocxValidationAndAudit, DateTime, MigrationBuilder
 
 ## Knowledge Gaps
-- **4529 isolated node(s):** `Draft`, `Finalized`, `Signed`, `Cancelled`, `Partial` (+4524 more)
+- **4544 isolated node(s):** `Draft`, `Finalized`, `Signed`, `Cancelled`, `Partial` (+4539 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **131 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **130 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DbDtctechContext` connect `DbDtctechContext` to `BusinessRuleException`, `ContractService`, `ContractServiceResponsibilityTransferTests`, `ServiceTypeResponse`, `ContractTemplateService`, `QuotationResponseDto`, `ContractTemplatePreviewTests`, `DepartmentResponse`, `ContractManagement.Infrastructure.Persistence.Application.Models`, `.SeedPendingApprovalAsync`, `TblContractAcceptanceSection`, `SessionAuthorizeAttribute`, `ContractAcceptanceService`, `TestFileStorage`, `CategoryResponse`, `TblService`, `ContractAuditQueryService`, `ContractApprovalService`, `TblCustomer`, `CustomContractPlaceholderTests`, `TblProduct`, `CustomerService`, `ContractTemplateServiceTests`, `.SeedAsync`, `TblContractItem`, `TblContractAudit`, `FileStorageResponse`, `TblContractPlaceholderDefinition`, `ResolvedTenant`, `ContractDocumentPreviewService`, `TblEmployee`, `.SeedAsync`, `TblContractTemplate`, `.SeedReadyContractAsync`, `RbacOperationException`, `ContractResourceAuthorizationService`, `.DraftAppendix_AddTermAndSwapOrder_SucceedsOnSqlServer`, `AuthController`, `TblContractTemplateVersion`, `ContractServiceResponsibilityTests`, `ContractNegotiationCommentResponse`, `.ChangeManagerRoleAsync`, `EmployeeAccountService`, `CustomerInteractionResponse`, `TblOrderDetail`, `DateTime`, `SystemAdmin`, `.InitializeAsync`, `ServiceService`, `CentralDbContext`, `TblAuthorizationAudit`, `TblContractVersionLegalSnapshot`, `.SeedAsync`, `TblContractAcceptanceReference`, `TblContractPaymentLedger`, `TblContract`, `PagedResult`, `TblContractPaymentMilestone`, `TenantProvisioningService`, `TblContractTemplatePaymentMilestone`, `.SeedContractAsync`, `TblContractNegotiationComment`, `TblContractAuditValue`, `TblContractAcceptanceRecord`, `.UpsertAsync`, `TblContractTerm`, `ContractServiceSlice04Tests`, `TblFileStorage`, `UpdateEmployeeSelfProfileRequest`, `TblContractTemplateField`, `TblContractTemplateTerm`, `TblApprovalHistory`, `TblContractLegalBasis`, `.GetAsync`, `IFileStorageService`, `CreateEmployeeRequest`, `CustomerOtpOptions`, `.SaveAsync`, `TblContractAppendixTerm`, `TblContractTemplateAppendix`, `TestSession`, `ProductService`, `TblContractAttachment`, `TestSession`, `DashboardPhase02Tests`, `TblContractApprovalRequest`, `TblContractAcceptanceEvidence`, `TblOrder`, `TblQuotationDetail`, `ContractAcceptancePartyResponse`, `TblContractCustomerOtpChallenge`, `TblContractTemplateLegalBasis`, `TblContractSignedEvidence`, `TblTenantLegalProfile`, `.OnModelCreating`, `ContractPlaceholderCatalog`, `.AddContractManagementInfrastructure`, `TblDeliveryOrder`, `CentralDbContextFactory`, `ContractAuditWriter`, `TblContractCustomerVerificationPhone`, `TblContractAcceptanceMilestone`, `TenantAuthorizationAuditWriter`, `.OnAuthorizationAsync`, `.SeedLockedVersionAsync`, `.ReadAsync`, `ContractPlaceholderResolveContext`, `ContractCompletionService`?**
+- **Why does `DbDtctechContext` connect `DbDtctechContext` to `TblContractTemplate`, `BusinessRuleException`, `TblContractAppendix`, `ContractServiceResponsibilityTransferTests`, `ServiceTypeResponse`, `ContractTemplateService`, `QuotationResponseDto`, `ContractTemplatePreviewTests`, `ContractService`, `ControllerBase`, `ContractManagement.Infrastructure.Persistence.Application.Models`, `.SeedPendingApprovalAsync`, `TblContractVersionLegalSnapshot`, `.ConfigureAcceptance`, `SessionAuthorizeAttribute`, `ContractAcceptanceService`, `TestFileStorage`, `CategoryResponse`, `TblService`, `ContractAuditQueryService`, `ContractApprovalService`, `TblCustomer`, `CustomContractPlaceholderTests`, `TblProduct`, `CustomerService`, `ContractTemplateServiceTests`, `.SeedAsync`, `TblContractItem`, `TblContractAudit`, `.SeedAsync`, `TblContractPlaceholderDefinition`, `ResolvedTenant`, `ContractDocumentPreviewService`, `Task`, `TblEmployee`, `.SeedAsync`, `TblContractTemplateField`, `TblContractVersion`, `.SeedReadyContractAsync`, `EmployeeService`, `RbacOperationException`, `SystemAdminManagerGovernanceServiceTests`, `AuthController`, `TblContractTemplateVersion`, `ContractServiceResponsibilityTests`, `.ChangeManagerRoleAsync`, `EmployeeAccountService`, `CustomerInteractionResponse`, `TblOrderDetail`, `DateTime`, `.InitializeAsync`, `TblContractTemplateItemTableColumnLayout`, `.HandleExceptionAsync`, `ServiceService`, `CentralDbContext`, `TblAuthorizationAudit`, `.SeedAsync`, `TblContractPaymentLedger`, `TblContract`, `PagedResult`, `TblContractPaymentMilestone`, `TblContractTemplatePaymentMilestone`, `.DraftToNegotiating_OtpCustomerCommentAndNewRound_ShouldRevokeOldAccess`, `TblContractNegotiationComment`, `TblContractTemplateAudit`, `TblContractAcceptanceRecord`, `.UpsertAsync`, `TblContractTerm`, `ContractServiceSlice04Tests`, `TblFileStorage`, `UpdateEmployeeSelfProfileRequest`, `TblContractPlaceholderAudit`, `TblContractTemplateTerm`, `TblApprovalHistory`, `DashboardResponse`, `IFileStorageService`, `UpdateEmployeeRequest`, `.SaveAsync`, `TblContractLegalBasis`, `TblContractAuditValue`, `TblContractTemplateAppendix`, `TestSession`, `.SeedContractAsync`, `ProductService`, `TblContractAttachment`, `TestSession`, `FileResourceAuthorizationService`, `DashboardPhase02Tests`, `TblContractApprovalRequest`, `TblOrder`, `ContractAcceptancePartyResponse`, `TblContractVersionPaymentMilestoneSnapshot`, `TblContractTemplateLegalBasis`, `TblTenantLegalProfile`, `TblContractCustomerOtpChallenge`, `TblContractSignedEvidence`, `.ProcessTenantAsync`, `.OnModelCreating`, `TblContractAppendixTerm`, `.Create`, `ContractPlaceholderCatalog`, `TblDeliveryOrder`, `CentralDbContextFactory`, `ContractAuditWriter`, `TblContractCustomerVerificationPhone`, `ContractTemplateAuditWriter`, `TblCategory`, `.SeedLockedVersionAsync`, `TblNotification`, `TblApprovalWorkflow`, `TblQuotation`, `.Upsert_RejectsStaleRowVersion`, `.ReadAsync`, `PlaceholderOperationException`, `ContractCompletionService`, `IContractResourceAuthorizationService`?**
   _High betweenness centrality (0.126) - this node is a cross-community bridge._
 - **Why does `ServiceResponse` connect `ServiceResponse` to `IServiceService`, `ServiceService`?**
   _High betweenness centrality (0.048) - this node is a cross-community bridge._
-- **Why does `ContractManagement.API.Common.Enums` connect `ContractManagement.API.Common.Enums` to `ContractTemplatePreviewRenderer`, `DeploymentOverrideStatus`, `ContractApprovalInboxFilterRequest`, `ContractAcceptancePartyResponse`, `EmployeeType`, `ContractTemplateRenderData`, `ContractAcceptanceSectionResponse`, `SoftwareSupplyPreviewDatasetV1`, `.CalculateSummary`, `ContractManagement.Infrastructure.Persistence.Application.Models`, `SignatureStatus`, `ApprovalRequestStatus`, `ContractPaymentMilestoneResponse`, `ContractSignedEvidenceResponse`, `ContractManagement.Domains.Policies.ContractTemplate`, `.Evaluate`, `ContractType`, `ContractPaymentResponse`, `ContractItemDetailResponse`, `DashboardService.cs`, `ContractStatus`, `TblContractTemplate`, `Program.cs`, `HardCopyStatus`, `ContractTemplateRequests.cs`, `ContractManagement.API.Common.Security`, `ContractManagement.Infrastructure.MultiTenancy.Enums`, `ContractNegotiationCommentResponse`?**
+- **Why does `ContractManagement.API.Common.Enums` connect `ContractManagement.API.Common.Enums` to `ContractTemplatePreviewRenderer`, `ContractTemplateRenderData`, `EmployeeType`, `SoftwareSupplyPreviewDatasetV1`, `.CalculateSummary`, `ContractManagement.Infrastructure.Persistence.Application.Models`, `ContractNegotiationCommentEventResponse`, `SignatureStatus`, `ApprovalRequestStatus`, `ContractAcceptanceReferenceResponse`, `ContractPaymentMilestoneResponse`, `ContractSignedEvidenceResponse`, `ContractManagement.Domains.Policies.ContractTemplate`, `ContractManagement.API.Domains.Models.Contract`, `ContractPaymentResponse`, `ContractItemDetailResponse`, `ContractType`, `ContractStatus`, `SecurityAuditSlice05Tests.cs`, `HardCopyStatus`, `ContractTemplateRequests.cs`, `ContractManagement.API.Common.Security`, `Program.cs`?**
   _High betweenness centrality (0.048) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `DbDtctechContext` (e.g. with `.InitializeAsync()` and `.InitializeAsync()`) actually correct?**
   _`DbDtctechContext` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `ContractService` (e.g. with `.ContractList_UsesManagerTenantScopeOnlyWhenExplicitlyAuthorized()` and `.AddAppendix_WhenSecondStageFails_RollsBackParentAndTerms()`) actually correct?**
   _`ContractService` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Draft`, `Finalized`, `Signed` to the rest of the system?**
-  _4529 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _4544 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `cn` be split into smaller, more focused modules?**
   _Cohesion score 0.014194139194139194 - nodes in this community are weakly interconnected._

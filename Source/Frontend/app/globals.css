@@ -219,3 +219,261 @@
 .ProseMirror.resize-cursor * {
   cursor: col-resize !important;
 }
+
+/* ==========================================================================
+   Toast Notification - Glassmorphism Split Close Button & Full Overlay Blur
+   ========================================================================== */
+
+/* 1. Global Sonner Toast Container */
+[data-sonner-toast] {
+  --toast-close-button-start: unset !important;
+  --toast-close-button-end: 0 !important;
+  --toast-close-button-transform: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+  padding-right: 56px !important; /* Space for the right-side close partition */
+  box-sizing: border-box !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+}
+
+/* 2. Frosted glass overlay that physically covers ("đè lên") both the icon and text */
+[data-sonner-toast]::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  right: 44px !important; /* Covers all the way up to the close partition */
+  background: rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(6px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(150%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-top-left-radius: inherit !important;
+  border-bottom-left-radius: inherit !important;
+}
+
+.dark [data-sonner-toast]::before,
+[data-theme='dark'] [data-sonner-toast]::before {
+  background: rgba(0, 0, 0, 0.45) !important;
+}
+
+[data-rich-colors='true'][data-sonner-toast]::before {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.dark [data-rich-colors='true'][data-sonner-toast]::before,
+[data-theme='dark'][data-rich-colors='true'][data-sonner-toast]::before {
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Trigger overlay when hovering close button */
+[data-sonner-toast]:has([data-close-button]:hover)::before {
+  opacity: 1 !important;
+}
+
+/* 3. Deep blur & soft dimming on the icon and text underneath the glass overlay */
+[data-sonner-toast]:has([data-close-button]:hover) [data-icon],
+[data-sonner-toast]:has([data-close-button]:hover) [data-content],
+[data-sonner-toast]:has([data-close-button]:hover) [data-title],
+[data-sonner-toast]:has([data-close-button]:hover) [data-description],
+[data-sonner-toast]:has([data-close-button]:hover) > :not([data-close-button]) {
+  filter: blur(2px) !important;
+  opacity: 0.4 !important;
+  transform: scale(0.985) !important;
+}
+
+/* Smooth transition for all toast body elements (icon, content, text) */
+[data-sonner-toast] > :not([data-close-button]),
+[data-sonner-toast] [data-icon],
+[data-sonner-toast] [data-icon] > *,
+[data-sonner-toast] [data-content],
+[data-sonner-toast] [data-title],
+[data-sonner-toast] [data-description] {
+  transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 4. Dedicated Right-side Partition Close Button (Full Height, No Cutoff) */
+[data-sonner-toast] [data-close-button],
+:where([data-sonner-toast]) :where([data-close-button]),
+[data-rich-colors='true'][data-sonner-toast] [data-close-button],
+[data-rich-colors='true'][data-sonner-toast][data-type='success'] [data-close-button],
+[data-rich-colors='true'][data-sonner-toast][data-type='error'] [data-close-button],
+[data-rich-colors='true'][data-sonner-toast][data-type='warning'] [data-close-button],
+[data-rich-colors='true'][data-sonner-toast][data-type='info'] [data-close-button] {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  left: auto !important;
+  width: 44px !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+
+  /* Reset Sonner's circle radius and border */
+  border-radius: 0 !important;
+  border-top-right-radius: inherit !important;
+  border-bottom-right-radius: inherit !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+
+  border: none !important;
+  border-left: 1px solid color-mix(in srgb, currentColor 14%, transparent) !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  cursor: pointer !important;
+  opacity: 0.82 !important;
+  z-index: 20 !important;
+
+  /* Authentic frosted glassmorphism styling - color-harmonious background */
+  background: color-mix(in srgb, currentColor 4%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: currentColor !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Subtle harmonious dividers and backgrounds by notification type */
+[data-sonner-toast][data-type='success'] [data-close-button] {
+  border-left: 1px solid rgba(16, 185, 129, 0.3) !important;
+  background: rgba(16, 185, 129, 0.06) !important;
+  color: rgb(5, 150, 105) !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-close-button] {
+  border-left: 1px solid rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+  color: rgb(220, 38, 38) !important;
+}
+
+[data-sonner-toast][data-type='warning'] [data-close-button] {
+  border-left: 1px solid rgba(245, 158, 11, 0.32) !important;
+  background: rgba(245, 158, 11, 0.06) !important;
+  color: rgb(217, 119, 6) !important;
+}
+
+[data-sonner-toast][data-type='info'] [data-close-button] {
+  border-left: 1px solid rgba(59, 130, 246, 0.3) !important;
+  background: rgba(59, 130, 246, 0.06) !important;
+  color: rgb(37, 99, 235) !important;
+}
+
+/* Dark mode harmonious partition border & background */
+.dark [data-sonner-toast] [data-close-button],
+[data-theme='dark'] [data-sonner-toast] [data-close-button] {
+  border-left: 1px solid color-mix(in srgb, currentColor 18%, transparent) !important;
+  background: color-mix(in srgb, currentColor 6%, transparent) !important;
+}
+
+.dark [data-sonner-toast][data-type='success'] [data-close-button],
+[data-theme='dark'] [data-sonner-toast][data-type='success'] [data-close-button] {
+  border-left: 1px solid rgba(52, 211, 153, 0.3) !important;
+  background: rgba(52, 211, 153, 0.08) !important;
+  color: rgb(110, 231, 183) !important;
+}
+
+.dark [data-sonner-toast][data-type='error'] [data-close-button],
+[data-theme='dark'] [data-sonner-toast][data-type='error'] [data-close-button] {
+  border-left: 1px solid rgba(248, 113, 113, 0.32) !important;
+  background: rgba(248, 113, 113, 0.08) !important;
+  color: rgb(252, 165, 165) !important;
+}
+
+.dark [data-sonner-toast][data-type='warning'] [data-close-button],
+[data-theme='dark'] [data-sonner-toast][data-type='warning'] [data-close-button] {
+  border-left: 1px solid rgba(251, 191, 36, 0.32) !important;
+  background: rgba(251, 191, 36, 0.08) !important;
+  color: rgb(253, 230, 138) !important;
+}
+
+.dark [data-sonner-toast][data-type='info'] [data-close-button],
+[data-theme='dark'] [data-sonner-toast][data-type='info'] [data-close-button] {
+  border-left: 1px solid rgba(96, 165, 250, 0.32) !important;
+  background: rgba(96, 165, 250, 0.08) !important;
+  color: rgb(147, 197, 253) !important;
+}
+
+/* Rich colors support - perfectly matched tints */
+[data-rich-colors='true'][data-sonner-toast][data-type='success'] [data-close-button] {
+  border-left: 1px solid rgba(16, 185, 129, 0.34) !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+}
+
+[data-rich-colors='true'][data-sonner-toast][data-type='error'] [data-close-button] {
+  border-left: 1px solid rgba(239, 68, 68, 0.34) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+[data-rich-colors='true'][data-sonner-toast][data-type='warning'] [data-close-button] {
+  border-left: 1px solid rgba(245, 158, 11, 0.36) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+[data-rich-colors='true'][data-sonner-toast][data-type='info'] [data-close-button] {
+  border-left: 1px solid rgba(59, 130, 246, 0.34) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* Hover states on the close button partition */
+[data-sonner-toast] [data-close-button]:hover {
+  opacity: 1 !important;
+  border-left-color: color-mix(in srgb, currentColor 26%, transparent) !important;
+  background: color-mix(in srgb, currentColor 9%, transparent) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+[data-sonner-toast][data-type='success'] [data-close-button]:hover,
+[data-rich-colors='true'][data-sonner-toast][data-type='success'] [data-close-button]:hover {
+  border-left-color: rgba(16, 185, 129, 0.5) !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-close-button]:hover,
+[data-rich-colors='true'][data-sonner-toast][data-type='error'] [data-close-button]:hover {
+  border-left-color: rgba(239, 68, 68, 0.5) !important;
+  background: rgba(239, 68, 68, 0.16) !important;
+}
+
+[data-sonner-toast][data-type='warning'] [data-close-button]:hover,
+[data-rich-colors='true'][data-sonner-toast][data-type='warning'] [data-close-button]:hover {
+  border-left-color: rgba(245, 158, 11, 0.52) !important;
+  background: rgba(245, 158, 11, 0.16) !important;
+}
+
+[data-sonner-toast][data-type='info'] [data-close-button]:hover,
+[data-rich-colors='true'][data-sonner-toast][data-type='info'] [data-close-button]:hover {
+  border-left-color: rgba(59, 130, 246, 0.5) !important;
+  background: rgba(59, 130, 246, 0.16) !important;
+}
+
+.dark [data-sonner-toast] [data-close-button]:hover,
+[data-theme='dark'] [data-sonner-toast] [data-close-button]:hover {
+  border-left-color: color-mix(in srgb, currentColor 32%, transparent) !important;
+  background: color-mix(in srgb, currentColor 12%, transparent) !important;
+}
+
+/* Close icon styling & rotation animation */
+[data-sonner-toast] [data-close-button] svg {
+  width: 15px !important;
+  height: 15px !important;
+  stroke-width: 2.2 !important;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-sonner-toast] [data-close-button]:hover svg {
+  transform: scale(1.15) !important;
+}

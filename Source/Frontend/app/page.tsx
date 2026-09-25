@@ -48,7 +48,7 @@ export default function LoginPage() {
   }>({});
 
   const validateTenantCode = (value: string): string | undefined => {
-    if (!value.trim()) return "Vui lòng nhập Mã công ty (Tenant Code)";
+    if (!value.trim()) return "Vui lòng nhập Mã công ty";
     return undefined;
   };
 
