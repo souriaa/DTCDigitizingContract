@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Save } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
@@ -13,7 +13,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CodeInput } from "@/components/ui/custom/code-input";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
-import { ContractTemplatePaymentMilestonesEditor } from "./contract-template-payment-milestones-editor";
+import {
+  ContractTemplatePaymentMilestonesEditor,
+  paymentMilestoneDraftFromRow,
+  type PaymentMilestoneDraft,
+} from "./contract-template-payment-milestones-editor";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +41,7 @@ import {
   TemplateVersionStatus,
   type ContractTemplateTermResponse,
   type ContractTemplateVersionDetailResponse,
+  type ContractTemplatePaymentMilestoneResponse,
 } from "@/services/contract-template-api";
 import { getContractTemplateErrorMessage } from "./contract-template-utils";
 
@@ -61,6 +66,22 @@ const getFirstAvailableDisplayOrder = (
   return displayOrder;
 };
 
+const normalizedPaymentDraft = (draft: PaymentMilestoneDraft) => ({
+  ...draft,
+  milestoneCode: draft.milestoneCode.trim().toUpperCase(),
+  titleVi: draft.titleVi.trim(),
+  titleEn: draft.titleEn?.trim() || "",
+  conditionVi: draft.conditionVi?.trim() || "",
+  conditionEn: draft.conditionEn?.trim() || "",
+});
+
+const paymentDraftMatches = (
+  draft: PaymentMilestoneDraft,
+  row: ContractTemplatePaymentMilestoneResponse,
+) =>
+  JSON.stringify(normalizedPaymentDraft(draft)) ===
+  JSON.stringify(normalizedPaymentDraft(paymentMilestoneDraftFromRow(row)));
+
 export function ContractTemplateTermsEditor({
   version,
   isBilingual,
@@ -74,10 +95,23 @@ export function ContractTemplateTermsEditor({
   const [terms, setTerms] = useState<ContractTemplateTermResponse[]>(() =>
     [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
   );
+  const [paymentDrafts, setPaymentDrafts] = useState<
+    Record<number, PaymentMilestoneDraft>
+  >(() =>
+    Object.fromEntries(
+      version.terms.flatMap((term) =>
+        term.paymentMilestones.map((row) => [
+          row.templatePaymentMilestoneId,
+          paymentMilestoneDraftFromRow(row),
+        ]),
+      ),
+    ),
+  );
   const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
   const [isOrderDirty, setIsOrderDirty] = useState(false);
   const [orderDirtyIds, setOrderDirtyIds] = useState<Set<number>>(new Set());
   const [isSavingChanges, setIsSavingChanges] = useState(false);
+  const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [deleteTerm, setDeleteTerm] =
     useState<ContractTemplateTermResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -91,7 +125,6 @@ export function ContractTemplateTermsEditor({
   const [newTermKind, setNewTermKind] = useState(ContractTermKind.General);
 
   const hasUnsavedContent = dirtyIds.size > 0;
-  const hasUnsavedChanges = hasUnsavedContent || isOrderDirty;
   const existingCodes = useMemo(
     () => new Set(terms.map((term) => term.termCode.toLocaleUpperCase())),
     [terms],
@@ -99,6 +132,17 @@ export function ContractTemplateTermsEditor({
   const paymentTerm = terms.find(
     (term) => term.termKind === ContractTermKind.Payment,
   );
+  const pendingPaymentRows = (paymentTerm?.paymentMilestones ?? []).filter(
+    (row) =>
+      !paymentDraftMatches(
+        paymentDrafts[row.templatePaymentMilestoneId] ??
+          paymentMilestoneDraftFromRow(row),
+        row,
+      ),
+  );
+  const hasUnsavedPayments = pendingPaymentRows.length > 0;
+  const hasUnsavedChanges =
+    hasUnsavedContent || isOrderDirty || hasUnsavedPayments;
 
   const updateTerm = (
     termId: number,
@@ -106,6 +150,10 @@ export function ContractTemplateTermsEditor({
     value: string | boolean,
   ) => {
     if (!isDraft) return;
+    if (isAddingPayment) {
+      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi sửa điều khoản.");
+      return;
+    }
     if (isOrderDirty) {
       toast.error("Vui lòng lưu thứ tự trước khi sửa nội dung điều khoản.");
       return;
@@ -120,6 +168,10 @@ export function ContractTemplateTermsEditor({
 
   const moveTerm = (index: number, direction: -1 | 1) => {
     if (!isDraft) return;
+    if (isAddingPayment) {
+      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi đổi thứ tự.");
+      return;
+    }
     if (hasUnsavedContent) {
       toast.error(
         "Vui lòng lưu nội dung điều khoản trước khi thay đổi thứ tự.",
@@ -194,42 +246,99 @@ export function ContractTemplateTermsEditor({
         version.templateVersionId,
       );
     }
-
-    toast.success(
-      pendingTerms.length === 1
-        ? `Đã lưu ${isAcceptance ? "section" : "điều khoản"} ${pendingTerms[0].termCode}.`
-        : `Đã lưu ${pendingTerms.length} ${isAcceptance ? "section" : "điều khoản"}.`,
-    );
-    await onRefresh();
   };
 
   const saveOrder = async () => {
     if (!isDraft) return;
     if (hasUnsavedContent) {
-      toast.error("Vui lòng lưu nội dung các điều khoản trước khi lưu thứ tự.");
-      return;
+      throw new Error("Vui lòng lưu nội dung các điều khoản trước khi lưu thứ tự.");
     }
     await contractTemplateApi.reorderTerms(version.templateVersionId, {
-      versionRowVersion: version.rowVersion,
+      versionRowVersion: (
+        await contractTemplateApi.getVersion(version.templateVersionId)
+      ).rowVersion,
       terms: terms.map((term) => ({
         termId: term.templateTermId,
         rowVersion: term.rowVersion,
         displayOrder: term.displayOrder,
       })),
     });
-    toast.success("Đã lưu thứ tự điều khoản.");
-    await onRefresh();
+  };
+
+  const savePendingPayments = async () => {
+    if (!paymentTerm) return;
+    for (const originalRow of pendingPaymentRows) {
+      const draft = paymentDrafts[originalRow.templatePaymentMilestoneId];
+      const latestVersion = await contractTemplateApi.getVersion(
+        version.templateVersionId,
+      );
+      const latestRow = latestVersion.terms
+        .find((term) => term.templateTermId === paymentTerm.templateTermId)
+        ?.paymentMilestones.find(
+          (row) =>
+            row.templatePaymentMilestoneId ===
+            originalRow.templatePaymentMilestoneId,
+        );
+      if (!latestRow) {
+        throw new Error("Đợt thanh toán đã thay đổi. Vui lòng tải lại trang.");
+      }
+      if (paymentDraftMatches(draft, latestRow)) continue;
+      if (latestRow.rowVersion !== originalRow.rowVersion) {
+        throw new Error("Đợt thanh toán đã thay đổi. Vui lòng tải lại trang.");
+      }
+
+      await contractTemplateApi.updatePaymentMilestone(
+        version.templateVersionId,
+        paymentTerm.templateTermId,
+        originalRow.templatePaymentMilestoneId,
+        {
+          ...draft,
+          milestoneCode: draft.milestoneCode.trim(),
+          titleVi: draft.titleVi.trim(),
+          titleEn: draft.titleEn?.trim() || null,
+          conditionVi: draft.conditionVi?.trim() || null,
+          conditionEn: draft.conditionEn?.trim() || null,
+          rowVersion: latestRow.rowVersion,
+          versionRowVersion: latestVersion.rowVersion,
+        },
+      );
+    }
   };
 
   const saveChanges = async () => {
-    if (!isDraft) return;
+    if (!isDraft || isSavingChanges || !hasUnsavedChanges) return;
+    if (isAddingPayment) {
+      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi lưu thay đổi chung.");
+      return;
+    }
     try {
       setIsSavingChanges(true);
+      const invalidTerm = terms.find(
+        (term) =>
+          dirtyIds.has(term.templateTermId) &&
+          (!term.termCode.trim() || !term.termTitle.trim()),
+      );
+      if (invalidTerm) {
+        throw new Error(
+          `Mã và tiêu đề điều khoản ${invalidTerm.termCode || "đang chỉnh sửa"} không được để trống.`,
+        );
+      }
+      if (hasUnsavedPayments) {
+        await savePendingPayments();
+      }
       if (isOrderDirty) {
         await saveOrder();
-      } else {
+      } else if (hasUnsavedContent) {
         await saveDirtyTerms();
       }
+      await onRefresh();
+      toast.success(
+        hasUnsavedPayments && (hasUnsavedContent || isOrderDirty)
+          ? "Đã lưu điều khoản và các đợt thanh toán."
+          : hasUnsavedPayments
+            ? "Đã lưu các đợt thanh toán."
+            : `Đã lưu thay đổi ${isAcceptance ? "mục nghiệm thu" : "điều khoản"}.`,
+      );
     } catch (error) {
       toast.error(getContractTemplateErrorMessage(error));
     } finally {
@@ -237,8 +346,48 @@ export function ContractTemplateTermsEditor({
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== "s"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (
+        event.repeat ||
+        !isDraft ||
+        !hasUnsavedChanges ||
+        isSavingChanges ||
+        isAddOpen ||
+        isAddingPayment ||
+        deleteTerm ||
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="listbox"][data-state="open"]',
+        ) ||
+        (event.target instanceof Element &&
+          event.target.closest("[data-template-payment-editor]"))
+      ) {
+        return;
+      }
+
+      void saveChanges();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   const openAddDialog = () => {
     if (!isDraft) return;
+    if (isAddingPayment) {
+      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi thêm điều khoản.");
+      return;
+    }
     if (hasUnsavedChanges) {
       toast.error(
         `Vui lòng lưu các thay đổi ${isAcceptance ? "section" : "điều khoản"} trước khi thêm mới.`,
@@ -321,6 +470,10 @@ export function ContractTemplateTermsEditor({
 
   const requestDeleteTerm = (term: ContractTemplateTermResponse) => {
     if (!isDraft) return;
+    if (isAddingPayment) {
+      toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi xóa điều khoản.");
+      return;
+    }
     if (hasUnsavedChanges) {
       toast.error("Vui lòng lưu các thay đổi điều khoản trước khi xóa.");
       return;
@@ -333,7 +486,8 @@ export function ContractTemplateTermsEditor({
       <div className="flex flex-col justify-between gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
         <div>
           <p className="font-semibold">
-            {isAcceptance ? "Nội dung nghiệm thu" : "Điều khoản mềm"} ({terms.length})
+            {isAcceptance ? "Nội dung nghiệm thu" : "Điều khoản mềm"} (
+            {terms.length})
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {isDraft
@@ -344,7 +498,8 @@ export function ContractTemplateTermsEditor({
         {isDraft && (
           <div className="flex flex-wrap gap-2">
             <Button onClick={openAddDialog}>
-              <Plus className="size-4" /> Thêm {isAcceptance ? "section" : "điều khoản"}
+              <Plus className="size-4" /> Thêm{" "}
+              {isAcceptance ? "section" : "điều khoản"}
             </Button>
           </div>
         )}
@@ -361,11 +516,9 @@ export function ContractTemplateTermsEditor({
               ? "border-destructive ring-1 ring-destructive/40"
               : undefined
           }
-          editable={isDraft}
+          editable={isDraft && !isSavingChanges}
           open={openTermIds.has(term.templateTermId)}
-          onOpenChange={(open) =>
-            onTermOpenChange(term.templateTermId, open)
-          }
+          onOpenChange={(open) => onTermOpenChange(term.templateTermId, open)}
           isBilingual={isBilingual}
           orderLabel={isAcceptance ? "Section" : "Điều"}
           titleLabel={isAcceptance ? "Tiêu đề section" : undefined}
@@ -376,46 +529,78 @@ export function ContractTemplateTermsEditor({
           onChange={(field, value) =>
             updateTerm(term.templateTermId, field, value)
           }
-          onKindChange={isAcceptance ? undefined : (value) => {
-            if (!isDraft) return;
-            if (
-              term.termKind === ContractTermKind.Payment &&
-              value !== ContractTermKind.Payment &&
-              term.paymentMilestones.length > 0
-            ) {
-              toast.error(
-                "Hãy xóa các đợt thanh toán trước khi đổi loại điều khoản.",
-              );
-              return;
-            }
-            if (
-              value === ContractTermKind.Payment &&
-              paymentTerm &&
-              paymentTerm.templateTermId !== term.templateTermId
-            ) {
-              toast.error("Mỗi mẫu hợp đồng chỉ có một điều khoản thanh toán.");
-              return;
-            }
-            setTerms((current) => current.map((item) =>
-              item.templateTermId === term.templateTermId
-                ? { ...item, termKind: value }
-                : item));
-            setDirtyIds((current) => new Set(current).add(term.templateTermId));
-          }}
+          onKindChange={
+            isAcceptance
+              ? undefined
+              : (value) => {
+                  if (!isDraft) return;
+                  if (isOrderDirty) {
+                    toast.error("Vui lòng lưu thứ tự trước khi đổi loại điều khoản.");
+                    return;
+                  }
+                  if (isAddingPayment) {
+                    toast.error("Hãy hoàn tất hoặc hủy form thêm đợt trước khi đổi loại điều khoản.");
+                    return;
+                  }
+                  if (
+                    term.termKind === ContractTermKind.Payment &&
+                    value !== ContractTermKind.Payment &&
+                    term.paymentMilestones.length > 0
+                  ) {
+                    toast.error(
+                      "Hãy xóa các đợt thanh toán trước khi đổi loại điều khoản.",
+                    );
+                    return;
+                  }
+                  if (
+                    value === ContractTermKind.Payment &&
+                    paymentTerm &&
+                    paymentTerm.templateTermId !== term.templateTermId
+                  ) {
+                    toast.error(
+                      "Mỗi mẫu hợp đồng chỉ có một điều khoản thanh toán.",
+                    );
+                    return;
+                  }
+                  setTerms((current) =>
+                    current.map((item) =>
+                      item.templateTermId === term.templateTermId
+                        ? { ...item, termKind: value }
+                        : item,
+                    ),
+                  );
+                  setDirtyIds((current) =>
+                    new Set(current).add(term.templateTermId),
+                  );
+                }
+          }
           onMove={(direction) => moveTerm(index, direction)}
           onRemove={() => requestDeleteTerm(term)}
         >
-          {!isAcceptance && term.termKind === ContractTermKind.Payment &&
+          {!isAcceptance &&
+            term.termKind === ContractTermKind.Payment &&
             !dirtyIds.has(term.templateTermId) && (
               <ContractTemplatePaymentMilestonesEditor
                 version={version}
                 term={term}
                 isBilingual={isBilingual}
-                editable={isDraft}
+                editable={isDraft && !isSavingChanges}
                 onRefresh={onRefresh}
+                drafts={paymentDrafts}
+                onDraftChange={(milestoneId, draft) =>
+                  setPaymentDrafts((current) => ({
+                    ...current,
+                    [milestoneId]: draft,
+                  }))
+                }
+                onSaveAll={saveChanges}
+                savingAll={isSavingChanges}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onAddingChange={setIsAddingPayment}
               />
             )}
-          {!isAcceptance && term.termKind === ContractTermKind.Payment &&
+          {!isAcceptance &&
+            term.termKind === ContractTermKind.Payment &&
             dirtyIds.has(term.templateTermId) && (
               <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
                 Lưu loại điều khoản trước khi cấu hình các đợt thanh toán.
@@ -442,34 +627,37 @@ export function ContractTemplateTermsEditor({
               Thêm {isAcceptance ? "section nghiệm thu" : "điều khoản"}
             </DialogTitle>
             <DialogDescription>
-              {isAcceptance ? "Section" : "Điều khoản"} sẽ được thêm vào cuối danh sách hiện tại.
+              {isAcceptance ? "Section" : "Điều khoản"} sẽ được thêm vào cuối
+              danh sách hiện tại.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
-            {!isAcceptance && <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="new-term-kind">Loại điều khoản</Label>
-              <Select
-                value={String(newTermKind)}
-                onValueChange={(value) =>
-                  setNewTermKind(Number(value) as ContractTermKind)
-                }
-              >
-                <SelectTrigger id="new-term-kind" className="h-9 w-full">
-                  <SelectValue placeholder="Chọn loại điều khoản" />
-                </SelectTrigger>
-                <SelectContent showSearch={false}>
-                  <SelectItem value={String(ContractTermKind.General)}>
-                    Điều khoản thường
-                  </SelectItem>
-                  <SelectItem
-                    value={String(ContractTermKind.Payment)}
-                    disabled={Boolean(paymentTerm)}
-                  >
-                    Điều khoản thanh toán
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>}
+            {!isAcceptance && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="new-term-kind">Loại điều khoản</Label>
+                <Select
+                  value={String(newTermKind)}
+                  onValueChange={(value) =>
+                    setNewTermKind(Number(value) as ContractTermKind)
+                  }
+                >
+                  <SelectTrigger id="new-term-kind" className="h-9 w-full">
+                    <SelectValue placeholder="Chọn loại điều khoản" />
+                  </SelectTrigger>
+                  <SelectContent showSearch={false}>
+                    <SelectItem value={String(ContractTermKind.General)}>
+                      Điều khoản thường
+                    </SelectItem>
+                    <SelectItem
+                      value={String(ContractTermKind.Payment)}
+                      disabled={Boolean(paymentTerm)}
+                    >
+                      Điều khoản thanh toán
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="new-term-code">
                 Mã điều khoản <span className="text-destructive">*</span>
@@ -531,7 +719,8 @@ export function ContractTemplateTermsEditor({
               Hủy
             </Button>
             <Button onClick={addTerm} disabled={isAdding}>
-              {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm {isAcceptance ? "section" : "điều khoản"}
+              {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm{" "}
+              {isAcceptance ? "section" : "điều khoản"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -553,12 +742,20 @@ export function ContractTemplateTermsEditor({
           className="fixed bottom-6 right-6 z-50 w-[calc(100%-3rem)] max-w-md animate-in fade-in-0 slide-in-from-bottom-8 border-destructive/50 bg-background shadow-lg duration-300"
           aria-live="polite"
         >
-          <AlertTitle>Điều khoản có thay đổi chưa được lưu</AlertTitle>
+          <AlertTitle>Điều khoản hoặc đợt thanh toán có thay đổi chưa được lưu</AlertTitle>
           <AlertDescription className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              {isOrderDirty
-                ? "Thứ tự điều khoản đã thay đổi."
-                : `${dirtyIds.size} điều khoản đang có nội dung chỉnh sửa.`}
+              {[
+                    isOrderDirty ? "Thứ tự điều khoản đã thay đổi" : null,
+                    dirtyIds.size > 0
+                      ? `${dirtyIds.size} điều khoản đang chỉnh sửa`
+                      : null,
+                    hasUnsavedPayments
+                      ? `${pendingPaymentRows.length} đợt thanh toán đang chỉnh sửa`
+                      : null,
+                ]
+                  .filter(Boolean)
+                  .join("; ")}
             </span>
             <Button
               onClick={saveChanges}

@@ -113,7 +113,11 @@ export function ChangePasswordForm({
       strengthColor,
       strengthTextColor,
       strengthPercentage,
-      isValid: hasMinLength && isMatching && (isDifferent || !currentPassword),
+      isValid:
+        hasMinLength &&
+        hasNumber &&
+        isMatching &&
+        (isDifferent || !currentPassword),
     };
   }, [newPassword, currentPassword, confirmPassword]);
 
@@ -123,6 +127,10 @@ export function ChangePasswordForm({
 
     if (newPassword.length < 12) {
       setError("Mật khẩu mới phải có ít nhất 12 ký tự.");
+      return;
+    }
+    if (!rules.hasNumber) {
+      setError("Mật khẩu mới phải chứa ít nhất một chữ số (0-9).");
       return;
     }
     if (newPassword === currentPassword) {
@@ -286,7 +294,7 @@ export function ChangePasswordForm({
         <Button
           form="change-password-form"
           type="submit"
-          disabled={isSaving || !rules.hasMinLength || !rules.isMatching}
+          disabled={isSaving || !rules.isValid}
           className="w-full sm:w-auto min-w-44 gap-2 shadow-sm font-medium"
         >
           <ShieldCheck className="size-4" />

@@ -52,16 +52,15 @@ export function ContractTemplateItemTableLayoutEditor({
   onSaved,
 }: Props) {
   const canonical = useMemo(() => {
-    const ordered = [...layout].sort((left, right) =>
-      left.displayOrder - right.displayOrder,
+    const ordered = [...layout].sort(
+      (left, right) => left.displayOrder - right.displayOrder,
     );
     const widths = ordered.map((item) => item.widthBps);
     const valid =
       ordered.length === COLUMNS.length &&
       ordered.every(
         (item, index) =>
-          item.columnKey === COLUMNS[index][0] &&
-          item.displayOrder === index,
+          item.columnKey === COLUMNS[index][0] && item.displayOrder === index,
       ) &&
       isCanonicalColumnWidthsBps(widths, COLUMNS.length);
     return valid ? widths : null;
@@ -102,7 +101,10 @@ export function ContractTemplateItemTableLayoutEditor({
       );
       const left = Math.min(
         pairTotal - CONTRACT_TABLE_MIN_COLUMN_BPS,
-        Math.max(CONTRACT_TABLE_MIN_COLUMN_BPS, startWidths[columnIndex] + delta),
+        Math.max(
+          CONTRACT_TABLE_MIN_COLUMN_BPS,
+          startWidths[columnIndex] + delta,
+        ),
       );
       const next = [...startWidths];
       next[columnIndex] = left;
@@ -121,10 +123,7 @@ export function ContractTemplateItemTableLayoutEditor({
     const requestedBps = Math.round(percent * 100);
     if (!Number.isFinite(requestedBps)) return;
     const next = [...widths];
-    next[columnIndex] = Math.max(
-      CONTRACT_TABLE_MIN_COLUMN_BPS,
-      requestedBps,
-    );
+    next[columnIndex] = Math.max(CONTRACT_TABLE_MIN_COLUMN_BPS, requestedBps);
     setWidths(normalizeColumnWidthsBps(next));
   };
 
@@ -163,16 +162,25 @@ export function ContractTemplateItemTableLayoutEditor({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto rounded-md border">
-          <table ref={tableRef} className="w-full min-w-[900px] table-fixed text-xs">
+          <table
+            ref={tableRef}
+            className="w-full min-w-[900px] table-fixed text-xs"
+          >
             <colgroup>
               {widths.map((width, index) => (
-                <col key={COLUMNS[index][0]} style={{ width: `${width / 100}%` }} />
+                <col
+                  key={COLUMNS[index][0]}
+                  style={{ width: `${width / 100}%` }}
+                />
               ))}
             </colgroup>
             <thead>
               <tr className="bg-muted/60">
                 {COLUMNS.map(([key, label], index) => (
-                  <th key={key} className="relative border-r px-2 py-3 text-left last:border-r-0">
+                  <th
+                    key={key}
+                    className="relative border-r px-2 py-3 text-left last:border-r-0"
+                  >
                     <span className="block truncate">{label}</span>
                     <span className="text-[10px] font-normal text-muted-foreground">
                       {(widths[index] / 100).toFixed(2)}%
@@ -194,13 +202,23 @@ export function ContractTemplateItemTableLayoutEditor({
             </thead>
             <tbody>
               <tr>
-                {["1", "Dịch vụ", "Triển khai phần mềm", "1", "10.000.000", "0%", "10%", "11.000.000"].map(
-                  (value, index) => (
-                    <td key={COLUMNS[index][0]} className="truncate border-r px-2 py-3 last:border-r-0">
-                      {value}
-                    </td>
-                  ),
-                )}
+                {[
+                  "1",
+                  "Dịch vụ",
+                  "Triển khai phần mềm",
+                  "1",
+                  "10.000.000",
+                  "0%",
+                  "10%",
+                  "11.000.000",
+                ].map((value, index) => (
+                  <td
+                    key={COLUMNS[index][0]}
+                    className="truncate border-r px-2 py-3 last:border-r-0"
+                  >
+                    {value}
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
@@ -228,7 +246,8 @@ export function ContractTemplateItemTableLayoutEditor({
 
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">
-            Tổng: {(widths.reduce((sum, width) => sum + width, 0) / 100).toFixed(2)}%
+            Tổng:{" "}
+            {(widths.reduce((sum, width) => sum + width, 0) / 100).toFixed(2)}%
           </span>
           {editable && (
             <Button disabled={saving} onClick={() => void save()}>

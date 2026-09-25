@@ -320,9 +320,9 @@ export default function ContractTemplateDetailPage() {
           <DialogHeader>
             <DialogTitle>Tạo bản nháp mới</DialogTitle>
             <DialogDescription>
-              Phiên bản nguồn vẫn giữ nguyên và chỉ ở chế độ đọc. Điều khoản
-              sẽ được sao chép; DOCX, việc kiểm tra tính hợp lệ và bản xem
-              trước phải thực hiện lại.
+              Phiên bản nguồn vẫn giữ nguyên và chỉ ở chế độ đọc. Điều khoản sẽ
+              được sao chép; DOCX, việc kiểm tra tính hợp lệ và bản xem trước
+              phải thực hiện lại.
             </DialogDescription>
           </DialogHeader>
           <Textarea

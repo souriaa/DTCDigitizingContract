@@ -99,6 +99,7 @@ function Input({
           {showClearButton && type != "file" && (
             <button
               type="button"
+              tabIndex={-1}
               onClick={handleClear}
               className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
               aria-label="Clear input"

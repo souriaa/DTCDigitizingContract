@@ -41,12 +41,19 @@ interface Props {
   isBilingual: boolean;
   editable: boolean;
   onRefresh: () => Promise<void>;
+  drafts: Record<number, PaymentMilestoneDraft>;
+  onDraftChange: (milestoneId: number, draft: PaymentMilestoneDraft) => void;
+  onSaveAll: () => Promise<void>;
+  savingAll: boolean;
+  hasUnsavedChanges: boolean;
+  onAddingChange: (adding: boolean) => void;
 }
 
-type Draft = Omit<
+export type PaymentMilestoneDraft = Omit<
   SaveContractTemplatePaymentMilestoneRequest,
   "versionRowVersion"
 >;
+type Draft = PaymentMilestoneDraft;
 
 const emptyDraft = (order: number): Draft => ({
   milestoneCode: `PAYMENT_${order}`,
@@ -78,7 +85,9 @@ const nextDraft = (rows: ContractTemplatePaymentMilestoneResponse[]): Draft => {
   };
 };
 
-const fromRow = (row: ContractTemplatePaymentMilestoneResponse): Draft => ({
+export const paymentMilestoneDraftFromRow = (
+  row: ContractTemplatePaymentMilestoneResponse,
+): Draft => ({
   milestoneCode: row.milestoneCode,
   titleVi: row.titleVi,
   titleEn: row.titleEn ?? "",
@@ -248,32 +257,35 @@ export function ContractTemplatePaymentMilestonesEditor({
   isBilingual,
   editable,
   onRefresh,
+  drafts,
+  onDraftChange,
+  onSaveAll,
+  savingAll,
+  hasUnsavedChanges,
+  onAddingChange,
 }: Props) {
   const rows = [...(term.paymentMilestones ?? [])].sort(
     (a, b) => a.displayOrder - b.displayOrder,
   );
-  const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState<Draft>(() => nextDraft(rows));
   const [busy, setBusy] = useState<number | "new" | "order" | null>(null);
-  useEffect(() => {
-    setDrafts(
-      Object.fromEntries(
-        rows.map((row) => [row.templatePaymentMilestoneId, fromRow(row)]),
-      ),
-    );
-    setNewDraft(nextDraft(rows));
-  }, [term.paymentMilestones]);
+  useEffect(() => () => onAddingChange(false), [onAddingChange]);
+  const changeAdding = (next: boolean) => {
+    setAdding(next);
+    onAddingChange(next);
+  };
   const total =
     Math.round(
-      rows.reduce((sum, row) => sum + row.paymentPercent, 0) * 10_000,
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          (drafts[row.templatePaymentMilestoneId]?.paymentPercent ??
+            row.paymentPercent),
+        0,
+      ) * 10_000,
     ) / 10_000;
   const totalValid = total === 100;
-  const hasUnsavedDrafts = rows.some(
-    (row) =>
-      JSON.stringify(drafts[row.templatePaymentMilestoneId] ?? fromRow(row)) !==
-      JSON.stringify(fromRow(row)),
-  );
   const latestVersionRow = async () =>
     (await contractTemplateApi.getVersion(version.templateVersionId))
       .rowVersion;
@@ -285,31 +297,11 @@ export function ContractTemplatePaymentMilestonesEditor({
     versionRowVersion,
   });
 
-  const save = async (row: ContractTemplatePaymentMilestoneResponse) => {
-    try {
-      setBusy(row.templatePaymentMilestoneId);
-      await contractTemplateApi.updatePaymentMilestone(
-        version.templateVersionId,
-        term.templateTermId,
-        row.templatePaymentMilestoneId,
-        {
-          ...payload(
-            drafts[row.templatePaymentMilestoneId],
-            await latestVersionRow(),
-          ),
-          rowVersion: row.rowVersion,
-        },
-      );
-      toast.success("Đã lưu đợt thanh toán.");
-      await onRefresh();
-    } catch (error) {
-      toast.error(getContractTemplateErrorMessage(error));
-      await onRefresh();
-    } finally {
-      setBusy(null);
-    }
-  };
   const add = async () => {
+    if (hasUnsavedChanges) {
+      toast.error("Vui lòng lưu các thay đổi hiện tại trước khi thêm đợt.");
+      return;
+    }
     if (
       !newDraft.milestoneCode.trim() ||
       !newDraft.titleVi.trim() ||
@@ -324,7 +316,7 @@ export function ContractTemplatePaymentMilestonesEditor({
         payload(newDraft, await latestVersionRow()),
       );
       toast.success("Đã thêm đợt thanh toán.");
-      setAdding(false);
+      changeAdding(false);
       await onRefresh();
     } catch (error) {
       toast.error(getContractTemplateErrorMessage(error));
@@ -334,6 +326,10 @@ export function ContractTemplatePaymentMilestonesEditor({
     }
   };
   const remove = async (row: ContractTemplatePaymentMilestoneResponse) => {
+    if (hasUnsavedChanges) {
+      toast.error("Vui lòng lưu các thay đổi hiện tại trước khi xóa đợt.");
+      return;
+    }
     try {
       setBusy(row.templatePaymentMilestoneId);
       await contractTemplateApi.deletePaymentMilestone(
@@ -355,8 +351,8 @@ export function ContractTemplatePaymentMilestonesEditor({
   const move = async (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= rows.length) return;
-    if (hasUnsavedDrafts) {
-      toast.error("Vui lòng lưu nội dung các đợt trước khi đổi thứ tự.");
+    if (hasUnsavedChanges) {
+      toast.error("Vui lòng lưu các thay đổi hiện tại trước khi đổi thứ tự.");
       return;
     }
     const ordered = [...rows];
@@ -387,7 +383,10 @@ export function ContractTemplatePaymentMilestonesEditor({
   };
 
   return (
-    <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
+    <div
+      data-template-payment-editor
+      className="space-y-3 rounded-xl border bg-muted/20 p-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-medium">Theo dõi các đợt thanh toán</p>
@@ -401,7 +400,19 @@ export function ContractTemplatePaymentMilestonesEditor({
           </p>
         </div>
         {editable && (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                toast.error(
+                  "Vui lòng lưu các thay đổi hiện tại trước khi thêm đợt.",
+                );
+              } else {
+                changeAdding(true);
+              }
+            }}
+          >
             <Plus className="size-4" /> Thêm đợt
           </Button>
         )}
@@ -420,12 +431,12 @@ export function ContractTemplatePaymentMilestonesEditor({
           className="space-y-3 rounded-lg border bg-background p-3"
         >
           <Fields
-            value={drafts[row.templatePaymentMilestoneId] ?? fromRow(row)}
+            value={
+              drafts[row.templatePaymentMilestoneId] ??
+              paymentMilestoneDraftFromRow(row)
+            }
             onChange={(next) =>
-              setDrafts((current) => ({
-                ...current,
-                [row.templatePaymentMilestoneId]: next,
-              }))
+              onDraftChange(row.templatePaymentMilestoneId, next)
             }
             isBilingual={isBilingual}
             disabled={!editable}
@@ -461,18 +472,18 @@ export function ContractTemplatePaymentMilestonesEditor({
                 >
                   <Trash2 className="size-4" /> Xóa
                 </Button>
-                <Button
+                {/* <Button
                   size="sm"
-                  onClick={() => save(row)}
-                  disabled={busy !== null}
+                  onClick={() => void onSaveAll()}
+                  disabled={busy !== null || savingAll || !hasUnsavedChanges}
                 >
-                  {busy === row.templatePaymentMilestoneId ? (
+                  {savingAll ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     <Save className="size-4" />
                   )}{" "}
-                  Lưu đợt
-                </Button>
+                  Lưu thay đổi
+                </Button> */}
               </>
             )}
           </div>
@@ -491,7 +502,7 @@ export function ContractTemplatePaymentMilestonesEditor({
             isBilingual={isBilingual}
           />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setAdding(false)}>
+            <Button variant="outline" onClick={() => changeAdding(false)}>
               <X className="size-4" /> Hủy
             </Button>
             <Button onClick={add} disabled={busy !== null}>

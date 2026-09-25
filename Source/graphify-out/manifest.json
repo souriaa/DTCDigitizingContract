@@ -2382,14 +2382,14 @@
     "semantic_hash": "f37a25361a6ebeed9a4ed41126282d41"
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/page.tsx": {
-    "mtime": 1790000690.170771,
-    "seen": 1790050649.2771869,
-    "ast_hash": "d68e336b8198ba6f35de3b7753394426",
+    "mtime": 1790323605.2193866,
+    "seen": 1790331621.861878,
+    "ast_hash": "a16c3949b1466f9b9107de4afe7aef14",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/versions/[versionId]/page.tsx": {
-    "mtime": 1790000690.1727774,
-    "seen": 1790050649.2771878,
+    "mtime": 1790323613.652114,
+    "seen": 1790331621.8618827,
     "ast_hash": "befda71bbb41666cb72aef95a40e06ba",
     "semantic_hash": ""
   },
@@ -2418,9 +2418,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/legal-profile/page.tsx": {
-    "mtime": 1790000690.176393,
-    "seen": 1790050649.277194,
-    "ast_hash": "a67bc325fa5152a8af36344090d966bc",
+    "mtime": 1790321618.1271083,
+    "seen": 1790331621.8618956,
+    "ast_hash": "e01a7d16fc4aafaa610db130e06d62a2",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/catalog/categories/category-form-modal.tsx": {
@@ -2556,9 +2556,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/layout.tsx": {
-    "mtime": 1790000690.2070968,
-    "seen": 1790050649.2772248,
-    "ast_hash": "122d25f9e930d9118b8948e6fbe241fa",
+    "mtime": 1790336330.8171363,
+    "seen": 1790336819.78817,
+    "ast_hash": "97ad68862a7361b974413296b2402a15",
     "semantic_hash": ""
   },
   "Frontend/app/page.tsx": {
@@ -2586,8 +2586,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-form-dialog.tsx": {
-    "mtime": 1790000690.2171338,
-    "seen": 1790050649.2772384,
+    "mtime": 1790323781.2958121,
+    "seen": 1790331621.8620355,
     "ast_hash": "835d941f369914469a4bab6421dd713f",
     "semantic_hash": ""
   },
@@ -2604,9 +2604,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-terms-editor.tsx": {
-    "mtime": 1790000690.2224104,
-    "seen": 1790050649.277245,
-    "ast_hash": "005e6c4268352b52d32b1aa026e21865",
+    "mtime": 1790331649.2720184,
+    "seen": 1790331817.5457613,
+    "ast_hash": "b4b447286c75597a6956bcf1b5b4b779",
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-utils.ts": {
@@ -2988,9 +2988,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/input.tsx": {
-    "mtime": 1790087048.8529193,
-    "seen": 1790088407.4001179,
-    "ast_hash": "de7d7e2c1cbe360726e5a31e4f34d3bc",
+    "mtime": 1790336971.055677,
+    "seen": 1790337067.4796247,
+    "ast_hash": "f8056b80e75694ae23c5a74ce1add018",
     "semantic_hash": ""
   },
   "Frontend/components/ui/item.tsx": {
@@ -3420,9 +3420,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/app/layout.tsx": {
-    "mtime": 1790000690.3499272,
-    "seen": 1790050649.2774525,
-    "ast_hash": "8d96f140ebf4f9956611cbbb822e25b4",
+    "mtime": 1790336359.0614147,
+    "seen": 1790336819.7884157,
+    "ast_hash": "0be8ea24473f3d86da31b807029046d5",
     "semantic_hash": ""
   },
   "SystemAdmin/app/page.tsx": {
@@ -5718,9 +5718,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/account/change-password-form.tsx": {
-    "mtime": 1790000690.2100625,
-    "seen": 1790050649.2772295,
-    "ast_hash": "f646f730f804c1530cf215e09d921b4d",
+    "mtime": 1790336720.0338848,
+    "seen": 1790336819.788177,
+    "ast_hash": "066e5eb431041f941a174d71dbc71f37",
     "semantic_hash": ""
   },
   "Frontend/components/account/employee-profile-form.tsx": {
@@ -6210,8 +6210,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-placeholder-form.tsx": {
-    "mtime": 1790000690.2151346,
-    "seen": 1790050649.277236,
+    "mtime": 1790323623.185729,
+    "seen": 1790331621.8620298,
     "ast_hash": "b855026eb2c4e2cb5d1ca0ab18c6b625",
     "semantic_hash": ""
   },
@@ -6240,8 +6240,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-legal-bases-editor.tsx": {
-    "mtime": 1790000690.2191334,
-    "seen": 1790050649.2772403,
+    "mtime": 1790323667.6362934,
+    "seen": 1790331621.8620403,
     "ast_hash": "90964808945ab018ba241fd4dcf82344",
     "semantic_hash": ""
   },
@@ -6282,9 +6282,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-payment-milestones-editor.tsx": {
-    "mtime": 1790000690.2200396,
-    "seen": 1790050649.277242,
-    "ast_hash": "9b2698660929edb938afd42285614385",
+    "mtime": 1790332355.8966506,
+    "seen": 1790336819.788194,
+    "ast_hash": "cfb4b19f03fd1638ba42ac16dc941fdb",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Contract/ContractPaymentMilestoneDateRequest.cs": {
@@ -6354,9 +6354,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-item-table-layout-editor.tsx": {
-    "mtime": 1790000690.2181349,
-    "seen": 1790050649.2772393,
-    "ast_hash": "d3da9f7878a79318772cc15cb0f7b485",
+    "mtime": 1790323672.3489444,
+    "seen": 1790331621.8620374,
+    "ast_hash": "d1411b40ac3f199cedb5c8e43235ad55",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260913045049_NormalizeAuditStoragePhase123.cs": {
@@ -6516,8 +6516,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/contract-template-appendices-editor.tsx": {
-    "mtime": 1790000690.216133,
-    "seen": 1790050649.277237,
+    "mtime": 1790323627.730482,
+    "seen": 1790331621.862033,
     "ast_hash": "c730655d038ca10cd9581dae8b099602",
     "semantic_hash": ""
   },
@@ -6546,9 +6546,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-appendices.tsx": {
-    "mtime": 1790000690.2256854,
-    "seen": 1790050649.2772493,
-    "ast_hash": "5ab76c92a65ef39c8c1f5ac6e5b71b46",
+    "mtime": 1790335896.833317,
+    "seen": 1790336819.788202,
+    "ast_hash": "8a35bd6ebc437586e59d373a156e9980",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Controllers/Contract/ContractAcceptanceController.cs": {

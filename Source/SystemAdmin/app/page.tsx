@@ -238,6 +238,7 @@ export default function LoginPage() {
                     </Label>
                     <a
                       href="#"
+                      tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       Quên mật khẩu?

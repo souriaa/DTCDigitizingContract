@@ -563,8 +563,8 @@ export function ContractAppendices({
           <DialogHeader>
             <DialogTitle>Tạo phụ lục mới</DialogTitle>
             <DialogDescription>
-              Phụ lục này chỉ thuộc phiên bản hợp đồng hiện tại và không thay đổi
-              mẫu.
+              Phụ lục này chỉ thuộc phiên bản hợp đồng hiện tại và không thay
+              đổi mẫu.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
