@@ -2,6 +2,7 @@ using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.File;
@@ -81,6 +82,28 @@ public class ContractServiceResponsibilityTransferTests
             NewResponsibleEmployeeId,
             ContractAuditResults.Succeeded,
             expectedReason: "Bàn giao phụ trách");
+    }
+
+    [Fact]
+    public async Task Transfer_StagesNotificationForNewOwnerInSameUnitOfWork()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        await AddEmployeeAsync(context, NewResponsibleEmployeeId, EmployeeType.Technical);
+        var authorization = new ContractResourceAuthorizationService(context);
+        var publisher = new NotificationPublisher(context,
+            [new ContractNotificationResourcePolicy(context, authorization)]);
+        var notifications = new ContractNotificationProducer(context, publisher);
+
+        await CreateService(context, notifications: notifications)
+            .TransferResponsibilityAsync(ContractId, CreateTransferRequest(),
+                CurrentResponsibleEmployeeId);
+
+        var notification = Assert.Single(await context.TblNotifications
+            .Include(x => x.Recipients).Include(x => x.DispatchOutbox).ToListAsync());
+        Assert.Equal(NewResponsibleEmployeeId, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal("ResponsibilityTransferred", notification.EventCode);
+        Assert.Equal("Pending", notification.DispatchOutbox?.Status);
     }
 
     [Theory]
@@ -866,7 +889,8 @@ public class ContractServiceResponsibilityTransferTests
     private static ContractService CreateService(
         DbDtctechContext context,
         Func<IContractAuditWriter, IContractAuditWriter>?
-            writerDecorator = null)
+            writerDecorator = null,
+        ContractNotificationProducer? notifications = null)
     {
         var currentTenant = new CurrentTenant();
         currentTenant.Set(new ResolvedTenant(
@@ -903,7 +927,8 @@ public class ContractServiceResponsibilityTransferTests
             writer,
             currentTenant,
             new StaticSubmissionRenderer(),
-            new MemoryPrivateFileStorage());
+            new MemoryPrivateFileStorage(),
+            notifications);
     }
 
     private static async Task SeedContractAsync(

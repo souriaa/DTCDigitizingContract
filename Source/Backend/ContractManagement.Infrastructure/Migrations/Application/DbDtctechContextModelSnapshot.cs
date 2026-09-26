@@ -607,6 +607,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.HasIndex("CancelledByEmployeeId");
 
+                    b.HasIndex("ContractVersionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_tbl_ContractAcceptanceRecord_ActiveVersion")
+                        .HasFilter("[Status] IN (0, 1)");
+
                     b.HasIndex("CreatedEmployeeId");
 
                     b.HasIndex("FinalizedByEmployeeId");
@@ -619,11 +624,6 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.HasIndex("ContractId", "AcceptanceCode")
                         .IsUnique();
-
-                    b.HasIndex("ContractVersionId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_tbl_ContractAcceptanceRecord_ActiveVersion")
-                        .HasFilter("[Status] IN (0, 1)");
 
                     b.HasIndex("ContractVersionId", "Status");
 
@@ -4617,43 +4617,160 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotification", b =>
                 {
-                    b.Property<int>("NotificationId")
+                    b.Property<long>("NotificationId")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationId"));
+
+                    b.Property<string>("ActionKey")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int?>("ActorEmployeeId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+                    b.Property<string>("Body")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("NotificationMessage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationTitle")
+                    b.Property<string>("EventCode")
                         .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
 
-                    b.Property<int?>("ObjectId")
-                        .HasColumnType("int");
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
 
-                    b.Property<string>("ObjectType")
+                    b.Property<string>("ModuleCode")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<int>("UserId")
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SubjectId")
                         .HasColumnType("int");
 
-                    b.HasKey("NotificationId")
-                        .HasName("PK__tbl_Noti__20CF2E127E71675E");
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
-                    b.ToTable("tbl_Notification", (string)null);
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("ActorEmployeeId");
+
+                    b.HasIndex("EventKey")
+                        .IsUnique();
+
+                    b.ToTable("tbl_Notification", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tbl_Notification_EventKey", "LEN(LTRIM(RTRIM([EventKey]))) > 0");
+
+                            t.HasCheckConstraint("CK_tbl_Notification_SubjectId", "[SubjectId] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotificationDispatchOutbox", b =>
+                {
+                    b.Property<long>("OutboxId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("OutboxId"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DispatchedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LeaseUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("NotificationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(16)");
+
+                    b.HasKey("OutboxId");
+
+                    b.HasIndex("NotificationId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "NextAttemptAtUtc");
+
+                    b.ToTable("tbl_NotificationDispatchOutbox", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_AttemptCount", "[AttemptCount] >= 0");
+
+                            t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_Status", "[Status] IN ('Pending', 'Leased', 'Dispatched', 'Failed')");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotificationRecipient", b =>
+                {
+                    b.Property<long>("NotificationRecipientId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationRecipientId"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("NotificationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ReadAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationRecipientId");
+
+                    b.HasIndex("EmployeeId", "ReadAtUtc");
+
+                    b.HasIndex("NotificationId", "EmployeeId")
+                        .IsUnique();
+
+                    b.HasIndex("EmployeeId", "CreatedAtUtc", "NotificationRecipientId")
+                        .IsDescending(false, true, true);
+
+                    b.ToTable("tbl_NotificationRecipient", (string)null);
                 });
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblOrder", b =>
@@ -5606,6 +5723,42 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Navigation("LegalSnapshot");
                 });
 
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotification", b =>
+                {
+                    b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblEmployee", null)
+                        .WithMany()
+                        .HasForeignKey("ActorEmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotificationDispatchOutbox", b =>
+                {
+                    b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotification", "Notification")
+                        .WithOne("DispatchOutbox")
+                        .HasForeignKey("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotificationDispatchOutbox", "NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotificationRecipient", b =>
+                {
+                    b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblEmployee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotification", "Notification")
+                        .WithMany("Recipients")
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+                });
+
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractAudit", b =>
                 {
                     b.Navigation("Values");
@@ -5626,6 +5779,13 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Navigation("Parties");
 
                     b.Navigation("PaymentMilestones");
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblNotification", b =>
+                {
+                    b.Navigation("DispatchOutbox");
+
+                    b.Navigation("Recipients");
                 });
 #pragma warning restore 612, 618
         }

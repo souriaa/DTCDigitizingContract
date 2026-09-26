@@ -73,6 +73,23 @@ public sealed class SessionAuthorizeAttributeTests
     }
 
     [Fact]
+    public async Task SessionFromAnotherTenant_IsRejectedAndCleared()
+    {
+        await using var context = CreateDbContext();
+        context.TblEmployees.Add(NewEmployee(EmployeeType.Sale));
+        await context.SaveChangesAsync();
+        var session = AuthenticatedSession();
+        session.SetInt32("TenantId", 102);
+        var filterContext = CreateFilterContext(context, session);
+
+        await new SessionAuthorizeAttribute().OnAuthorizationAsync(filterContext);
+
+        var result = Assert.IsType<ObjectResult>(filterContext.Result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, result.StatusCode);
+        Assert.Null(session.GetInt32(AccountSessionKeys.EmployeeId));
+    }
+
+    [Fact]
     public async Task ActiveEmployeeWithPermission_IsLoadedFromTenantDatabase()
     {
         await using var context = CreateDbContext();

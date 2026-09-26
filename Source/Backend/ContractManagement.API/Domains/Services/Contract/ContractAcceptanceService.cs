@@ -7,6 +7,7 @@ using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.API.Domains.Policies.Contract;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -35,6 +36,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     private readonly IContractPaymentDueDateService _paymentDueDates;
     private readonly IContractPlaceholderSourceRegistry _placeholderSources;
     private readonly ContractAcceptanceDocumentRenderer _renderer = new();
+    private readonly ContractNotificationProducer? _notifications;
 
     public ContractAcceptanceService(
         DbDtctechContext db,
@@ -44,7 +46,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         ICurrentTenant tenant,
         IContractTemplatePdfRenderer pdfRenderer,
         IContractPaymentDueDateService paymentDueDates,
-        IContractPlaceholderSourceRegistry? placeholderSources = null)
+        IContractPlaceholderSourceRegistry? placeholderSources = null,
+        ContractNotificationProducer? notifications = null)
     {
         _db = db;
         _authorization = authorization;
@@ -55,6 +58,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         _paymentDueDates = paymentDueDates;
         _placeholderSources = placeholderSources
             ?? new ContractPlaceholderSourceRegistry();
+        _notifications = notifications;
     }
 
     public async Task<IReadOnlyList<ContractAcceptanceTemplateOptionResponse>>
@@ -556,6 +560,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     before.References.Count(x =>
                         x.ReferenceType == AcceptanceReferenceType.Appendix),
                     docxFile, pdfFile);
+                if (_notifications is not null)
+                    await _notifications.StageCurrentOwnerAsync(contractId, employeeId,
+                        $"contract:{contractId}:acceptance:{acceptanceRecordId}:finalized",
+                        "AcceptanceFinalized", "Biên bản nghiệm thu đã chốt, chờ bản ký",
+                        "closing", now, cancellationToken);
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadAsync(contractId, acceptanceRecordId,
                     cancellationToken);
@@ -664,6 +673,30 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         ("FileType", file.FileType),
                         ("Sha256", file.Sha256),
                         ("CurrentVersionId", version.VersionId))) ]);
+                if (_notifications is not null)
+                {
+                    var acceptanceTitle = "Đã ký nghiệm thu toàn bộ";
+                    if ((AcceptanceKind)row.AcceptanceKind == AcceptanceKind.Partial)
+                    {
+                        var milestoneIds = await _db.TblContractPaymentMilestones
+                            .AsNoTracking()
+                            .Where(x => x.ContractId == contractId
+                                && x.VersionId == version.VersionId)
+                            .Select(x => x.PaymentMilestoneId)
+                            .ToListAsync(cancellationToken);
+                        var progress = await ContractAcceptanceProgressReader.ReadAsync(
+                            _db, contractId, version.VersionId, milestoneIds,
+                            cancellationToken);
+                        acceptanceTitle = progress.Completed
+                            ? "Đã nghiệm thu đủ các đợt thanh toán"
+                            : $"Đã ký nghiệm thu một phần ({progress.AcceptedMilestoneCount}/{milestoneIds.Count} đợt)";
+                    }
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId,
+                        $"contract:{contractId}:acceptance:{acceptanceRecordId}:signed",
+                        "AcceptanceSigned", acceptanceTitle,
+                        "closing", now, cancellationToken);
+                }
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadEvidenceAsync(
                     evidence.AcceptanceEvidenceId, cancellationToken);
@@ -708,6 +741,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ContractAuditActionTypes.AcceptanceRecordCancelled,
                 await CountAppendixReferencesAsync(
                     acceptanceRecordId, cancellationToken));
+            if (_notifications is not null)
+                await _notifications.StageCurrentOwnerAsync(contractId, employeeId,
+                    $"contract:{contractId}:acceptance:{acceptanceRecordId}:cancelled",
+                    "AcceptanceCancelled", "Biên bản nghiệm thu đã bị hủy",
+                    "closing", now, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(
                 contractId, acceptanceRecordId, cancellationToken);

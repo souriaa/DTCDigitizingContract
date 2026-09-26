@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -33,6 +34,47 @@ public sealed class ContractAcceptanceServicePhase7Tests
     private const int AppendixId = 76;
     private const int MilestoneId = 77;
     private static readonly byte[] InitialVersion = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    [Fact]
+    public async Task FinalizeAndSign_NotifyOwnerOnly_WhenAnotherEmployeeActs()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        const int actorId = 750;
+        db.TblEmployees.Add(new TblEmployee
+        {
+            EmployeeId = actorId, EmployeeFullName = "Nhân viên nghiệm thu",
+            Status = 1, RowVersion = InitialVersion.ToArray()
+        });
+        await db.SaveChangesAsync();
+        var authorization = new TestAuthorization();
+        var notifications = new ContractNotificationProducer(db,
+            new NotificationPublisher(db,
+                [new ContractNotificationResourcePolicy(db, authorization)]));
+        var service = CreateService(db, storage, authorization: authorization,
+            notifications: notifications);
+
+        var draft = await service.CreateAsync(ContractId, CreateRequest(), actorId);
+        var finalized = await service.FinalizeAsync(ContractId,
+            draft.AcceptanceRecordId,
+            new() { RowVersion = draft.RowVersion }, actorId);
+        await service.UploadSignedEvidenceAsync(ContractId, draft.AcceptanceRecordId,
+            new()
+            {
+                RowVersion = finalized.RowVersion,
+                File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
+            }, actorId);
+
+        var notificationsSaved = await db.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).OrderBy(x => x.NotificationId).ToListAsync();
+        Assert.Equal(["AcceptanceFinalized", "AcceptanceSigned"],
+            notificationsSaved.Select(x => x.EventCode).ToArray());
+        Assert.All(notificationsSaved, item =>
+            Assert.Equal(EmployeeId, Assert.Single(item.Recipients).EmployeeId));
+        Assert.All(notificationsSaved, item =>
+            Assert.DoesNotContain(item.Recipients, recipient => recipient.EmployeeId == actorId));
+    }
 
     [Fact]
     public async Task Lifecycle_UsesRelationalSnapshot_Artifacts_AndSignedGate()
@@ -707,7 +749,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
         DbDtctechContext db,
         TrackingStorage storage,
         CapturingAuditWriter? audit = null,
-        IContractResourceAuthorizationService? authorization = null)
+        IContractResourceAuthorizationService? authorization = null,
+        ContractNotificationProducer? notifications = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(1, "TENANT-PHASE7", "Tenant Phase 7",
@@ -719,7 +762,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
             storage,
             tenant,
             new FakePdfRenderer(),
-            new CalendarDueDateService());
+            new CalendarDueDateService(),
+            notifications: notifications);
     }
 
     private static CreateContractAcceptanceRecordRequest CreateRequest() => new()

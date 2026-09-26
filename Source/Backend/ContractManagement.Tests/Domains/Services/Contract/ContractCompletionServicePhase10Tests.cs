@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Security;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.Models.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
@@ -187,7 +188,7 @@ public sealed class ContractCompletionServicePhase10Tests
     {
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
-        var service = CreateService(context, new TrackingPrivateStorage());
+        var service = CreateService(context, new TrackingPrivateStorage(), CreateNotifications(context));
 
         var partial = await service.AddPaymentAsync(
             ContractId,
@@ -217,6 +218,22 @@ public sealed class ContractCompletionServicePhase10Tests
             await context.TblContractAudits.CountAsync(candidate =>
                 candidate.ActionType == ContractAuditActionTypes.PaymentAdded
                 && candidate.ActorEmployeeId == AccountantId));
+        var notification = await context.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).SingleAsync();
+        Assert.Equal("PaymentsCompleted", notification.EventCode);
+        Assert.Equal($"contract:{ContractId}:payments-complete:{final.ContractPaymentId}", notification.EventKey);
+        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
+
+        await service.VoidPaymentAsync(ContractId, final.ContractPaymentId,
+            VoidRequest(Convert.FromBase64String(final.RowVersion),
+                "Đã nhập nhầm khoản thanh toán."), AccountantId);
+        var replacement = await service.AddPaymentAsync(ContractId,
+            PaymentRequest(600m, "ref-003"), AccountantId);
+        var completionKeys = await context.TblNotifications.AsNoTracking()
+            .Where(x => x.EventCode == "PaymentsCompleted")
+            .Select(x => x.EventKey).ToListAsync();
+        Assert.Equal(2, completionKeys.Count);
+        Assert.Contains($"contract:{ContractId}:payments-complete:{replacement.ContractPaymentId}", completionKeys);
     }
 
     [Fact]
@@ -643,7 +660,8 @@ public sealed class ContractCompletionServicePhase10Tests
             includeAcceptance: true,
             activePayments: [ContractTotal]);
 
-        var response = await CreateService(context, new TrackingPrivateStorage())
+        var response = await CreateService(context, new TrackingPrivateStorage(),
+                CreateNotifications(context))
             .CompleteAsync(ContractId, CompleteRequest(), ManagerId);
 
         Assert.Equal(ContractStatus.Completed, response.ContractStatus);
@@ -652,6 +670,10 @@ public sealed class ContractCompletionServicePhase10Tests
         Assert.Equal(
             (byte)ContractStatus.Completed,
             (await context.TblContracts.AsNoTracking().SingleAsync()).Status);
+        var notification = await context.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).SingleAsync();
+        Assert.Equal("ContractCompleted", notification.EventCode);
+        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
         Assert.Contains(
             context.TblContractAudits,
             candidate => candidate.ActionType ==
@@ -807,7 +829,8 @@ public sealed class ContractCompletionServicePhase10Tests
 
     private static ContractCompletionService CreateService(
         DbDtctechContext context,
-        IPrivateFileStorage storage)
+        IPrivateFileStorage storage,
+        ContractNotificationProducer? notifications = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(
@@ -830,8 +853,14 @@ public sealed class ContractCompletionServicePhase10Tests
                 tenant,
                 new HttpContextAccessor { HttpContext = httpContext }),
             storage,
-            tenant);
+            tenant,
+            notifications: notifications);
     }
+
+    private static ContractNotificationProducer CreateNotifications(DbDtctechContext db) =>
+        new(db, new NotificationPublisher(db,
+            [new ContractNotificationResourcePolicy(db,
+                new ContractResourceAuthorizationService(db))]));
 
     private static async Task SeedAsync(
         DbDtctechContext context,

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Cryptography;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Responses;
@@ -41,17 +42,20 @@ public sealed class ContractApprovalService : IContractApprovalService
     private readonly IContractResourceAuthorizationService _authorization;
     private readonly IContractAuditWriter _auditWriter;
     private readonly IPrivateFileStorage _privateFileStorage;
+    private readonly ContractNotificationProducer? _notifications;
 
     public ContractApprovalService(
         DbDtctechContext dbContext,
         IContractResourceAuthorizationService authorization,
         IContractAuditWriter auditWriter,
-        IPrivateFileStorage privateFileStorage)
+        IPrivateFileStorage privateFileStorage,
+        ContractNotificationProducer? notifications = null)
     {
         _dbContext = dbContext;
         _authorization = authorization;
         _auditWriter = auditWriter;
         _privateFileStorage = privateFileStorage;
+        _notifications = notifications;
     }
 
     public async Task<PagedResult<ContractApprovalRequestResponse>>
@@ -587,6 +591,21 @@ public sealed class ContractApprovalService : IContractApprovalService
                             ("VersionLocked", version.IsLocked)))
                 ]);
 
+                if (_notifications is not null)
+                {
+                    if (decision == ApprovalRequestStatus.Withdrawn)
+                        await _notifications.StageApprovalWithdrawnAsync(
+                            contract.ContractId, approval.ApprovalRequestId,
+                            actorEmployeeId, now, cancellationToken);
+                    else
+                        await _notifications.StageOwnerAsync(contract.ContractId,
+                            contract.EmployeeId, actorEmployeeId,
+                            $"contract:{contract.ContractId}:approval-request:{approval.ApprovalRequestId}:{decision}",
+                            decision == ApprovalRequestStatus.Approved ? "ApprovalApproved" : "ApprovalReturned",
+                            decision == ApprovalRequestStatus.Approved
+                                ? "Hợp đồng đã được phê duyệt" : "Hợp đồng cần chỉnh sửa sau duyệt",
+                            "approval", now, cancellationToken);
+                }
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 

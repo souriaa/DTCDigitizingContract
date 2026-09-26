@@ -339,6 +339,11 @@ public partial class ContractService
                             ("ExpiresAt", link.ExpiresAt),
                             ("LinkState", "Revoked")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId, $"contract:{contractId}:customer-link:{linkId}:revoked",
+                        "CustomerAccessLinkRevoked", "Quyền truy cập khách hàng đã bị thu hồi",
+                        "customer-access", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -475,6 +480,11 @@ public partial class ContractService
                             ("ParentCommentId", comment.ParentCommentId),
                             ("State", "Open")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        null, $"contract:{contractId}:comment:{comment.CommentId}",
+                        "CustomerCommentCreated", "Khách hàng đã phản hồi đàm phán",
+                        "negotiation", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return new CustomerPublicNegotiationCommentResponse
@@ -627,6 +637,12 @@ public partial class ContractService
                             ("ExpiresAt", link.ExpiresAt),
                             ("LinkState", link.ActivatedAt.HasValue ? "Active" : "Pending")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId,
+                        $"contract:{contractId}:customer-link:{link.CustomerAccessLinkId}:{auditAction}",
+                        auditAction, "Quyền truy cập khách hàng đã thay đổi",
+                        "customer-access", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return new ContractCustomerAccessLinkResponse
