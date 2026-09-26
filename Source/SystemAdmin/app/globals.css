@@ -142,3 +142,94 @@
 ::view-transition-new(root) {
   z-index: 9999;
 }
+
+/* Shared Sonner toast: frosted content and a full-height close target. */
+[data-sonner-toast][data-styled="true"] {
+  --toast-close-button-start: unset;
+  --toast-close-button-end: 0;
+  --toast-close-button-transform: none;
+  overflow: hidden;
+  padding-right: 60px;
+}
+
+[data-sonner-toast]::before {
+  content: "";
+  position: absolute;
+  inset: 0 44px 0 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 40%);
+  backdrop-filter: blur(7px) saturate(140%);
+  -webkit-backdrop-filter: blur(7px) saturate(140%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  z-index: 1;
+}
+
+[data-sonner-toaster][data-theme="dark"] [data-sonner-toast]::before {
+  background: rgb(0 0 0 / 42%);
+}
+
+[data-sonner-toast]:has([data-close-button]:is(:hover, :focus-visible))::before {
+  opacity: 1;
+}
+
+[data-sonner-toast] :is([data-icon], [data-content]) {
+  transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+[data-sonner-toast]:has([data-close-button]:is(:hover, :focus-visible))
+  :is([data-icon], [data-content]) {
+  filter: blur(2px);
+  opacity: 0.4;
+  transform: scale(0.985);
+}
+
+[data-sonner-toast] [data-close-button] {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 44px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  transform: none;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, currentColor 20%, transparent) !important;
+  border-radius: 0;
+  background: color-mix(in srgb, currentColor 5%, transparent) !important;
+  color: inherit !important;
+  opacity: 0.85;
+  z-index: 2;
+  transition: background 180ms ease, opacity 180ms ease;
+}
+
+[data-sonner-toast] [data-close-button]:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, currentColor 12%, transparent) !important;
+  opacity: 1;
+}
+
+[data-sonner-toast] [data-close-button]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -4px;
+  box-shadow: none;
+}
+
+[data-sonner-toast] [data-close-button] svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+  transition: transform 180ms ease;
+}
+
+[data-sonner-toast] [data-close-button]:hover svg {
+  transform: scale(1.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast]::before,
+  [data-sonner-toast] :is([data-icon], [data-content]),
+  [data-sonner-toast] [data-close-button],
+  [data-sonner-toast] [data-close-button] svg {
+    transition: none;
+  }
+}

@@ -25,7 +25,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName;
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between overflow-hidden rounded-md border p-4 pr-14 shadow-lg backdrop-blur-xl transition-all after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:right-11 after:rounded-l-[inherit] after:bg-background/45 after:backdrop-blur-md after:opacity-0 after:transition-opacity after:duration-250 after:z-10 group-has-[[toast-close]:hover]:after:opacity-100 [&>:not([toast-close])]:transition-all [&>:not([toast-close])]:duration-300 group-has-[[toast-close]:hover]:[&>:not([toast-close])]:blur-[2px] group-has-[[toast-close]:hover]:[&>:not([toast-close])]:opacity-40 group-has-[[toast-close]:hover]:[&>:not([toast-close])]:scale-[0.985] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between overflow-hidden rounded-md border p-4 pr-14 shadow-lg backdrop-blur-xl transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
   {
     variants: {
       variant: {
@@ -78,10 +78,11 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "group/close absolute right-0 top-0 bottom-0 w-11 z-20 flex items-center justify-center border-l border-foreground/10 bg-foreground/[0.03] backdrop-blur-md text-foreground/70 hover:text-foreground hover:bg-foreground/[0.08] hover:border-foreground/25 transition-all focus:outline-none focus:ring-2 focus:ring-ring group-[.destructive]:border-destructive-foreground/25 group-[.destructive]:bg-destructive-foreground/[0.04] group-[.destructive]:text-destructive-foreground/80 group-[.destructive]:hover:bg-destructive-foreground/15 group-[.destructive]:hover:border-destructive-foreground/45 group-[.destructive]:hover:text-destructive-foreground",
+      "group/close absolute inset-y-0 right-0 z-20 flex w-11 items-center justify-center border-l border-foreground/15 bg-foreground/[0.04] text-foreground/75 transition-colors hover:bg-foreground/[0.1] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring group-[.destructive]:border-destructive-foreground/25 group-[.destructive]:bg-destructive-foreground/[0.06] group-[.destructive]:text-destructive-foreground/80 group-[.destructive]:hover:bg-destructive-foreground/15 group-[.destructive]:hover:text-destructive-foreground",
       className,
     )}
     toast-close=""
+    aria-label="Đóng thông báo"
     {...props}
   >
     <X className="h-4 w-4 transition-transform duration-200 group-hover/close:scale-110" />

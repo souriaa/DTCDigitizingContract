@@ -140,6 +140,7 @@ export function ContractAcceptanceRecords({
   const [createStep, setCreateStep] = useState(1);
   const [createForm, setCreateForm] = useState(emptyCreate);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [signedUploadConfirmOpen, setSignedUploadConfirmOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [signedFile, setSignedFile] = useState<File>();
@@ -369,6 +370,41 @@ export function ContractAcceptanceRecords({
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== "s" ||
+        selected?.status !== AcceptanceRecordStatus.Draft ||
+        !canManage
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (
+        event.repeat ||
+        busy ||
+        createOpen ||
+        finalizeOpen ||
+        cancelOpen ||
+        signedUploadConfirmOpen ||
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="listbox"][data-state="open"]',
+        )
+      ) {
+        return;
+      }
+
+      void saveAllDraftChanges();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   const toggleReference = (appendixId: number, checked: boolean) => {
     if (!selected) return;
     const existing = selected.references.find(
@@ -452,6 +488,63 @@ export function ContractAcceptanceRecords({
     } catch (error) {
       previewWindow?.close();
       toast.error(getApiErrorMessage(error, "Không thể mở tài liệu."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadSignedEvidence = async () => {
+    if (
+      !selected ||
+      selected.status !== AcceptanceRecordStatus.Finalized ||
+      !signedFile ||
+      busy
+    ) {
+      return;
+    }
+
+    let uploaded = false;
+    try {
+      setBusy(true);
+      const evidence = await contractAcceptanceApi.uploadSignedEvidence(
+        contract.contractId,
+        selected.acceptanceRecordId,
+        signedFile,
+        selected.rowVersion,
+      );
+      uploaded = true;
+      setSelected((current) =>
+        current?.acceptanceRecordId === selected.acceptanceRecordId
+          ? {
+              ...current,
+              status: AcceptanceRecordStatus.Signed,
+              signedEvidence: evidence,
+            }
+          : current,
+      );
+      setRecords((current) =>
+        current.map((record) =>
+          record.acceptanceRecordId === selected.acceptanceRecordId
+            ? { ...record, status: AcceptanceRecordStatus.Signed }
+            : record,
+        ),
+      );
+      setSignedUploadConfirmOpen(false);
+      setSignedFile(undefined);
+      toast.success("Đã lưu bản ký biên bản nghiệm thu.");
+      const [record, nextRecords] = await Promise.all([
+        contractAcceptanceApi.get(contract.contractId, selected.acceptanceRecordId),
+        contractAcceptanceApi.list(contract.contractId),
+      ]);
+      setSelected(record);
+      setRecords(nextRecords);
+      await onChanged();
+    } catch (error) {
+      toast.error(
+        uploaded
+          ? "Đã lưu bản ký nhưng chưa tải lại được dữ liệu. Vui lòng làm mới trang."
+          : getApiErrorMessage(error, "Không thể tải bản ký."),
+      );
     } finally {
       setBusy(false);
     }
@@ -775,7 +868,7 @@ export function ContractAcceptanceRecords({
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn
-                      bộ nội dung biên bản.
+                      bộ nội dung biên bản. Có thể dùng Ctrl+S (hoặc ⌘+S).
                     </p>
                   </div>
                   <Button
@@ -1269,6 +1362,29 @@ export function ContractAcceptanceRecords({
                     <span className="text-muted-foreground">Địa điểm:</span>{" "}
                     {selected.location}
                   </div>
+                  <div className="md:col-span-2">
+                    <span className="text-muted-foreground">
+                      Loại nghiệm thu:
+                    </span>{" "}
+                    {selected.acceptanceKind === AcceptanceKind.Partial
+                      ? "Nghiệm thu một phần"
+                      : "Nghiệm thu toàn bộ"}
+                  </div>
+                  {selected.acceptanceKind === AcceptanceKind.Partial &&
+                    selected.milestones.length > 0 && (
+                      <div className="md:col-span-2">
+                        <span className="text-muted-foreground">
+                          Các đợt đã chốt:
+                        </span>
+                        <ul className="mt-1 list-disc pl-5">
+                          {selected.milestones.map((milestone) => (
+                            <li key={milestone.paymentMilestoneId}>
+                              {milestone.milestoneCode} — {milestone.titleVi}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   {selected.finalizedAt && (
                     <>
                       <div>
@@ -1347,6 +1463,7 @@ export function ContractAcceptanceRecords({
                     <Input
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
+                      disabled={busy}
                       onChange={(event) =>
                         setSignedFile(event.target.files?.[0])
                       }
@@ -1354,43 +1471,7 @@ export function ContractAcceptanceRecords({
                     />
                     <Button
                       disabled={!signedFile || busy}
-                      onClick={() =>
-                        signedFile &&
-                        void (async () => {
-                          try {
-                            setBusy(true);
-                            await contractAcceptanceApi.uploadSignedEvidence(
-                              contract.contractId,
-                              selected.acceptanceRecordId,
-                              signedFile,
-                              selected.rowVersion,
-                            );
-                            toast.success("Đã lưu bản ký biên bản nghiệm thu.");
-                            setSignedFile(undefined);
-                            setSelected(
-                              await contractAcceptanceApi.get(
-                                contract.contractId,
-                                selected.acceptanceRecordId,
-                              ),
-                            );
-                            setRecords(
-                              await contractAcceptanceApi.list(
-                                contract.contractId,
-                              ),
-                            );
-                            await onChanged();
-                          } catch (error) {
-                            toast.error(
-                              getApiErrorMessage(
-                                error,
-                                "Không thể tải bản ký.",
-                              ),
-                            );
-                          } finally {
-                            setBusy(false);
-                          }
-                        })()
-                      }
+                      onClick={() => setSignedUploadConfirmOpen(true)}
                     >
                       <FileSignature className="mr-2 size-4" /> Tải bản ký
                     </Button>
@@ -1660,6 +1741,21 @@ export function ContractAcceptanceRecords({
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        isOpen={signedUploadConfirmOpen}
+        onClose={() => setSignedUploadConfirmOpen(false)}
+        onConfirm={() => void uploadSignedEvidence()}
+        title="Xác nhận bản ký nghiệm thu?"
+        description={
+          <>
+            Tải tệp <strong>{signedFile?.name}</strong> làm bản ký chính thức
+            của biên bản {selected?.acceptanceCode}. Sau khi lưu, biên bản sẽ
+            chuyển sang Đã ký và được tính vào tiến độ nghiệm thu.
+          </>
+        }
+        confirmText="Tải bản ký và đánh dấu Đã ký"
+        isLoading={busy}
+      />
       <ConfirmDialog
         isOpen={finalizeOpen}
         onClose={() => setFinalizeOpen(false)}

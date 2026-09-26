@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, FileText, ShieldCheck, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { authApi } from "@/services/auth-api";
 import { getApiErrorMessage } from "@/lib/api-error";
