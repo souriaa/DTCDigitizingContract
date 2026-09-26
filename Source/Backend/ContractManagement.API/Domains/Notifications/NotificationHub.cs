@@ -8,15 +8,6 @@ namespace ContractManagement.API.Domains.Notifications;
 /// <summary>No client methods: the socket only receives an empty invalidation signal.</summary>
 public sealed class NotificationHub : Hub
 {
-    private readonly ICurrentTenant _tenant;
-    private readonly DbDtctechContext _db;
-
-    public NotificationHub(ICurrentTenant tenant, DbDtctechContext db)
-    {
-        _tenant = tenant;
-        _db = db;
-    }
-
     public override async Task OnConnectedAsync()
     {
         var http = Context.GetHttpContext();
@@ -27,10 +18,14 @@ public sealed class NotificationHub : Hub
         }
         try
         {
+            // SignalR activates hubs in its own scope. TenantResolutionMiddleware
+            // populated the HTTP request scope, not the hub activation scope.
+            var tenant = http.RequestServices.GetRequiredService<ICurrentTenant>();
+            var db = http.RequestServices.GetRequiredService<DbDtctechContext>();
             var employee = await EmployeeSessionValidator.ValidateAsync(
-                http, _tenant, _db, Array.Empty<string>());
+                http, tenant, db, Array.Empty<string>());
             await Groups.AddToGroupAsync(Context.ConnectionId,
-                GroupName(_tenant.Value!.TenantId, employee.EmployeeId));
+                GroupName(tenant.GetRequiredTenant().TenantId, employee.EmployeeId));
 
             // Force a fresh handshake regularly; revoked long-lived sessions only receive
             // content-free invalidations until then, and REST always rechecks authorization.

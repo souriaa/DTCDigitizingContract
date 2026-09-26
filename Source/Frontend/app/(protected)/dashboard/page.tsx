@@ -277,9 +277,7 @@ export default function DashboardPage() {
                 hrefs={{
                   total: "/contracts",
                   drafting: "/contracts",
-                  pendingApproval: canDecideApprovals
-                    ? "/contract-approvals"
-                    : "/contracts",
+                  pendingApproval: "/contracts",
                   pendingSignature: "/contracts",
                   signed: "/contracts",
                   completedRejected: "/contracts",

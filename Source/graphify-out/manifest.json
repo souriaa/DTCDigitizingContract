@@ -2712,9 +2712,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/sidebar.tsx": {
-    "mtime": 1790000690.2477782,
-    "seen": 1790050649.2772813,
-    "ast_hash": "3bd30e4b0c26195201c286d3794119b4",
+    "mtime": 1790407831.9814293,
+    "seen": 1790407991.016629,
+    "ast_hash": "1966d219c84ce00edae64c499a08793e",
     "semantic_hash": ""
   },
   "Frontend/components/theme-provider.tsx": {
@@ -5394,9 +5394,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Contract/ContractApprovalService.cs": {
-    "mtime": 1790389479.0840766,
-    "seen": 1790404101.2605324,
-    "ast_hash": "facdcf8b6b591eaf1a8224bf09a59ea4",
+    "mtime": 1790404347.200904,
+    "seen": 1790406768.6097631,
+    "ast_hash": "4e27d4f94953f8e65f2e3ec5525f3d7e",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260831032028_Phase8DInternalApprovalWorkflow.cs": {
@@ -5412,15 +5412,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contract-approvals/page.tsx": {
-    "mtime": 1790000690.1863804,
-    "seen": 1790050649.277205,
-    "ast_hash": "c85e82468b9076b4f54f69a2a86a3bc5",
+    "mtime": 1790407174.1715827,
+    "seen": 1790407412.9137673,
+    "ast_hash": "b554728f960b785983ff2ada7316d7e8",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-approval-panel.tsx": {
-    "mtime": 1790000690.2272916,
-    "seen": 1790050649.2772515,
-    "ast_hash": "99427c8193fae955bf68f9769d109f2d",
+    "mtime": 1790407907.1101723,
+    "seen": 1790407991.016593,
+    "ast_hash": "30602abf21c6279cc79598b9adf2b5ad",
     "semantic_hash": ""
   },
   "Frontend/services/contract-approval-api.ts": {
@@ -5532,9 +5532,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Contract/ContractCompletionService.cs": {
-    "mtime": 1790389569.8303332,
-    "seen": 1790404101.2605383,
-    "ast_hash": "ca47c39d02eb2bcc6ea0c687ac0fcc0d",
+    "mtime": 1790404202.2317283,
+    "seen": 1790406768.609768,
+    "ast_hash": "e4dfaca335784a79f1b52a1ccea1f6c0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260831162848_Phase10AcceptancePaymentCompletion.cs": {
@@ -5586,9 +5586,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/Contract/ContractCompletionServicePhase10Tests.cs": {
-    "mtime": 1790403911.2479274,
-    "seen": 1790404101.2611067,
-    "ast_hash": "f9074a8cc35bdc9b0f020cdb958d7307",
+    "mtime": 1790404382.3458643,
+    "seen": 1790406768.6100736,
+    "ast_hash": "c735cb187d53bab5a8fa02d5d5067f70",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Integration/Phase12LibreOfficeReleaseGateTests.cs": {
@@ -6678,9 +6678,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Notifications/NotificationHub.cs": {
-    "mtime": 1790387717.8886466,
-    "seen": 1790388239.4247324,
-    "ast_hash": "075522b01ecd31d649e40120e82d2935",
+    "mtime": 1790406554.626774,
+    "seen": 1790406768.6097043,
+    "ast_hash": "3629bf395ccf1258329385c857dd4a08",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Notifications/NotificationPublisher.cs": {
@@ -6702,9 +6702,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Notifications/NotificationInboxTests.cs": {
-    "mtime": 1790389689.1622255,
-    "seen": 1790404101.2610352,
-    "ast_hash": "464aac4054c83636571d865388125854",
+    "mtime": 1790404360.3052838,
+    "seen": 1790406768.6100368,
+    "ast_hash": "8f1bf974ded33740b1a8a6c1c17d3af8",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260926021025_NotificationDataChecks.cs": {
@@ -6714,9 +6714,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Notifications/ContractNotificationProducer.cs": {
-    "mtime": 1790389534.414075,
-    "seen": 1790404101.2604647,
-    "ast_hash": "287d5c05e8d15a903d9da504f9447875",
+    "mtime": 1790404346.4572382,
+    "seen": 1790406768.6097002,
+    "ast_hash": "c7ae2083d689354eebdf1416bd716f70",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/notifications/page.tsx": {
@@ -6732,9 +6732,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/notifications/notification-provider.tsx": {
-    "mtime": 1790390199.1388178,
-    "seen": 1790404101.2614195,
-    "ast_hash": "570e5cb0666d5458805385e97950c973",
+    "mtime": 1790407297.6967137,
+    "seen": 1790407412.9138556,
+    "ast_hash": "41f55b6f1d450f6d11debabea5eebcfc",
     "semantic_hash": ""
   },
   "Frontend/services/notification-api.ts": {

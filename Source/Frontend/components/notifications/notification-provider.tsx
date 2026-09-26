@@ -180,18 +180,25 @@ export function NotificationProvider({
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let retryDelay = 2000;
-    const start = async () => {
-      if (disposed || connection.state !== HubConnectionState.Disconnected) return;
-      try {
-        await connection.start();
-        retryDelay = 2000;
-        scheduleRefresh();
-      } catch {
+    let pendingStart: Promise<void> | null = null;
+    const start = () => {
+      if (disposed || pendingStart || connection.state !== HubConnectionState.Disconnected) return;
+      const attempt = connection.start();
+      pendingStart = attempt;
+      void attempt.then(() => {
         if (!disposed) {
-          retryTimer = setTimeout(() => { void start(); }, retryDelay);
+          retryDelay = 2000;
+          scheduleRefresh();
+        }
+      }).catch(() => {
+        if (!disposed) {
+          retryTimer = setTimeout(start, retryDelay);
           retryDelay = Math.min(retryDelay * 2, 60000);
         }
-      }
+      }).finally(() => {
+        if (pendingStart === attempt) pendingStart = null;
+        if (disposed) void connection.stop();
+      });
     };
     connection.on("NotificationsChanged", () => {
       scheduleRefresh();
@@ -199,9 +206,9 @@ export function NotificationProvider({
     });
     connection.onreconnected(scheduleRefresh);
     connection.onclose(() => {
-      if (!disposed) retryTimer = setTimeout(() => { void start(); }, retryDelay);
+      if (!disposed) retryTimer = setTimeout(start, retryDelay);
     });
-    void start();
+    start();
 
     return () => {
       disposed = true;
@@ -215,7 +222,9 @@ export function NotificationProvider({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
       channel?.close();
-      void connection.stop();
+      // Stopping during negotiation makes SignalR report a spurious connection error.
+      // The in-flight start will stop itself in its finally handler.
+      if (!pendingStart) void connection.stop();
     };
   }, [employeeId, tenantId, refresh]);
 

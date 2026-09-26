@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Download,
@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 
 import { downloadBlob } from "@/components/contract-templates/contract-template-utils";
+import {
+  ContractApprovalDecisionDialog,
+  type ApprovalDecision,
+} from "@/components/contracts/contract-approval-decision-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +40,7 @@ import {
 } from "@/lib/api-error";
 import { createNegotiationRoundAfterApproval } from "@/lib/create-negotiation-round-after-approval";
 import { formatDateTime } from "@/lib/format-date-time";
+import { hasPermission, RBAC_PERMISSIONS } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import {
   contractApprovalApi,
@@ -82,6 +87,7 @@ export function ContractApprovalPanel({
   onContractRefetch,
 }: ContractApprovalPanelProps) {
   const employeeId = useAuthStore((state) => state.user?.employeeId);
+  const permissions = useAuthStore((state) => state.user?.permissions);
   const [history, setHistory] = useState<ContractApprovalRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +100,13 @@ export function ContractApprovalPanel({
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(
     null,
   );
+  const [decisionRequest, setDecisionRequest] =
+    useState<ContractApprovalRequestResponse | null>(null);
+  const [decisionDetail, setDecisionDetail] =
+    useState<ContractApprovalDetailResponse | null>(null);
+  const [isLoadingDecision, setIsLoadingDecision] = useState(false);
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+  const decisionLoadId = useRef(0);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -122,6 +135,92 @@ export function ContractApprovalPanel({
     canManage &&
     contract.status === ContractStatus.PendingApproval &&
     pendingRequest?.submittedByEmployeeId === employeeId;
+  const canDecide =
+    hasPermission(permissions, RBAC_PERMISSIONS.contractApprovalDecide) &&
+    contract.status === ContractStatus.PendingApproval &&
+    pendingRequest?.versionId === contract.currentVersion.versionId &&
+    pendingRequest.submittedByEmployeeId !== employeeId;
+
+  const openDecision = async (request: ContractApprovalRequestResponse) => {
+    const loadId = ++decisionLoadId.current;
+    setDecisionRequest(request);
+    setDecisionDetail(null);
+    setIsLoadingDecision(true);
+    try {
+      const detail = await contractApprovalApi.getDetail(
+        request.approvalRequestId,
+      );
+      if (decisionLoadId.current === loadId) setDecisionDetail(detail);
+    } catch (loadError) {
+      if (decisionLoadId.current === loadId) {
+        setDecisionRequest(null);
+        toast.error(
+          getApiErrorMessage(loadError, "Không thể tải yêu cầu duyệt."),
+        );
+      }
+    } finally {
+      if (decisionLoadId.current === loadId) setIsLoadingDecision(false);
+    }
+  };
+
+  const closeDecision = () => {
+    decisionLoadId.current++;
+    setDecisionRequest(null);
+    setDecisionDetail(null);
+    setIsLoadingDecision(false);
+  };
+
+  const submitDecision = async (
+    decision: ApprovalDecision,
+    comment: string,
+  ) => {
+    if (!decisionDetail || isSubmittingDecision) return;
+    setIsSubmittingDecision(true);
+    try {
+      const payload = {
+        rowVersion: decisionDetail.rowVersion,
+        comment: comment || null,
+      };
+      if (decision === "approve") {
+        await contractApprovalApi.approve(
+          decisionDetail.approvalRequestId,
+          payload,
+        );
+      } else {
+        await contractApprovalApi.returnForRevision(
+          decisionDetail.approvalRequestId,
+          payload,
+        );
+      }
+      toast.success(
+        decision === "approve"
+          ? "Đã duyệt hợp đồng."
+          : "Đã yêu cầu sửa lại hợp đồng.",
+      );
+      closeDecision();
+      await Promise.allSettled([
+        loadHistory(),
+        Promise.resolve(onContractRefetch()),
+      ]);
+    } catch (decisionError) {
+      if (isStaleRowVersion(decisionError)) {
+        toast.error(
+          "Yêu cầu đã được người khác xử lý. Dữ liệu mới nhất đã được tải lại.",
+        );
+        closeDecision();
+        await Promise.allSettled([
+          loadHistory(),
+          Promise.resolve(onContractRefetch()),
+        ]);
+      } else {
+        toast.error(
+          getApiErrorMessage(decisionError, "Không thể xử lý yêu cầu duyệt."),
+        );
+      }
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
 
   const withdraw = async () => {
     const reason = withdrawReason.trim();
@@ -219,6 +318,21 @@ export function ContractApprovalPanel({
 
   return (
     <div className="space-y-4">
+      {canDecide && pendingRequest && (
+        <Alert className="border-emerald-500/30 bg-emerald-500/5">
+          <CheckCircle2 className="size-4 text-emerald-600" />
+          <AlertTitle>Hợp đồng đang chờ quyết định phê duyệt</AlertTitle>
+          <AlertDescription className="mt-3 space-y-3">
+            <p>
+              Kiểm tra bộ tài liệu đã gửi trước khi duyệt hoặc yêu cầu sửa lại.
+            </p>
+            <Button onClick={() => void openDecision(pendingRequest)}>
+              <Eye className="size-4" />
+              Xem hồ sơ và duyệt
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {canWithdraw && pendingRequest && (
         <Alert className="border-amber-500/30 bg-amber-500/5">
           <Undo2 className="size-4 text-amber-600" />
@@ -420,6 +534,24 @@ export function ContractApprovalPanel({
           )}
         </DialogContent>
       </Dialog>
+      {decisionRequest && (
+        <ContractApprovalDecisionDialog
+          open
+          mode="single"
+          requests={[decisionRequest]}
+          detail={decisionDetail}
+          isLoadingDetail={isLoadingDecision}
+          isSubmitting={isSubmittingDecision}
+          downloadingFileId={downloadingFileId}
+          onOpenChange={(open) => {
+            if (!open && !isSubmittingDecision) closeDecision();
+          }}
+          onSubmit={submitDecision}
+          onDownloadArtifact={(artifact, openPdf) =>
+            downloadArtifact(artifact.fileId, artifact.fileName, openPdf)
+          }
+        />
+      )}
     </div>
   );
 }
