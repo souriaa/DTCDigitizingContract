@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/hooks/use-auth-store";
 import { authApi } from "@/services/auth-api";
 import { resolveProfileImageUrl } from "@/services/profile-api";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function Header({ title }: { title?: string }) {
   const router = useRouter();
@@ -42,10 +43,7 @@ export function Header({ title }: { title?: string }) {
           </h2>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <button className="relative p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-card"></span>
-          </button>
+          <NotificationBell />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

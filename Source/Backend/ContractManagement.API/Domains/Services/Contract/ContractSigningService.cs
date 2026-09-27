@@ -1,6 +1,7 @@
 using System.Data;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.API.Domains.Policies.Contract;
@@ -38,6 +39,7 @@ public sealed class ContractSigningService : IContractSigningService
     private readonly IPrivateFileStorage _privateFileStorage;
     private readonly ICurrentTenant _currentTenant;
     private readonly IContractPaymentDueDateService _paymentDueDates;
+    private readonly ContractNotificationProducer? _notifications;
 
     public ContractSigningService(
         DbDtctechContext dbContext,
@@ -45,7 +47,8 @@ public sealed class ContractSigningService : IContractSigningService
         IContractAuditWriter auditWriter,
         IPrivateFileStorage privateFileStorage,
         ICurrentTenant currentTenant,
-        IContractPaymentDueDateService? paymentDueDates = null)
+        IContractPaymentDueDateService? paymentDueDates = null,
+        ContractNotificationProducer? notifications = null)
     {
         _dbContext = dbContext;
         _authorization = authorization;
@@ -53,6 +56,7 @@ public sealed class ContractSigningService : IContractSigningService
         _privateFileStorage = privateFileStorage;
         _currentTenant = currentTenant;
         _paymentDueDates = paymentDueDates ?? new ContractPaymentDueDateService();
+        _notifications = notifications;
     }
 
     public async Task<ContractSigningDetailResponse> GetAsync(
@@ -404,6 +408,14 @@ public sealed class ContractSigningService : IContractSigningService
                             ("SupersedesEvidenceId",
                                 evidence.SupersedesEvidenceId)))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contract.ContractId,
+                        contract.EmployeeId, employeeId,
+                        $"contract:{contract.ContractId}:signed-evidence:{evidence.SignedEvidenceId}",
+                        supersededEvidenceId.HasValue ? "SignedEvidenceSuperseded" : "ContractSigned",
+                        supersededEvidenceId.HasValue
+                            ? "Bản ký hợp đồng đã được thay thế" : "Hợp đồng đã có bản ký hợp lệ",
+                        "signature", now, cancellationToken);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 

@@ -40,6 +40,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using ContractManagement.API.Helpers;
 using ContractManagement.API.Domains.CustomerAccess;
+using ContractManagement.API.Domains.Notifications;
 using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -79,6 +80,7 @@ if (builder.Environment.IsDevelopment() && allowedCorsOrigins.Length == 0)
  * Đăng ký Controller cho Web API.
  */
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services
@@ -154,6 +156,10 @@ else
     builder.Services.AddHttpClient<ICustomerOtpDeliveryProvider, HttpCustomerOtpDeliveryProvider>();
 }
 builder.Services.AddHostedService<CustomerOtpDeliveryOutboxWorker>();
+builder.Services.AddHostedService<NotificationDispatchWorker>();
+builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
+builder.Services.AddScoped<INotificationResourcePolicy, ContractNotificationResourcePolicy>();
+builder.Services.AddScoped<ContractNotificationProducer>();
 
 #endregion
 
@@ -540,6 +546,8 @@ app.UseAuthorization();
  * Ánh xạ endpoint Controller.
  */
 app.MapControllers();
+app.MapHub<NotificationHub>("/api/hubs/notifications")
+    .WithMetadata(new ContractManagement.Filter.SessionAuthorizeAttribute());
 
 /*
  * Chuyển các request không khớp Controller

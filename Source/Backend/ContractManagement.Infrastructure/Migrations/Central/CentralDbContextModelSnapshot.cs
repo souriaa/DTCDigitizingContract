@@ -246,15 +246,16 @@ namespace ContractManagement.Infrastructure.Migrations.Central
                         .IsRequired()
                         .HasMaxLength(50)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("varchar(50)")
+                        .UseCollation("Latin1_General_100_CI_AS");
 
                     b.Property<int>("TenantDatabaseId")
                         .HasColumnType("int");
 
                     b.Property<string>("TenantName")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

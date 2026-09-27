@@ -18,13 +18,15 @@ namespace ContractManagement.API.Domains.Policies.Contract
         /// Trạng thái lifecycle hiện tại của hợp đồng.
         /// </param>
         /// <param name="hasActiveSignedEvidence">Có bản scan đã ký đang hiệu lực.</param>
-        /// <param name="hasAcceptanceEvidence">Có biên bản nghiệm thu.</param>
+        /// <param name="acceptanceCompleted">Đã nghiệm thu đủ phạm vi.</param>
+        /// <param name="hasSignedAcceptance">Có ít nhất một biên bản đã ký hợp lệ.</param>
         /// <param name="totalAmount">Giá trị contract version đã ký.</param>
         /// <param name="paidAmount">Tổng thanh toán chưa bị void.</param>
         public static ContractCompletionEvaluation Evaluate(
             ContractStatus contractStatus,
             bool hasActiveSignedEvidence,
-            bool hasAcceptanceEvidence,
+            bool acceptanceCompleted,
+            bool hasSignedAcceptance,
             decimal totalAmount,
             decimal paidAmount)
         {
@@ -52,10 +54,12 @@ namespace ContractManagement.API.Domains.Policies.Contract
                 blockers.Add(new ContractCompletionBlocker(
                     ContractCompletionBlockerCode.ContractMustBeSigned));
             }
-            if (!hasAcceptanceEvidence)
+            if (!acceptanceCompleted)
             {
                 blockers.Add(new ContractCompletionBlocker(
-                    ContractCompletionBlockerCode.AcceptanceEvidenceMissing));
+                    hasSignedAcceptance
+                        ? ContractCompletionBlockerCode.AcceptanceIncomplete
+                        : ContractCompletionBlockerCode.AcceptanceNotStarted));
             }
             if (paidAmount != totalAmount)
             {

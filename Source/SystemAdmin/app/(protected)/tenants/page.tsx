@@ -19,7 +19,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +127,9 @@ export default function TenantsPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [viewingTenant, setViewingTenant] = useState<TenantResponseDto | null>(null);
+  const [viewingTenant, setViewingTenant] = useState<TenantResponseDto | null>(
+    null,
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState(initialForm);
 
@@ -151,7 +153,10 @@ export default function TenantsPage() {
       if (filterStatus !== "All" && String(tenant.status) !== filterStatus) {
         return false;
       }
-      if (filterDbMode !== "All" && String(tenant.databaseMode) !== filterDbMode) {
+      if (
+        filterDbMode !== "All" &&
+        String(tenant.databaseMode) !== filterDbMode
+      ) {
         return false;
       }
       return true;
@@ -169,10 +174,14 @@ export default function TenantsPage() {
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
+    if (form.employeePassword.length < 12) {
+      toast.error("Mật khẩu tạm phải có ít nhất 12 ký tự.");
+      return;
+    }
     setCreating(true);
     try {
       const created = await adminTenantsApi.create({
-        tenantCode: form.tenantCode.trim().toLowerCase(),
+        tenantCode: form.tenantCode.trim(),
         tenantName: form.tenantName.trim(),
         initialManager: {
           employeeCode: form.employeeCode.trim() || null,
@@ -216,8 +225,7 @@ export default function TenantsPage() {
           (c) => c.databaseMode === TenantDatabaseMode.Dedicated,
         ).length,
         icon: <Server className="w-6 h-6" />,
-        iconWrapperClassName:
-          "bg-blue-500/10 text-blue-600 dark:text-blue-500",
+        iconWrapperClassName: "bg-blue-500/10 text-blue-600 dark:text-blue-500",
       },
       {
         title: "Tạm khóa / Lỗi",
@@ -278,7 +286,11 @@ export default function TenantsPage() {
           return (
             <div className="max-w-[320px] flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
-                {item.tenantName ? item.tenantName.charAt(0).toUpperCase() : <Building2 className="w-4.5 h-4.5" />}
+                {item.tenantName ? (
+                  item.tenantName.charAt(0).toUpperCase()
+                ) : (
+                  <Building2 className="w-4.5 h-4.5" />
+                )}
               </div>
               <div className="min-w-0">
                 <span className="font-medium text-foreground block truncate">
@@ -418,7 +430,8 @@ export default function TenantsPage() {
               Quản lý Tenant
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Quản lý danh sách các tổ chức thuê bao trong hệ thống từ Central Database
+              Quản lý danh sách các tổ chức thuê bao trong hệ thống từ Central
+              Database
             </p>
           </div>
 
@@ -508,7 +521,10 @@ export default function TenantsPage() {
       </div>
 
       {/* View Details Dialog */}
-      <Dialog open={Boolean(viewingTenant)} onOpenChange={(open) => !open && setViewingTenant(null)}>
+      <Dialog
+        open={Boolean(viewingTenant)}
+        onOpenChange={(open) => !open && setViewingTenant(null)}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -528,23 +544,33 @@ export default function TenantsPage() {
             <div className="space-y-4 py-3 text-sm">
               <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/40 border border-border/60">
                 <div>
-                  <span className="text-xs text-muted-foreground block">ID Định danh</span>
-                  <span className="font-semibold text-foreground">#{viewingTenant.tenantId}</span>
+                  <span className="text-xs text-muted-foreground block">
+                    ID Định danh
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    #{viewingTenant.tenantId}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Trạng thái</span>
+                  <span className="text-xs text-muted-foreground block">
+                    Trạng thái
+                  </span>
                   <div className="mt-1">
                     <TenantStatusBadge status={viewingTenant.status} />
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Tên Database</span>
+                  <span className="text-xs text-muted-foreground block">
+                    Tên Database
+                  </span>
                   <span className="font-mono text-xs font-semibold text-foreground block truncate">
                     {viewingTenant.databaseName}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Mô hình Database</span>
+                  <span className="text-xs text-muted-foreground block">
+                    Mô hình Database
+                  </span>
                   <span className="font-medium text-primary block">
                     {viewingTenant.databaseMode === TenantDatabaseMode.Dedicated
                       ? "Dedicated DB (Riêng)"
@@ -585,7 +611,8 @@ export default function TenantsPage() {
                 <div>
                   <DialogTitle>Tạo tenant mới</DialogTitle>
                   <DialogDescription>
-                    Khởi tạo cơ sở dữ liệu, schema và tài khoản Manager trong cùng một quy trình
+                    Khởi tạo cơ sở dữ liệu, schema và tài khoản Manager trong
+                    cùng một quy trình
                   </DialogDescription>
                 </div>
               </div>
@@ -596,7 +623,7 @@ export default function TenantsPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Building2 className="w-4 h-4 text-primary" />
-                  <span>1. Thông tin tổ chức (Tenant)</span>
+                  <span>1. Thông tin tổ chức</span>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -609,31 +636,35 @@ export default function TenantsPage() {
                       required
                       placeholder="vd: fpt-telecom, vinfast"
                       value={form.tenantCode}
+                      maxLength={50}
                       onChange={(event) =>
                         updateField(
                           "tenantCode",
-                          event.target.value
-                            .replace(/[^a-zA-Z0-9-]/g, "")
-                            .toLowerCase(),
+                          event.target.value.replace(/[^a-zA-Z0-9-]/g, ""),
                         )
                       }
                       className="font-mono text-sm"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Dùng làm định danh và tiền tố database (chữ thường, số, dấu gạch ngang).
+                      Từ 3 đến 50 ký tự: chữ hoa, chữ thường, số và dấu gạch ngang.
+                      Mã không phân biệt hoa/thường khi đăng nhập.
                     </p>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="tenant-name" className="text-xs">
-                      Tên tổ chức / Doanh nghiệp <span className="text-destructive">*</span>
+                      Tên tổ chức / Doanh nghiệp{" "}
+                      <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="tenant-name"
                       required
                       placeholder="vd: Công ty Cổ phần Công nghệ FPT"
                       value={form.tenantName}
-                      onChange={(event) => updateField("tenantName", event.target.value)}
+                      maxLength={500}
+                      onChange={(event) =>
+                        updateField("tenantName", event.target.value)
+                      }
                       className="text-sm"
                     />
                   </div>
@@ -645,7 +676,7 @@ export default function TenantsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <ShieldCheck className="w-4 h-4 text-primary" />
-                    <span>2. Quản trị viên khởi tạo (Initial Manager)</span>
+                    <span>2. Quản trị viên khởi tạo</span>
                   </div>
                   <Badge variant="outline" className="text-[10px]">
                     Quyền Manager cao nhất
@@ -655,7 +686,8 @@ export default function TenantsPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="employee-fullname" className="text-xs">
-                      Họ và tên Manager <span className="text-destructive">*</span>
+                      Họ và tên Manager{" "}
+                      <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="employee-fullname"
@@ -671,7 +703,8 @@ export default function TenantsPage() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="employee-account" className="text-xs">
-                      Tài khoản đăng nhập <span className="text-destructive">*</span>
+                      Tài khoản đăng nhập{" "}
+                      <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="employee-account"
@@ -686,39 +719,77 @@ export default function TenantsPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="employee-password" className="text-xs">
-                      Mật khẩu tạm <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="relative">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="employee-password" className="text-xs">
+                        Mật khẩu tạm <span className="text-destructive">*</span>
+                      </Label>
+                      {form.employeePassword && (
+                        <span
+                          className={cn(
+                            "text-[11px]",
+                            form.employeePassword.length < 12
+                              ? "text-destructive font-medium"
+                              : "text-emerald-600 dark:text-emerald-400 font-medium",
+                          )}
+                        >
+                          {form.employeePassword.length < 12
+                            ? `${form.employeePassword.length}/12 ký tự`
+                            : "✓ Đủ 12 ký tự"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
                       <Input
                         id="employee-password"
                         required
+                        minLength={12}
                         type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
+                        placeholder="Tối thiểu 12 ký tự"
                         value={form.employeePassword}
                         onChange={(event) =>
                           updateField("employeePassword", event.target.value)
                         }
-                        className="text-sm pr-9"
+                        className={cn(
+                          "text-sm",
+                          form.employeePassword &&
+                            form.employeePassword.length < 12 &&
+                            "border-destructive focus-visible:ring-destructive/20",
+                        )}
                         autoComplete="new-password"
                       />
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                        title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       >
                         {showPassword ? (
                           <EyeOff className="w-4 h-4" />
                         ) : (
                           <Eye className="w-4 h-4" />
                         )}
-                      </button>
+                      </Button>
                     </div>
+                    <p
+                      className={cn(
+                        "text-[11px]",
+                        form.employeePassword &&
+                          form.employeePassword.length < 12
+                          ? "text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {form.employeePassword &&
+                      form.employeePassword.length < 12
+                        ? "Mật khẩu quá ngắn, vui lòng nhập tối thiểu 12 ký tự."
+                        : "Mật khẩu quản trị viên ban đầu, yêu cầu tối thiểu 12 ký tự."}
+                    </p>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="employee-code" className="text-xs">
-                      Mã nhân viên (tùy chọn)
+                      Mã nhân viên
                     </Label>
                     <Input
                       id="employee-code"

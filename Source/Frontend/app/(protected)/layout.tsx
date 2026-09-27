@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { getApiErrorCode } from "@/lib/api-error";
 import { RBAC_PERMISSION_VERSION } from "@/lib/rbac";
+import { NotificationProvider } from "@/components/notifications/notification-provider";
 
 export default function ProtectedLayout({
   children,
@@ -100,7 +101,13 @@ export default function ProtectedLayout({
     );
   }
 
+  if (!user) {
+    return <div className="h-screen w-screen bg-background" />;
+  }
+
   return (
+    <NotificationProvider key={`${user.tenantId}:${user.employeeId}`}
+      tenantId={user.tenantId} employeeId={user.employeeId}>
     <div className="flex flex-row h-screen w-screen overflow-hidden bg-background">
       <Sidebar />
       <main className="relative z-10 flex min-w-0 grow flex-col overflow-hidden">
@@ -117,5 +124,6 @@ export default function ProtectedLayout({
         </footer>
       </main>
     </div>
+    </NotificationProvider>
   );
 }

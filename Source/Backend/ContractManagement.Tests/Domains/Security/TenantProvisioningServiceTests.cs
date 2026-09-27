@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using ContractManagement.Contracts.Tenants;
 using ContractManagement.Infrastructure.DatabaseScripts.SeedData;
 using ContractManagement.Infrastructure.MultiTenancy.Contracts;
 using ContractManagement.Infrastructure.MultiTenancy.Enums;
@@ -5,7 +7,10 @@ using ContractManagement.Infrastructure.MultiTenancy.Interfaces;
 using ContractManagement.Infrastructure.MultiTenancy.Options;
 using ContractManagement.Infrastructure.MultiTenancy.Services;
 using ContractManagement.Infrastructure.Persistence.Central;
+using ContractManagement.Infrastructure.Persistence.Central.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -54,6 +59,78 @@ public sealed class TenantProvisioningServiceTests
         var audit = await centralDbContext.SecurityAudits.SingleAsync();
         Assert.Equal("Failed", audit.Result);
         Assert.Equal("ProvisioningFailed", audit.FailureCode);
+    }
+
+    [Fact]
+    public async Task Provisioning_PreservesMixedCaseCodeAndUsesNormalizedDatabaseIdentity()
+    {
+        await using var centralDbContext = CreateCentralDbContext();
+        var service = CreateService(
+            centralDbContext, new RecordingInitializer(), new RecordingSeedData());
+
+        var result = await service.CreateDedicatedAsync(NewCommand("DtcTech"));
+
+        Assert.Equal("DtcTech", result.TenantCode);
+        var tenant = await centralDbContext.Tenants
+            .Include(item => item.TenantDatabase).SingleAsync();
+        Assert.Equal("DtcTech", tenant.TenantCode);
+        Assert.Equal("dedicated-dtctech", tenant.TenantDatabase.DatabaseKey);
+        Assert.Equal("ContractManagement_Tenant_dtctech",
+            tenant.TenantDatabase.DatabaseName);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateDedicatedAsync(NewCommand("dtctech")));
+    }
+
+    [Fact]
+    public async Task Provisioning_AcceptsTenantNameWithFiveHundredCharacters()
+    {
+        await using var centralDbContext = CreateCentralDbContext();
+        var service = CreateService(
+            centralDbContext, new RecordingInitializer(), new RecordingSeedData());
+        var command = NewCommand("long-name") with { TenantName = new string('Â', 500) };
+
+        await service.CreateDedicatedAsync(command);
+
+        Assert.Equal(command.TenantName,
+            (await centralDbContext.Tenants.SingleAsync()).TenantName);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CreateDedicatedAsync(NewCommand("too-long") with
+            {
+                TenantName = new string('Â', 501)
+            }));
+    }
+
+    [Fact]
+    public async Task CentralModel_UsesCaseInsensitiveTenantCodeAndLongTenantName()
+    {
+        await using var centralDbContext = CreateCentralDbContext();
+        var entity = centralDbContext.GetService<IDesignTimeModel>().Model
+            .FindEntityType(typeof(Tenant))!;
+
+        Assert.Equal("Latin1_General_100_CI_AS",
+            entity.FindProperty(nameof(Tenant.TenantCode))!.GetCollation());
+        Assert.Equal(500,
+            entity.FindProperty(nameof(Tenant.TenantName))!.GetMaxLength());
+    }
+
+    [Fact]
+    public void CreateTenantRequest_ValidatesMixedCaseCodeAndFiveHundredCharacterName()
+    {
+        var request = new CreateTenantRequest
+        {
+            TenantCode = "DtcTech",
+            TenantName = new string('Â', 500),
+            InitialManager = new InitialManagerRequest()
+        };
+        var results = new List<ValidationResult>();
+
+        Assert.True(Validator.TryValidateObject(request,
+            new ValidationContext(request), results, true));
+
+        request.TenantName += "Â";
+        Assert.False(Validator.TryValidateObject(request,
+            new ValidationContext(request), results, true));
     }
 
     private static TenantProvisioningService CreateService(

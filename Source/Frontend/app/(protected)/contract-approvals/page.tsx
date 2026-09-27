@@ -432,8 +432,6 @@ export default function ContractApprovalsPage() {
     }
   };
 
-  console.log("selected", selected?.contractId);
-
   const submitDecision = async (
     decision: ApprovalDecision,
     comment: string,

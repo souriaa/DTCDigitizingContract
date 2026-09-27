@@ -94,7 +94,10 @@ public sealed class ContractCompletionBlockerResponse
 public sealed class ContractCompletionReadinessResponse
 {
     public bool Signed { get; set; }
-    public bool AcceptanceEvidenceAvailable { get; set; }
+    public bool AcceptanceCompleted { get; set; }
+    public int AcceptedMilestoneCount { get; set; }
+    public int TotalMilestoneCount { get; set; }
+    public IReadOnlyList<int> RemainingAcceptanceMilestoneIds { get; set; } = [];
     public decimal TotalAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal RemainingAmount { get; set; }

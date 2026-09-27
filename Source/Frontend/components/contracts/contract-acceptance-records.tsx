@@ -62,7 +62,10 @@ import {
   ContractStatus,
   type ContractDetailResponse,
 } from "@/services/contract-api";
-import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
+import type {
+  ContractCompletionReadinessResponse,
+  ContractPaymentMilestoneResponse,
+} from "@/services/contract-completion-api";
 import {
   AcceptanceKind,
   AcceptancePartyRole,
@@ -78,6 +81,7 @@ import {
 interface Props {
   contract: ContractDetailResponse;
   paymentMilestones: ContractPaymentMilestoneResponse[];
+  readiness: ContractCompletionReadinessResponse;
   signedActive: boolean;
   canManage: boolean;
   onChanged: () => void | Promise<void>;
@@ -120,6 +124,7 @@ const partyInput = (party: ContractAcceptanceParty) => ({
 export function ContractAcceptanceRecords({
   contract,
   paymentMilestones,
+  readiness,
   signedActive,
   canManage,
   onChanged,
@@ -135,6 +140,7 @@ export function ContractAcceptanceRecords({
   const [createStep, setCreateStep] = useState(1);
   const [createForm, setCreateForm] = useState(emptyCreate);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [signedUploadConfirmOpen, setSignedUploadConfirmOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [signedFile, setSignedFile] = useState<File>();
@@ -203,7 +209,9 @@ export function ContractAcceptanceRecords({
         return [summary, ...remaining];
       });
       toast.success(message);
-      if (refreshClosing) await onChanged();
+      if (refreshClosing) {
+        await Promise.all([load(), onChanged()]);
+      }
       return next;
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Thao tác không thành công."));
@@ -227,6 +235,7 @@ export function ContractAcceptanceRecords({
 
   const startCreate = () => {
     const next = emptyCreate();
+    if (hasPartialHistory) next.acceptanceKind = AcceptanceKind.Partial;
     if (templates.length === 1)
       next.templateVersionId = templates[0].templateVersionId;
     setCreateForm(next);
@@ -274,8 +283,11 @@ export function ContractAcceptanceRecords({
     );
   };
 
-  const saveAllDraftChanges = async () => {
-    if (!selected || selected.status !== AcceptanceRecordStatus.Draft) return;
+  const saveAllDraftChanges = async (
+    quiet = false,
+  ): Promise<ContractAcceptanceRecord | null> => {
+    if (!selected || selected.status !== AcceptanceRecordStatus.Draft)
+      return null;
     const draft = selected;
     const customer = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Customer,
@@ -283,7 +295,7 @@ export function ContractAcceptanceRecords({
     const tenant = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Tenant,
     );
-    if (!customer || !tenant) return;
+    if (!customer || !tenant) return null;
     let latest = draft;
     try {
       setBusy(true);
@@ -341,7 +353,10 @@ export function ContractAcceptanceRecords({
           ),
         ];
       });
-      toast.success("Đã lưu toàn bộ thay đổi của biên bản.");
+      if (!quiet) {
+        toast.success("Đã lưu toàn bộ thay đổi của biên bản.");
+      }
+      return latest;
     } catch (error) {
       setSelected((current) =>
         current ? { ...current, rowVersion: latest.rowVersion } : current,
@@ -349,10 +364,46 @@ export function ContractAcceptanceRecords({
       toast.error(
         getApiErrorMessage(error, "Không thể lưu toàn bộ thay đổi biên bản."),
       );
+      return null;
     } finally {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== "s" ||
+        selected?.status !== AcceptanceRecordStatus.Draft ||
+        !canManage
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (
+        event.repeat ||
+        busy ||
+        createOpen ||
+        finalizeOpen ||
+        cancelOpen ||
+        signedUploadConfirmOpen ||
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="listbox"][data-state="open"]',
+        )
+      ) {
+        return;
+      }
+
+      void saveAllDraftChanges();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   const toggleReference = (appendixId: number, checked: boolean) => {
     if (!selected) return;
@@ -442,6 +493,63 @@ export function ContractAcceptanceRecords({
     }
   };
 
+  const uploadSignedEvidence = async () => {
+    if (
+      !selected ||
+      selected.status !== AcceptanceRecordStatus.Finalized ||
+      !signedFile ||
+      busy
+    ) {
+      return;
+    }
+
+    let uploaded = false;
+    try {
+      setBusy(true);
+      const evidence = await contractAcceptanceApi.uploadSignedEvidence(
+        contract.contractId,
+        selected.acceptanceRecordId,
+        signedFile,
+        selected.rowVersion,
+      );
+      uploaded = true;
+      setSelected((current) =>
+        current?.acceptanceRecordId === selected.acceptanceRecordId
+          ? {
+              ...current,
+              status: AcceptanceRecordStatus.Signed,
+              signedEvidence: evidence,
+            }
+          : current,
+      );
+      setRecords((current) =>
+        current.map((record) =>
+          record.acceptanceRecordId === selected.acceptanceRecordId
+            ? { ...record, status: AcceptanceRecordStatus.Signed }
+            : record,
+        ),
+      );
+      setSignedUploadConfirmOpen(false);
+      setSignedFile(undefined);
+      toast.success("Đã lưu bản ký biên bản nghiệm thu.");
+      const [record, nextRecords] = await Promise.all([
+        contractAcceptanceApi.get(contract.contractId, selected.acceptanceRecordId),
+        contractAcceptanceApi.list(contract.contractId),
+      ]);
+      setSelected(record);
+      setRecords(nextRecords);
+      await onChanged();
+    } catch (error) {
+      toast.error(
+        uploaded
+          ? "Đã lưu bản ký nhưng chưa tải lại được dữ liệu. Vui lòng làm mới trang."
+          : getApiErrorMessage(error, "Không thể tải bản ký."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading)
     return (
       <Card>
@@ -465,6 +573,22 @@ export function ContractAcceptanceRecords({
       record.status === AcceptanceRecordStatus.Signed &&
       record.acceptanceKind === AcceptanceKind.Final,
   );
+  const hasPartialHistory = currentVersionRecords.some(
+    (record) => record.acceptanceKind === AcceptanceKind.Partial,
+  );
+  const hasSignedPartial = currentVersionRecords.some(
+    (record) =>
+      record.status === AcceptanceRecordStatus.Signed &&
+      record.acceptanceKind === AcceptanceKind.Partial,
+  );
+  const awaitingSignatureMilestoneIds = new Set(
+    currentVersionRecords
+      .filter((record) => record.status === AcceptanceRecordStatus.Finalized)
+      .flatMap((record) => record.paymentMilestoneIds),
+  );
+  const remainingMilestoneIds = new Set(
+    readiness.remainingAcceptanceMilestoneIds,
+  );
   const unavailableMilestoneIds = new Set(
     currentVersionRecords
       .filter(
@@ -482,7 +606,9 @@ export function ContractAcceptanceRecords({
     contract.status === ContractStatus.Signed &&
     signedActive &&
     !activeRecord &&
-    !signedFinalRecord;
+    !signedFinalRecord &&
+    !readiness.acceptanceCompleted &&
+    (!hasPartialHistory || availablePaymentMilestones.length > 0);
   const customer = selected?.parties.find(
     (party) => party.partyRole === AcceptancePartyRole.Customer,
   );
@@ -503,7 +629,8 @@ export function ContractAcceptanceRecords({
             onClick={startCreate}
             disabled={busy || templates.length === 0}
           >
-            <Plus className="mr-2 size-4" /> Tạo biên bản
+            <Plus className="mr-2 size-4" />
+            {hasSignedPartial ? "Tạo biên bản nghiệm thu tiếp" : "Tạo biên bản"}
           </Button>
         )}
       </CardHeader>
@@ -544,6 +671,59 @@ export function ContractAcceptanceRecords({
               thêm biên bản nghiệm thu.
             </AlertDescription>
           </Alert>
+        )}
+        {canManage &&
+          signedActive &&
+          !activeRecord &&
+          !signedFinalRecord &&
+          readiness.acceptanceCompleted && (
+            <Alert>
+              <AlertDescription>
+                Toàn bộ các đợt đã được nghiệm thu bằng biên bản có bản ký.
+                Không cần tạo thêm biên bản.
+              </AlertDescription>
+            </Alert>
+          )}
+        {canManage &&
+          signedActive &&
+          !activeRecord &&
+          hasPartialHistory &&
+          !readiness.acceptanceCompleted &&
+          availablePaymentMilestones.length === 0 && (
+            <Alert>
+              <AlertDescription>
+                Không còn đợt khả dụng để lập biên bản mới. Hãy kiểm tra các
+                biên bản đã chốt hoặc liên hệ quản trị viên nếu tiến độ chưa
+                đúng.
+              </AlertDescription>
+            </Alert>
+          )}
+        {hasSignedPartial && !readiness.acceptanceCompleted && (
+          <div className="space-y-2 rounded-lg border p-3 text-sm">
+            <p className="font-medium">
+              Đã nghiệm thu {readiness.acceptedMilestoneCount}/
+              {readiness.totalMilestoneCount} đợt
+            </p>
+            <p className="text-muted-foreground">
+              {activeRecord?.status === AcceptanceRecordStatus.Finalized
+                ? "Biên bản đang chờ bản ký; các đợt trong đó chưa được tính là đã nghiệm thu."
+                : "Các đợt còn lại cần lập biên bản nghiệm thu một phần và tải bản ký."}
+            </p>
+            <ul className="list-disc pl-5">
+              {paymentMilestones
+                .filter((milestone) =>
+                  remainingMilestoneIds.has(milestone.paymentMilestoneId),
+                )
+                .map((milestone) => (
+                  <li key={milestone.paymentMilestoneId}>
+                    {milestone.milestoneCode} — {milestone.titleVi}
+                    {awaitingSignatureMilestoneIds.has(
+                      milestone.paymentMilestoneId,
+                    ) && " (đang chờ ký)"}
+                  </li>
+                ))}
+            </ul>
+          </div>
         )}
         {templates.length === 0 && canCreate && (
           <Alert>
@@ -676,15 +856,6 @@ export function ContractAcceptanceRecords({
                 >
                   <Download className="mr-2 size-4" /> DOCX
                 </Button>
-                {isDraft && canManage && (
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => setFinalizeOpen(true)}
-                  >
-                    <FileSignature className="mr-2 size-4" /> Chốt biên bản
-                  </Button>
-                )}
               </div>
             </div>
 
@@ -697,7 +868,7 @@ export function ContractAcceptanceRecords({
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn
-                      bộ nội dung biên bản.
+                      bộ nội dung biên bản. Có thể dùng Ctrl+S (hoặc ⌘+S).
                     </p>
                   </div>
                   <Button
@@ -905,8 +1076,9 @@ export function ContractAcceptanceRecords({
                           Phạm vi nghiệm thu
                         </CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Nghiệm thu toàn bộ hoặc chọn từng đợt thanh toán cụ
-                          thể
+                          {hasPartialHistory
+                            ? "Chỉ nghiệm thu một phần cho các đợt còn lại"
+                            : "Nghiệm thu toàn bộ hoặc chọn từng đợt thanh toán cụ thể"}
                         </p>
                       </div>
                     </div>
@@ -935,15 +1107,24 @@ export function ContractAcceptanceRecords({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={String(AcceptanceKind.Final)}>
-                            Nghiệm thu toàn bộ
-                          </SelectItem>
+                          {!hasPartialHistory && (
+                            <SelectItem value={String(AcceptanceKind.Final)}>
+                              Nghiệm thu toàn bộ
+                            </SelectItem>
+                          )}
                           <SelectItem value={String(AcceptanceKind.Partial)}>
                             Nghiệm thu một phần
                           </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {hasPartialHistory && (
+                      <p className="text-sm text-muted-foreground">
+                        Hợp đồng đã bắt đầu nghiệm thu một phần nên không thể
+                        chuyển sang nghiệm thu toàn bộ, kể cả khi biên bản trước
+                        đã hủy.
+                      </p>
+                    )}
 
                     {selected.acceptanceKind === AcceptanceKind.Final ? (
                       <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-sm text-emerald-800 dark:text-emerald-300">
@@ -970,19 +1151,31 @@ export function ContractAcceptanceRecords({
                                   item.paymentMilestoneId ===
                                   milestone.paymentMilestoneId,
                               );
+                              const isAccepted = !remainingMilestoneIds.has(
+                                milestone.paymentMilestoneId,
+                              );
+                              const isAwaitingSignature =
+                                awaitingSignatureMilestoneIds.has(
+                                  milestone.paymentMilestoneId,
+                                );
+                              const isUnavailable =
+                                isAccepted || isAwaitingSignature;
                               return (
                                 <label
                                   key={milestone.paymentMilestoneId}
                                   className={cn(
                                     "flex items-center justify-between gap-3 rounded-lg border p-3 text-sm transition-colors cursor-pointer select-none",
-                                    isChecked
-                                      ? "border-primary/40 bg-card shadow-xs"
-                                      : "border-border/60 bg-muted/20 hover:bg-muted/40 text-muted-foreground",
+                                    isUnavailable
+                                      ? "cursor-not-allowed opacity-60"
+                                      : isChecked
+                                        ? "border-primary/40 bg-card shadow-xs"
+                                        : "border-border/60 bg-muted/20 hover:bg-muted/40 text-muted-foreground",
                                   )}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     <Checkbox
                                       checked={isChecked}
+                                      disabled={isUnavailable}
                                       onCheckedChange={(value) =>
                                         toggleMilestone(
                                           milestone.paymentMilestoneId,
@@ -1001,7 +1194,11 @@ export function ContractAcceptanceRecords({
                                     variant="outline"
                                     className="shrink-0 text-xs"
                                   >
-                                    {milestone.paymentPercent}%
+                                    {isAccepted
+                                      ? "Đã nghiệm thu"
+                                      : isAwaitingSignature
+                                        ? "Đang chờ ký"
+                                        : `${milestone.paymentPercent}%`}
                                   </Badge>
                                 </label>
                               );
@@ -1107,6 +1304,48 @@ export function ContractAcceptanceRecords({
                     })}
                   </CollapsibleContent>
                 </Collapsible>
+
+                {/* 5. Khối hành động: Hoàn tất & Chốt biên bản */}
+                {canManage && (
+                  <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50/70 via-background to-emerald-50/30 p-5 shadow-sm dark:border-emerald-900/50 dark:from-emerald-950/20 dark:via-background dark:to-emerald-950/10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3.5">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                          <CheckCircle2 className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">
+                              Hoàn tất & Chốt biên bản nghiệm thu
+                            </h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                            Vui lòng kiểm tra kỹ thông tin các bên, căn cứ và
+                            các mục nghiệm thu. Khi chốt, hệ thống sẽ tự động
+                            lưu lại toàn bộ thay đổi mới nhất, xuất file chính
+                            thức và khóa nội dung để chuẩn bị ký kết.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 sm:shrink-0">
+                        <Button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setFinalizeOpen(true)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
+                        >
+                          {busy ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <FileSignature className="size-4" />
+                          )}
+                          Chốt biên bản
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               </div>
             ) : (
               <div className="space-y-4 text-sm">
@@ -1123,6 +1362,29 @@ export function ContractAcceptanceRecords({
                     <span className="text-muted-foreground">Địa điểm:</span>{" "}
                     {selected.location}
                   </div>
+                  <div className="md:col-span-2">
+                    <span className="text-muted-foreground">
+                      Loại nghiệm thu:
+                    </span>{" "}
+                    {selected.acceptanceKind === AcceptanceKind.Partial
+                      ? "Nghiệm thu một phần"
+                      : "Nghiệm thu toàn bộ"}
+                  </div>
+                  {selected.acceptanceKind === AcceptanceKind.Partial &&
+                    selected.milestones.length > 0 && (
+                      <div className="md:col-span-2">
+                        <span className="text-muted-foreground">
+                          Các đợt đã chốt:
+                        </span>
+                        <ul className="mt-1 list-disc pl-5">
+                          {selected.milestones.map((milestone) => (
+                            <li key={milestone.paymentMilestoneId}>
+                              {milestone.milestoneCode} — {milestone.titleVi}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   {selected.finalizedAt && (
                     <>
                       <div>
@@ -1201,6 +1463,7 @@ export function ContractAcceptanceRecords({
                     <Input
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
+                      disabled={busy}
                       onChange={(event) =>
                         setSignedFile(event.target.files?.[0])
                       }
@@ -1208,43 +1471,7 @@ export function ContractAcceptanceRecords({
                     />
                     <Button
                       disabled={!signedFile || busy}
-                      onClick={() =>
-                        signedFile &&
-                        void (async () => {
-                          try {
-                            setBusy(true);
-                            await contractAcceptanceApi.uploadSignedEvidence(
-                              contract.contractId,
-                              selected.acceptanceRecordId,
-                              signedFile,
-                              selected.rowVersion,
-                            );
-                            toast.success("Đã lưu bản ký biên bản nghiệm thu.");
-                            setSignedFile(undefined);
-                            setSelected(
-                              await contractAcceptanceApi.get(
-                                contract.contractId,
-                                selected.acceptanceRecordId,
-                              ),
-                            );
-                            setRecords(
-                              await contractAcceptanceApi.list(
-                                contract.contractId,
-                              ),
-                            );
-                            await onChanged();
-                          } catch (error) {
-                            toast.error(
-                              getApiErrorMessage(
-                                error,
-                                "Không thể tải bản ký.",
-                              ),
-                            );
-                          } finally {
-                            setBusy(false);
-                          }
-                        })()
-                      }
+                      onClick={() => setSignedUploadConfirmOpen(true)}
                     >
                       <FileSignature className="mr-2 size-4" /> Tải bản ký
                     </Button>
@@ -1267,7 +1494,7 @@ export function ContractAcceptanceRecords({
               <Alert variant="destructive">
                 <XCircle className="size-4" />
                 <AlertDescription>
-                  {selected.cancellationReason}
+                  Lý do: {selected.cancellationReason}
                 </AlertDescription>
               </Alert>
             )}
@@ -1412,14 +1639,22 @@ export function ContractAcceptanceRecords({
                     <SelectValue placeholder="Chọn loại nghiệm thu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={String(AcceptanceKind.Final)}>
-                      Nghiệm thu toàn bộ
-                    </SelectItem>
+                    {!hasPartialHistory && (
+                      <SelectItem value={String(AcceptanceKind.Final)}>
+                        Nghiệm thu toàn bộ
+                      </SelectItem>
+                    )}
                     <SelectItem value={String(AcceptanceKind.Partial)}>
                       Nghiệm thu một phần
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {hasPartialHistory && (
+                  <p className="text-sm text-muted-foreground">
+                    Đã từng tạo biên bản nghiệm thu một phần cho phiên bản này;
+                    các vòng tiếp theo chỉ được nghiệm thu một phần.
+                  </p>
+                )}
               </div>
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.map((milestone) => (
@@ -1507,22 +1742,42 @@ export function ContractAcceptanceRecords({
       </Dialog>
 
       <ConfirmDialog
+        isOpen={signedUploadConfirmOpen}
+        onClose={() => setSignedUploadConfirmOpen(false)}
+        onConfirm={() => void uploadSignedEvidence()}
+        title="Xác nhận bản ký nghiệm thu?"
+        description={
+          <>
+            Tải tệp <strong>{signedFile?.name}</strong> làm bản ký chính thức
+            của biên bản {selected?.acceptanceCode}. Sau khi lưu, biên bản sẽ
+            chuyển sang Đã ký và được tính vào tiến độ nghiệm thu.
+          </>
+        }
+        confirmText="Tải bản ký và đánh dấu Đã ký"
+        isLoading={busy}
+      />
+      <ConfirmDialog
         isOpen={finalizeOpen}
         onClose={() => setFinalizeOpen(false)}
-        onConfirm={() =>
-          selected &&
-          void commit(
+        onConfirm={async () => {
+          if (!selected) return;
+          const saved = await saveAllDraftChanges(true);
+          if (!saved) return;
+
+          const finalized = await commit(
             () =>
               contractAcceptanceApi.finalize(
                 contract.contractId,
-                selected.acceptanceRecordId,
-                selected.rowVersion,
+                saved.acceptanceRecordId,
+                saved.rowVersion,
               ),
             "Đã chốt biên bản nghiệm thu.",
-          ).then((result) => result && setFinalizeOpen(false))
-        }
+            true,
+          );
+          if (finalized) setFinalizeOpen(false);
+        }}
         title="Chốt biên bản nghiệm thu?"
-        description="Hệ thống sẽ tạo và khóa DOCX/PDF chính thức. Sau bước này không thể sửa nội dung."
+        description="Hệ thống sẽ lưu lại toàn bộ các sửa đổi hiện tại, sau đó tạo và khóa file DOCX/PDF chính thức. Sau bước này không thể sửa đổi nội dung biên bản."
         confirmText="Chốt biên bản"
         isLoading={busy}
       />
@@ -1558,6 +1813,7 @@ export function ContractAcceptanceRecords({
                       selected.rowVersion,
                     ),
                   "Đã hủy biên bản.",
+                  true,
                 ).then((result) => {
                   if (result) {
                     setCancelOpen(false);

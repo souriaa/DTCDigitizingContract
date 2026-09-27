@@ -18,6 +18,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Security.Cryptography;
 using ContractManagement.API.Domains.CustomerAccess;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Infrastructure.MultiTenancy.Interfaces;
 
 namespace ContractManagement.Domains.Services.Contract
@@ -47,6 +48,7 @@ namespace ContractManagement.Domains.Services.Contract
         private IContractPlaceholderValueService? _placeholderValueService;
         private IContractPaymentDueDateService _paymentDueDates =
             new ContractPaymentDueDateService();
+        private readonly ContractNotificationProducer? _notifications;
         private IContractPlaceholderValueService PlaceholderValues => _placeholderValueService ??=
             new ContractPlaceholderValueService(_dbContext, new ContractPlaceholderSourceRegistry());
 
@@ -78,7 +80,8 @@ namespace ContractManagement.Domains.Services.Contract
             IContractSubmissionArtifactRenderer submissionArtifactRenderer,
             IPrivateFileStorage privateFileStorage,
             IContractPlaceholderValueService? placeholderValueService = null,
-            IContractPaymentDueDateService? paymentDueDates = null)
+            IContractPaymentDueDateService? paymentDueDates = null,
+            ContractNotificationProducer? notifications = null)
             : this(
                 dbContext,
                 contractAuditWriter,
@@ -89,6 +92,7 @@ namespace ContractManagement.Domains.Services.Contract
             _paymentDueDates = paymentDueDates ?? _paymentDueDates;
             _submissionArtifactRenderer = submissionArtifactRenderer;
             _privateFileStorage = privateFileStorage;
+            _notifications = notifications;
         }
 
         public ContractService(
@@ -96,13 +100,15 @@ namespace ContractManagement.Domains.Services.Contract
             IContractAuditWriter contractAuditWriter,
             ICurrentTenant currentTenant,
             IContractSubmissionArtifactRenderer submissionArtifactRenderer,
-            IPrivateFileStorage privateFileStorage)
+            IPrivateFileStorage privateFileStorage,
+            ContractNotificationProducer? notifications = null)
         {
             _dbContext = dbContext;
             _contractAuditWriter = contractAuditWriter;
             _currentTenant = currentTenant;
             _submissionArtifactRenderer = submissionArtifactRenderer;
             _privateFileStorage = privateFileStorage;
+            _notifications = notifications;
         }
 
         /// <summary>
@@ -1000,6 +1006,11 @@ namespace ContractManagement.Domains.Services.Contract
 
                     await PlaceholderValues
                         .CaptureAsync(contract, contractVersion, refresh: true);
+                    if (_notifications is not null)
+                        await _notifications.StageOwnerAsync(contract.ContractId,
+                            responsibleEmployeeId, createdEmployeeId,
+                            $"contract:{contract.ContractId}:created", "DraftAssigned",
+                            "Bạn được giao phụ trách hợp đồng mới", "overview", now);
                     await _dbContext.SaveChangesAsync();
 
                     // Chỉ commit khi toàn bộ Contract, Version, Item và Term thành công.
@@ -1250,6 +1261,16 @@ namespace ContractManagement.Domains.Services.Contract
                         ]);
 
                         await _dbContext.SaveChangesAsync();
+                        if (_notifications is not null)
+                        {
+                            await _notifications.StageAsync(contract.ContractId,
+                                actorEmployeeId,
+                                $"contract:{contract.ContractId}:owner-transfer:{Convert.ToHexString(expectedRowVersion)}",
+                                "ResponsibilityTransferred", "Người phụ trách hợp đồng đã thay đổi",
+                                "overview", [request.NewResponsibleEmployeeId,
+                                    previousResponsibleEmployeeId], occurredAt);
+                            await _dbContext.SaveChangesAsync();
+                        }
                         await transaction.CommitAsync();
 
                         return
@@ -4927,6 +4948,10 @@ namespace ContractManagement.Domains.Services.Contract
                                 ("RevokedSessionCount",
                                     invalidatedAccess.SessionCount)))
                         ]);
+                        if (_notifications is not null)
+                            await _notifications.StageApprovalRequestedAsync(
+                                contract.ContractId, approvalRequest.ApprovalRequestId,
+                                employeeId, approvalRequest.WorkflowId, now);
                         await _dbContext.SaveChangesAsync();
                         await transaction.CommitAsync();
 

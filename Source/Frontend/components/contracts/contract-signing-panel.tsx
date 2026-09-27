@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { DateFilter } from "@/components/ui/custom/date-filter";
+import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 import { endOfDay, format } from "date-fns";
 import {
   getApiErrorMessage,
@@ -83,6 +84,7 @@ export function ContractSigningPanel({
   });
   const [supersedeReason, setSupersedeReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadConfirmOpen, setIsUploadConfirmOpen] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(
     null,
   );
@@ -153,6 +155,7 @@ export function ContractSigningPanel({
       versionRowVersion: detail.versionRowVersion,
     };
 
+    let saved = false;
     try {
       setIsSubmitting(true);
       if (isSupersede && detail.activeEvidence) {
@@ -165,9 +168,11 @@ export function ContractSigningPanel({
             reason: supersedeReason.trim(),
           },
         );
+        saved = true;
         toast.success("Đã thay bản quét và giữ lại bản cũ trong lịch sử.");
       } else {
         await contractSigningApi.upload(contract.contractId, filePayload);
+        saved = true;
         toast.success("Đã lưu bản quét. Hợp đồng đã chuyển sang Đã ký.");
       }
       setSelectedFile(null);
@@ -175,9 +180,14 @@ export function ContractSigningPanel({
         fileInputRef.current.value = "";
       }
       setSupersedeReason("");
+      setIsUploadConfirmOpen(false);
       await Promise.all([loadDetail(), Promise.resolve(onContractRefetch())]);
     } catch (error) {
-      if (isStaleRowVersion(error)) {
+      if (saved) {
+        toast.error(
+          "Đã lưu bản ký nhưng chưa tải lại được dữ liệu. Vui lòng làm mới trang.",
+        );
+      } else if (isStaleRowVersion(error)) {
         await Promise.all([loadDetail(), Promise.resolve(onContractRefetch())]);
         toast.error(
           "Dữ liệu đã thay đổi. Trang đã tải lại phiên bản mới nhất.",
@@ -190,6 +200,15 @@ export function ContractSigningPanel({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openUploadConfirm = () => {
+    if (!selectedFile || !signDate || isSubmitting) return;
+    if (isSupersede && !supersedeReason.trim()) {
+      toast.error("Vui lòng nhập lý do thay bản quét.");
+      return;
+    }
+    setIsUploadConfirmOpen(true);
   };
 
   const download = async (
@@ -425,7 +444,7 @@ export function ContractSigningPanel({
 
             <Button
               disabled={isSubmitting || !selectedFile || !signDate}
-              onClick={() => void submit()}
+              onClick={openUploadConfirm}
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -437,6 +456,24 @@ export function ContractSigningPanel({
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        isOpen={isUploadConfirmOpen}
+        onClose={() => setIsUploadConfirmOpen(false)}
+        onConfirm={() => void submit()}
+        title={isSupersede ? "Xác nhận thay bản ký?" : "Xác nhận ký hợp đồng?"}
+        description={
+          <>
+            {isSupersede
+              ? "Bản ký hiện tại sẽ được lưu trong lịch sử và thay bằng"
+              : "Hợp đồng sẽ chuyển sang trạng thái Đã ký sau khi lưu"}{" "}
+            tệp <strong>{selectedFile?.name}</strong>. Ngày ký:{" "}
+            <strong>{signDate ? format(signDate, "dd/MM/yyyy") : "—"}</strong>.
+          </>
+        }
+        confirmText={isSupersede ? "Lưu bản thay thế" : "Lưu và đánh dấu Đã ký"}
+        isLoading={isSubmitting}
+      />
 
       {/* <Card>
         <CardHeader>

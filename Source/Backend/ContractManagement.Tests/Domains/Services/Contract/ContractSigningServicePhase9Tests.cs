@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Security;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.Domains.Interfaces.File;
 using ContractManagement.Domains.Services.Contract;
@@ -34,7 +35,7 @@ public sealed class ContractSigningServicePhase9Tests
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.PendingSignature);
         var storage = new TrackingPrivateStorage();
-        var service = CreateService(context, storage);
+        var service = CreateService(context, storage, CreateNotifications(context));
 
         var response = await service.UploadAsync(
             ContractId,
@@ -61,6 +62,11 @@ public sealed class ContractSigningServicePhase9Tests
         Assert.Equal(TechnicalId, audit.ActorEmployeeId);
         Assert.Single(storage.SavedKeys);
         Assert.Empty(storage.DeletedKeys);
+        var notification = await context.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).SingleAsync();
+        Assert.Equal("ContractSigned", notification.EventCode);
+        Assert.Equal($"contract:{ContractId}:signed-evidence:{evidence.SignedEvidenceId}", notification.EventKey);
+        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
     }
 
     [Theory]
@@ -201,7 +207,8 @@ public sealed class ContractSigningServicePhase9Tests
 
     private static ContractSigningService CreateService(
         DbDtctechContext context,
-        IPrivateFileStorage storage)
+        IPrivateFileStorage storage,
+        ContractNotificationProducer? notifications = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(
@@ -223,8 +230,14 @@ public sealed class ContractSigningServicePhase9Tests
                 tenant,
                 new HttpContextAccessor { HttpContext = httpContext }),
             storage,
-            tenant);
+            tenant,
+            notifications: notifications);
     }
+
+    private static ContractNotificationProducer CreateNotifications(DbDtctechContext db) =>
+        new(db, new NotificationPublisher(db,
+            [new ContractNotificationResourcePolicy(db,
+                new ContractResourceAuthorizationService(db))]));
 
     private static DbDtctechContext CreateContext()
     {

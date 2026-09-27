@@ -142,6 +142,8 @@ public partial class DbDtctechContext : DbContext
     public virtual DbSet<TblInvoice> TblInvoices { get; set; }
 
     public virtual DbSet<TblNotification> TblNotifications { get; set; }
+    public virtual DbSet<TblNotificationRecipient> TblNotificationRecipients { get; set; }
+    public virtual DbSet<TblNotificationDispatchOutbox> TblNotificationDispatchOutbox { get; set; }
 
     public virtual DbSet<TblOrder> TblOrders { get; set; }
 
@@ -2527,17 +2529,56 @@ public partial class DbDtctechContext : DbContext
 
         modelBuilder.Entity<TblNotification>(entity =>
         {
-            entity.HasKey(e => e.NotificationId).HasName("PK__tbl_Noti__20CF2E127E71675E");
+            entity.HasKey(e => e.NotificationId);
+            entity.ToTable("tbl_Notification", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_Notification_EventKey",
+                    "LEN(LTRIM(RTRIM([EventKey]))) > 0");
+                table.HasCheckConstraint("CK_tbl_Notification_SubjectId", "[SubjectId] > 0");
+            });
+            entity.Property(e => e.EventKey).HasMaxLength(200).IsUnicode(false);
+            entity.HasIndex(e => e.EventKey).IsUnique();
+            entity.Property(e => e.ModuleCode).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.EventCode).HasMaxLength(80).IsUnicode(false);
+            entity.Property(e => e.SubjectType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.Title).HasMaxLength(300);
+            entity.Property(e => e.Body).HasMaxLength(1000);
+            entity.Property(e => e.ActionKey).HasMaxLength(80).IsUnicode(false);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.ActorEmployeeId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
 
-            entity.ToTable("tbl_Notification");
+        modelBuilder.Entity<TblNotificationRecipient>(entity =>
+        {
+            entity.HasKey(e => e.NotificationRecipientId);
+            entity.ToTable("tbl_NotificationRecipient");
+            entity.HasOne(e => e.Notification).WithMany(e => e.Recipients)
+                .HasForeignKey(e => e.NotificationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TblEmployee>().WithMany().HasForeignKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => new { e.NotificationId, e.EmployeeId }).IsUnique();
+            entity.HasIndex(e => new { e.EmployeeId, e.CreatedAtUtc, e.NotificationRecipientId })
+                .IsDescending(false, true, true);
+            entity.HasIndex(e => new { e.EmployeeId, e.ReadAtUtc });
+        });
 
-            entity.Property(e => e.CreatedDate)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-            entity.Property(e => e.NotificationTitle).HasMaxLength(300);
-            entity.Property(e => e.ObjectType)
-                .HasMaxLength(50)
-                .IsUnicode(false);
+        modelBuilder.Entity<TblNotificationDispatchOutbox>(entity =>
+        {
+            entity.HasKey(e => e.OutboxId);
+            entity.ToTable("tbl_NotificationDispatchOutbox", table =>
+            {
+                table.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_Status",
+                    "[Status] IN ('Pending', 'Leased', 'Dispatched', 'Failed')");
+                table.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_AttemptCount",
+                    "[AttemptCount] >= 0");
+            });
+            entity.HasOne(e => e.Notification).WithOne(e => e.DispatchOutbox)
+                .HasForeignKey<TblNotificationDispatchOutbox>(e => e.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.NotificationId).IsUnique();
+            entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc });
+            entity.Property(e => e.Status).HasMaxLength(16).IsUnicode(false);
+            entity.Property(e => e.LastErrorCode).HasMaxLength(80).IsUnicode(false);
         });
 
         modelBuilder.Entity<TblOrder>(entity =>

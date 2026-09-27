@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Security;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.Models.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
@@ -63,11 +64,123 @@ public sealed class ContractCompletionServicePhase10Tests
 
         Assert.False(readiness.Ready);
         Assert.False(readiness.Signed);
-        Assert.False(readiness.AcceptanceEvidenceAvailable);
+        Assert.False(readiness.AcceptanceCompleted);
         Assert.Equal(ContractTotal, readiness.RemainingAmount);
         Assert.Equal(
-            ["NOT_SIGNED", "ACCEPTANCE_MISSING", "PAYMENT_NOT_FULLY_PAID"],
+            ["NOT_SIGNED", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
             readiness.Blockers.Select(blocker => blocker.Code));
+    }
+
+    [Fact]
+    public async Task SignedPartial_DoesNotAllowCompletionUntilEveryMilestoneIsAccepted()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
+        var milestones = await SeedPaymentMilestonesAsync(context,
+            (PaymentDueAnchor.ContractSigned, 0, 400m),
+            (PaymentDueAnchor.ContractSigned, 0, 600m));
+        var first = await context.TblContractAcceptanceRecords.SingleAsync();
+        first.AcceptanceKind = (byte)AcceptanceKind.Partial;
+        context.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = first.AcceptanceRecordId,
+            PaymentMilestoneId = milestones[0].PaymentMilestoneId
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, new TrackingPrivateStorage());
+        await service.CompletePaymentMilestoneAsync(ContractId, VersionId,
+            milestones[0].PaymentMilestoneId,
+            CompleteMilestoneRequest("PARTIAL-PAID-1"), AccountantId);
+        await service.CompletePaymentMilestoneAsync(ContractId, VersionId,
+            milestones[1].PaymentMilestoneId,
+            CompleteMilestoneRequest("PARTIAL-PAID-2"), AccountantId);
+
+        var incomplete = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.Equal(ContractTotal, incomplete.PaidAmount);
+        Assert.False(incomplete.AcceptanceCompleted);
+        Assert.Equal(1, incomplete.AcceptedMilestoneCount);
+        Assert.Equal(2, incomplete.TotalMilestoneCount);
+        Assert.Equal([milestones[1].PaymentMilestoneId],
+            incomplete.RemainingAcceptanceMilestoneIds);
+        Assert.Equal(["ACCEPTANCE_INCOMPLETE"],
+            incomplete.Blockers.Select(x => x.Code));
+        Assert.False(incomplete.Ready);
+        var rejected = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.CompleteAsync(ContractId, CompleteRequest(), ManagerId));
+        Assert.Equal("ContractNotReadyForCompletion", rejected.Code);
+
+        context.TblContractAcceptanceRecords.Add(new()
+        {
+            AcceptanceRecordId = 12013,
+            ContractId = ContractId,
+            ContractVersionId = VersionId,
+            TemplateVersionId = 0,
+            AcceptanceCode = "BBNT-PHASE12-2",
+            AcceptanceDate = DateTime.UtcNow.Date,
+            Location = "Hà Nội",
+            AcceptanceKind = (byte)AcceptanceKind.Partial,
+            Status = (byte)AcceptanceRecordStatus.Signed,
+            SignedAt = DateTime.UtcNow,
+            SignedByEmployeeId = TechnicalId,
+            CreatedEmployeeId = TechnicalId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = InitialRowVersion.ToArray()
+        });
+        context.TblFileStorages.Add(FileMetadata(
+            12014, "ContractAcceptanceEvidence", "acceptance-2.pdf"));
+        context.TblContractAcceptanceEvidences.Add(new()
+        {
+            AcceptanceEvidenceId = 12015,
+            AcceptanceRecordId = 12013,
+            FileId = 12014,
+            UploadedByEmployeeId = OwnerId,
+            UploadedAt = DateTime.UtcNow,
+            RowVersion = InitialRowVersion.ToArray()
+        });
+        context.TblContractAcceptanceMilestones.Add(new()
+        {
+            AcceptanceRecordId = 12013,
+            PaymentMilestoneId = milestones[1].PaymentMilestoneId
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var complete = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.True(complete.AcceptanceCompleted);
+        Assert.Equal(2, complete.AcceptedMilestoneCount);
+        Assert.Empty(complete.RemainingAcceptanceMilestoneIds);
+        Assert.True(complete.Ready);
+        Assert.Equal(ContractStatus.Completed,
+            (await service.CompleteAsync(ContractId, CompleteRequest(),
+                ManagerId)).ContractStatus);
+    }
+
+    [Fact]
+    public async Task SignedFinalWithoutMilestones_CompletesAcceptanceOnlyWithValidEvidence()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
+        var service = CreateService(context, new TrackingPrivateStorage());
+
+        var ready = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.True(ready.AcceptanceCompleted);
+        Assert.Equal(0, ready.TotalMilestoneCount);
+        Assert.Empty(ready.RemainingAcceptanceMilestoneIds);
+
+        var file = await context.TblFileStorages.SingleAsync(x =>
+            x.ObjectType == "ContractAcceptanceEvidence");
+        file.Sha256 = null;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var invalid = await service.GetReadinessAsync(ContractId, ManagerId);
+        Assert.False(invalid.AcceptanceCompleted);
+        Assert.Contains(invalid.Blockers,
+            x => x.Code == "ACCEPTANCE_NOT_STARTED");
+        Assert.Null((await service.GetAsync(ContractId, ManagerId))
+            .AcceptanceEvidence);
     }
 
     [Fact]
@@ -75,7 +188,7 @@ public sealed class ContractCompletionServicePhase10Tests
     {
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
-        var service = CreateService(context, new TrackingPrivateStorage());
+        var service = CreateService(context, new TrackingPrivateStorage(), CreateNotifications(context));
 
         var partial = await service.AddPaymentAsync(
             ContractId,
@@ -105,6 +218,22 @@ public sealed class ContractCompletionServicePhase10Tests
             await context.TblContractAudits.CountAsync(candidate =>
                 candidate.ActionType == ContractAuditActionTypes.PaymentAdded
                 && candidate.ActorEmployeeId == AccountantId));
+        var notification = await context.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).SingleAsync();
+        Assert.Equal("PaymentsCompleted", notification.EventCode);
+        Assert.Equal($"contract:{ContractId}:payments-complete:{final.ContractPaymentId}", notification.EventKey);
+        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
+
+        await service.VoidPaymentAsync(ContractId, final.ContractPaymentId,
+            VoidRequest(Convert.FromBase64String(final.RowVersion),
+                "Đã nhập nhầm khoản thanh toán."), AccountantId);
+        var replacement = await service.AddPaymentAsync(ContractId,
+            PaymentRequest(600m, "ref-003"), AccountantId);
+        var completionKeys = await context.TblNotifications.AsNoTracking()
+            .Where(x => x.EventCode == "PaymentsCompleted")
+            .Select(x => x.EventKey).ToListAsync();
+        Assert.Equal(2, completionKeys.Count);
+        Assert.Contains($"contract:{ContractId}:payments-complete:{replacement.ContractPaymentId}", completionKeys);
     }
 
     [Fact]
@@ -531,7 +660,8 @@ public sealed class ContractCompletionServicePhase10Tests
             includeAcceptance: true,
             activePayments: [ContractTotal]);
 
-        var response = await CreateService(context, new TrackingPrivateStorage())
+        var response = await CreateService(context, new TrackingPrivateStorage(),
+                CreateNotifications(context))
             .CompleteAsync(ContractId, CompleteRequest(), ManagerId);
 
         Assert.Equal(ContractStatus.Completed, response.ContractStatus);
@@ -540,6 +670,10 @@ public sealed class ContractCompletionServicePhase10Tests
         Assert.Equal(
             (byte)ContractStatus.Completed,
             (await context.TblContracts.AsNoTracking().SingleAsync()).Status);
+        var notification = await context.TblNotifications.AsNoTracking()
+            .Include(x => x.Recipients).SingleAsync();
+        Assert.Equal("ContractCompleted", notification.EventCode);
+        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
         Assert.Contains(
             context.TblContractAudits,
             candidate => candidate.ActionType ==
@@ -695,7 +829,8 @@ public sealed class ContractCompletionServicePhase10Tests
 
     private static ContractCompletionService CreateService(
         DbDtctechContext context,
-        IPrivateFileStorage storage)
+        IPrivateFileStorage storage,
+        ContractNotificationProducer? notifications = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(
@@ -718,8 +853,14 @@ public sealed class ContractCompletionServicePhase10Tests
                 tenant,
                 new HttpContextAccessor { HttpContext = httpContext }),
             storage,
-            tenant);
+            tenant,
+            notifications: notifications);
     }
+
+    private static ContractNotificationProducer CreateNotifications(DbDtctechContext db) =>
+        new(db, new NotificationPublisher(db,
+            [new ContractNotificationResourcePolicy(db,
+                new ContractResourceAuthorizationService(db))]));
 
     private static async Task SeedAsync(
         DbDtctechContext context,

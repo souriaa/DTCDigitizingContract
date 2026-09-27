@@ -1,6 +1,7 @@
 using System.Data;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.API.Domains.Policies.Contract;
@@ -17,6 +18,7 @@ namespace ContractManagement.Domains.Services.Contract;
 public sealed class ContractCompletionService : IContractCompletionService
 {
     private const string PaymentObjectType = "ContractPaymentEvidence";
+    private const string AcceptanceObjectType = "ContractAcceptanceEvidence";
     private static readonly TimeSpan BusinessUtcOffset = TimeSpan.FromHours(7);
     private readonly DbDtctechContext _db;
     private readonly IContractResourceAuthorizationService _authorization;
@@ -24,11 +26,13 @@ public sealed class ContractCompletionService : IContractCompletionService
     private readonly IPrivateFileStorage _files;
     private readonly ICurrentTenant _tenant;
     private readonly IContractPaymentDueDateService _paymentDueDates;
+    private readonly ContractNotificationProducer? _notifications;
 
     public ContractCompletionService(DbDtctechContext db,
         IContractResourceAuthorizationService authorization,
         IContractAuditWriter audit, IPrivateFileStorage files,
-        ICurrentTenant tenant, IContractPaymentDueDateService? paymentDueDates = null)
+        ICurrentTenant tenant, IContractPaymentDueDateService? paymentDueDates = null,
+        ContractNotificationProducer? notifications = null)
     {
         _db = db;
         _authorization = authorization;
@@ -36,6 +40,7 @@ public sealed class ContractCompletionService : IContractCompletionService
         _files = files;
         _tenant = tenant;
         _paymentDueDates = paymentDueDates ?? new ContractPaymentDueDateService();
+        _notifications = notifications;
     }
 
     public async Task<ContractCompletionDetailResponse> GetAsync(int contractId,
@@ -120,6 +125,16 @@ public sealed class ContractCompletionService : IContractCompletionService
                     ContractAuditActionTypes.PaymentAdded, ContractAuditResults.Succeeded, payment.CreatedAt,
                     SubjectType: ContractAuditSubjectTypes.Payment, SubjectId: payment.ContractPaymentId,
                     NewValues: PaymentAudit(payment, paid + payment.Amount, version.TotalAmount - paid - payment.Amount))]);
+                if (_notifications is not null && fileId.HasValue)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId, employeeId,
+                        $"contract:{contractId}:payment:{payment.ContractPaymentId}:recorded",
+                        "PaymentRecorded", "Hợp đồng đã ghi nhận khoản thanh toán",
+                        "closing", payment.CreatedAt, cancellationToken);
+                if (_notifications is not null && paid + payment.Amount == version.TotalAmount)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId, employeeId,
+                        $"contract:{contractId}:payments-complete:{payment.ContractPaymentId}",
+                        "PaymentsCompleted", "Hợp đồng đã thanh toán đủ",
+                        "closing", payment.CreatedAt, cancellationToken);
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadPaymentAsync(payment.ContractPaymentId, cancellationToken);
             }, cancellationToken);
@@ -264,6 +279,19 @@ public sealed class ContractCompletionService : IContractCompletionService
                         NewValues: MilestoneAudit(milestone,
                             version.VersionId))
                 ]);
+                if (_notifications is not null)
+                {
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId,
+                        $"contract:{contractId}:payment:{payment.ContractPaymentId}:completed",
+                        "PaymentMilestoneCompleted", "Đợt thanh toán đã hoàn tất",
+                        "closing", now, cancellationToken);
+                    if (paidBefore + payment.Amount == version.TotalAmount)
+                        await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                            employeeId, $"contract:{contractId}:payments-complete:{payment.ContractPaymentId}",
+                            "PaymentsCompleted", "Hợp đồng đã thanh toán đủ",
+                            "closing", now, cancellationToken);
+                }
                 await _db.SaveChangesAsync(cancellationToken);
 
                 var detail = await LoadDetailAsync(contractId,
@@ -395,6 +423,12 @@ public sealed class ContractCompletionService : IContractCompletionService
                     PreviousValues: previousMilestoneValues,
                     NewValues: MilestoneAudit(milestone, version.VersionId))
             ]);
+            if (_notifications is not null)
+                await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                    employeeId,
+                    $"contract:{contractId}:payment:{payment.ContractPaymentId}:reopened",
+                    "PaymentMilestoneReopened", "Đợt thanh toán đã được mở lại",
+                    "closing", now, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
 
             var detail = await LoadDetailAsync(contractId, cancellationToken);
@@ -442,6 +476,11 @@ public sealed class ContractCompletionService : IContractCompletionService
                 Reason: reason, SubjectType: ContractAuditSubjectTypes.Payment, SubjectId: payment.ContractPaymentId,
                 PreviousValues: previousValues,
                 NewValues: PaymentAudit(payment, paidBefore - payment.Amount, version.TotalAmount - paidBefore + payment.Amount))]);
+            if (_notifications is not null)
+                await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                    employeeId, $"contract:{contractId}:payment:{payment.ContractPaymentId}:voided",
+                    "PaymentVoided", "Khoản thanh toán đã bị hủy",
+                    "closing", payment.VoidedAt.Value, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadPaymentAsync(paymentId, cancellationToken);
         }, cancellationToken);
@@ -472,6 +511,11 @@ public sealed class ContractCompletionService : IContractCompletionService
                 PreviousContractStatus: previous, NewContractStatus: contract.Status,
                 NewValues: ContractAuditValues.Create(("Status", contract.Status), ("CurrentVersionId", version.VersionId),
                     ("TotalAmount", readiness.TotalAmount), ("PaidAmount", readiness.PaidAmount))) ]);
+            if (_notifications is not null)
+                await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                    employeeId, $"contract:{contractId}:completed:{version.VersionId}",
+                    "ContractCompleted", "Hợp đồng đã hoàn tất",
+                    "overview", contract.UpdateDate.Value, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadDetailAsync(contractId, cancellationToken);
         }, cancellationToken);
@@ -486,9 +530,16 @@ public sealed class ContractCompletionService : IContractCompletionService
             from evidence in _db.TblContractAcceptanceEvidences.AsNoTracking()
             join record in _db.TblContractAcceptanceRecords.AsNoTracking()
                 on evidence.AcceptanceRecordId equals record.AcceptanceRecordId
+            join file in _db.TblFileStorages.AsNoTracking()
+                on evidence.FileId equals file.FileId
             where record.ContractId == contractId
                 && record.ContractVersionId == version.VersionId
                 && record.Status == (byte)AcceptanceRecordStatus.Signed
+                && file.ObjectType == AcceptanceObjectType
+                && file.ObjectId == contractId
+                && file.StorageKey != null && file.StorageKey != ""
+                && file.Sha256 != null && file.Sha256 != ""
+                && file.FileSize > 0
             orderby evidence.AcceptanceEvidenceId descending
             select (int?)evidence.AcceptanceEvidenceId).FirstOrDefaultAsync(ct);
         var paymentIds = await _db.TblContractPaymentLedgers.AsNoTracking().Where(x => x.ContractId == contractId && x.VersionId == version.VersionId).OrderByDescending(x => x.PaymentDate).ThenByDescending(x => x.ContractPaymentId).Select(x => x.ContractPaymentId).ToListAsync(ct);
@@ -555,12 +606,11 @@ public sealed class ContractCompletionService : IContractCompletionService
     private async Task<ContractCompletionReadinessResponse> BuildReadinessAsync(TblContract contract, TblContractVersion version, CancellationToken ct)
     {
         var signed = await _db.TblContractSignedEvidences.AsNoTracking().AnyAsync(x => x.ContractId == contract.ContractId && x.VersionId == version.VersionId && x.Status == (byte)SignedEvidenceStatus.Active, ct);
-        var acceptance = await _db.TblContractAcceptanceRecords.AsNoTracking()
-            .AnyAsync(x => x.ContractId == contract.ContractId
-                && x.ContractVersionId == version.VersionId
-                && x.Status == (byte)AcceptanceRecordStatus.Signed, ct);
         var milestoneAmounts = await _db.TblContractPaymentMilestones.AsNoTracking()
-            .Where(x => x.VersionId == version.VersionId)
+            .Where(x => x.ContractId == contract.ContractId
+                && x.VersionId == version.VersionId)
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.PaymentMilestoneId)
             .Select(x => new
             {
                 x.PaymentMilestoneId,
@@ -568,6 +618,12 @@ public sealed class ContractCompletionService : IContractCompletionService
                 x.PaymentStatus
             })
             .ToListAsync(ct);
+        var acceptanceProgress = await ContractAcceptanceProgressReader.ReadAsync(
+            _db,
+            contract.ContractId,
+            version.VersionId,
+            milestoneAmounts.Select(x => x.PaymentMilestoneId).ToArray(),
+            ct);
         var structuredPaymentRows = await (
             from payment in _db.TblContractPaymentLedgers.AsNoTracking()
             join file in _db.TblFileStorages.AsNoTracking()
@@ -609,16 +665,30 @@ public sealed class ContractCompletionService : IContractCompletionService
             || validStructuredPaymentAmounts.Count == milestoneAmounts.Count;
         var paidForEvaluation = allStructuredMilestonesPaid ? paid : 0m;
         var evaluation = ContractCompletionPolicy.Evaluate((ContractStatus)contract.Status,
-            signed, acceptance, version.TotalAmount, paidForEvaluation);
+            signed, acceptanceProgress.Completed,
+            acceptanceProgress.HasSignedAcceptance,
+            version.TotalAmount, paidForEvaluation);
         var visibleBlockers = evaluation.Blockers.Where(blocker =>
             contract.Status != (byte)ContractStatus.Completed
             || blocker.Code != ContractCompletionBlockerCode.ContractMustBeSigned);
         return new ContractCompletionReadinessResponse { Signed = signed && contract.Status is (byte)ContractStatus.Signed or (byte)ContractStatus.Completed,
-            AcceptanceEvidenceAvailable = acceptance, TotalAmount = version.TotalAmount, PaidAmount = paid,
+            AcceptanceCompleted = acceptanceProgress.Completed,
+            AcceptedMilestoneCount = acceptanceProgress.AcceptedMilestoneCount,
+            TotalMilestoneCount = milestoneAmounts.Count,
+            RemainingAcceptanceMilestoneIds = acceptanceProgress.RemainingMilestoneIds,
+            TotalAmount = version.TotalAmount, PaidAmount = paid,
             RemainingAmount = version.TotalAmount - paid, CurrencyCode = version.CurrencyCode, Ready = evaluation.CanComplete,
             Blockers = visibleBlockers.Select(x => new ContractCompletionBlockerResponse { Code = x.Code switch {
-                ContractCompletionBlockerCode.ContractMustBeSigned => "NOT_SIGNED", ContractCompletionBlockerCode.AcceptanceEvidenceMissing => "ACCEPTANCE_MISSING", _ => "PAYMENT_NOT_FULLY_PAID" },
-                Message = x.Code switch { ContractCompletionBlockerCode.ContractMustBeSigned => "Hợp đồng chưa có bản ký hợp lệ.", ContractCompletionBlockerCode.AcceptanceEvidenceMissing => "Chưa tải biên bản nghiệm thu.", _ => "Hợp đồng chưa được thanh toán đủ." } }).ToList() };
+                ContractCompletionBlockerCode.ContractMustBeSigned => "NOT_SIGNED",
+                ContractCompletionBlockerCode.AcceptanceNotStarted => "ACCEPTANCE_NOT_STARTED",
+                ContractCompletionBlockerCode.AcceptanceIncomplete => "ACCEPTANCE_INCOMPLETE",
+                _ => "PAYMENT_NOT_FULLY_PAID" },
+                Message = x.Code switch {
+                    ContractCompletionBlockerCode.ContractMustBeSigned => "Hợp đồng chưa có bản ký hợp lệ.",
+                    ContractCompletionBlockerCode.AcceptanceNotStarted => "Chưa có biên bản nghiệm thu đã ký hợp lệ.",
+                    ContractCompletionBlockerCode.AcceptanceIncomplete =>
+                        $"Còn {acceptanceProgress.RemainingMilestoneIds.Count} đợt chưa được nghiệm thu.",
+                    _ => "Hợp đồng chưa được thanh toán đủ." } }).ToList() };
     }
 
     private async Task<(TblContract Contract, TblContractVersion Version)> LoadWritableStateAsync(int contractId, int versionId, string contractRv, string versionRv, CancellationToken ct)

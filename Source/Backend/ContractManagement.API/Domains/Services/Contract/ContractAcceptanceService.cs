@@ -1,11 +1,13 @@
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.API.Domains.Policies.Contract;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -34,6 +36,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     private readonly IContractPaymentDueDateService _paymentDueDates;
     private readonly IContractPlaceholderSourceRegistry _placeholderSources;
     private readonly ContractAcceptanceDocumentRenderer _renderer = new();
+    private readonly ContractNotificationProducer? _notifications;
 
     public ContractAcceptanceService(
         DbDtctechContext db,
@@ -43,7 +46,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         ICurrentTenant tenant,
         IContractTemplatePdfRenderer pdfRenderer,
         IContractPaymentDueDateService paymentDueDates,
-        IContractPlaceholderSourceRegistry? placeholderSources = null)
+        IContractPlaceholderSourceRegistry? placeholderSources = null,
+        ContractNotificationProducer? notifications = null)
     {
         _db = db;
         _authorization = authorization;
@@ -54,6 +58,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         _paymentDueDates = paymentDueDates;
         _placeholderSources = placeholderSources
             ?? new ContractPlaceholderSourceRegistry();
+        _notifications = notifications;
     }
 
     public async Task<IReadOnlyList<ContractAcceptanceTemplateOptionResponse>>
@@ -152,7 +157,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 "Version hợp đồng");
             await EnsureSignedSourceAsync(contract, version, cancellationToken);
             await EnsureCanStartNewRecordAsync(
-                contractId, version.VersionId, cancellationToken);
+                contractId, version.VersionId, request.AcceptanceKind,
+                cancellationToken);
+            var acceptanceCode = Required(request.AcceptanceCode, 100,
+                "Mã biên bản").ToUpperInvariant();
+            await EnsureAcceptanceCodeAvailableAsync(contractId,
+                acceptanceCode, null, cancellationToken);
 
             var template = await LoadPublishedTemplateAsync(
                 request.TemplateVersionId, cancellationToken);
@@ -205,8 +215,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ContractId = contractId,
                 ContractVersionId = version.VersionId,
                 TemplateVersionId = template.Version.TemplateVersionId,
-                AcceptanceCode = Required(request.AcceptanceCode, 100,
-                    "Mã biên bản").ToUpperInvariant(),
+                AcceptanceCode = acceptanceCode,
                 AcceptanceDate = request.AcceptanceDate.Date,
                 Location = Required(request.Location, 500, "Địa điểm"),
                 AcceptanceKind = (byte)request.AcceptanceKind,
@@ -300,8 +309,15 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         {
             var row = await RequireDraftAsync(contractId, acceptanceRecordId,
                 request.RowVersion, cancellationToken);
-            row.AcceptanceCode = Required(request.AcceptanceCode, 100,
+            await EnsureRecordSourceAsync(
+                contractId, row.ContractVersionId, cancellationToken);
+            await EnsurePartialModeAsync(contractId, row.ContractVersionId,
+                request.AcceptanceKind, cancellationToken);
+            var acceptanceCode = Required(request.AcceptanceCode, 100,
                 "Mã biên bản").ToUpperInvariant();
+            await EnsureAcceptanceCodeAvailableAsync(contractId,
+                acceptanceCode, acceptanceRecordId, cancellationToken);
+            row.AcceptanceCode = acceptanceCode;
             row.AcceptanceDate = request.AcceptanceDate.Date;
             row.Location = Required(request.Location, 500, "Địa điểm");
             row.AcceptanceKind = (byte)request.AcceptanceKind;
@@ -428,6 +444,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         {
             var row = await RequireDraftAsync(contractId, acceptanceRecordId,
                 request.RowVersion, cancellationToken);
+            await EnsureRecordSourceAsync(
+                contractId, row.ContractVersionId, cancellationToken);
+            await EnsurePartialModeAsync(contractId, row.ContractVersionId,
+                (AcceptanceKind)row.AcceptanceKind, cancellationToken);
             var milestones = await ValidateMilestonesAsync(contractId,
                 row.ContractVersionId, (AcceptanceKind)row.AcceptanceKind,
                 request.PaymentMilestoneIds, acceptanceRecordId,
@@ -514,6 +534,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     acceptanceRecordId, request.RowVersion, cancellationToken);
                 await EnsureRecordSourceAsync(
                     contractId, row.ContractVersionId, cancellationToken);
+                await EnsureRecordSelectionAsync(row, cancellationToken);
                 if (await _db.TblFileStorages.AnyAsync(x =>
                         x.ObjectType == ArtifactObjectType
                         && x.ObjectId == acceptanceRecordId,
@@ -539,6 +560,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     before.References.Count(x =>
                         x.ReferenceType == AcceptanceReferenceType.Appendix),
                     docxFile, pdfFile);
+                if (_notifications is not null)
+                    await _notifications.StageCurrentOwnerAsync(contractId, employeeId,
+                        $"contract:{contractId}:acceptance:{acceptanceRecordId}:finalized",
+                        "AcceptanceFinalized", "Biên bản nghiệm thu đã chốt, chờ bản ký",
+                        "closing", now, cancellationToken);
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadAsync(contractId, acceptanceRecordId,
                     cancellationToken);
@@ -590,6 +616,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     cancellationToken);
                 await EnsureSignedSourceAsync(contract, version,
                     cancellationToken);
+                await EnsureRecordSelectionAsync(row, cancellationToken);
                 var artifactCount = await _db.TblFileStorages.CountAsync(x =>
                     x.ObjectType == ArtifactObjectType
                     && x.ObjectId == acceptanceRecordId
@@ -646,6 +673,30 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         ("FileType", file.FileType),
                         ("Sha256", file.Sha256),
                         ("CurrentVersionId", version.VersionId))) ]);
+                if (_notifications is not null)
+                {
+                    var acceptanceTitle = "Đã ký nghiệm thu toàn bộ";
+                    if ((AcceptanceKind)row.AcceptanceKind == AcceptanceKind.Partial)
+                    {
+                        var milestoneIds = await _db.TblContractPaymentMilestones
+                            .AsNoTracking()
+                            .Where(x => x.ContractId == contractId
+                                && x.VersionId == version.VersionId)
+                            .Select(x => x.PaymentMilestoneId)
+                            .ToListAsync(cancellationToken);
+                        var progress = await ContractAcceptanceProgressReader.ReadAsync(
+                            _db, contractId, version.VersionId, milestoneIds,
+                            cancellationToken);
+                        acceptanceTitle = progress.Completed
+                            ? "Đã nghiệm thu đủ các đợt thanh toán"
+                            : $"Đã ký nghiệm thu một phần ({progress.AcceptedMilestoneCount}/{milestoneIds.Count} đợt)";
+                    }
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId,
+                        $"contract:{contractId}:acceptance:{acceptanceRecordId}:signed",
+                        "AcceptanceSigned", acceptanceTitle,
+                        "closing", now, cancellationToken);
+                }
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadEvidenceAsync(
                     evidence.AcceptanceEvidenceId, cancellationToken);
@@ -690,6 +741,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ContractAuditActionTypes.AcceptanceRecordCancelled,
                 await CountAppendixReferencesAsync(
                     acceptanceRecordId, cancellationToken));
+            if (_notifications is not null)
+                await _notifications.StageCurrentOwnerAsync(contractId, employeeId,
+                    $"contract:{contractId}:acceptance:{acceptanceRecordId}:cancelled",
+                    "AcceptanceCancelled", "Biên bản nghiệm thu đã bị hủy",
+                    "closing", now, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(
                 contractId, acceptanceRecordId, cancellationToken);
@@ -1008,7 +1064,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     }
 
     private async Task EnsureCanStartNewRecordAsync(
-        int contractId, int versionId, CancellationToken ct)
+        int contractId, int versionId, AcceptanceKind requestedKind,
+        CancellationToken ct)
     {
         var records = await _db.TblContractAcceptanceRecords
             .AsNoTracking()
@@ -1033,6 +1090,64 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 "Hợp đồng đã có biên bản nghiệm thu toàn bộ " +
                 "đã ký nên không thể tạo biên bản mới.",
                 StatusCodes.Status409Conflict);
+
+        var milestoneIds = await _db.TblContractPaymentMilestones
+            .AsNoTracking().Where(x => x.ContractId == contractId
+                && x.VersionId == versionId)
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.PaymentMilestoneId)
+            .Select(x => x.PaymentMilestoneId)
+            .ToListAsync(ct);
+        var progress = await ContractAcceptanceProgressReader.ReadAsync(
+            _db, contractId, versionId, milestoneIds, ct);
+        if (progress.Completed)
+            throw Rule("AcceptanceAlreadyCompleted",
+                "Toàn bộ đợt đã được nghiệm thu. Không thể tạo thêm biên bản.",
+                StatusCodes.Status409Conflict);
+        if (requestedKind == AcceptanceKind.Final && progress.HasPartialHistory)
+            throw PartialFlowLocked();
+    }
+
+    private async Task EnsurePartialModeAsync(int contractId, int versionId,
+        AcceptanceKind requestedKind, CancellationToken ct)
+    {
+        if (requestedKind != AcceptanceKind.Final)
+            return;
+        if (await _db.TblContractAcceptanceRecords.AsNoTracking()
+            .AnyAsync(x => x.ContractId == contractId
+                && x.ContractVersionId == versionId
+                && x.AcceptanceKind == (byte)AcceptanceKind.Partial, ct))
+            throw PartialFlowLocked();
+    }
+
+    private static BusinessRuleException PartialFlowLocked() =>
+        Rule("AcceptancePartialFlowLocked",
+            "Đã chọn nghiệm thu một phần cho hợp đồng này. " +
+            "Các biên bản tiếp theo chỉ được nghiệm thu phần còn lại.",
+            StatusCodes.Status409Conflict);
+
+    private async Task EnsureRecordSelectionAsync(
+        TblContractAcceptanceRecord row, CancellationToken ct)
+    {
+        var kind = (AcceptanceKind)row.AcceptanceKind;
+        await EnsurePartialModeAsync(row.ContractId, row.ContractVersionId,
+            kind, ct);
+        if (kind == AcceptanceKind.Partial
+            && await _db.TblContractAcceptanceRecords.AsNoTracking()
+                .AnyAsync(x => x.ContractId == row.ContractId
+                    && x.ContractVersionId == row.ContractVersionId
+                    && x.AcceptanceRecordId != row.AcceptanceRecordId
+                    && x.Status == (byte)AcceptanceRecordStatus.Signed
+                    && x.AcceptanceKind == (byte)AcceptanceKind.Final, ct))
+            throw Rule("AcceptanceFinalAlreadySigned",
+                "Hợp đồng đã có biên bản nghiệm thu toàn bộ đã ký.",
+                StatusCodes.Status409Conflict);
+        var ids = await _db.TblContractAcceptanceMilestones.AsNoTracking()
+            .Where(x => x.AcceptanceRecordId == row.AcceptanceRecordId)
+            .Select(x => x.PaymentMilestoneId)
+            .ToListAsync(ct);
+        await ValidateMilestonesAsync(row.ContractId, row.ContractVersionId,
+            kind, ids, row.AcceptanceRecordId, ct);
     }
 
     private async Task<List<TblContractAppendix>> ValidateAppendicesAsync(
@@ -1082,6 +1197,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 on selected.AcceptanceRecordId equals record.AcceptanceRecordId
             where ids.Contains(selected.PaymentMilestoneId)
                 && record.AcceptanceRecordId != currentRecordId
+                && record.ContractId == contractId
+                && record.ContractVersionId == versionId
                 && (record.Status == (byte)AcceptanceRecordStatus.Finalized
                     || record.Status == (byte)AcceptanceRecordStatus.Signed)
             select selected.PaymentMilestoneId).AnyAsync(ct);
@@ -1442,6 +1559,37 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         UploadedDate = file.CreatedAt
     };
 
+    private async Task EnsureAcceptanceCodeAvailableAsync(int contractId,
+        string acceptanceCode, int? currentRecordId, CancellationToken ct)
+    {
+        var exists = await _db.TblContractAcceptanceRecords.AsNoTracking()
+            .AnyAsync(record => record.ContractId == contractId
+                && record.AcceptanceCode == acceptanceCode
+                && record.AcceptanceRecordId != currentRecordId, ct);
+        if (exists) throw DuplicateAcceptanceCode();
+    }
+
+    private static BusinessRuleException DuplicateAcceptanceCode() =>
+        Rule("AcceptanceCodeAlreadyExists",
+            "Mã biên bản đã tồn tại trong hợp đồng này. Vui lòng nhập mã khác.",
+            StatusCodes.Status409Conflict);
+
+    private static bool IsAcceptanceCodeUniqueViolation(Exception exception) =>
+        exception is DbUpdateException
+        {
+            InnerException: SqlException { Number: 2601 or 2627 } sqlException
+        } && sqlException.Message.Contains(
+            "IX_tbl_ContractAcceptanceRecord_ContractId_AcceptanceCode",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsActiveRecordUniqueViolation(Exception exception) =>
+        exception is DbUpdateException
+        {
+            InnerException: SqlException { Number: 2601 or 2627 } sqlException
+        } && sqlException.Message.Contains(
+            "UX_tbl_ContractAcceptanceRecord_ActiveVersion",
+            StringComparison.OrdinalIgnoreCase);
+
     private async Task<T> ExecuteAsync<T>(Func<Task<T>> action,
         CancellationToken ct)
     {
@@ -1456,10 +1604,17 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await transaction.CommitAsync(ct);
                 return result;
             }
-            catch
+            catch (Exception exception)
             {
                 await transaction.RollbackAsync(ct);
                 _db.ChangeTracker.Clear();
+                if (IsAcceptanceCodeUniqueViolation(exception))
+                    throw DuplicateAcceptanceCode();
+                if (IsActiveRecordUniqueViolation(exception))
+                    throw Rule("AcceptanceRecordInProgress",
+                        "Hợp đồng đang có biên bản nghiệm thu bản nháp hoặc " +
+                        "đã chốt chờ ký. Hãy mở biên bản đó trước khi tạo mới.",
+                        StatusCodes.Status409Conflict);
                 throw;
             }
         });

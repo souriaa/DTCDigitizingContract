@@ -321,6 +321,21 @@ public sealed class ContractTemplatePreviewTests
             table,
             9_360,
             [561, 842, 2_808, 608, 1_216, 842, 608, 1_875]);
+        var rows = table.Elements<W.TableRow>().ToList();
+        Assert.Equal(8, rows[0].Elements<W.TableCell>().Count());
+        Assert.Equal(8, rows[1].Elements<W.TableCell>().Count());
+        var totalCells = rows[^1].Elements<W.TableCell>().ToList();
+        Assert.Equal(2, totalCells.Count);
+        Assert.Equal("7", totalCells[0].TableCellProperties!
+            .GetFirstChild<W.GridSpan>()!.Val!.Value.ToString());
+        Assert.Equal("7485", totalCells[0].TableCellProperties!
+            .TableCellWidth!.Width!.Value);
+        Assert.Equal("TỔNG CỘNG", totalCells[0].InnerText);
+        Assert.Equal(W.JustificationValues.Right,
+            totalCells[0].GetFirstChild<W.Paragraph>()!
+                .ParagraphProperties!.Justification!.Val!.Value);
+        Assert.Equal("1875", totalCells[1].TableCellProperties!
+            .TableCellWidth!.Width!.Value);
     }
 
     [Fact]
@@ -434,7 +449,7 @@ public sealed class ContractTemplatePreviewTests
     }
 
     [Fact]
-    public void Renderer_WithAppendices_RendersOrderedPageBreaksWithoutSignatureOrSignDate()
+    public void Renderer_WithAppendices_RendersOrderedPageBreaksAndSignatureHeadingsWithoutSignDate()
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
@@ -478,7 +493,23 @@ public sealed class ContractTemplatePreviewTests
         Assert.Contains("Chi tiết phụ lục thứ nhất", text);
         Assert.Contains("Chi tiết phụ lục thứ hai", text);
         Assert.DoesNotContain("ký ngày", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CHỮ KÝ PHỤ LỤC", text, StringComparison.OrdinalIgnoreCase);
+        var signatureTables = body.Elements<W.Table>()
+            .Where(table => table.InnerText.Contains(
+                "ĐẠI DIỆN BÊN KHÁCH HÀNG", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, signatureTables.Count);
+        foreach (var table in signatureTables)
+        {
+            var cells = Assert.Single(table.Elements<W.TableRow>())
+                .Elements<W.TableCell>().ToList();
+            Assert.Equal(2, cells.Count);
+            Assert.Equal("ĐẠI DIỆN BÊN KHÁCH HÀNG", cells[0].InnerText);
+            Assert.Equal("ĐẠI DIỆN BÊN CUNG CẤP", cells[1].InnerText);
+            Assert.All(cells, cell => Assert.Equal(
+                W.JustificationValues.Center,
+                cell.GetFirstChild<W.Paragraph>()!.ParagraphProperties!
+                    .Justification!.Val!.Value));
+        }
         Assert.Equal(2, body.Descendants<W.Break>()
             .Count(item => item.Type?.Value == W.BreakValues.Page));
     }

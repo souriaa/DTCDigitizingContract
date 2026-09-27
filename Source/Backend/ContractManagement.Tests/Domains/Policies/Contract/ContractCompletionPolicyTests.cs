@@ -8,19 +8,23 @@ public sealed class ContractCompletionPolicyTests
     [Fact]
     public void Evaluate_returns_ready_when_all_phase10_conditions_are_met()
     {
-        var result = ContractCompletionPolicy.Evaluate(ContractStatus.Signed, true, true, 100m, 100m);
+        var result = ContractCompletionPolicy.Evaluate(
+            ContractStatus.Signed, true, true, true, 100m, 100m);
         Assert.True(result.CanComplete);
         Assert.Empty(result.Blockers);
     }
 
     [Theory]
-    [InlineData(ContractStatus.PendingSignature, false, true, 100, 100, ContractCompletionBlockerCode.ContractMustBeSigned)]
-    [InlineData(ContractStatus.Signed, true, false, 100, 100, ContractCompletionBlockerCode.AcceptanceEvidenceMissing)]
-    [InlineData(ContractStatus.Signed, true, true, 100, 99, ContractCompletionBlockerCode.PaymentNotFullyPaid)]
+    [InlineData(ContractStatus.PendingSignature, false, true, true, 100, 100, ContractCompletionBlockerCode.ContractMustBeSigned)]
+    [InlineData(ContractStatus.Signed, true, false, false, 100, 100, ContractCompletionBlockerCode.AcceptanceNotStarted)]
+    [InlineData(ContractStatus.Signed, true, false, true, 100, 100, ContractCompletionBlockerCode.AcceptanceIncomplete)]
+    [InlineData(ContractStatus.Signed, true, true, true, 100, 99, ContractCompletionBlockerCode.PaymentNotFullyPaid)]
     public void Evaluate_returns_stable_blocker(ContractStatus status, bool signed,
-        bool acceptance, decimal total, decimal paid, ContractCompletionBlockerCode expected)
+        bool acceptanceCompleted, bool hasSignedAcceptance, decimal total,
+        decimal paid, ContractCompletionBlockerCode expected)
     {
-        var result = ContractCompletionPolicy.Evaluate(status, signed, acceptance, total, paid);
+        var result = ContractCompletionPolicy.Evaluate(status, signed,
+            acceptanceCompleted, hasSignedAcceptance, total, paid);
         Assert.False(result.CanComplete);
         Assert.Contains(result.Blockers, blocker => blocker.Code == expected);
     }
@@ -28,7 +32,8 @@ public sealed class ContractCompletionPolicyTests
     [Fact]
     public void Evaluate_reports_all_missing_conditions()
     {
-        var result = ContractCompletionPolicy.Evaluate(ContractStatus.PendingSignature, false, false, 100m, 0m);
+        var result = ContractCompletionPolicy.Evaluate(
+            ContractStatus.PendingSignature, false, false, false, 100m, 0m);
         Assert.Equal(3, result.Blockers.Count);
     }
 
@@ -38,7 +43,8 @@ public sealed class ContractCompletionPolicyTests
         var result = ContractCompletionPolicy.Evaluate(
             ContractStatus.Completed,
             hasActiveSignedEvidence: true,
-            hasAcceptanceEvidence: true,
+            acceptanceCompleted: true,
+            hasSignedAcceptance: true,
             totalAmount: 100m,
             paidAmount: 100m);
 
@@ -56,6 +62,7 @@ public sealed class ContractCompletionPolicyTests
     public void Evaluate_rejects_invalid_amounts(decimal total, decimal paid)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            ContractCompletionPolicy.Evaluate(ContractStatus.Signed, true, true, total, paid));
+            ContractCompletionPolicy.Evaluate(
+                ContractStatus.Signed, true, true, true, total, paid));
     }
 }

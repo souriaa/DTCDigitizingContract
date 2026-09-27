@@ -48,7 +48,7 @@ export default function LoginPage() {
   }>({});
 
   const validateTenantCode = (value: string): string | undefined => {
-    if (!value.trim()) return "Vui lòng nhập Mã công ty (Tenant Code)";
+    if (!value.trim()) return "Vui lòng nhập Mã công ty";
     return undefined;
   };
 
@@ -329,6 +329,7 @@ export default function LoginPage() {
                     </Label>
                     <a
                       href="#"
+                      tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       Quên mật khẩu?
