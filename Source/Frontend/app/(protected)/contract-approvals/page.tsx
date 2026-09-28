@@ -34,6 +34,10 @@ import {
   type DateRange,
 } from "@/components/ui/custom/date-range-filter";
 import { Header } from "@/components/ui/custom/header";
+import {
+  formatWaitingTime,
+  WaitingTime,
+} from "@/components/ui/custom/waiting-time";
 import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
 import {
   type SummaryCardItem,
@@ -66,21 +70,6 @@ function formatShortDate(value: string) {
     month: "2-digit",
     year: "numeric",
   });
-}
-
-function formatWaitingTime(value?: string, referenceTime?: number | null) {
-  if (!value) return "Chưa có dữ liệu";
-  if (referenceTime == null) return "Đang tính...";
-
-  const elapsedMilliseconds = Math.max(
-    0,
-    referenceTime - parseApiDate(value).getTime(),
-  );
-  const elapsedHours = Math.floor(elapsedMilliseconds / 3_600_000);
-
-  if (elapsedHours < 1) return "Dưới 1 giờ";
-  if (elapsedHours < 24) return `${elapsedHours} giờ`;
-  return `${Math.floor(elapsedHours / 24)} ngày`;
 }
 
 function formatFilterDate(value?: Date) {
@@ -305,7 +294,10 @@ export default function ContractApprovalsPage() {
           <div className="flex items-center gap-2 text-sm">
             <Clock3 className="size-4 text-amber-600" />
             <span>
-              {formatWaitingTime(row.original.submittedDate, referenceTime)}
+              <WaitingTime
+                value={row.original.submittedDate}
+                referenceTime={referenceTime}
+              />
             </span>
           </div>
         ),
@@ -639,10 +631,10 @@ export default function ContractApprovalsPage() {
                               Thời gian chờ
                             </span>
                             <span className="mt-1 block font-medium text-amber-700 dark:text-amber-300">
-                              {formatWaitingTime(
-                                request.submittedDate,
-                                referenceTime,
-                              )}
+                              <WaitingTime
+                                value={request.submittedDate}
+                                referenceTime={referenceTime}
+                              />
                             </span>
                           </div>
                           <div className="min-w-0 border-t pt-2">
