@@ -199,6 +199,10 @@ public partial class ContractService
             "Phụ lục hợp đồng");
         if (row.IsRequired)
             throw new InvalidOperationException("Không thể xóa phụ lục bắt buộc.");
+        if (await _dbContext.TblContractAcceptanceReferences.AnyAsync(
+                x => x.AppendixId == appendixId))
+            throw new InvalidOperationException(
+                "Không thể xóa phụ lục đang được biên bản nghiệm thu tham chiếu.");
         var terms = await _dbContext.TblContractAppendixTerms
             .Where(x => x.AppendixId == appendixId).ToListAsync();
         _dbContext.TblContractAppendixTerms.RemoveRange(terms);

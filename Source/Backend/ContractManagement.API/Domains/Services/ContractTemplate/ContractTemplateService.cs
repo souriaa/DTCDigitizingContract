@@ -1773,6 +1773,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 expectedTermRowVersion,
                 "Template term");
             SetOriginalRowVersion(term, expectedTermRowVersion);
+            // The tenant DB no longer cascades term deletion into milestones.
+            var milestones = await _dbContext.TblContractTemplatePaymentMilestones
+                .Where(item => item.TemplateTermId == termId)
+                .ToListAsync(cancellationToken);
+            _dbContext.TblContractTemplatePaymentMilestones.RemoveRange(milestones);
             _dbContext.TblContractTemplateTerms.Remove(term);
             TouchVersion(version, employeeId, DateTime.UtcNow);
             RotateVersionRowVersionIfNeeded(version);

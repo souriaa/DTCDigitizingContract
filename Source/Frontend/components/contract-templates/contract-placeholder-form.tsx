@@ -253,7 +253,7 @@ export function ContractPlaceholderForm({
                   disabled={saving}
                   onValueChange={(v) => setFormat(v === "default" ? "" : v)}
                 >
-                  <SelectTrigger aria-label="Định dạng">
+                  <SelectTrigger className="w-full" aria-label="Định dạng">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

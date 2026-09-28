@@ -51,6 +51,15 @@ const isTermDirty = (
   (draft.termContent?.trim() || "") !== (saved.termContent?.trim() || "") ||
   (draft.termContentEn?.trim() || "") !== (saved.termContentEn?.trim() || "");
 
+const nextTermCode = (terms: ContractAppendixTermResponse[]) => {
+  const largestNumber = terms.reduce((largest, term) => {
+    const match = /^TERM_(\d+)$/i.exec(term.termCode.trim());
+    const number = match ? Number(match[1]) : NaN;
+    return Number.isSafeInteger(number) ? Math.max(largest, number) : largest;
+  }, 0);
+  return `TERM_${largestNumber + 1}`;
+};
+
 export function ContractAppendices({
   contract,
   canEdit,
@@ -593,6 +602,11 @@ export function ContractAppendices({
                             "Hãy lưu thay đổi trước khi thêm điều khoản.",
                           );
                         } else {
+                          setNewTerm({
+                            code: nextTermCode(appendix.terms),
+                            title: "",
+                            titleEn: "",
+                          });
                           setAddingTo(appendix.appendixId);
                         }
                       }}
@@ -618,7 +632,9 @@ export function ContractAppendices({
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="contract-appendix-code">Mã phụ lục *</Label>
+              <Label htmlFor="contract-appendix-code">
+                Mã phụ lục <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="contract-appendix-code"
                 value={newAppendix.code}
@@ -632,7 +648,9 @@ export function ContractAppendices({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contract-appendix-name">Tên phụ lục *</Label>
+              <Label htmlFor="contract-appendix-name">
+                Tên phụ lục <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="contract-appendix-name"
                 value={newAppendix.name}
