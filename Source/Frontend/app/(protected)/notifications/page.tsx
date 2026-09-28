@@ -631,7 +631,7 @@ export default function NotificationsPage() {
                   </div>
 
                   {/* Search Input with Clear Button */}
-                  <div className="relative w-full sm:w-[420px]">
+                  <div className="relative w-full sm:w-[480px]">
                     <Input
                       type="text"
                       placeholder="Tìm theo tiêu đề, #hợp đồng..."

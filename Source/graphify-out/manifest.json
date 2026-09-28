@@ -6720,9 +6720,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/notifications/page.tsx": {
-    "mtime": 1790607404.0222685,
-    "seen": 1790607484.157344,
-    "ast_hash": "33a6e41e350be8a3209a6e8f9e2ecd8d",
+    "mtime": 1790608076.2862787,
+    "seen": 1790608079.57274,
+    "ast_hash": "2636dfeff53a414881f91a69bce391e7",
     "semantic_hash": ""
   },
   "Frontend/components/notifications/notification-bell.tsx": {
