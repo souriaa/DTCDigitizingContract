@@ -975,8 +975,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("ContractFileName")
                         .HasMaxLength(300)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(300)");
+                        .IsUnicode()
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("ContractFilePath")
                         .HasMaxLength(1000)

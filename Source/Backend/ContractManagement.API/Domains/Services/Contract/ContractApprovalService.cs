@@ -516,9 +516,15 @@ public sealed class ContractApprovalService : IContractApprovalService
                         .TblContractVersionLegalSnapshots
                         .AsNoTracking()
                         .Where(snapshot => snapshot.VersionId == version.VersionId)
-                        .AnyAsync(snapshot => snapshot.Parties.Count == 2
-                            && snapshot.Parties.Any(party => party.PartyRole == 1)
-                            && snapshot.Parties.Any(party => party.PartyRole == 2),
+                        .AnyAsync(snapshot => _dbContext.TblContractVersionPartySnapshots
+                                .Count(party => party.ContractVersionLegalSnapshotId ==
+                                    snapshot.ContractVersionLegalSnapshotId) == 2
+                            && _dbContext.TblContractVersionPartySnapshots.Any(party =>
+                                party.ContractVersionLegalSnapshotId ==
+                                snapshot.ContractVersionLegalSnapshotId && party.PartyRole == 1)
+                            && _dbContext.TblContractVersionPartySnapshots.Any(party =>
+                                party.ContractVersionLegalSnapshotId ==
+                                snapshot.ContractVersionLegalSnapshotId && party.PartyRole == 2),
                             cancellationToken);
                     if (!version.IsLocked
                         || string.IsNullOrWhiteSpace(version.SnapshotHash)

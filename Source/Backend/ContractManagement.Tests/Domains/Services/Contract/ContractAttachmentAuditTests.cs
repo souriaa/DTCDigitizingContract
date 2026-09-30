@@ -33,7 +33,7 @@ public sealed class ContractAttachmentAuditTests
             0,
             content.Length,
             "File",
-            "signed-contract.pdf")
+            "Hợp đồng đã ký.pdf")
         {
             Headers = new HeaderDictionary(),
             ContentType = "application/pdf"
@@ -51,6 +51,8 @@ public sealed class ContractAttachmentAuditTests
         var listedAttachment = Assert.Single(await service.GetByContractAsync(
             ContractId, EmployeeId));
         Assert.Equal("Attachment Owner", listedAttachment.UploadEmployeeName);
+        Assert.Equal("Hợp đồng đã ký.pdf", attachment.ContractFileName);
+        Assert.Equal("Hợp đồng đã ký.pdf", listedAttachment.ContractFileName);
 
         var uploadedAudit = await context.TblContractAudits.SingleAsync(x =>
             x.ActionType ==
@@ -60,7 +62,7 @@ public sealed class ContractAttachmentAuditTests
             uploadedAudit.SubjectType);
         Assert.Equal(ContractId, uploadedAudit.SubjectId);
         Assert.Equal(
-            "signed-contract.pdf",
+            "Hợp đồng đã ký.pdf",
             ContractValue(uploadedAudit, AuditValueSide.New,
                 ContractAuditFieldCode.FileName).StringValue);
         Assert.Equal(
@@ -78,7 +80,7 @@ public sealed class ContractAttachmentAuditTests
                 ContractAuditActionTypes.ContractAttachmentDeleted);
         Assert.Equal(ContractId, deletedAudit.SubjectId);
         Assert.Equal(
-            "signed-contract.pdf",
+            "Hợp đồng đã ký.pdf",
             ContractValue(deletedAudit, AuditValueSide.Previous,
                 ContractAuditFieldCode.FileName).StringValue);
         Assert.Empty(context.TblContractAttachments);

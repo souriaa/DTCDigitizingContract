@@ -533,7 +533,10 @@ export function ContractAcceptanceRecords({
       setSignedFile(undefined);
       toast.success("Đã lưu bản ký biên bản nghiệm thu.");
       const [record, nextRecords] = await Promise.all([
-        contractAcceptanceApi.get(contract.contractId, selected.acceptanceRecordId),
+        contractAcceptanceApi.get(
+          contract.contractId,
+          selected.acceptanceRecordId,
+        ),
         contractAcceptanceApi.list(contract.contractId),
       ]);
       setSelected(record);
@@ -1481,9 +1484,9 @@ export function ContractAcceptanceRecords({
             {selected.status === AcceptanceRecordStatus.Signed &&
               selected.signedEvidence && (
                 <Alert>
-                  <CheckCircle2 className="size-4" />
+                  <CheckCircle2 className="size-4" color="green" />
                   <AlertDescription>
-                    Đã ký: {selected.signedEvidence.fileName} ·{" "}
+                    Đã ký{" "}
                     {new Date(
                       selected.signedEvidence.uploadedAt,
                     ).toLocaleString("vi-VN")}

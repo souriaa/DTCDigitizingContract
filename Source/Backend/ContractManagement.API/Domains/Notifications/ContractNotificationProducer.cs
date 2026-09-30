@@ -57,7 +57,9 @@ public sealed class ContractNotificationProducer
     {
         var submittedEventKey = $"contract:{contractId}:approval-request:{requestId}:submitted";
         var managers = await _db.TblNotificationRecipients.AsNoTracking()
-            .Where(x => x.Notification.EventKey == submittedEventKey)
+            .Where(x => _db.TblNotifications.Any(notification =>
+                notification.NotificationId == x.NotificationId
+                && notification.EventKey == submittedEventKey))
             .Select(x => x.EmployeeId).ToListAsync(cancellationToken);
         return await StageAsync(contractId, submitterEmployeeId,
             $"contract:{contractId}:approval-request:{requestId}:withdrawn",

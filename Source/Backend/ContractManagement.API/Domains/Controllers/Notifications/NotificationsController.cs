@@ -40,11 +40,18 @@ public sealed class NotificationsController : ControllerBase
                 || (x.CreatedAtUtc == created && x.NotificationRecipientId < id));
         }
         var rows = await query.OrderByDescending(x => x.CreatedAtUtc)
-            .ThenByDescending(x => x.NotificationRecipientId).Take(limit + 1)
-            .Select(x => new NotificationItem(x.NotificationRecipientId, x.NotificationId,
-                x.Notification.Title, x.Notification.Body, x.Notification.SubjectType,
-                x.Notification.SubjectId, x.Notification.ActionKey, x.CreatedAtUtc,
-                x.ReadAtUtc)).ToListAsync(cancellationToken);
+            .ThenByDescending(x => x.NotificationRecipientId)
+            .Join(_db.TblNotifications.AsNoTracking(),
+                recipient => recipient.NotificationId,
+                notification => notification.NotificationId,
+                (recipient, notification) => new { recipient, notification })
+            .Take(limit + 1)
+            .Select(x => new NotificationItem(
+                x.recipient.NotificationRecipientId, x.recipient.NotificationId,
+                x.notification.Title, x.notification.Body, x.notification.SubjectType,
+                x.notification.SubjectId, x.notification.ActionKey,
+                x.recipient.CreatedAtUtc, x.recipient.ReadAtUtc))
+            .ToListAsync(cancellationToken);
         var hasMore = rows.Count > limit;
         if (hasMore) rows.RemoveAt(limit);
         var last = rows.LastOrDefault();

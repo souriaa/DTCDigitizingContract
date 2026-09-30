@@ -340,8 +340,8 @@ export function ContractTemplatePlaceholderCatalog({
 
   return (
     <div className="space-y-5">
-      <Card className="pb-0">
-        <CardHeader className="pb-3">
+      <Card className="pb-4">
+        <CardHeader className="pb-2">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">

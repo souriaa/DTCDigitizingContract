@@ -1074,7 +1074,7 @@ public partial class DbDtctechContext : DbContext
 
             entity.Property(e => e.ContractFileName)
                 .HasMaxLength(300)
-                .IsUnicode(false);
+                .IsUnicode();
             entity.Property(e => e.ContractFilePath)
                 .HasMaxLength(1000)
                 .IsUnicode(false);

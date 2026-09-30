@@ -104,8 +104,20 @@ public sealed partial class ContractTemplateService
             var row = await GetAppendixForMutationAsync(versionId, appendixId,
                 cancellationToken);
             MatchAndTrack(row, appendixRv);
+            if (await _dbContext.TblContractAppendices.AnyAsync(
+                    x => x.SourceTemplateAppendixId == appendixId,
+                    cancellationToken))
+                throw new InvalidOperationException(
+                    "Không thể xóa phụ lục mẫu đang được hợp đồng sử dụng.");
             var terms = await _dbContext.TblContractTemplateAppendixTerms
                 .Where(x => x.TemplateAppendixId == appendixId).ToListAsync(cancellationToken);
+            var termIds = terms.Select(x => x.TemplateAppendixTermId).ToArray();
+            if (termIds.Length > 0 && await _dbContext.TblContractAppendixTerms
+                    .AnyAsync(x => x.SourceTemplateAppendixTermId.HasValue
+                        && termIds.Contains(x.SourceTemplateAppendixTermId.Value),
+                        cancellationToken))
+                throw new InvalidOperationException(
+                    "Không thể xóa điều khoản phụ lục mẫu đang được hợp đồng sử dụng.");
             _dbContext.TblContractTemplateAppendixTerms.RemoveRange(terms);
             _dbContext.TblContractTemplateAppendices.Remove(row);
             InvalidateAppendixPreview(version, employeeId, DateTime.UtcNow);
@@ -268,6 +280,11 @@ public sealed partial class ContractTemplateService
             MatchAndTrack(appendix, appendixRv);
             var row = await GetAppendixTermForMutationAsync(appendixId, termId, cancellationToken);
             MatchAndTrack(row, termRv);
+            if (await _dbContext.TblContractAppendixTerms.AnyAsync(
+                    x => x.SourceTemplateAppendixTermId == termId,
+                    cancellationToken))
+                throw new InvalidOperationException(
+                    "Không thể xóa điều khoản phụ lục mẫu đang được hợp đồng sử dụng.");
             _dbContext.TblContractTemplateAppendixTerms.Remove(row);
             var now = DateTime.UtcNow; appendix.UpdatedEmployeeId = employeeId;
             appendix.UpdatedDate = now; RotateRowVersionIfNeeded(appendix);

@@ -195,6 +195,7 @@ namespace ContractManagement.Domains.Services.File
                 throw new KeyNotFoundException("Không tìm thấy file.");
             }
 
+            await EnsureNoProtectedReferencesAsync(fileId);
             await DeletePhysicalFileAsync(file);
 
             // 2. Xóa metadata trong DB
@@ -205,6 +206,11 @@ namespace ContractManagement.Domains.Services.File
         public async Task DeleteUploadedArtifactAsync(FileStorageResponse file)
         {
             ArgumentNullException.ThrowIfNull(file);
+
+            if (file.FileId > 0)
+            {
+                await EnsureNoProtectedReferencesAsync(file.FileId);
+            }
 
             // Transaction SQL có thể đã rollback metadata, nhưng physical file
             // không transactional nên phải được dọn từ safe relative path này.
@@ -234,6 +240,21 @@ namespace ContractManagement.Domains.Services.File
 
             _dbContext.TblFileStorages.Remove(metadata);
             await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task EnsureNoProtectedReferencesAsync(int fileId)
+        {
+            var inUse = await _dbContext.TblContractSignedEvidences
+                    .AnyAsync(row => row.FileId == fileId)
+                || await _dbContext.TblContractAcceptanceEvidences
+                    .AnyAsync(row => row.FileId == fileId)
+                || await _dbContext.TblContractPaymentLedgers
+                    .AnyAsync(row => row.EvidenceFileId == fileId);
+            if (inUse)
+            {
+                throw new InvalidOperationException(
+                    "Không thể xóa tệp đang được hợp đồng, nghiệm thu hoặc thanh toán sử dụng.");
+            }
         }
 
         private async Task DeletePhysicalFileAsync(TblFileStorage file)
