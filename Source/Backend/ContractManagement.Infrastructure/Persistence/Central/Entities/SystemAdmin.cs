@@ -12,6 +12,8 @@ public sealed class SystemAdmin
 
     public string? Email { get; set; }
 
+    public DateTime? RecoveryEmailVerifiedAt { get; set; }
+
     public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }

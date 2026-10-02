@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using ContractManagement.Infrastructure.Branding;
 
 namespace ContractManagement.API.Domains.CustomerAccess;
 
@@ -44,7 +45,7 @@ public static class CustomerOtpEmailTemplate
                       <!-- Header Banner -->
                       <tr>
                         <td style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); padding: 36px 28px; text-align: center;">
-                          <img src="cid:{{LogoContentId}}" width="72" height="72" alt="DTC Digitizing Contract" style="display: inline-block; width: 72px; height: 72px; object-fit: contain; margin-bottom: 14px; border: 0; outline: none; text-decoration: none;">
+                          <img src="cid:{{LogoContentId}}" width="72" height="72" alt="{{ApplicationBranding.HtmlName}}" style="display: inline-block; width: 72px; height: 72px; object-fit: contain; margin-bottom: 14px; border: 0; outline: none; text-decoration: none;">
                           <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase;">
                             XÁC THỰC TRUY CẬP HỢP ĐỒNG
                           </h1>
@@ -61,7 +62,7 @@ public static class CustomerOtpEmailTemplate
                             Xin chào <strong>Quý khách</strong>,
                           </p>
                           <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
-                            Bạn vừa thực hiện yêu cầu lấy mã xác thực (OTP) để đăng nhập và xem chi tiết hợp đồng điện tử. Vui lòng sử dụng mã bên dưới để hoàn tất xác thực:
+                            Bạn vừa thực hiện yêu cầu lấy mã xác thực OTP để đăng nhập và xem chi tiết hợp đồng điện tử. Vui lòng sử dụng mã bên dưới để hoàn tất xác thực:
                           </p>
 
                           <!-- OTP Display Box -->
@@ -81,7 +82,7 @@ public static class CustomerOtpEmailTemplate
                           <!-- Security Warning Box -->
                           <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 16px; margin: 24px 0;">
                             <div style="font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 6px;">
-                              🛡️ Lưu ý an toàn bảo mật:
+                              Lưu ý an toàn bảo mật:
                             </div>
                             <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #78350f; line-height: 1.6;">
                               <li style="margin-bottom: 4px;">Tuyệt đối <strong>không cung cấp mã OTP này</strong> cho bất kỳ ai, kể cả nhân viên hỗ trợ hệ thống.</li>
@@ -100,11 +101,11 @@ public static class CustomerOtpEmailTemplate
                       <tr>
                         <td style="background-color: #f8fafc; padding: 22px 28px; text-align: center; border-top: 1px solid #e2e8f0;">
                           <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.6;">
-                            Email này được gửi tự động từ hệ thống <strong>Digitizing Contract</strong>.<br>
+                            Email này được gửi tự động từ hệ thống <strong>{{ApplicationBranding.HtmlName}}</strong>.<br>
                             Vui lòng không trả lời trực tiếp email này.
                           </p>
                           <p style="margin: 10px 0 0 0; font-size: 11px; color: #94a3b8;">
-                            &copy; {{year}} DTC Digitizing Contract. All rights reserved.
+                            &copy; {{year}} DTC.,Ltd. All rights reserved.
                           </p>
                         </td>
                       </tr>
@@ -128,11 +129,11 @@ public static class CustomerOtpEmailTemplate
 
         return $"""
             XÁC THỰC TRUY CẬP HỢP ĐỒNG ĐIỆN TỬ
-            Hệ thống Quản lý & Số hóa Hợp đồng
+            {ApplicationBranding.Name} — Hệ thống Quản lý & Số hóa Hợp đồng
 
             Xin chào Quý khách,
 
-            Mã xác thực (OTP) của bạn là: {otp}
+            Mã xác thực OTP của bạn là: {otp}
 
             Mã có hiệu lực trong vòng 5 phút (hết hạn lúc {vnTime} GMT+7 / {utcTime} UTC).
 

@@ -1,5 +1,6 @@
 ﻿using ContractManagement.Infrastructure.Persistence.Central.Entities;
 using Microsoft.EntityFrameworkCore;
+using ContractManagement.Infrastructure.Persistence.Recovery;
 
 namespace ContractManagement.Infrastructure.Persistence.Central;
 
@@ -17,6 +18,9 @@ public sealed class CentralDbContext : DbContext
     }
 
     public DbSet<SystemAdmin> SystemAdmins => Set<SystemAdmin>();
+
+    public DbSet<AccountRecoveryChallenge> RecoveryChallenges => Set<AccountRecoveryChallenge>();
+    public DbSet<AccountRecoveryEmailOutbox> RecoveryEmailOutbox => Set<AccountRecoveryEmailOutbox>();
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
@@ -37,6 +41,7 @@ public sealed class CentralDbContext : DbContext
         ConfigureSystemAdmin(modelBuilder); // Configure SystemAdmin entity
 
         ConfigureSecurityAudit(modelBuilder);
+        AccountRecoveryMapping.Configure(modelBuilder, "AccountRecoveryChallenges", "AccountRecoveryEmailOutbox", "SystemAdminId");
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

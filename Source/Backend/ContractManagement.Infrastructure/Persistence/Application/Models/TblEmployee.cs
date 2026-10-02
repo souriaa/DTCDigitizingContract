@@ -29,6 +29,8 @@ public partial class TblEmployee
 
     public string? EmployeeEmail { get; set; }
 
+    public DateTime? RecoveryEmailVerifiedAt { get; set; }
+
     public string? EmployeeAddress { get; set; }
 
     public int? UserCreated { get; set; }

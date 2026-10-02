@@ -12,6 +12,7 @@ using ContractManagement.Infrastructure.Persistence.Central.Entities;
 using ContractManagement.Infrastructure.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ContractManagement.API.Domains.Recovery;
 
 namespace ContractManagement.API.Domains.Services.SystemAuthentication;
 
@@ -93,6 +94,11 @@ public sealed class SystemAdminAccountService : ISystemAdminAccountService
 
         if (changedFields.Count > 0)
         {
+            if (changedFields.Contains("Email"))
+            {
+                admin.RecoveryEmailVerifiedAt = null;
+                await RecoveryEmailInvalidation.RevokeAsync(_dbContext, systemAdminId, DateTime.UtcNow, cancellationToken);
+            }
             admin.FullName = fullName;
             admin.Email = email;
             admin.UpdatedAt = DateTime.UtcNow;
@@ -352,6 +358,7 @@ public sealed class SystemAdminAccountService : ISystemAdminAccountService
             Username = admin.Username,
             FullName = admin.FullName,
             Email = admin.Email,
+            RecoveryEmailVerifiedAt = admin.RecoveryEmailVerifiedAt,
             IsActive = admin.IsActive,
             MustChangePassword = admin.MustChangePassword,
             PasswordChangedAt = admin.PasswordChangedAt,

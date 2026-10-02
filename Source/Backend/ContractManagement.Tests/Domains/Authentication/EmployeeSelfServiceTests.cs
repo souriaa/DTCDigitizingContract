@@ -26,6 +26,8 @@ public sealed class EmployeeSelfServiceTests
     {
         await using var dbContext = CreateDbContext();
         var employee = CreateEmployee();
+        employee.EmployeeEmail = "before@example.test";
+        employee.RecoveryEmailVerifiedAt = DateTime.UtcNow;
         dbContext.TblEmployees.Add(employee);
         dbContext.TblDepartments.Add(new TblDepartment
         {
@@ -53,6 +55,7 @@ public sealed class EmployeeSelfServiceTests
             });
 
         Assert.Equal("Nguyễn Văn Sale", updated.FullName);
+        Assert.Null(updated.RecoveryEmailVerifiedAt);
         var persisted = await dbContext.TblEmployees.SingleAsync();
         Assert.Equal("sale-user", persisted.EmployeeAccount);
         Assert.Equal((byte)EmployeeType.Sale, persisted.EmployeeType);

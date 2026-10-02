@@ -23,6 +23,8 @@ public sealed class TenantSeedData : ITenantSeedData
         SecurityOperationContext securityContext,
         CancellationToken cancellationToken = default)
     {
+        if (!PasswordRules.IsValid(initialManager.EmployeePassword))
+            throw new ArgumentException(PasswordRules.ValidationMessage, nameof(initialManager));
         var optionsBuilder = new DbContextOptionsBuilder<DbDtctechContext>();
         optionsBuilder.UseSqlServer(connectionString, sqlOptions =>
         {
@@ -57,7 +59,7 @@ public sealed class TenantSeedData : ITenantSeedData
         };
         manager.EmployeePassword = _passwordHasher.HashPassword(
             manager,
-            NormalizeRequired(initialManager.EmployeePassword));
+            initialManager.EmployeePassword);
 
         dbContext.TblEmployees.Add(manager);
         dbContext.TblAuthorizationAudits.Add(

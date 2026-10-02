@@ -90,6 +90,12 @@ const ACTION_CONFIG: Record<
     description?: string;
   }
 > = {
+  RecoveryEmailVerificationRequested: { label: "Yêu cầu xác minh email khôi phục", icon: ShieldCheck },
+  RecoveryEmailVerified: { label: "Đã xác minh email khôi phục", icon: ShieldCheck },
+  PasswordRecoveryDeliveryFailed: { label: "Gửi email khôi phục thất bại", icon: ShieldAlert },
+  PasswordRecoveryRequested: { label: "Yêu cầu đặt lại mật khẩu", icon: ShieldCheck },
+  PasswordRecoveryCompleted: { label: "Đã khôi phục mật khẩu", icon: ShieldCheck },
+  PasswordRecoveryDenied: { label: "Từ chối khôi phục mật khẩu", icon: ShieldAlert },
   CentralApiAccessDenied: {
     label: "Từ chối truy cập API trung tâm",
     icon: ShieldAlert,

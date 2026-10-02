@@ -12,5 +12,6 @@ public sealed class ChangeOwnPasswordRequest
     [Required]
     [MinLength(AccountPasswordPolicy.MinimumLength)]
     [MaxLength(AccountPasswordPolicy.MaximumLength)]
+    [NewAccountPassword]
     public string NewPassword { get; set; } = string.Empty;
 }

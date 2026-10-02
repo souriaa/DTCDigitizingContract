@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
+  getAccountPasswordRules,
+  isValidAccountPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/password-policy";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 import {
@@ -74,6 +79,7 @@ export function EmployeeFormModal({
   const [employeeCode, setEmployeeCode] = useState("");
   const [employeeAccount, setEmployeeAccount] = useState("");
   const [employeePassword, setEmployeePassword] = useState("");
+  const [showEmployeePassword, setShowEmployeePassword] = useState(false);
   const [employeeFullName, setEmployeeFullName] = useState("");
   const [employeeMobile, setEmployeeMobile] = useState("");
   const [employeeEmail, setEmployeeEmail] = useState("");
@@ -83,6 +89,18 @@ export function EmployeeFormModal({
   const [isSaving, setIsSaving] = useState(false);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const passwordRules = getAccountPasswordRules(employeePassword);
+  const passwordChecklist = [
+    { label: "Độ dài từ 12 đến 100 ký tự", satisfied: passwordRules.hasLength },
+    {
+      label: "Chứa ít nhất một chữ số (0–9)",
+      satisfied: passwordRules.hasNumber,
+    },
+    {
+      label: "Bao gồm chữ hoa và chữ thường",
+      satisfied: passwordRules.hasUpperAndLower,
+    },
+  ];
 
   useEffect(() => {
     if (isOpen) {
@@ -97,6 +115,11 @@ export function EmployeeFormModal({
   }, [isOpen]);
 
   useEffect(() => {
+    setShowEmployeePassword(false);
+    if (!isOpen) {
+      setEmployeePassword("");
+      return;
+    }
     if (isOpen && employee) {
       setEmployeeCode(employee.employeeCode || "");
       setEmployeeAccount(employee.employeeAccount || "");
@@ -151,8 +174,8 @@ export function EmployeeFormModal({
       }
       if (!employeePassword.trim()) {
         newErrors.employeePassword = "Mật khẩu không được để trống";
-      } else if (employeePassword.length < 12) {
-        newErrors.employeePassword = "Mật khẩu tối thiểu 12 ký tự";
+      } else if (!isValidAccountPassword(employeePassword)) {
+        newErrors.employeePassword = PASSWORD_POLICY_MESSAGE;
       }
     }
 
@@ -308,16 +331,82 @@ export function EmployeeFormModal({
               <Label htmlFor="employeePassword">
                 Mật khẩu <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="employeePassword"
-                type="password"
-                placeholder="••••••"
-                value={employeePassword}
-                onChange={(e) => setEmployeePassword(e.target.value)}
-                minLength={12}
-                maxLength={100}
-                aria-invalid={!!errors.employeePassword}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="employeePassword"
+                  type={showEmployeePassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Nhập mật khẩu mới"
+                  value={employeePassword}
+                  onChange={(e) => {
+                    setEmployeePassword(e.target.value);
+                    setErrors((current) => {
+                      if (!current.employeePassword) return current;
+                      const next = { ...current };
+                      delete next.employeePassword;
+                      return next;
+                    });
+                  }}
+                  minLength={12}
+                  maxLength={100}
+                  aria-describedby="employee-password-rules"
+                  aria-invalid={!!errors.employeePassword}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setShowEmployeePassword((visible) => !visible)}
+                  aria-label={
+                    showEmployeePassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                  }
+                  aria-pressed={showEmployeePassword}
+                  aria-controls="employeePassword"
+                  title={showEmployeePassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showEmployeePassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </Button>
+              </div>
+              <div
+                id="employee-password-rules"
+                className="rounded-xl border border-border/60 bg-muted/30 p-3.5 space-y-2.5"
+              >
+                <p className="text-xs font-semibold">
+                  Tiêu chuẩn an toàn mật khẩu:
+                </p>
+                <ul
+                  className="grid gap-2 text-xs sm:grid-cols-2"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {passwordChecklist.map((rule) => (
+                    <li
+                      key={rule.label}
+                      className={`flex items-center gap-2 ${rule.satisfied ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground"}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`flex size-4 shrink-0 items-center justify-center rounded-full ${rule.satisfied ? "bg-emerald-500/15" : "bg-muted"}`}
+                      >
+                        {rule.satisfied ? (
+                          <Check className="size-2.5 stroke-[3]" />
+                        ) : (
+                          <span className="size-1 rounded-full bg-current" />
+                        )}
+                      </span>
+                      <span className="sr-only">
+                        {rule.satisfied ? "Đã đạt: " : "Chưa đạt: "}
+                      </span>
+                      <span>{rule.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               {errors.employeePassword && (
                 <p className="text-xs text-destructive">
                   {errors.employeePassword}

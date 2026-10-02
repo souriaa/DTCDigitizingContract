@@ -42,6 +42,8 @@ using ContractManagement.API.Helpers;
 using ContractManagement.API.Domains.CustomerAccess;
 using ContractManagement.API.Domains.Notifications;
 using System.Net;
+using ContractManagement.API.Domains.Email;
+using ContractManagement.API.Domains.Recovery;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -125,6 +127,27 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddContractManagementInfrastructure(
     builder.Configuration);
 
+builder.Services.AddOptions<SmtpEmailOptions>()
+    .Bind(builder.Configuration.GetSection(SmtpEmailOptions.SectionName))
+    .Validate(options => (!string.Equals(builder.Configuration["CustomerOtp:Provider"], "Smtp", StringComparison.OrdinalIgnoreCase)
+        && !(builder.Configuration.GetValue<bool>("AccountRecovery:Enabled") && builder.Configuration["AccountRecovery:Provider"] != "Test"))
+        || options.IsConfigured(), "Email:Smtp requires valid STARTTLS credentials, sender and timeout.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddOptions<AccountRecoveryOptions>()
+    .Bind(builder.Configuration.GetSection(AccountRecoveryOptions.SectionName))
+    .Validate(options => options.IsValid(builder.Environment.IsDevelopment()),
+        "AccountRecovery requires a persistent 32-byte encryption key, trusted frontend URLs and valid limits; Test is Development only.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<AccountRecoveryCryptography>();
+builder.Services.AddSingleton<RecoveryTestMailbox>();
+builder.Services.AddScoped<RecoveryEmailVerificationService>();
+builder.Services.AddScoped<PasswordRecoveryService>();
+builder.Services.AddSingleton<RecoveryRequestLimiter>();
+builder.Services.AddSingleton<RecoveryTelemetry>();
+builder.Services.AddHostedService<AccountRecoveryOutboxWorker>();
+
 builder.Services.AddOptions<CustomerOtpOptions>()
     .Bind(builder.Configuration.GetSection(CustomerOtpOptions.SectionName))
     .Validate(options => builder.Environment.IsDevelopment()
@@ -132,7 +155,7 @@ builder.Services.AddOptions<CustomerOtpOptions>()
             && IsThirtyTwoByteBase64(options.EncryptionKey)),
         "Production customer OTP requires configured 32-byte hash/encryption keys.")
     .Validate(options => options.UsesSmtp
-        ? options.Smtp.IsConfigured()
+        ? builder.Configuration.GetSection(SmtpEmailOptions.SectionName).Get<SmtpEmailOptions>()?.IsConfigured() == true
         : string.Equals(options.Provider, "Fake", StringComparison.OrdinalIgnoreCase)
             ? builder.Environment.IsDevelopment()
             : string.Equals(options.Provider, "Http", StringComparison.OrdinalIgnoreCase)

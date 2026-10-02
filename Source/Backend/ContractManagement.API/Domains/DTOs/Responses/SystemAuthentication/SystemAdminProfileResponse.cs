@@ -6,6 +6,7 @@ public sealed class SystemAdminProfileResponse
     public string Username { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public DateTime? RecoveryEmailVerifiedAt { get; set; }
     public string RoleName { get; set; } = "SystemAdmin";
     public bool IsActive { get; set; }
     public bool MustChangePassword { get; set; }

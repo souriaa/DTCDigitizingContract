@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
+using ContractManagement.Infrastructure.Persistence.Recovery;
 
 namespace ContractManagement.Infrastructure.Persistence.Application;
 
 public partial class DbDtctechContext : DbContext
 {
+    public DbSet<AccountRecoveryChallenge> RecoveryChallenges => Set<AccountRecoveryChallenge>();
+    public DbSet<AccountRecoveryEmailOutbox> RecoveryEmailOutbox => Set<AccountRecoveryEmailOutbox>();
     public DbDtctechContext()
     {
     }
@@ -2737,6 +2740,7 @@ public partial class DbDtctechContext : DbContext
         ConfigureLegalBases(modelBuilder);
         ConfigureContractVersionSnapshots(modelBuilder);
         AppendixAcceptanceModelConfiguration.Configure(modelBuilder);
+        AccountRecoveryMapping.Configure(modelBuilder, "tbl_AccountRecoveryChallenge", "tbl_AccountRecoveryEmailOutbox", "EmployeeId");
         OnModelCreatingPartial(modelBuilder);
     }
 

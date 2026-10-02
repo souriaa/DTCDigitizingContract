@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { getAccountPasswordRules, isValidAccountPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -50,10 +51,7 @@ export function ChangePasswordForm({
 
   // Password rules validation
   const rules = useMemo(() => {
-    const hasMinLength = newPassword.length >= 12;
-    const hasUpperAndLower =
-      /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword);
-    const hasNumber = /[0-9]/.test(newPassword);
+    const { hasLength: hasMinLength, hasUpperAndLower, hasNumber } = getAccountPasswordRules(newPassword);
     const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
     const isDifferent =
       Boolean(newPassword) &&
@@ -110,7 +108,7 @@ export function ChangePasswordForm({
       strengthColor,
       strengthTextColor,
       strengthPercentage,
-      isValid: hasMinLength && isMatching && (isDifferent || !currentPassword),
+      isValid: hasMinLength && hasNumber && hasUpperAndLower && isMatching && isDifferent && Boolean(currentPassword),
     };
   }, [newPassword, currentPassword, confirmPassword]);
 
@@ -118,8 +116,8 @@ export function ChangePasswordForm({
     event.preventDefault();
     setError("");
 
-    if (newPassword.length < 12) {
-      setError("Mật khẩu mới phải có ít nhất 12 ký tự.");
+    if (!isValidAccountPassword(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
     if (newPassword === currentPassword) {
@@ -260,7 +258,7 @@ export function ChangePasswordForm({
             <div className="grid gap-2 sm:grid-cols-2 text-xs">
               <RuleItem
                 satisfied={rules.hasMinLength}
-                label="Độ dài từ 12 ký tự trở lên"
+                label="Độ dài từ 12 đến 100 ký tự"
               />
               <RuleItem
                 satisfied={rules.hasUpperAndLower}

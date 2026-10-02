@@ -11,6 +11,7 @@ using ContractManagement.Infrastructure.Persistence.Application.Models;
 using ContractManagement.Infrastructure.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ContractManagement.API.Domains.Recovery;
 
 namespace ContractManagement.API.Domains.Services.Authentication;
 
@@ -101,6 +102,11 @@ public sealed class EmployeeAccountService : IEmployeeAccountService
 
         if (changedFields.Count > 0)
         {
+            if (changedFields.Contains("Email"))
+            {
+                employee.RecoveryEmailVerifiedAt = null;
+                await RecoveryEmailInvalidation.RevokeAsync(_dbContext, employeeId, DateTime.UtcNow, cancellationToken);
+            }
             employee.EmployeeFullName = fullName;
             employee.EmployeeBirthDate = birthDate;
             employee.Gender = gender;
@@ -487,6 +493,7 @@ public sealed class EmployeeAccountService : IEmployeeAccountService
             Mobile = employee.EmployeeMobile,
             Phone = employee.EmployeePhone,
             Email = employee.EmployeeEmail,
+            RecoveryEmailVerifiedAt = employee.RecoveryEmailVerifiedAt,
             Address = employee.EmployeeAddress,
             DepartmentId = employee.DepartmentId,
             DepartmentName = departmentName,
