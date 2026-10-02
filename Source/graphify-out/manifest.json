@@ -2382,15 +2382,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/page.tsx": {
-    "mtime": 1790323605.2193866,
-    "seen": 1790331621.861878,
-    "ast_hash": "a16c3949b1466f9b9107de4afe7aef14",
+    "mtime": 1790957657.7883608,
+    "seen": 1790957835.6313562,
+    "ast_hash": "b0e595dcb9528bd0fdfeed4fadaa790b",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/versions/[versionId]/page.tsx": {
-    "mtime": 1790323613.652114,
-    "seen": 1790331621.8618827,
-    "ast_hash": "befda71bbb41666cb72aef95a40e06ba",
+    "mtime": 1790957659.2152731,
+    "seen": 1790957835.6313605,
+    "ast_hash": "1bd725968ad4dc45216d3a65a317dfb6",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/page.tsx": {
@@ -2478,15 +2478,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/[id]/page.tsx": {
-    "mtime": 1790345153.537257,
-    "seen": 1790346477.9508994,
-    "ast_hash": "02ace7292cf912ddbec3b0f5c9b55d91",
+    "mtime": 1790957654.6072657,
+    "seen": 1790957835.6314,
+    "ast_hash": "760b1dbee980bdcc46f5cf87b079fa1c",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/[id]/versions/[versionId]/page.tsx": {
-    "mtime": 1790000690.1896803,
-    "seen": 1790050649.2772086,
-    "ast_hash": "78a1ec55b11e5a0755f988dc89097945",
+    "mtime": 1790957656.27018,
+    "seen": 1790957835.6314023,
+    "ast_hash": "d81d045432f0b6a0a421af8d174247dd",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/create/page.tsx": {
@@ -2574,9 +2574,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/auth/permission-guard.tsx": {
-    "mtime": 1790000690.2131262,
-    "seen": 1790050649.2772336,
-    "ast_hash": "f0c8ddcb6882336e4bdf26b848978373",
+    "mtime": 1790957711.4200473,
+    "seen": 1790957835.6314747,
+    "ast_hash": "cf33c54432c991d628dda2bd4f75f223",
     "semantic_hash": ""
   },
   "Frontend/components/construction-illustration.tsx": {
@@ -2622,9 +2622,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-audit-log.tsx": {
-    "mtime": 1790050543.3963976,
-    "seen": 1790050649.2772539,
-    "ast_hash": "8e695565d8990ba6f65f6a02d67eb0bc",
+    "mtime": 1790957660.6526668,
+    "seen": 1790957835.6315124,
+    "ast_hash": "2210dfa31173e1b6671a9995fc609305",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-closing.tsx": {
@@ -3216,9 +3216,9 @@
     "semantic_hash": ""
   },
   "Frontend/lib/api-error.ts": {
-    "mtime": 1790000690.302612,
-    "seen": 1790050649.2773972,
-    "ast_hash": "facd1c6bb78be5fd78652d0a9af31784",
+    "mtime": 1790957511.6901643,
+    "seen": 1790957835.631764,
+    "ast_hash": "351dafeeaeaff056fc41bf502cf86c5f",
     "semantic_hash": ""
   },
   "Frontend/lib/axios-interceptor.ts": {
@@ -7125,6 +7125,12 @@
     "mtime": 1790953683.4569328,
     "seen": 1790954113.8321624,
     "ast_hash": "1721c4a32df7e29e830fbff41432e999",
+    "semantic_hash": ""
+  },
+  "scripts/resource-access-smoke.cjs": {
+    "mtime": 1790957589.8099303,
+    "seen": 1790957835.6323159,
+    "ast_hash": "dc2207c2a7ec637ea5e1dc3738b2be53",
     "semantic_hash": ""
   }
 }

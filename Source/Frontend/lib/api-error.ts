@@ -100,3 +100,19 @@ export const isStaleRowVersion = (error: unknown) =>
 
 export const isResourceNotFound = (error: unknown) =>
   hasApiErrorCode(error, AUTHORIZATION_ERROR_CODES.resourceNotFound);
+
+export type ResourceAccessErrorKind = "forbidden" | "not-found" | "error";
+
+/** Keep permission failures, hidden/missing resources and transient failures distinct. */
+export const getResourceAccessErrorKind = (
+  error: unknown,
+): ResourceAccessErrorKind => {
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  if (status === 403) return "forbidden";
+  if (status === 404) return "not-found";
+  if (hasApiErrorCode(error, AUTHORIZATION_ERROR_CODES.permissionDenied)) {
+    return "forbidden";
+  }
+  if (isResourceNotFound(error)) return "not-found";
+  return "error";
+};
