@@ -72,6 +72,21 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
         public List<CreateContractItemRequest> Items { get; set; } = [];
 
         /// <summary>
+        /// Danh sách điều khoản đã chỉnh trong wizard tạo hợp đồng.
+        /// Null giữ tương thích với client cũ và sao chép nguyên template;
+        /// danh sách rỗng không hợp lệ.
+        /// </summary>
+        public List<CreateContractTermRequest>? Terms { get; set; }
+
+        /// <summary>
+        /// Các Appendix tùy chọn được người dùng chọn từ đúng template version.
+        /// Backend luôn tự thêm Appendix bắt buộc; không nhận dữ liệu Appendix tự do.
+        /// </summary>
+        public List<int> SelectedOptionalTemplateAppendixIds { get; set; } = [];
+
+        public List<ContractPaymentMilestoneDateRequest> PaymentMilestoneDates { get; set; } = [];
+
+        /// <summary>
         /// Kiểm tra những business rule liên quan giữa nhiều field.
         /// Các kiểm tra cần database sẽ được thực hiện trong ContractService.
         /// </summary>
@@ -109,6 +124,74 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
                             new[] { $"{nameof(Items)}[{index}].ItemNameEn" });
                     }
                 }
+            }
+
+            if (Terms is { Count: 0 })
+            {
+                yield return new ValidationResult(
+                    "Hợp đồng phải có ít nhất một điều khoản.",
+                    new[] { nameof(Terms) });
+            }
+
+            if (Terms is not null)
+            {
+                var duplicateCode = Terms
+                    .Where(term => !string.IsNullOrWhiteSpace(term.TermCode))
+                    .GroupBy(
+                        term => term.TermCode.Trim(),
+                        StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(group => group.Count() > 1);
+                if (duplicateCode is not null)
+                {
+                    yield return new ValidationResult(
+                        $"Mã điều khoản '{duplicateCode.Key}' bị trùng.",
+                        new[] { nameof(Terms) });
+                }
+
+                if (LanguageMode == ContractLanguageMode.Bilingual)
+                {
+                    foreach (var term in Terms)
+                    {
+                        if (string.IsNullOrWhiteSpace(term.TermTitleEn))
+                        {
+                            yield return new ValidationResult(
+                                $"Điều khoản '{term.TermCode}' phải có tiêu đề tiếng Anh.",
+                                new[] { nameof(Terms) });
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(term.TermContent)
+                            && string.IsNullOrWhiteSpace(term.TermContentEn))
+                        {
+                            yield return new ValidationResult(
+                                $"Điều khoản '{term.TermCode}' phải có nội dung tiếng Anh.",
+                                new[] { nameof(Terms) });
+                        }
+                    }
+                }
+            }
+
+            if (PaymentMilestoneDates
+                .GroupBy(x => x.SourceTemplatePaymentMilestoneId)
+                .Any(group => group.Count() > 1))
+            {
+                yield return new ValidationResult(
+                    "Mỗi đợt thanh toán chỉ được nhập một ngày bắt đầu tính hạn.",
+                    new[] { nameof(PaymentMilestoneDates) });
+            }
+
+            if (SelectedOptionalTemplateAppendixIds.Any(id => id <= 0))
+            {
+                yield return new ValidationResult(
+                    "ID phụ lục tùy chọn phải lớn hơn 0.",
+                    new[] { nameof(SelectedOptionalTemplateAppendixIds) });
+            }
+
+            if (SelectedOptionalTemplateAppendixIds.Count !=
+                SelectedOptionalTemplateAppendixIds.Distinct().Count())
+            {
+                yield return new ValidationResult(
+                    "Danh sách phụ lục tùy chọn không được chứa ID trùng.",
+                    new[] { nameof(SelectedOptionalTemplateAppendixIds) });
             }
 
             // Hợp đồng cung cấp phần mềm là hợp đồng gốc.

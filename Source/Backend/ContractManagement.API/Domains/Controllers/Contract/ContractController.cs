@@ -19,11 +19,14 @@ namespace ContractManagement.Domains.Controllers.Contract
     public class ContractController : ControllerBase
     {
         private readonly IContractService _contractService;
+        private readonly IContractDocumentPreviewService _documentPreviewService;
 
         public ContractController(
-            IContractService contractService)
+            IContractService contractService,
+            IContractDocumentPreviewService documentPreviewService)
         {
             _contractService = contractService;
+            _documentPreviewService = documentPreviewService;
         }
 
         /// <summary>
@@ -55,7 +58,8 @@ namespace ContractManagement.Domains.Controllers.Contract
             var result = await _contractService.GetListAsync(
                 filter,
                 employeeId.Value,
-                CanReadTenantContracts());
+                CanReadTenantContracts(),
+                CanReadExecutionContracts());
 
             return Ok(
                 ApiResponse<PagedResult<ContractListItemResponse>>.Ok(
@@ -261,7 +265,8 @@ namespace ContractManagement.Domains.Controllers.Contract
             var result = await _contractService.GetDetailAsync(
                 contractId,
                 employeeId.Value,
-                CanReadTenantContracts());
+                CanReadTenantContracts(),
+                CanReadExecutionContracts());
 
             return Ok(
                 ApiResponse<ContractDetailResponse>.Ok(
@@ -498,7 +503,8 @@ namespace ContractManagement.Domains.Controllers.Contract
         }
 
         /// <summary>
-        /// Resolve một comment cụ thể và thêm event Resolved. 
+        /// Resolve một comment cùng toàn bộ reply con/cháu còn mở và thêm
+        /// event Resolved cho từng comment được chuyển trạng thái.
         /// </summary>
         [HttpPost("{contractId:int}/comments/{commentId:int}/resolve")]
         [Consumes("application/json")]
@@ -533,7 +539,7 @@ namespace ContractManagement.Domains.Controllers.Contract
             return Ok(
                 ApiResponse<ContractNegotiationCommentResponse>.Ok(
                     result,
-                    "Resolve comment thành công."));
+                    "Resolve comment và các câu trả lời thành công."));
         }
 
         /// <summary>
@@ -716,6 +722,76 @@ namespace ContractManagement.Domains.Controllers.Contract
         }
 
         /// <summary>
+        /// Sinh DOCX xem trước từ template và dữ liệu thật của version hiện hành.
+        /// Chỉ owner của hợp đồng SoftwareSupply đang Draft hoặc Negotiating được sử dụng.
+        /// </summary>
+        [HttpGet("{contractId:int}/preview/docx")]
+        [SessionAuthorize(RbacPermissions.ContractManageOwn)]
+        [Produces("application/vnd.openxmlformats-officedocument.wordprocessingml.document")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DownloadPreviewDocx(int contractId)
+        {
+            var result = await _documentPreviewService.GenerateDocxAsync(
+                contractId,
+                GetEmployeeId(),
+                HttpContext.RequestAborted);
+
+            Response.Headers.CacheControl = "no-store, private";
+            Response.Headers.Pragma = "no-cache";
+            return File(result.Content, result.ContentType, result.FileName);
+        }
+
+        /// <summary>
+        /// Sinh PDF từ chính DOCX preview động của version hiện hành.
+        /// Không dùng published template preview chứa dữ liệu mẫu.
+        /// </summary>
+        [HttpGet("{contractId:int}/preview/pdf")]
+        [SessionAuthorize(RbacPermissions.ContractManageOwn)]
+        [Produces("application/pdf")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        public async Task<IActionResult> DownloadPreviewPdf(int contractId)
+        {
+            var result = await _documentPreviewService.GeneratePdfAsync(
+                contractId,
+                GetEmployeeId(),
+                HttpContext.RequestAborted);
+
+            Response.Headers.CacheControl = "no-store, private";
+            Response.Headers.Pragma = "no-cache";
+            return File(result.Content, result.ContentType, result.FileName);
+        }
+
+        /// <summary>
+        /// Lấy link customer access hiện tại mà không trả token hoặc public URL.
+        /// Trả data null nếu hợp đồng chưa có link hiện tại.
+        /// </summary>
+        [HttpGet("{contractId:int}/customer-access/links/current")]
+        public async Task<IActionResult> GetCurrentCustomerAccessLink(int contractId)
+        {
+            try
+            {
+                var result = await _contractService.GetCurrentCustomerAccessLinkAsync(
+                    contractId,
+                    GetEmployeeId());
+                return Ok(ApiResponse<CurrentContractCustomerAccessLinkResponse?>.Ok(result));
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse<object>.Fail(exception.Message));
+            }
+        }
+
+        /// <summary>
         /// Thay public link hiện tại bằng link mới cho Current Version.
         /// Người phụ trách, Manager hoặc AdminOfficer được phép gọi. Link cũ, OTP challenge và customer session
         /// của link cũ ngừng hoạt động ngay; FE chỉ nhận raw public URL mới trong response này.
@@ -820,7 +896,13 @@ namespace ContractManagement.Domains.Controllers.Contract
             $"{Request.Scheme}://{Request.Host.Value}";
 
         private bool CanReadTenantContracts() =>
-            EmployeeAuthorizationContext.GetEmployee(HttpContext)?.EmployeeType
-            == EmployeeType.Manager;
+            HasPermission(RbacPermissions.ContractReadTenant);
+
+        private bool CanReadExecutionContracts() =>
+            HasPermission(RbacPermissions.ContractExecutionRead);
+
+        private bool HasPermission(string permission) =>
+            EmployeeAuthorizationContext.GetEmployee(HttpContext)?.Permissions
+                .Contains(permission, StringComparer.Ordinal) == true;
     }
 }

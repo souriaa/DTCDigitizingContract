@@ -29,6 +29,28 @@ public partial class TblCustomer
 
     public string? CustomerTaxCode { get; set; }
 
+    /// <summary>
+    /// Người đại diện được dùng trong nội dung pháp lý của hợp đồng.
+    /// Không suy diễn trường này từ người liên hệ sau khi version đã submit.
+    /// </summary>
+    public string? CustomerRepresentativeName { get; set; }
+
+    public string? CustomerRepresentativeTitle { get; set; }
+
+    /// <summary>
+    /// Người trực tiếp phối hợp công việc với doanh nghiệp.
+    /// Khác với người đại diện pháp luật dùng trong nội dung hợp đồng.
+    /// </summary>
+    public string? CustomerContactPersonName { get; set; }
+
+    public string? CustomerContactPersonPhone { get; set; }
+
+    public string? CustomerContactPersonTitle { get; set; }
+
+    public string? CustomerBankAccountNumber { get; set; }
+
+    public string? CustomerBankName { get; set; }
+
     public string? CustomerCity { get; set; }
 
     public string? CustomerZipCode { get; set; }

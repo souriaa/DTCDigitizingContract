@@ -32,7 +32,15 @@ export interface CreateCustomerRequest {
   customerEmail?: string | null;
   customerMobile?: string | null;
   customerPhone?: string | null;
+  customerFaxNumber?: string | null;
   customerTaxCode?: string | null;
+  customerRepresentativeName?: string | null;
+  customerRepresentativeTitle?: string | null;
+  customerContactPersonName?: string | null;
+  customerContactPersonPhone?: string | null;
+  customerContactPersonTitle?: string | null;
+  customerBankAccountNumber?: string | null;
+  customerBankName?: string | null;
   customerAddress?: string | null;
   customerCity?: string | null;
   customerCountry?: string | null;
@@ -47,7 +55,15 @@ export interface UpdateCustomerRequest {
   customerEmail?: string | null;
   customerMobile?: string | null;
   customerPhone?: string | null;
+  customerFaxNumber?: string | null;
   customerTaxCode?: string | null;
+  customerRepresentativeName?: string | null;
+  customerRepresentativeTitle?: string | null;
+  customerContactPersonName?: string | null;
+  customerContactPersonPhone?: string | null;
+  customerContactPersonTitle?: string | null;
+  customerBankAccountNumber?: string | null;
+  customerBankName?: string | null;
   customerAddress?: string | null;
   customerCity?: string | null;
   customerCountry?: string | null;
@@ -63,7 +79,15 @@ export interface CustomerResponse {
   customerEmail?: string | null;
   customerMobile?: string | null;
   customerPhone?: string | null;
+  customerFaxNumber?: string | null;
   customerTaxCode?: string | null;
+  customerRepresentativeName?: string | null;
+  customerRepresentativeTitle?: string | null;
+  customerContactPersonName?: string | null;
+  customerContactPersonPhone?: string | null;
+  customerContactPersonTitle?: string | null;
+  customerBankAccountNumber?: string | null;
+  customerBankName?: string | null;
   customerAddress?: string | null;
   customerCity?: string | null;
   customerCountry?: string | null;
@@ -80,6 +104,12 @@ export interface CustomerLookupResponse {
   customerCode?: string | null;
   customerFullName?: string | null;
   customerCompany?: string | null;
+  customerTaxCode?: string | null;
+  customerMobile?: string | null;
+  customerPhone?: string | null;
+  customerContactPersonName?: string | null;
+  customerContactPersonPhone?: string | null;
+  customerContactPersonTitle?: string | null;
   status?: CustomerStatus | number | null;
 }
 

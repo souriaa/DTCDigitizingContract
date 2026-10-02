@@ -86,6 +86,16 @@ export default function ContractTemplateDetailPage() {
       [...(template?.versions ?? [])].sort((a, b) => b.versionNo - a.versionNo),
     [template?.versions],
   );
+  const draftVersion = versions.find(
+    (version) => version.status === TemplateVersionStatus.Draft,
+  );
+  const latestRetiredVersionId = versions.find(
+    (version) => version.status === TemplateVersionStatus.Retired,
+  )?.templateVersionId;
+  const currentPublishedVersion = versions.find(
+    (version) =>
+      version.templateVersionId === template?.currentPublishedVersionId,
+  );
 
   const handleCopy = async () => {
     if (!copySource) return;
@@ -99,7 +109,7 @@ export default function ContractTemplateDetailPage() {
         },
       );
       toast.success(
-        `Đã tạo Version ${result.versionNo} ở trạng thái bản nháp.`,
+        `Đã tạo phiên bản ${result.versionNo} ở trạng thái bản nháp.`,
       );
       setCopySource(null);
       setChangeNote("");
@@ -130,7 +140,7 @@ export default function ContractTemplateDetailPage() {
               <ShieldAlert />
               <AlertTitle>Không có quyền truy cập</AlertTitle>
               <AlertDescription>
-                Chỉ Admin Officer được quản trị mẫu hợp đồng.
+                Chỉ nhân viên quản trị được quản trị mẫu hợp đồng.
               </AlertDescription>
             </Alert>
           ) : isLoading ? (
@@ -189,11 +199,11 @@ export default function ContractTemplateDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      Version phát hành
+                      Phiên bản phát hành
                     </p>
                     <p className="mt-1 font-medium">
-                      {template.currentPublishedVersionId
-                        ? `#${template.currentPublishedVersionId}`
+                      {currentPublishedVersion
+                        ? `Phiên bản ${currentPublishedVersion.versionNo}`
                         : "Chưa có"}
                     </p>
                   </div>
@@ -228,6 +238,12 @@ export default function ContractTemplateDetailPage() {
                     const isCurrentPublished =
                       template.currentPublishedVersionId ===
                       version.templateVersionId;
+                    const canUseAsDraftSource =
+                      (version.status === TemplateVersionStatus.Published &&
+                        isCurrentPublished) ||
+                      (version.status === TemplateVersionStatus.Retired &&
+                        !template.currentPublishedVersionId &&
+                        version.templateVersionId === latestRetiredVersionId);
                     return (
                       <div
                         key={version.templateVersionId}
@@ -236,7 +252,7 @@ export default function ContractTemplateDetailPage() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">
-                              Version {version.versionNo}
+                              Phiên bản {version.versionNo}
                             </p>
                             <TemplateVersionStatusBadge
                               status={version.status}
@@ -258,22 +274,21 @@ export default function ContractTemplateDetailPage() {
                             <Link
                               href={`/admin/contract-templates/${templateId}/versions/${version.templateVersionId}`}
                             >
-                              Mở workspace
+                              Mở khu vực biên soạn
                             </Link>
                           </Button>
-                          {version.status === TemplateVersionStatus.Published &&
-                            isCurrentPublished && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setCopySource(version);
-                                  setChangeNote("");
-                                }}
-                              >
-                                <Copy className="size-4" /> Tạo bản nháp mới
-                              </Button>
-                            )}
+                          {canUseAsDraftSource && !draftVersion && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCopySource(version);
+                                setChangeNote("");
+                              }}
+                            >
+                              <Copy className="size-4" /> Tạo bản nháp mới
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -305,14 +320,15 @@ export default function ContractTemplateDetailPage() {
           <DialogHeader>
             <DialogTitle>Tạo bản nháp mới</DialogTitle>
             <DialogDescription>
-              Soft terms sẽ được sao chép; DOCX, validation và preview phải thực
-              hiện lại.
+              Phiên bản nguồn vẫn giữ nguyên và chỉ ở chế độ đọc. Điều khoản sẽ
+              được sao chép; DOCX, việc kiểm tra tính hợp lệ và bản xem trước
+              phải thực hiện lại.
             </DialogDescription>
           </DialogHeader>
           <Textarea
             value={changeNote}
             onChange={(event) => setChangeNote(event.target.value)}
-            placeholder="Ghi chú thay đổi cho version mới"
+            placeholder="Ghi chú thay đổi cho phiên bản mới"
           />
           <DialogFooter>
             <Button

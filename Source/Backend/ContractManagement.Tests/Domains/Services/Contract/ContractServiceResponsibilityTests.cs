@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Net;
 using System.ComponentModel.DataAnnotations;
+using static ContractManagement.Tests.ContractRichTextTestData;
+using static ContractManagement.Tests.AuditValueTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
@@ -59,6 +61,27 @@ public class ContractServiceResponsibilityTests
                 CreatorEmployeeId));
         Assert.Null(audits[1].PreviousResponsibleEmployeeId);
         Assert.Null(audits[1].Reason);
+
+        Assert.Equal(
+            (byte)ContractType.SoftwareSupply,
+            ContractValue(audits[0], AuditValueSide.New,
+                ContractAuditFieldCode.ContractType).IntegerValue);
+        Assert.Equal(
+            (byte)ContractLanguageMode.Vietnamese,
+            ContractValue(audits[0], AuditValueSide.New,
+                ContractAuditFieldCode.LanguageMode).IntegerValue);
+        Assert.Equal(
+            TemplateVersionId,
+            ContractValue(audits[0], AuditValueSide.New,
+                ContractAuditFieldCode.TemplateVersionId).IntegerValue);
+        Assert.Contains(
+            "Sản phẩm kiểm thử",
+            ContractValue(audits[0], AuditValueSide.New,
+                ContractAuditFieldCode.AddedItems).StringValue);
+        Assert.Contains(
+            "GENERAL",
+            ContractValue(audits[0], AuditValueSide.New,
+                ContractAuditFieldCode.AddedTerms).StringValue);
     }
 
     [Fact]
@@ -134,7 +157,7 @@ public class ContractServiceResponsibilityTests
             TemplateVersionId = replacementVersionId,
             TermCode = "GENERAL",
             TermTitle = "Replacement term",
-            TermContent = "Replacement published template term.",
+            TermContent = RichText("Replacement published template term."),
             IsNegotiable = true,
             DisplayOrder = 1,
             CreatedEmployeeId = CreatorEmployeeId,
@@ -620,7 +643,7 @@ public class ContractServiceResponsibilityTests
                 TemplateVersionId = TemplateVersionId,
                 TermCode = "GENERAL",
                 TermTitle = "Điều khoản chung",
-                TermContent = "Nội dung kiểm thử",
+                TermContent = RichText("Nội dung kiểm thử"),
                 IsNegotiable = true,
                 DisplayOrder = 1,
                 CreatedEmployeeId = CreatorEmployeeId,

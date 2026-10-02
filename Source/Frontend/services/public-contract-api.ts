@@ -23,6 +23,17 @@ export type CustomerNegotiationCommentLifecycleState = "Open" | "Resolved";
 
 export interface CustomerOtpRequestAcceptedResponse {
   publicChallengeId: string;
+  deliveryChannel?: "Email" | "Sms";
+}
+
+export type CustomerAccessLinkAvailabilityState =
+  | "Available"
+  | "PendingActivation"
+  | "Unavailable";
+
+export interface CustomerAccessLinkAvailabilityResponse {
+  isAvailable: boolean;
+  state: CustomerAccessLinkAvailabilityState;
 }
 
 export interface CustomerPublicContractItemResponse {
@@ -79,6 +90,12 @@ const getLinkBaseUrl = (tenantCode: string, linkToken: string) =>
   `${getTenantBaseUrl(tenantCode)}/${encodeURIComponent(linkToken)}`;
 
 export const publicContractApi = {
+  getLinkAvailability: (tenantCode: string, linkToken: string) => {
+    return publicAxiosClient.get<any, CustomerAccessLinkAvailabilityResponse>(
+      `${getLinkBaseUrl(tenantCode, linkToken)}/availability`,
+    );
+  },
+
   requestOtp: (
     tenantCode: string,
     linkToken: string,

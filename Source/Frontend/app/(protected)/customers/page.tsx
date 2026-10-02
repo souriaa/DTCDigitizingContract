@@ -225,38 +225,30 @@ function CustomerListPageContent() {
         enableSorting: false,
       },
       {
-        accessorKey: "customerCode",
-        header: "Mã KH",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <UserCog className="w-4.5 h-4.5 text-primary" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-foreground text-sm truncate">
-                {row.original.customerFullName}
-              </span>
-              <span className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                {row.original.customerCode || "N/A"}
-              </span>
-            </div>
-          </div>
-        ),
-      },
-      {
         accessorKey: "customerFullName",
         header: "Khách hàng / Đối tác",
         cell: ({ row }) => (
-          <div className="max-w-[280px]">
-            <span className="font-medium text-foreground block truncate">
-              {row.original.customerFullName || "Chưa có tên"}
-            </span>
-            {row.original.customerCompany && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">
-                <Building2 className="w-3 h-3 shrink-0" />
-                {row.original.customerCompany}
+          <div className="max-w-[280px] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <UserCog className="w-4.5 h-4.5 text-primary" />
+            </div>
+            <div>
+              <span className="font-medium text-foreground block truncate">
+                {row.original.customerFullName || "Chưa có tên"}
               </span>
-            )}
+              {row.original.customerCompany && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">
+                  <Building2 className="w-3 h-3 shrink-0" />
+                  {row.original.customerCompany}
+                </span>
+              )}
+              {row.original.customerTaxCode && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">
+                  <FileText className="w-3 h-3 shrink-0" />
+                  {row.original.customerTaxCode}
+                </span>
+              )}
+            </div>
           </div>
         ),
       },
@@ -265,13 +257,24 @@ function CustomerListPageContent() {
         header: "Liên hệ",
         cell: ({ row }) => {
           const item = row.original;
-          const phone = item.customerMobile || item.customerPhone;
+          const contactName = item.customerContactPersonName;
+          const contactTitle = item.customerContactPersonTitle;
+          const phone =
+            item.customerContactPersonPhone ||
+            item.customerMobile ||
+            item.customerPhone;
           return (
             <div className="flex flex-col gap-1 text-sm min-w-[160px]">
-              {item.customerEmail ? (
-                <div className="flex items-center gap-1.5 text-foreground truncate max-w-[200px]">
-                  <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{item.customerEmail}</span>
+              {contactName ? (
+                <div className="max-w-[200px]">
+                  <span className="block truncate font-medium text-foreground">
+                    {contactName}
+                  </span>
+                  {contactTitle ? (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {contactTitle}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
               {phone ? (
@@ -280,7 +283,7 @@ function CustomerListPageContent() {
                   <span>{phone}</span>
                 </div>
               ) : null}
-              {!item.customerEmail && !phone && (
+              {!contactName && !item.customerEmail && !phone && (
                 <span className="text-muted-foreground italic text-xs">
                   Chưa có thông tin
                 </span>

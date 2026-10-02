@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
@@ -9,18 +10,24 @@ using ContractManagement.Domains.Interfaces.File;
 using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ContractManagement.Domains.Services.ContractTemplate;
 
 /// <summary>
-/// Quản trị metadata, draft version và soft terms của SoftwareSupply template.
+/// Quản trị metadata, draft version và soft terms của contract template.
 /// DOCX, validation, publish và retire thuộc các slice sau.
 /// </summary>
-public sealed class ContractTemplateService : IContractTemplateService
+public sealed partial class ContractTemplateService : IContractTemplateService
 {
+    private static readonly Regex TemplateCodePattern = new(
+        "^[A-Z0-9]+(?:[-_][A-Z0-9]+)*$",
+        RegexOptions.CultureInvariant);
+
     private const byte ActiveEmployeeStatus = 1;
     private const string ContractTemplateVersionObjectType =
         "ContractTemplateVersion";
@@ -31,6 +38,8 @@ public sealed class ContractTemplateService : IContractTemplateService
     private static long _syntheticRowVersionSeed = 10_000;
 
     private readonly DbDtctechContext _dbContext;
+    private readonly IContractPlaceholderCatalog _placeholderCatalog;
+    private readonly IContractPlaceholderSourceRegistry _sourceRegistry;
     private readonly IFileStorageService? _fileStorageService;
     private readonly IContractTemplateDocumentValidator _documentValidator;
     private readonly IContractTemplateAuditWriter? _templateAuditWriter;
@@ -45,12 +54,16 @@ public sealed class ContractTemplateService : IContractTemplateService
         IContractTemplateAuditWriter? templateAuditWriter = null,
         IContractTemplatePreviewRenderer? previewRenderer = null,
         IContractTemplatePdfRenderer? pdfRenderer = null,
-        ILogger<ContractTemplateService>? logger = null)
+        ILogger<ContractTemplateService>? logger = null,
+        IContractPlaceholderCatalog? placeholderCatalog = null,
+        IContractPlaceholderSourceRegistry? sourceRegistry = null)
     {
         _dbContext = dbContext;
+        _sourceRegistry = sourceRegistry ?? new ContractPlaceholderSourceRegistry();
+        _placeholderCatalog = placeholderCatalog ?? new ContractPlaceholderCatalog(dbContext, _sourceRegistry);
         _fileStorageService = fileStorageService;
         _documentValidator = documentValidator
-            ?? new ContractTemplateDocumentValidator();
+            ?? new ContractTemplateDocumentValidator(_placeholderCatalog);
         _templateAuditWriter = templateAuditWriter;
         _previewRenderer = previewRenderer
             ?? new ContractTemplatePreviewRenderer();
@@ -83,16 +96,203 @@ public sealed class ContractTemplateService : IContractTemplateService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<PagedResult<AvailableContractTemplateVersionResponse>>
+        SearchAvailableAsync(
+            AvailableContractTemplateFilterRequest filter,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        var page = filter.Page <= 0 ? 1 : filter.Page;
+        var pageSize = filter.PageSize <= 0 ? 20 : filter.PageSize;
+        if (pageSize > 100)
+        {
+            throw new ArgumentException("PageSize không được vượt quá 100.");
+        }
+
+        var query =
+            from version in _dbContext.TblContractTemplateVersions.AsNoTracking()
+            join template in _dbContext.TblContractTemplates.AsNoTracking()
+                on version.TemplateId equals template.TemplateId
+            where template.IsActive
+                  && template.CurrentPublishedVersionId == version.TemplateVersionId
+                  && version.Status == (byte)TemplateVersionStatus.Published
+            select new { version, template };
+
+        var keyword = NormalizeOptional(filter.Keyword);
+        if (keyword is not null)
+        {
+            query = query.Where(item =>
+                item.template.TemplateCode.Contains(keyword)
+                || item.template.TemplateName.Contains(keyword)
+                || (item.template.TemplateNameEn != null
+                    && item.template.TemplateNameEn.Contains(keyword)));
+        }
+
+        if (filter.DocumentType.HasValue)
+        {
+            query = query.Where(item =>
+                item.template.DocumentType == (byte)filter.DocumentType.Value);
+        }
+
+        if (filter.LanguageMode.HasValue)
+        {
+            query = query.Where(item =>
+                item.template.LanguageMode == (byte)filter.LanguageMode.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var offset = ((long)page - 1) * pageSize;
+        if (offset > int.MaxValue)
+        {
+            throw new ArgumentException(
+                "Requested template page is outside the supported range.");
+        }
+        var items = await query
+            .OrderBy(item => item.template.TemplateCode)
+            .ThenBy(item => item.version.VersionNo)
+            .ThenBy(item => item.version.TemplateVersionId)
+            .Skip((int)offset)
+            .Take(pageSize)
+            .Select(item => new AvailableContractTemplateVersionResponse
+            {
+                TemplateId = item.template.TemplateId,
+                TemplateCode = item.template.TemplateCode,
+                TemplateName = item.template.TemplateName,
+                TemplateNameEn = item.template.TemplateNameEn,
+                DocumentType = (TemplateDocumentType)item.template.DocumentType,
+                LanguageMode = (ContractLanguageMode)item.template.LanguageMode,
+                TemplateVersionId = item.version.TemplateVersionId,
+                VersionNo = item.version.VersionNo
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<AvailableContractTemplateVersionResponse>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<AvailableContractTemplateVersionDetailResponse>
+        GetAvailableAsync(
+            int templateVersionId,
+            CancellationToken cancellationToken = default)
+    {
+        if (templateVersionId <= 0)
+        {
+            throw new ArgumentException("TemplateVersionId phải lớn hơn 0.");
+        }
+
+        var detail = await (
+            from version in _dbContext.TblContractTemplateVersions.AsNoTracking()
+            join template in _dbContext.TblContractTemplates.AsNoTracking()
+                on version.TemplateId equals template.TemplateId
+            where version.TemplateVersionId == templateVersionId
+                  && template.IsActive
+                  && template.CurrentPublishedVersionId == version.TemplateVersionId
+                  && version.Status == (byte)TemplateVersionStatus.Published
+            select new AvailableContractTemplateVersionDetailResponse
+            {
+                TemplateId = template.TemplateId,
+                TemplateCode = template.TemplateCode,
+                TemplateName = template.TemplateName,
+                TemplateNameEn = template.TemplateNameEn,
+                DocumentType = (TemplateDocumentType)template.DocumentType,
+                LanguageMode = (ContractLanguageMode)template.LanguageMode,
+                TemplateVersionId = version.TemplateVersionId,
+                VersionNo = version.VersionNo
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (detail is null)
+        {
+            throw new KeyNotFoundException(
+                "Không tìm thấy template version đã phát hành hiện hành.");
+        }
+
+        detail.Terms = await _dbContext.TblContractTemplateTerms
+            .AsNoTracking()
+            .Where(term => term.TemplateVersionId == templateVersionId)
+            .OrderBy(term => term.DisplayOrder)
+            .ThenBy(term => term.TemplateTermId)
+            .Select(term => new AvailableContractTemplateTermResponse
+            {
+                TemplateTermId = term.TemplateTermId,
+                TermCode = term.TermCode,
+                TermTitle = term.TermTitle,
+                TermTitleEn = term.TermTitleEn,
+                TermContent = term.TermContent,
+                TermContentEn = term.TermContentEn,
+                IsNegotiable = term.IsNegotiable,
+                DisplayOrder = term.DisplayOrder,
+                TermKind = (ContractTermKind)term.TermKind
+            })
+            .ToListAsync(cancellationToken);
+
+        var availableMilestones = await _dbContext.TblContractTemplatePaymentMilestones
+            .AsNoTracking()
+            .Where(item => item.TemplateVersionId == templateVersionId)
+            .OrderBy(item => item.DisplayOrder)
+            .ThenBy(item => item.TemplatePaymentMilestoneId)
+            .ToListAsync(cancellationToken);
+        foreach (var term in detail.Terms)
+        {
+            term.PaymentMilestones = availableMilestones
+                .Where(item => item.TemplateTermId == term.TemplateTermId)
+                .Select(MapPaymentMilestone)
+                .ToList();
+        }
+
+        detail.Appendices = await LoadAppendicesAsync(templateVersionId,
+            cancellationToken);
+
+        return detail;
+    }
+
     public async Task<SoftwareSupplyPlaceholderCatalogResponse>
         GetPlaceholderCatalogAsync(
+        TemplateDocumentType documentType,
         int employeeId,
         CancellationToken cancellationToken = default)
     {
         await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        ValidateDocumentType(documentType);
+        IReadOnlyList<SoftwareSupplyPlaceholderDefinition> items;
+        var customEnabled = false;
+        var catalogVersion = documentType == TemplateDocumentType.AcceptanceRecord
+            ? AcceptanceRecordPlaceholderCatalog.Version
+            : SoftwareSupplyPlaceholderCatalog.Version;
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            var tenantCatalog = await _placeholderCatalog.GetAsync(
+                includeInactive: true,
+                cancellationToken: cancellationToken);
+            items = AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+            customEnabled = _placeholderCatalog is ContractPlaceholderCatalog
+                { CustomEnabled: true };
+        }
+        else if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            items = await _placeholderCatalog.GetAsync(true, cancellationToken);
+            customEnabled = _placeholderCatalog is ContractPlaceholderCatalog
+                { CustomEnabled: true };
+        }
+        else
+        {
+            items = [];
+        }
+
         return new SoftwareSupplyPlaceholderCatalogResponse
         {
-            CatalogVersion = SoftwareSupplyPlaceholderCatalog.Version,
-            Items = SoftwareSupplyPlaceholderCatalog.All
+            CatalogVersion = $"{catalogVersion}:{ContractPlaceholderCatalog.Fingerprint(items)}",
+            CustomEnabled = customEnabled,
+            Items = items
         };
     }
 
@@ -111,11 +311,7 @@ public sealed class ContractTemplateService : IContractTemplateService
             throw new ArgumentException("PageSize không được vượt quá 100.");
         }
 
-        var query = _dbContext.TblContractTemplates
-            .AsNoTracking()
-            .Where(template =>
-                template.DocumentType
-                    == (byte)TemplateDocumentType.SoftwareSupplyContract);
+        var query = _dbContext.TblContractTemplates.AsNoTracking();
 
         var keyword = NormalizeOptional(filter.Keyword);
         if (keyword is not null)
@@ -125,6 +321,12 @@ public sealed class ContractTemplateService : IContractTemplateService
                 || template.TemplateName.Contains(keyword)
                 || (template.TemplateNameEn != null
                     && template.TemplateNameEn.Contains(keyword)));
+        }
+
+        if (filter.DocumentType.HasValue)
+        {
+            query = query.Where(template =>
+                template.DocumentType == (byte)filter.DocumentType.Value);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -141,9 +343,41 @@ public sealed class ContractTemplateService : IContractTemplateService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        var publishedVersionIds = templates
+            .Where(template => template.CurrentPublishedVersionId.HasValue)
+            .Select(template => template.CurrentPublishedVersionId!.Value)
+            .ToArray();
+        var publishedVersionNumbers = publishedVersionIds.Length == 0
+            ? new Dictionary<int, int>()
+            : await _dbContext.TblContractTemplateVersions
+                .AsNoTracking()
+                .Where(version => publishedVersionIds.Contains(
+                    version.TemplateVersionId))
+                .Select(version => new
+                {
+                    version.TemplateVersionId,
+                    version.VersionNo
+                })
+                .ToDictionaryAsync(
+                    version => version.TemplateVersionId,
+                    version => version.VersionNo,
+                    cancellationToken);
+
+        var items = templates.Select(template =>
+        {
+            var item = MapTemplate(template);
+            if (template.CurrentPublishedVersionId is int versionId
+                && publishedVersionNumbers.TryGetValue(versionId,
+                    out var versionNo))
+            {
+                item.CurrentPublishedVersionNo = versionNo;
+            }
+            return item;
+        }).ToList();
+
         return new PagedResult<ContractTemplateResponse>
         {
-            Items = templates.Select(MapTemplate).ToList(),
+            Items = items,
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -168,10 +402,7 @@ public sealed class ContractTemplateService : IContractTemplateService
         ArgumentNullException.ThrowIfNull(request);
         await EnsureAdminOfficerAsync(employeeId, cancellationToken);
 
-        var templateCode = NormalizeRequired(
-            request.TemplateCode,
-            50,
-            nameof(request.TemplateCode));
+        var templateCode = NormalizeTemplateCode(request.TemplateCode);
         var templateName = NormalizeRequired(
             request.TemplateName,
             500,
@@ -179,6 +410,7 @@ public sealed class ContractTemplateService : IContractTemplateService
         var templateNameEn = NormalizeOptional(request.TemplateNameEn, 500);
         var description = NormalizeOptional(request.Description, 2000);
         var changeNote = NormalizeOptional(request.InitialChangeNote, 2000);
+        ValidateDocumentType(request.DocumentType);
         ValidateLanguageMode(request.LanguageMode);
 
         try
@@ -202,7 +434,7 @@ public sealed class ContractTemplateService : IContractTemplateService
                     TemplateCode = templateCode,
                     TemplateName = templateName,
                     TemplateNameEn = templateNameEn,
-                    DocumentType = (byte)TemplateDocumentType.SoftwareSupplyContract,
+                    DocumentType = (byte)request.DocumentType,
                     LanguageMode = (byte)request.LanguageMode,
                     Description = description,
                     CurrentPublishedVersionId = null,
@@ -226,6 +458,14 @@ public sealed class ContractTemplateService : IContractTemplateService
                 };
                 SetSyntheticRowVersionIfNeeded(version);
                 _dbContext.TblContractTemplateVersions.Add(version);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                _dbContext.TblContractTemplateItemTableColumnLayouts.AddRange(
+                    CreateItemTableLayoutRows(
+                        version.TemplateVersionId,
+                        ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
+                        employeeId,
+                        now));
                 await _dbContext.SaveChangesAsync(cancellationToken);
 
                 return await LoadTemplateDetailAsync(template, cancellationToken);
@@ -291,6 +531,62 @@ public sealed class ContractTemplateService : IContractTemplateService
         return await LoadVersionDetailAsync(versionId, cancellationToken);
     }
 
+    public async Task<ContractTemplateVersionDetailResponse>
+        UpdateItemTableLayoutAsync(
+            int versionId,
+            UpdateContractTemplateItemTableLayoutRequest request,
+            int employeeId,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var expectedRowVersion = DecodeRowVersion(
+            request.VersionRowVersion,
+            nameof(request.VersionRowVersion));
+        var widths = ContractTableLayoutPolicy.RequireCanonicalWidths(
+            request.ColumnWidthsBps,
+            ContractTableLayoutPolicy.ItemColumnKeys.Count,
+            "ItemTableLayoutInvalid");
+        int? oldPreviewFileId = null;
+
+        var result = await ExecuteInTransactionAsync(async () =>
+        {
+            await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+            var version = await GetVersionForMutationAsync(
+                versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(
+                version.RowVersion,
+                expectedRowVersion,
+                "Template version");
+            SetOriginalRowVersion(version, expectedRowVersion);
+
+            var rows = await LoadItemTableLayoutRowsAsync(
+                versionId,
+                tracking: true,
+                cancellationToken);
+            var now = DateTime.UtcNow;
+            foreach (var row in rows)
+            {
+                row.WidthBps = checked((short)widths[row.DisplayOrder]);
+                row.UpdatedEmployeeId = employeeId;
+                row.UpdatedDate = now;
+            }
+
+            oldPreviewFileId = version.PreviewFileId;
+            version.PreviewFileId = null;
+            TouchVersion(version, employeeId, now);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return await LoadVersionDetailAsync(versionId, cancellationToken);
+        }, cancellationToken);
+
+        if (oldPreviewFileId is > 0 && _fileStorageService is not null)
+            await DeleteOldArtifactAfterCommitAsync(oldPreviewFileId.Value);
+
+        return result;
+    }
+
     public async Task<ContractTemplateVersionDetailResponse> CopyVersionAsync(
         int sourceVersionId,
         CopyContractTemplateVersionRequest request,
@@ -322,11 +618,38 @@ public sealed class ContractTemplateService : IContractTemplateService
             var template = await GetTemplateAsync(
                 source.TemplateId,
                 cancellationToken);
-            if (source.Status != (byte)TemplateVersionStatus.Published
-                || template.CurrentPublishedVersionId != source.TemplateVersionId)
+            var latestRetiredVersionId = await _dbContext
+                .TblContractTemplateVersions
+                .AsNoTracking()
+                .Where(version =>
+                    version.TemplateId == template.TemplateId
+                    && version.Status == (byte)TemplateVersionStatus.Retired)
+                .OrderByDescending(version => version.VersionNo)
+                .ThenByDescending(version => version.TemplateVersionId)
+                .Select(version => (int?)version.TemplateVersionId)
+                .FirstOrDefaultAsync(cancellationToken);
+            var hasExistingDraft = await _dbContext
+                .TblContractTemplateVersions
+                .AsNoTracking()
+                .AnyAsync(version =>
+                    version.TemplateId == template.TemplateId
+                    && version.Status == (byte)TemplateVersionStatus.Draft,
+                    cancellationToken);
+            if (hasExistingDraft)
+            {
+                throw CreateDraftVersionAlreadyExistsException();
+            }
+
+            var canCreateDraft = ContractTemplatePolicy.CanCreateDraftFromSource(
+                (TemplateVersionStatus)source.Status,
+                template.CurrentPublishedVersionId == source.TemplateVersionId,
+                template.CurrentPublishedVersionId.HasValue,
+                latestRetiredVersionId == source.TemplateVersionId,
+                hasExistingDraft);
+            if (!canCreateDraft)
             {
                 throw new InvalidOperationException(
-                    "Chỉ CurrentPublishedVersion của template mới được copy.");
+                    "Chỉ bản Published hiện hành hoặc bản Retired mới nhất của mẫu không còn bản phát hành mới được dùng để tạo Draft.");
             }
 
             EnsureRowVersionMatches(
@@ -334,6 +657,11 @@ public sealed class ContractTemplateService : IContractTemplateService
                 expectedRowVersion,
                 "Template version");
             SetOriginalRowVersion(source, expectedRowVersion);
+
+            var sourceLayout = await LoadItemTableLayoutRowsAsync(
+                source.TemplateVersionId,
+                tracking: false,
+                cancellationToken);
 
             var maxVersionNo = await _dbContext.TblContractTemplateVersions
                 .Where(version => version.TemplateId == template.TemplateId)
@@ -356,7 +684,22 @@ public sealed class ContractTemplateService : IContractTemplateService
             template.UpdatedEmployeeId = employeeId;
             template.UpdatedDate = now;
             RotateTemplateRowVersionIfNeeded(template);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException exception)
+                when (IsUniqueConstraintViolation(exception))
+            {
+                throw CreateDraftVersionAlreadyExistsException();
+            }
+
+            _dbContext.TblContractTemplateItemTableColumnLayouts.AddRange(
+                CreateItemTableLayoutRows(
+                    copy.TemplateVersionId,
+                    sourceLayout.Select(item => (int)item.WidthBps).ToArray(),
+                    employeeId,
+                    now));
 
             var sourceTerms = await _dbContext.TblContractTemplateTerms
                 .AsNoTracking()
@@ -375,6 +718,7 @@ public sealed class ContractTemplateService : IContractTemplateService
                     TermTitleEn = sourceTerm.TermTitleEn,
                     TermContent = sourceTerm.TermContent,
                     TermContentEn = sourceTerm.TermContentEn,
+                    TermKind = sourceTerm.TermKind,
                     IsNegotiable = sourceTerm.IsNegotiable,
                     DisplayOrder = sourceTerm.DisplayOrder,
                     CreatedEmployeeId = employeeId,
@@ -382,6 +726,118 @@ public sealed class ContractTemplateService : IContractTemplateService
                 };
                 SetSyntheticRowVersionIfNeeded(copiedTerm);
                 _dbContext.TblContractTemplateTerms.Add(copiedTerm);
+            }
+
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            var copiedTermsByCode = await _dbContext.TblContractTemplateTerms
+                .Where(term => term.TemplateVersionId == copy.TemplateVersionId)
+                .ToDictionaryAsync(term => term.TermCode, cancellationToken);
+            var sourceMilestones = await _dbContext.TblContractTemplatePaymentMilestones
+                .AsNoTracking()
+                .Where(item => item.TemplateVersionId == source.TemplateVersionId)
+                .OrderBy(item => item.DisplayOrder)
+                .ToListAsync(cancellationToken);
+            var sourceTermsById = sourceTerms.ToDictionary(item => item.TemplateTermId);
+            foreach (var sourceMilestone in sourceMilestones)
+            {
+                var targetTerm = copiedTermsByCode[sourceTermsById[sourceMilestone.TemplateTermId].TermCode];
+                var copiedMilestone = new TblContractTemplatePaymentMilestone
+                {
+                    TemplateVersionId = copy.TemplateVersionId,
+                    TemplateTermId = targetTerm.TemplateTermId,
+                    MilestoneCode = sourceMilestone.MilestoneCode,
+                    TitleVi = sourceMilestone.TitleVi,
+                    TitleEn = sourceMilestone.TitleEn,
+                    PaymentPercent = sourceMilestone.PaymentPercent,
+                    DueAnchor = sourceMilestone.DueAnchor,
+                    DueOffsetDays = sourceMilestone.DueOffsetDays,
+                    DayCountMode = sourceMilestone.DayCountMode,
+                    ConditionVi = sourceMilestone.ConditionVi,
+                    ConditionEn = sourceMilestone.ConditionEn,
+                    DisplayOrder = sourceMilestone.DisplayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                SetSyntheticRowVersionIfNeeded(copiedMilestone);
+                _dbContext.TblContractTemplatePaymentMilestones.Add(copiedMilestone);
+            }
+
+            var sourceLegalBases = await _dbContext.TblContractTemplateLegalBases
+                .AsNoTracking()
+                .Where(item => item.TemplateVersionId == source.TemplateVersionId)
+                .OrderBy(item => item.DisplayOrder)
+                .ThenBy(item => item.TemplateLegalBasisId)
+                .ToListAsync(cancellationToken);
+            foreach (var sourceBasis in sourceLegalBases)
+            {
+                var copiedBasis = new TblContractTemplateLegalBasis
+                {
+                    TemplateVersionId = copy.TemplateVersionId,
+                    BasisCode = sourceBasis.BasisCode,
+                    ContentVi = sourceBasis.ContentVi,
+                    ContentEn = sourceBasis.ContentEn,
+                    DisplayOrder = sourceBasis.DisplayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                SetSyntheticRowVersionIfNeeded(copiedBasis);
+                _dbContext.TblContractTemplateLegalBases.Add(copiedBasis);
+            }
+
+            var sourceAppendices = await _dbContext.TblContractTemplateAppendices
+                .AsNoTracking()
+                .Where(item => item.TemplateVersionId == source.TemplateVersionId)
+                .OrderBy(item => item.DisplayOrder)
+                .ThenBy(item => item.TemplateAppendixId)
+                .ToListAsync(cancellationToken);
+            var sourceAppendixIds = sourceAppendices
+                .Select(item => item.TemplateAppendixId).ToList();
+            var sourceAppendixTerms = await _dbContext
+                .TblContractTemplateAppendixTerms.AsNoTracking()
+                .Where(item => sourceAppendixIds.Contains(item.TemplateAppendixId))
+                .OrderBy(item => item.DisplayOrder)
+                .ThenBy(item => item.TemplateAppendixTermId)
+                .ToListAsync(cancellationToken);
+            var copiedAppendices = new Dictionary<int, TblContractTemplateAppendix>();
+            foreach (var sourceAppendix in sourceAppendices)
+            {
+                var copiedAppendix = new TblContractTemplateAppendix
+                {
+                    TemplateVersionId = copy.TemplateVersionId,
+                    AppendixCode = sourceAppendix.AppendixCode,
+                    AppendixName = sourceAppendix.AppendixName,
+                    AppendixNameEn = sourceAppendix.AppendixNameEn,
+                    AppendixDescription = sourceAppendix.AppendixDescription,
+                    IsRequired = sourceAppendix.IsRequired,
+                    IsSelectedByDefault = sourceAppendix.IsSelectedByDefault,
+                    DisplayOrder = sourceAppendix.DisplayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                SetSyntheticRowVersionIfNeeded(copiedAppendix);
+                copiedAppendices[sourceAppendix.TemplateAppendixId] = copiedAppendix;
+                _dbContext.TblContractTemplateAppendices.Add(copiedAppendix);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var sourceAppendixTerm in sourceAppendixTerms)
+            {
+                var copiedTerm = new TblContractTemplateAppendixTerm
+                {
+                    TemplateAppendixId = copiedAppendices[
+                        sourceAppendixTerm.TemplateAppendixId].TemplateAppendixId,
+                    TermCode = sourceAppendixTerm.TermCode,
+                    TermTitle = sourceAppendixTerm.TermTitle,
+                    TermTitleEn = sourceAppendixTerm.TermTitleEn,
+                    TermContent = sourceAppendixTerm.TermContent,
+                    TermContentEn = sourceAppendixTerm.TermContentEn,
+                    DisplayOrder = sourceAppendixTerm.DisplayOrder,
+                    CreatedEmployeeId = employeeId,
+                    CreatedDate = now
+                };
+                SetSyntheticRowVersionIfNeeded(copiedTerm);
+                _dbContext.TblContractTemplateAppendixTerms.Add(copiedTerm);
             }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -405,6 +861,9 @@ public sealed class ContractTemplateService : IContractTemplateService
         var preflightVersion = await GetVersionForUploadPreflightAsync(
             versionId,
             cancellationToken);
+        var preflightTemplate = await GetTemplateForPreviewAsync(
+            preflightVersion.TemplateId,
+            cancellationToken);
         EnsureDraft(preflightVersion);
 
         try
@@ -426,22 +885,31 @@ public sealed class ContractTemplateService : IContractTemplateService
 
         var validation = await _documentValidator.ValidateAsync(
             request.File,
+            (TemplateDocumentType)preflightTemplate.DocumentType,
             cancellationToken);
         if (!validation.IsTechnicallyAccepted)
         {
+            _logger?.LogWarning(
+                "Template DOCX upload rejected. VersionId={VersionId}, FailureCode={FailureCode}, FileSizeBytes={FileSizeBytes}",
+                versionId,
+                validation.FailureCode ?? "Unknown",
+                validation.FileSizeBytes);
             await RecordTechnicalRejectionAsync(
                 preflightVersion,
                 employeeId,
                 validation,
                 cancellationToken);
             throw new ArgumentException(
-                "Tệp DOCX bị từ chối do không đạt yêu cầu kỹ thuật hoặc an toàn.",
+                $"Tệp DOCX bị từ chối do không đạt yêu cầu kỹ thuật hoặc an toàn. Mã lỗi: {validation.FailureCode ?? "Unknown"}.",
                 nameof(request.File));
         }
 
         var documentBytes = validation.DocumentBytes
             ?? throw new InvalidOperationException(
                 "DOCX đã được chấp nhận kỹ thuật nhưng thiếu payload kiểm tra.");
+        var validatedDefinitions = validation.Definitions
+            ?? throw new InvalidOperationException(
+                "DOCX đã được chấp nhận kỹ thuật nhưng thiếu snapshot placeholder.");
         var documentHash = Convert.ToHexString(SHA256.HashData(documentBytes))
             .ToLowerInvariant();
         FileStorageResponse? uploadedArtifact = null;
@@ -498,13 +966,16 @@ public sealed class ContractTemplateService : IContractTemplateService
 
                 await ReplaceFieldSnapshotAsync(
                     versionId,
-                    validation.RecognizedPlaceholderKeys,
+                    (TemplateDocumentType)preflightTemplate.DocumentType,
+                    validation,
                     employeeId,
                     cancellationToken);
 
                 var now = DateTime.UtcNow;
                 version.DocumentFileId = uploadedArtifact.FileId;
                 version.DocumentHash = documentHash;
+                version.PlaceholderBindingHash = ContractPlaceholderCatalog.Fingerprint(
+                    validatedDefinitions);
                 version.ValidationStatus = validation.IsCatalogValid
                     ? (byte)TemplateValidationStatus.Valid
                     : (byte)TemplateValidationStatus.Invalid;
@@ -581,6 +1052,8 @@ public sealed class ContractTemplateService : IContractTemplateService
         var preflightTemplate = await GetTemplateForPreviewAsync(
             preflightVersion.TemplateId,
             cancellationToken);
+        var preflightInput = await LoadTemplatePreviewInputAsync(
+            versionId, cancellationToken);
 
         string fingerprint;
         try
@@ -590,9 +1063,18 @@ public sealed class ContractTemplateService : IContractTemplateService
                 expectedRowVersion,
                 "Template version");
             EnsurePreviewEligible(preflightVersion);
+            await ValidateLegalBasesMarkerAsync(
+                versionId,
+                cancellationToken);
+            await ValidateAppendicesForPublishAsync(
+                versionId,
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                cancellationToken);
             fingerprint = CreatePreviewSourceHash(
                 preflightVersion.DocumentHash!,
-                (ContractLanguageMode)preflightTemplate.LanguageMode);
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                preflightVersion.PlaceholderBindingHash!,
+                preflightInput.CanonicalHash);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -640,9 +1122,20 @@ public sealed class ContractTemplateService : IContractTemplateService
         byte[] previewBytes;
         try
         {
-            previewBytes = _previewRenderer.Render(
+            var fields = await _dbContext.TblContractTemplateFields.AsNoTracking()
+                .Where(x => x.TemplateVersionId == versionId).ToListAsync(cancellationToken);
+            var definitions = fields.Select(ContractPlaceholderCatalog.FromSnapshot).ToArray();
+            var samples = definitions.Where(x => !x.IsSystem).ToDictionary(x => x.Key, x =>
+            {
+                var source = _sourceRegistry.GetRequired(x.SourceFieldKey!);
+                return x.FormatString is null ? source.SampleValue : source.FormattedSamples[x.FormatString];
+            }, StringComparer.Ordinal);
+            previewBytes = _previewRenderer.RenderSample(
                 sourceBytes,
-                (ContractLanguageMode)preflightTemplate.LanguageMode);
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                definitions,
+                samples,
+                preflightInput.RenderData);
         }
         catch (ContractTemplatePreviewException exception)
         {
@@ -672,9 +1165,13 @@ public sealed class ContractTemplateService : IContractTemplateService
                     expectedRowVersion,
                     "Template version");
                 EnsurePreviewEligible(version);
+                var currentInput = await LoadTemplatePreviewInputAsync(
+                    versionId, cancellationToken);
                 var currentFingerprint = CreatePreviewSourceHash(
                     version.DocumentHash!,
-                    (ContractLanguageMode)template.LanguageMode);
+                    (ContractLanguageMode)template.LanguageMode,
+                    version.PlaceholderBindingHash!,
+                    currentInput.CanonicalHash);
                 if (!string.Equals(fingerprint, currentFingerprint,
                         StringComparison.Ordinal))
                 {
@@ -769,9 +1266,13 @@ public sealed class ContractTemplateService : IContractTemplateService
             version.TemplateId,
             cancellationToken);
         EnsurePreviewDownloadEligible(version);
+        var previewInput = await LoadTemplatePreviewInputAsync(
+            versionId, cancellationToken);
         var fingerprint = CreatePreviewSourceHash(
             version.DocumentHash!,
-            (ContractLanguageMode)template.LanguageMode);
+            (ContractLanguageMode)template.LanguageMode,
+            version.PlaceholderBindingHash!,
+            previewInput.CanonicalHash);
 
         if (version.PreviewFileId is not > 0)
         {
@@ -834,6 +1335,8 @@ public sealed class ContractTemplateService : IContractTemplateService
             cancellationToken);
         var preflightTemplate = await GetTemplateForPreviewAsync(
             preflightVersion.TemplateId, cancellationToken);
+        var preflightInput = await LoadTemplatePreviewInputAsync(
+            versionId, cancellationToken);
         string fingerprint;
         byte[] previewDocx;
         try
@@ -841,8 +1344,20 @@ public sealed class ContractTemplateService : IContractTemplateService
             EnsureRowVersionMatches(preflightVersion.RowVersion, expectedRowVersion,
                 "Template version");
             EnsurePublishEligible(preflightVersion);
+            await ValidateAcceptanceSectionsForPublishAsync(
+                versionId,
+                (TemplateDocumentType)preflightTemplate.DocumentType,
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                cancellationToken);
+            await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
+            await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
+            await ValidateAppendicesForPublishAsync(versionId,
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                cancellationToken);
             fingerprint = CreatePreviewSourceHash(preflightVersion.DocumentHash!,
-                (ContractLanguageMode)preflightTemplate.LanguageMode);
+                (ContractLanguageMode)preflightTemplate.LanguageMode,
+                preflightVersion.PlaceholderBindingHash!,
+                preflightInput.CanonicalHash);
             previewDocx = await DownloadCurrentPreviewBytesAsync(preflightVersion,
                 fingerprint, cancellationToken);
         }
@@ -879,8 +1394,22 @@ public sealed class ContractTemplateService : IContractTemplateService
                 EnsureRowVersionMatches(version.RowVersion, expectedRowVersion,
                     "Template version");
                 EnsurePublishEligible(version);
+                await ValidateAcceptanceSectionsForPublishAsync(
+                    versionId,
+                    (TemplateDocumentType)template.DocumentType,
+                    (ContractLanguageMode)template.LanguageMode,
+                    cancellationToken);
+                await ValidatePaymentTermsForPublishAsync(versionId, cancellationToken);
+                await ValidateLegalBasesMarkerAsync(versionId, cancellationToken);
+                await ValidateAppendicesForPublishAsync(versionId,
+                    (ContractLanguageMode)template.LanguageMode,
+                    cancellationToken);
+                var currentInput = await LoadTemplatePreviewInputAsync(
+                    versionId, cancellationToken);
                 var currentFingerprint = CreatePreviewSourceHash(version.DocumentHash!,
-                    (ContractLanguageMode)template.LanguageMode);
+                    (ContractLanguageMode)template.LanguageMode,
+                    version.PlaceholderBindingHash!,
+                    currentInput.CanonicalHash);
                 if (!string.Equals(fingerprint, currentFingerprint,
                         StringComparison.Ordinal))
                 {
@@ -995,7 +1524,7 @@ public sealed class ContractTemplateService : IContractTemplateService
         }, cancellationToken);
     }
 
-    public async Task<(Stream Stream, string FileName)> DownloadPublishedPreviewPdfAsync(
+    public async Task<(Stream Stream, string FileName)> DownloadPreviewPdfAsync(
         int versionId,
         int employeeId,
         CancellationToken cancellationToken = default)
@@ -1004,6 +1533,25 @@ public sealed class ContractTemplateService : IContractTemplateService
         EnsureDocumentStorageIsConfigured();
         var version = await GetVersionForUploadPreflightAsync(versionId,
             cancellationToken);
+
+        if (version.Status == (byte)TemplateVersionStatus.Draft)
+        {
+            var renderer = _pdfRenderer ?? throw new InvalidOperationException(
+                "PDF renderer chưa được cấu hình cho Template preview.");
+            var preview = await DownloadPreviewAsync(
+                versionId,
+                employeeId,
+                cancellationToken);
+            await using var previewStream = preview.Stream;
+            await using var memory = new MemoryStream();
+            await previewStream.CopyToAsync(memory, cancellationToken);
+            var pdf = await renderer.ConvertPreviewToPdfAsync(
+                memory.ToArray(),
+                cancellationToken);
+            return (new MemoryStream(pdf, writable: false),
+                $"template-preview-{versionId}.pdf");
+        }
+
         if (version.Status != (byte)TemplateVersionStatus.Published
             && version.Status != (byte)TemplateVersionStatus.Retired
             || version.PublishedPreviewPdfFileId is not > 0)
@@ -1067,6 +1615,9 @@ public sealed class ContractTemplateService : IContractTemplateService
                 values.DisplayOrder,
                 null,
                 cancellationToken);
+            ValidateTermKind(request.TermKind);
+            await EnsureSinglePaymentTermAsync(versionId, request.TermKind, null,
+                cancellationToken);
 
             var now = DateTime.UtcNow;
             var term = new TblContractTemplateTerm
@@ -1077,6 +1628,7 @@ public sealed class ContractTemplateService : IContractTemplateService
                 TermTitleEn = values.TermTitleEn,
                 TermContent = values.TermContent,
                 TermContentEn = values.TermContentEn,
+                TermKind = (byte)request.TermKind,
                 IsNegotiable = request.IsNegotiable,
                 DisplayOrder = values.DisplayOrder,
                 CreatedEmployeeId = employeeId,
@@ -1145,12 +1697,24 @@ public sealed class ContractTemplateService : IContractTemplateService
                 values.DisplayOrder,
                 termId,
                 cancellationToken);
+            ValidateTermKind(request.TermKind);
+            await EnsureSinglePaymentTermAsync(versionId, request.TermKind, termId,
+                cancellationToken);
+            if (request.TermKind == ContractTermKind.General
+                && term.TermKind == (byte)ContractTermKind.Payment
+                && await _dbContext.TblContractTemplatePaymentMilestones.AnyAsync(
+                    item => item.TemplateTermId == termId, cancellationToken))
+            {
+                throw new InvalidOperationException(
+                    "Hãy xóa các đợt thanh toán trước khi chuyển thành điều khoản thường.");
+            }
 
             term.TermCode = values.TermCode;
             term.TermTitle = values.TermTitle;
             term.TermTitleEn = values.TermTitleEn;
             term.TermContent = values.TermContent;
             term.TermContentEn = values.TermContentEn;
+            term.TermKind = (byte)request.TermKind;
             term.IsNegotiable = request.IsNegotiable;
             term.DisplayOrder = values.DisplayOrder;
             term.UpdatedEmployeeId = employeeId;
@@ -1209,6 +1773,11 @@ public sealed class ContractTemplateService : IContractTemplateService
                 expectedTermRowVersion,
                 "Template term");
             SetOriginalRowVersion(term, expectedTermRowVersion);
+            // The tenant DB no longer cascades term deletion into milestones.
+            var milestones = await _dbContext.TblContractTemplatePaymentMilestones
+                .Where(item => item.TemplateTermId == termId)
+                .ToListAsync(cancellationToken);
+            _dbContext.TblContractTemplatePaymentMilestones.RemoveRange(milestones);
             _dbContext.TblContractTemplateTerms.Remove(term);
             TouchVersion(version, employeeId, DateTime.UtcNow);
             RotateVersionRowVersionIfNeeded(version);
@@ -1301,6 +1870,383 @@ public sealed class ContractTemplateService : IContractTemplateService
         }, cancellationToken);
     }
 
+    public async Task<ContractTemplatePaymentMilestoneResponse> AddPaymentMilestoneAsync(
+        int versionId, int termId,
+        CreateContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var values = NormalizePaymentMilestone(request);
+        var versionRowVersion = DecodeRowVersion(request.VersionRowVersion,
+            nameof(request.VersionRowVersion));
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, versionRowVersion, "Template version");
+            SetOriginalRowVersion(version, versionRowVersion);
+            await EnsurePaymentTermAsync(versionId, termId, cancellationToken);
+            await EnsurePaymentMilestoneUniqueAsync(versionId, termId,
+                values.Code, values.Order, null, cancellationToken);
+            if (values.Anchor == PaymentDueAnchor.PreviousMilestonePaid
+                && !await _dbContext.TblContractTemplatePaymentMilestones.AnyAsync(
+                    item => item.TemplateTermId == termId
+                        && item.DisplayOrder < values.Order, cancellationToken))
+                throw new ArgumentException("Đợt đầu tiên không thể phụ thuộc đợt trước.");
+
+            var now = DateTime.UtcNow;
+            var entity = new TblContractTemplatePaymentMilestone
+            {
+                TemplateVersionId = versionId, TemplateTermId = termId,
+                MilestoneCode = values.Code, TitleVi = values.TitleVi,
+                TitleEn = values.TitleEn, PaymentPercent = values.Percent,
+                DueAnchor = (byte)values.Anchor, DueOffsetDays = values.Offset,
+                DayCountMode = (byte)values.DayCount, ConditionVi = values.ConditionVi,
+                ConditionEn = values.ConditionEn, DisplayOrder = values.Order,
+                CreatedEmployeeId = employeeId, CreatedDate = now
+            };
+            SetSyntheticRowVersionIfNeeded(entity);
+            _dbContext.TblContractTemplatePaymentMilestones.Add(entity);
+            TouchVersion(version, employeeId, now);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return MapPaymentMilestone(entity);
+        }, cancellationToken);
+    }
+
+    public async Task<ContractTemplatePaymentMilestoneResponse> UpdatePaymentMilestoneAsync(
+        int versionId, int termId, int milestoneId,
+        UpdateContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var values = NormalizePaymentMilestone(request);
+        var versionRv = DecodeRowVersion(request.VersionRowVersion, nameof(request.VersionRowVersion));
+        var rowRv = DecodeRowVersion(request.RowVersion, nameof(request.RowVersion));
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, versionRv, "Template version");
+            SetOriginalRowVersion(version, versionRv);
+            await EnsurePaymentTermAsync(versionId, termId, cancellationToken);
+            var entity = await _dbContext.TblContractTemplatePaymentMilestones.SingleOrDefaultAsync(
+                item => item.TemplatePaymentMilestoneId == milestoneId
+                    && item.TemplateVersionId == versionId && item.TemplateTermId == termId,
+                cancellationToken) ?? throw new KeyNotFoundException("Không tìm thấy đợt thanh toán.");
+            EnsureRowVersionMatches(entity.RowVersion, rowRv, "Đợt thanh toán");
+            SetOriginalRowVersion(entity, rowRv);
+            await EnsurePaymentMilestoneUniqueAsync(versionId, termId,
+                values.Code, values.Order, milestoneId, cancellationToken);
+            var firstOther = await _dbContext.TblContractTemplatePaymentMilestones
+                .Where(item => item.TemplateTermId == termId
+                    && item.TemplatePaymentMilestoneId != milestoneId)
+                .OrderBy(item => item.DisplayOrder)
+                .ThenBy(item => item.TemplatePaymentMilestoneId)
+                .FirstOrDefaultAsync(cancellationToken);
+            var updatedRowBecomesFirst = firstOther is null
+                || values.Order < firstOther.DisplayOrder;
+            var resultingFirstAnchor = updatedRowBecomesFirst
+                ? values.Anchor
+                : (PaymentDueAnchor)firstOther!.DueAnchor;
+            if (resultingFirstAnchor == PaymentDueAnchor.PreviousMilestonePaid)
+                throw new ArgumentException("Đợt đầu tiên không thể phụ thuộc đợt trước.");
+
+            entity.MilestoneCode = values.Code; entity.TitleVi = values.TitleVi;
+            entity.TitleEn = values.TitleEn; entity.PaymentPercent = values.Percent;
+            entity.DueAnchor = (byte)values.Anchor; entity.DueOffsetDays = values.Offset;
+            entity.DayCountMode = (byte)values.DayCount; entity.ConditionVi = values.ConditionVi;
+            entity.ConditionEn = values.ConditionEn; entity.DisplayOrder = values.Order;
+            entity.UpdatedEmployeeId = employeeId; entity.UpdatedDate = DateTime.UtcNow;
+            SetSyntheticRowVersionIfNeeded(entity);
+            TouchVersion(version, employeeId, entity.UpdatedDate.Value);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return MapPaymentMilestone(entity);
+        }, cancellationToken);
+    }
+
+    public async Task DeletePaymentMilestoneAsync(
+        int versionId, int termId, int milestoneId,
+        DeleteContractTemplatePaymentMilestoneRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var versionRv = DecodeRowVersion(request.VersionRowVersion, nameof(request.VersionRowVersion));
+        var rowRv = DecodeRowVersion(request.RowVersion, nameof(request.RowVersion));
+        await ExecuteInTransactionAsync(async () =>
+        {
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, versionRv, "Template version");
+            SetOriginalRowVersion(version, versionRv);
+            await EnsurePaymentTermAsync(versionId, termId, cancellationToken);
+            var entity = await _dbContext.TblContractTemplatePaymentMilestones.SingleOrDefaultAsync(
+                item => item.TemplatePaymentMilestoneId == milestoneId
+                    && item.TemplateTermId == termId && item.TemplateVersionId == versionId,
+                cancellationToken) ?? throw new KeyNotFoundException("Không tìm thấy đợt thanh toán.");
+            EnsureRowVersionMatches(entity.RowVersion, rowRv, "Đợt thanh toán");
+            SetOriginalRowVersion(entity, rowRv);
+            var nextFirst = await _dbContext.TblContractTemplatePaymentMilestones
+                .Where(item => item.TemplateTermId == termId
+                    && item.TemplatePaymentMilestoneId != milestoneId)
+                .OrderBy(item => item.DisplayOrder)
+                .ThenBy(item => item.TemplatePaymentMilestoneId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (nextFirst?.DueAnchor == (byte)PaymentDueAnchor.PreviousMilestonePaid)
+                throw new InvalidOperationException(
+                    "Không thể xóa vì đợt kế tiếp đang phụ thuộc vào đợt trước.");
+            _dbContext.TblContractTemplatePaymentMilestones.Remove(entity);
+            TouchVersion(version, employeeId, DateTime.UtcNow);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
+    }
+
+    public async Task<ContractTemplateVersionDetailResponse> ReorderPaymentMilestonesAsync(
+        int versionId, int termId, ReorderContractTemplatePaymentMilestonesRequest request,
+        int employeeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var versionRv = DecodeRowVersion(request.VersionRowVersion, nameof(request.VersionRowVersion));
+        if (request.Milestones is null)
+            throw new ArgumentException("Danh sách reorder không được null.");
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, versionRv, "Template version");
+            SetOriginalRowVersion(version, versionRv);
+            await EnsurePaymentTermAsync(versionId, termId, cancellationToken);
+            var rows = await _dbContext.TblContractTemplatePaymentMilestones
+                .Where(item => item.TemplateTermId == termId && item.TemplateVersionId == versionId)
+                .ToListAsync(cancellationToken);
+            if (request.Milestones.Count != rows.Count
+                || request.Milestones.Any(item => item.MilestoneId <= 0
+                    || item.DisplayOrder < 0)
+                || request.Milestones.Select(item => item.MilestoneId).Distinct().Count()
+                    != rows.Count
+                || !rows.Select(item => item.TemplatePaymentMilestoneId).ToHashSet()
+                    .SetEquals(request.Milestones.Select(item => item.MilestoneId))
+                || request.Milestones.Select(item => item.DisplayOrder).Distinct().Count() != rows.Count)
+                throw new ArgumentException("Danh sách reorder phải chứa đúng toàn bộ đợt và thứ tự duy nhất.");
+            var byId = request.Milestones.ToDictionary(item => item.MilestoneId);
+            var requestedFirst = request.Milestones
+                .OrderBy(item => item.DisplayOrder).ThenBy(item => item.MilestoneId)
+                .FirstOrDefault();
+            if (requestedFirst is not null
+                && rows.Single(item => item.TemplatePaymentMilestoneId == requestedFirst.MilestoneId)
+                    .DueAnchor == (byte)PaymentDueAnchor.PreviousMilestonePaid)
+                throw new ArgumentException("Đợt đầu tiên không thể phụ thuộc đợt trước.");
+            // Avoid transient unique-index collisions when two rows swap their
+            // DisplayOrder values. Move every row into a temporary positive range,
+            // flush, then assign the requested order inside the same transaction.
+            var temporaryOrder = Math.Max(
+                rows.Count == 0 ? 0 : rows.Max(item => item.DisplayOrder),
+                request.Milestones.Count == 0 ? 0 : request.Milestones.Max(item => item.DisplayOrder))
+                + 1_000_000;
+            foreach (var row in rows)
+            {
+                var item = byId[row.TemplatePaymentMilestoneId];
+                var rv = DecodeRowVersion(item.RowVersion, nameof(item.RowVersion));
+                EnsureRowVersionMatches(row.RowVersion, rv, "Đợt thanh toán");
+                SetOriginalRowVersion(row, rv);
+                row.DisplayOrder = temporaryOrder++;
+                SetSyntheticRowVersionIfNeeded(row);
+            }
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var row in rows)
+            {
+                row.DisplayOrder = byId[row.TemplatePaymentMilestoneId].DisplayOrder;
+                SetSyntheticRowVersionIfNeeded(row);
+            }
+            TouchVersion(version, employeeId, DateTime.UtcNow);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return await LoadVersionDetailAsync(versionId, cancellationToken);
+        }, cancellationToken);
+    }
+
+    public async Task<ContractTemplateLegalBasisResponse> AddLegalBasisAsync(
+        int versionId, CreateContractTemplateLegalBasisRequest request,
+        int employeeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var values = NormalizeLegalBasis(request.BasisCode, request.ContentVi,
+            request.ContentEn, request.DisplayOrder);
+        var expectedVersionRowVersion = DecodeRowVersion(
+            request.VersionRowVersion, nameof(request.VersionRowVersion));
+
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, expectedVersionRowVersion,
+                "Template version");
+            SetOriginalRowVersion(version, expectedVersionRowVersion);
+            await EnsureLegalBasisCodeAndOrderAreAvailableAsync(versionId,
+                values.BasisCode, values.DisplayOrder, null, cancellationToken);
+
+            var now = DateTime.UtcNow;
+            var basis = new TblContractTemplateLegalBasis
+            {
+                TemplateVersionId = versionId,
+                BasisCode = values.BasisCode,
+                ContentVi = values.ContentVi,
+                ContentEn = values.ContentEn,
+                DisplayOrder = values.DisplayOrder,
+                CreatedEmployeeId = employeeId,
+                CreatedDate = now
+            };
+            SetSyntheticRowVersionIfNeeded(basis);
+            _dbContext.TblContractTemplateLegalBases.Add(basis);
+            TouchVersion(version, employeeId, now);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return MapLegalBasis(basis);
+        }, cancellationToken);
+    }
+
+    public async Task<ContractTemplateLegalBasisResponse> UpdateLegalBasisAsync(
+        int versionId, int legalBasisId,
+        UpdateContractTemplateLegalBasisRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var values = NormalizeLegalBasis(request.BasisCode, request.ContentVi,
+            request.ContentEn, request.DisplayOrder);
+        var expectedVersionRowVersion = DecodeRowVersion(
+            request.VersionRowVersion, nameof(request.VersionRowVersion));
+        var expectedRowVersion = DecodeRowVersion(request.RowVersion,
+            nameof(request.RowVersion));
+
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, expectedVersionRowVersion,
+                "Template version");
+            SetOriginalRowVersion(version, expectedVersionRowVersion);
+            var basis = await _dbContext.TblContractTemplateLegalBases
+                .SingleOrDefaultAsync(item => item.TemplateLegalBasisId == legalBasisId
+                    && item.TemplateVersionId == versionId, cancellationToken)
+                ?? throw new KeyNotFoundException("Không tìm thấy căn cứ hợp đồng.");
+            EnsureRowVersionMatches(basis.RowVersion, expectedRowVersion,
+                "Căn cứ hợp đồng");
+            SetOriginalRowVersion(basis, expectedRowVersion);
+            await EnsureLegalBasisCodeAndOrderAreAvailableAsync(versionId,
+                values.BasisCode, values.DisplayOrder, legalBasisId, cancellationToken);
+
+            basis.BasisCode = values.BasisCode;
+            basis.ContentVi = values.ContentVi;
+            basis.ContentEn = values.ContentEn;
+            basis.DisplayOrder = values.DisplayOrder;
+            basis.UpdatedEmployeeId = employeeId;
+            basis.UpdatedDate = DateTime.UtcNow;
+            RotateLegalBasisRowVersionIfNeeded(basis);
+            TouchVersion(version, employeeId, basis.UpdatedDate.Value);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return MapLegalBasis(basis);
+        }, cancellationToken);
+    }
+
+    public async Task DeleteLegalBasisAsync(
+        int versionId, int legalBasisId,
+        DeleteContractTemplateLegalBasisRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var expectedVersionRowVersion = DecodeRowVersion(
+            request.VersionRowVersion, nameof(request.VersionRowVersion));
+        var expectedRowVersion = DecodeRowVersion(request.RowVersion,
+            nameof(request.RowVersion));
+
+        await ExecuteInTransactionAsync(async () =>
+        {
+            await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, expectedVersionRowVersion,
+                "Template version");
+            SetOriginalRowVersion(version, expectedVersionRowVersion);
+            var basis = await _dbContext.TblContractTemplateLegalBases
+                .SingleOrDefaultAsync(item => item.TemplateLegalBasisId == legalBasisId
+                    && item.TemplateVersionId == versionId, cancellationToken)
+                ?? throw new KeyNotFoundException("Không tìm thấy căn cứ hợp đồng.");
+            EnsureRowVersionMatches(basis.RowVersion, expectedRowVersion,
+                "Căn cứ hợp đồng");
+            SetOriginalRowVersion(basis, expectedRowVersion);
+            _dbContext.TblContractTemplateLegalBases.Remove(basis);
+            TouchVersion(version, employeeId, DateTime.UtcNow);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
+    }
+
+    public async Task<ContractTemplateVersionDetailResponse> ReorderLegalBasesAsync(
+        int versionId, ReorderContractTemplateLegalBasesRequest request,
+        int employeeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+        var expectedVersionRowVersion = DecodeRowVersion(
+            request.VersionRowVersion, nameof(request.VersionRowVersion));
+        if (request.LegalBases is null
+            || request.LegalBases.Any(item => item.LegalBasisId <= 0 || item.DisplayOrder < 0)
+            || request.LegalBases.Select(item => item.LegalBasisId).Distinct().Count() != request.LegalBases.Count
+            || request.LegalBases.Select(item => item.DisplayOrder).Distinct().Count() != request.LegalBases.Count)
+        {
+            throw new ArgumentException(
+                "Danh sách căn cứ và DisplayOrder phải hợp lệ, duy nhất.");
+        }
+
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            await EnsureAdminOfficerAsync(employeeId, cancellationToken);
+            var version = await GetVersionForMutationAsync(versionId, cancellationToken);
+            EnsureDraft(version);
+            EnsureRowVersionMatches(version.RowVersion, expectedVersionRowVersion,
+                "Template version");
+            SetOriginalRowVersion(version, expectedVersionRowVersion);
+            var bases = await _dbContext.TblContractTemplateLegalBases
+                .Where(item => item.TemplateVersionId == versionId)
+                .ToListAsync(cancellationToken);
+            if (!bases.Select(item => item.TemplateLegalBasisId).ToHashSet()
+                .SetEquals(request.LegalBases.Select(item => item.LegalBasisId)))
+            {
+                throw new ArgumentException(
+                    "Danh sách reorder phải chứa đúng toàn bộ căn cứ hiện có.");
+            }
+
+            var requestsById = request.LegalBases.ToDictionary(item => item.LegalBasisId);
+            foreach (var basis in bases)
+            {
+                var item = requestsById[basis.TemplateLegalBasisId];
+                var expectedRowVersion = DecodeRowVersion(item.RowVersion,
+                    nameof(item.RowVersion));
+                EnsureRowVersionMatches(basis.RowVersion, expectedRowVersion,
+                    "Căn cứ hợp đồng");
+                SetOriginalRowVersion(basis, expectedRowVersion);
+                basis.DisplayOrder = item.DisplayOrder;
+                RotateLegalBasisRowVersionIfNeeded(basis);
+            }
+            TouchVersion(version, employeeId, DateTime.UtcNow);
+            RotateVersionRowVersionIfNeeded(version);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return await LoadVersionDetailAsync(versionId, cancellationToken);
+        }, cancellationToken);
+    }
+
     private async Task EnsureAdminOfficerAsync(
         int employeeId,
         CancellationToken cancellationToken)
@@ -1336,9 +2282,7 @@ public sealed class ContractTemplateService : IContractTemplateService
 
         var template = await _dbContext.TblContractTemplates
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateId == templateId
-                    && candidate.DocumentType
-                        == (byte)TemplateDocumentType.SoftwareSupplyContract,
+                candidate => candidate.TemplateId == templateId,
                 cancellationToken);
         return template
             ?? throw new KeyNotFoundException("Không tìm thấy template.");
@@ -1351,9 +2295,7 @@ public sealed class ContractTemplateService : IContractTemplateService
         var template = await _dbContext.TblContractTemplates
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateId == templateId
-                    && candidate.DocumentType
-                        == (byte)TemplateDocumentType.SoftwareSupplyContract,
+                candidate => candidate.TemplateId == templateId,
                 cancellationToken);
         return template
             ?? throw new KeyNotFoundException("Không tìm thấy template.");
@@ -1370,11 +2312,7 @@ public sealed class ContractTemplateService : IContractTemplateService
 
         var version = await _dbContext.TblContractTemplateVersions
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateVersionId == versionId
-                    && _dbContext.TblContractTemplates.Any(template =>
-                        template.TemplateId == candidate.TemplateId
-                        && template.DocumentType
-                            == (byte)TemplateDocumentType.SoftwareSupplyContract),
+                candidate => candidate.TemplateVersionId == versionId,
                 cancellationToken);
         return version
             ?? throw new KeyNotFoundException("Không tìm thấy template version.");
@@ -1395,11 +2333,7 @@ public sealed class ContractTemplateService : IContractTemplateService
         var version = await _dbContext.TblContractTemplateVersions
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.TemplateVersionId == versionId
-                    && _dbContext.TblContractTemplates.Any(template =>
-                        template.TemplateId == candidate.TemplateId
-                        && template.DocumentType
-                            == (byte)TemplateDocumentType.SoftwareSupplyContract),
+                candidate => candidate.TemplateVersionId == versionId,
                 cancellationToken);
         return version
             ?? throw new KeyNotFoundException("Không tìm thấy template version.");
@@ -1407,12 +2341,21 @@ public sealed class ContractTemplateService : IContractTemplateService
 
     private async Task ReplaceFieldSnapshotAsync(
         int versionId,
-        IReadOnlyCollection<string> recognizedPlaceholderKeys,
+        TemplateDocumentType documentType,
+        ContractTemplateDocumentValidationResult validation,
         int employeeId,
         CancellationToken cancellationToken)
     {
-        var recognized = new HashSet<string>(recognizedPlaceholderKeys,
+        var recognized = new HashSet<string>(validation.RecognizedPlaceholderKeys,
             StringComparer.Ordinal);
+        var currentCatalog = await GetActivePlaceholderCatalogAsync(
+            documentType,
+            cancellationToken);
+        if (validation.CatalogRevision is not null && validation.CatalogRevision != ContractPlaceholderCatalog.Fingerprint(currentCatalog))
+            throw new DbUpdateConcurrencyException("Catalog placeholder đã thay đổi trong khi upload. Hãy thử lại.");
+        var definitions = validation.Definitions
+            ?? throw new InvalidOperationException(
+                "Kết quả validation thiếu snapshot placeholder.");
 
         if (IsInMemoryProvider())
         {
@@ -1434,7 +2377,7 @@ public sealed class ContractTemplateService : IContractTemplateService
 
         var now = DateTime.UtcNow;
         var displayOrder = 0;
-        foreach (var definition in SoftwareSupplyPlaceholderCatalog.GetAll())
+        foreach (var definition in definitions)
         {
             if (!recognized.Contains(definition.Key))
             {
@@ -1447,6 +2390,15 @@ public sealed class ContractTemplateService : IContractTemplateService
                 PlaceholderKey = definition.Key,
                 FieldLabel = definition.Label,
                 DataSource = definition.DataSource,
+                SourceFieldKey = definition.SourceFieldKey
+                    ?? throw new InvalidOperationException(
+                        $"Placeholder {definition.Key} chưa có source field."),
+                DataKind = (byte)definition.DataKind,
+                Multiplicity = (byte)definition.Multiplicity,
+                IsSystem = definition.IsSystem,
+                DefinitionRowVersion = definition.RowVersion is null ? null : Convert.FromBase64String(definition.RowVersion),
+                DefaultValue = definition.DefaultValue,
+                FormatString = definition.FormatString,
                 IsRequired = definition.IsRequired,
                 DisplayOrder = displayOrder++,
                 CreatedEmployeeId = employeeId,
@@ -1796,41 +2748,41 @@ public sealed class ContractTemplateService : IContractTemplateService
         }
     }
 
-    private static IReadOnlyDictionary<string, object?> BuildPreviewAuditValues(
+    private static IReadOnlyCollection<ContractTemplateAuditValueInput> BuildPreviewAuditValues(
         int? previewFileId,
         long? sizeBytes,
         string status)
     {
-        var values = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var values = new List<(string Key, object? Value)>
         {
-            ["PreviewFileId"] = previewFileId,
-            ["PreviewStatus"] = status
+            ("PreviewFileId", previewFileId),
+            ("PreviewStatus", status)
         };
         if (sizeBytes.HasValue)
         {
-            values["PreviewSizeBytes"] = Math.Max(sizeBytes.Value, 0);
+            values.Add(("PreviewSizeBytes", Math.Max(sizeBytes.Value, 0)));
         }
 
-        return values;
+        return ContractTemplateAuditValues.Create(values.ToArray());
     }
 
-    private static IReadOnlyDictionary<string, object?> BuildPublishAuditValues(
+    private static IReadOnlyCollection<ContractTemplateAuditValueInput> BuildPublishAuditValues(
         int? pdfFileId,
         long? sizeBytes,
         string status)
     {
-        var values = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var values = new List<(string Key, object? Value)>
         {
-            ["PublishedPreviewPdfFileId"] = pdfFileId,
-            ["PublishStatus"] = status
+            ("PublishedPreviewPdfFileId", pdfFileId),
+            ("PublishStatus", status)
         };
         if (sizeBytes.HasValue)
         {
-            values["PublishedPreviewPdfSizeBytes"] =
-                Math.Max(sizeBytes.Value, 0);
+            values.Add(("PublishedPreviewPdfSizeBytes",
+                Math.Max(sizeBytes.Value, 0)));
         }
 
-        return values;
+        return ContractTemplateAuditValues.Create(values.ToArray());
     }
 
     private async Task<byte[]> DownloadAndVerifySourceDocumentAsync(
@@ -1943,7 +2895,8 @@ public sealed class ContractTemplateService : IContractTemplateService
         if (version.Status != (byte)TemplateVersionStatus.Draft
             || version.ValidationStatus != (byte)TemplateValidationStatus.Valid
             || version.DocumentFileId is not > 0
-            || !IsSha256Hex(version.DocumentHash))
+            || !IsSha256Hex(version.DocumentHash)
+            || !IsSha256Hex(version.PlaceholderBindingHash))
         {
             throw new ContractTemplatePreviewException(
                 "PreviewPrerequisiteNotMet",
@@ -1960,7 +2913,8 @@ public sealed class ContractTemplateService : IContractTemplateService
         if (!canDownload
             || version.ValidationStatus != (byte)TemplateValidationStatus.Valid
             || version.DocumentFileId is not > 0
-            || !IsSha256Hex(version.DocumentHash))
+            || !IsSha256Hex(version.DocumentHash)
+            || !IsSha256Hex(version.PlaceholderBindingHash))
         {
             throw new ContractTemplatePreviewException("PreviewPrerequisiteNotMet",
                 "DOCX preview chỉ có thể tải khi TemplateVersion còn preview hợp lệ.");
@@ -1973,6 +2927,7 @@ public sealed class ContractTemplateService : IContractTemplateService
             || version.ValidationStatus != (byte)TemplateValidationStatus.Valid
             || version.DocumentFileId is not > 0
             || !IsSha256Hex(version.DocumentHash)
+            || !IsSha256Hex(version.PlaceholderBindingHash)
             || version.PreviewFileId is not > 0)
         {
             throw new ContractTemplatePreviewException("PublishPrerequisiteNotMet",
@@ -1982,16 +2937,307 @@ public sealed class ContractTemplateService : IContractTemplateService
 
     private static string CreatePreviewSourceHash(
         string documentHash,
-        ContractLanguageMode languageMode)
+        ContractLanguageMode languageMode,
+        string bindingHash,
+        string authoringDataHash)
     {
         var source = string.Join('|',
             documentHash.Trim().ToLowerInvariant(),
-            SoftwareSupplyPlaceholderCatalog.Version,
+            bindingHash,
+            authoringDataHash,
             SoftwareSupplyPreviewDatasetV1.Version,
+            ContractTemplatePreviewRenderer.FormatVersion,
             ((byte)languageMode).ToString(System.Globalization.CultureInfo.InvariantCulture));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)))
             .ToLowerInvariant();
     }
+
+    private async Task ValidatePaymentTermsForPublishAsync(int versionId,
+        CancellationToken cancellationToken)
+    {
+        var paymentTerms = await _dbContext.TblContractTemplateTerms.AsNoTracking()
+            .Where(term => term.TemplateVersionId == versionId
+                && term.TermKind == (byte)ContractTermKind.Payment)
+            .Select(term => term.TemplateTermId).ToListAsync(cancellationToken);
+        if (paymentTerms.Count > 1)
+            throw new ContractTemplatePreviewException("PaymentTermInvalid",
+                "Mỗi template version chỉ được có một điều khoản thanh toán.");
+        if (paymentTerms.Count == 0) return;
+        var milestones = await _dbContext.TblContractTemplatePaymentMilestones.AsNoTracking()
+            .Where(item => item.TemplateTermId == paymentTerms[0]).OrderBy(item => item.DisplayOrder)
+            .ToListAsync(cancellationToken);
+        if (milestones.Count == 0 || milestones.Sum(item => item.PaymentPercent) != 100m)
+            throw new ContractTemplatePreviewException("PaymentMilestonesInvalid",
+                "Điều khoản thanh toán phải có ít nhất một đợt và tổng tỷ lệ đúng 100%.");
+        if (milestones[0].DueAnchor == (byte)PaymentDueAnchor.PreviousMilestonePaid)
+            throw new ContractTemplatePreviewException("PaymentMilestonesInvalid",
+                "Đợt thanh toán đầu tiên không thể phụ thuộc đợt trước.");
+    }
+
+    private async Task ValidateAcceptanceSectionsForPublishAsync(
+        int versionId,
+        TemplateDocumentType documentType,
+        ContractLanguageMode languageMode,
+        CancellationToken cancellationToken)
+    {
+        if (documentType != TemplateDocumentType.AcceptanceRecord)
+        {
+            return;
+        }
+
+        var sections = await _dbContext.TblContractTemplateTerms
+            .AsNoTracking()
+            .Where(term => term.TemplateVersionId == versionId)
+            .OrderBy(term => term.DisplayOrder)
+            .ThenBy(term => term.TemplateTermId)
+            .ToListAsync(cancellationToken);
+        if (sections.Count == 0)
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsMissing",
+                "Template nghiệm thu phải có ít nhất một section trước khi phát hành.");
+        }
+
+        if (sections.Any(section => section.TermKind !=
+                (byte)ContractTermKind.General))
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsInvalid",
+                "Template nghiệm thu chỉ được sử dụng section loại General.");
+        }
+
+        if (languageMode == ContractLanguageMode.Bilingual
+            && sections.Any(section => string.IsNullOrWhiteSpace(
+                    section.TermTitleEn)
+                || (!string.IsNullOrWhiteSpace(section.TermContent)
+                    && string.IsNullOrWhiteSpace(section.TermContentEn))))
+        {
+            throw new ContractTemplatePreviewException(
+                "AcceptanceSectionsBilingualInvalid",
+                "Section nghiệm thu song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+        }
+    }
+
+    private async Task<IReadOnlyList<SoftwareSupplyPlaceholderDefinition>>
+        GetActivePlaceholderCatalogAsync(
+            TemplateDocumentType documentType,
+            CancellationToken cancellationToken)
+    {
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            var tenantCatalog = await _placeholderCatalog.GetAsync(
+                cancellationToken: cancellationToken);
+            return AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+        }
+
+        if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            return await _placeholderCatalog.GetAsync(
+                cancellationToken: cancellationToken);
+        }
+
+        return [];
+    }
+
+    private async Task ValidateLegalBasesMarkerAsync(
+        int versionId,
+        CancellationToken cancellationToken)
+    {
+        var hasLegalBases = await _dbContext.TblContractTemplateLegalBases
+            .AsNoTracking()
+            .AnyAsync(item => item.TemplateVersionId == versionId,
+                cancellationToken);
+        if (!hasLegalBases)
+        {
+            return;
+        }
+
+        var hasMarker = await _dbContext.TblContractTemplateFields
+            .AsNoTracking()
+            .AnyAsync(field => field.TemplateVersionId == versionId
+                && field.PlaceholderKey == "CONTRACT_LEGAL_BASES",
+                cancellationToken);
+        if (!hasMarker)
+        {
+            throw new ContractTemplatePreviewException(
+                "LegalBasesMarkerMissing",
+                "DOCX nguồn phải có đúng một marker {{CONTRACT_LEGAL_BASES}} tại vị trí cần chèn căn cứ hợp đồng. Hãy chèn marker vào DOCX, upload lại tài liệu rồi tạo preview trước khi phát hành.");
+        }
+    }
+
+    private async Task<TemplatePreviewInput> LoadTemplatePreviewInputAsync(
+        int versionId,
+        CancellationToken cancellationToken)
+    {
+        var bases = await _dbContext.TblContractTemplateLegalBases
+            .AsNoTracking()
+            .Where(item => item.TemplateVersionId == versionId)
+            .OrderBy(item => item.DisplayOrder)
+            .ThenBy(item => item.TemplateLegalBasisId)
+            .Select(item => new
+            {
+                item.BasisCode,
+                item.ContentVi,
+                item.ContentEn,
+                item.DisplayOrder
+            })
+            .ToListAsync(cancellationToken);
+
+        var terms = await _dbContext.TblContractTemplateTerms.AsNoTracking()
+            .Where(term => term.TemplateVersionId == versionId)
+            .OrderBy(term => term.DisplayOrder).ThenBy(term => term.TemplateTermId)
+            .ToListAsync(cancellationToken);
+        var milestones = await _dbContext.TblContractTemplatePaymentMilestones.AsNoTracking()
+            .Where(item => item.TemplateVersionId == versionId)
+            .OrderBy(item => item.DisplayOrder).ThenBy(item => item.TemplatePaymentMilestoneId)
+            .ToListAsync(cancellationToken);
+        var appendices = await _dbContext.TblContractTemplateAppendices.AsNoTracking()
+            .Where(item => item.TemplateVersionId == versionId)
+            .OrderBy(item => item.DisplayOrder).ThenBy(item => item.TemplateAppendixId)
+            .ToListAsync(cancellationToken);
+        var appendixIds = appendices.Select(item => item.TemplateAppendixId).ToList();
+        var appendixTerms = await _dbContext.TblContractTemplateAppendixTerms.AsNoTracking()
+            .Where(item => appendixIds.Contains(item.TemplateAppendixId))
+            .OrderBy(item => item.DisplayOrder).ThenBy(item => item.TemplateAppendixTermId)
+            .ToListAsync(cancellationToken);
+        var itemTableLayout = await LoadItemTableLayoutRowsAsync(
+            versionId,
+            tracking: false,
+            cancellationToken);
+        var itemTableWidths = itemTableLayout
+            .Select(item => (int)item.WidthBps)
+            .ToArray();
+
+        var basisCanonical = string.Join('\n', bases.Select(item => string.Join('|',
+            EscapeCanonical(item.BasisCode),
+            EscapeCanonical(item.ContentVi),
+            EscapeCanonical(item.ContentEn),
+            item.DisplayOrder.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        var paymentCanonical = string.Join('\n', terms.Select(term =>
+        {
+            var milestoneCanonical = string.Join('~', milestones
+                .Where(item => item.TemplateTermId == term.TemplateTermId)
+                .Select(item => string.Join(',',
+                    EscapeCanonical(item.MilestoneCode),
+                    EscapeCanonical(item.TitleVi), EscapeCanonical(item.TitleEn),
+                    item.PaymentPercent.ToString(invariant),
+                    item.DueAnchor.ToString(invariant),
+                    item.DueOffsetDays.ToString(invariant),
+                    item.DayCountMode.ToString(invariant), EscapeCanonical(item.ConditionVi),
+                    EscapeCanonical(item.ConditionEn),
+                    item.DisplayOrder.ToString(invariant))));
+            return string.Join('|', EscapeCanonical(term.TermCode),
+                term.TermKind.ToString(invariant), EscapeCanonical(term.TermTitle),
+                EscapeCanonical(term.TermTitleEn), EscapeCanonical(term.TermContent),
+                EscapeCanonical(term.TermContentEn), term.DisplayOrder.ToString(invariant),
+                milestoneCanonical);
+        }));
+        var itemLayoutCanonical = string.Join(',', itemTableLayout.Select(item =>
+            $"{EscapeCanonical(item.ColumnKey)}:{item.DisplayOrder}:{item.WidthBps}"));
+        var appendixCanonical = string.Join('\n', appendices.Select(appendix =>
+            string.Join('|', EscapeCanonical(appendix.AppendixCode),
+                EscapeCanonical(appendix.AppendixName),
+                EscapeCanonical(appendix.AppendixNameEn),
+                EscapeCanonical(appendix.AppendixDescription),
+                appendix.IsRequired ? "1" : "0",
+                appendix.IsSelectedByDefault ? "1" : "0",
+                appendix.DisplayOrder.ToString(invariant),
+                string.Join('~', appendixTerms
+                    .Where(term => term.TemplateAppendixId == appendix.TemplateAppendixId)
+                    .Select(term => string.Join(',', EscapeCanonical(term.TermCode),
+                        EscapeCanonical(term.TermTitle), EscapeCanonical(term.TermTitleEn),
+                        EscapeCanonical(term.TermContent), EscapeCanonical(term.TermContentEn),
+                        term.DisplayOrder.ToString(invariant)))))));
+        var canonical = string.Join("\n", new[]
+        {
+            "ITEM_LAYOUT", itemLayoutCanonical,
+            "LEGAL", basisCanonical,
+            "TERMS", paymentCanonical,
+            "APPENDICES", appendixCanonical
+        });
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+        var sampleTotal = SoftwareSupplyPreviewDatasetV1.Items.Sum(item => item.TotalAmount);
+        return new TemplatePreviewInput(
+            new ContractTemplateAuthoringPreviewData
+            {
+                ItemTableColumnWidthsBps = itemTableWidths,
+                LegalBases = bases.Select((item, index) =>
+                    new ContractTemplateRenderLegalBasis(
+                        index + 1, item.ContentVi, item.ContentEn)).ToList(),
+                Terms = terms.Select((term, index) =>
+                {
+                    var termMilestones = milestones
+                        .Where(item => item.TemplateTermId == term.TemplateTermId)
+                        .ToList();
+                    var renderMilestones = new List<ContractTemplateRenderPaymentMilestone>(
+                        termMilestones.Count);
+                    decimal allocated = 0m;
+                    for (var milestoneIndex = 0;
+                         milestoneIndex < termMilestones.Count;
+                         milestoneIndex++)
+                    {
+                        var item = termMilestones[milestoneIndex];
+                        var amount = milestoneIndex == termMilestones.Count - 1
+                            ? sampleTotal - allocated
+                            : Math.Round(sampleTotal * item.PaymentPercent / 100m,
+                                0, MidpointRounding.AwayFromZero);
+                        allocated += amount;
+                        renderMilestones.Add(new ContractTemplateRenderPaymentMilestone(
+                            milestoneIndex + 1, item.TitleVi, item.TitleEn,
+                            item.PaymentPercent, amount,
+                            (PaymentDueAnchor)item.DueAnchor, item.DueOffsetDays,
+                            (PaymentDayCountMode)item.DayCountMode,
+                            item.ConditionVi, item.ConditionEn));
+                    }
+
+                    return new ContractTemplateRenderTerm(
+                        index + 1, term.TermTitle, term.TermTitleEn ?? string.Empty,
+                        term.TermContent ?? string.Empty, term.TermContentEn ?? string.Empty)
+                    {
+                        Kind = (ContractTermKind)term.TermKind,
+                        PaymentMilestones = renderMilestones
+                    };
+                }).ToList(),
+                Appendices = appendices.Select((appendix, appendixIndex) =>
+                    new ContractTemplateRenderAppendix(
+                        appendixIndex + 1,
+                        appendix.AppendixCode,
+                        appendix.AppendixName,
+                        appendix.AppendixNameEn,
+                        "Căn cứ Hợp đồng số HD-MAU giữa Công ty mẫu bên cung cấp và Công ty mẫu khách hàng về việc Hợp đồng mẫu.",
+                        "Pursuant to Contract No. HD-MAU between the sample provider and the sample customer regarding the sample contract.",
+                        appendixTerms
+                            .Where(term => term.TemplateAppendixId ==
+                                appendix.TemplateAppendixId)
+                            .OrderBy(term => term.DisplayOrder)
+                            .Select((term, termIndex) =>
+                                new ContractTemplateRenderAppendixTerm(
+                                    termIndex + 1,
+                                    term.TermTitle,
+                                    term.TermTitleEn,
+                                    term.TermContent,
+                                    term.TermContentEn))
+                            .ToArray())).ToList()
+            },
+            hash);
+    }
+
+    private static string EscapeCanonical(string? value) =>
+        (value ?? string.Empty)
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("|", "\\|", StringComparison.Ordinal)
+        .Replace("\r", "\\r", StringComparison.Ordinal)
+        .Replace("\n", "\\n", StringComparison.Ordinal);
+
+    private sealed record TemplatePreviewInput(
+        ContractTemplateAuthoringPreviewData RenderData,
+        string CanonicalHash);
 
     private static bool IsSha256Hex(string? value) =>
         value is { Length: 64 }
@@ -2036,34 +3282,35 @@ public sealed class ContractTemplateService : IContractTemplateService
         }
     }
 
-    private static IReadOnlyDictionary<string, object?> BuildAuditValues(
+    private static IReadOnlyCollection<ContractTemplateAuditValueInput> BuildAuditValues(
         int? documentFileId,
         string? extension,
         long? sizeBytes,
         string validationStatus,
         int? recognizedPlaceholderCount)
     {
-        var values = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var values = new List<(string Key, object? Value)>
         {
-            ["DocumentFileId"] = documentFileId,
-            ["ValidationStatus"] = validationStatus
+            ("DocumentFileId", documentFileId),
+            ("ValidationStatus", validationStatus)
         };
         if (extension is not null)
         {
-            values["DocumentExtension"] = GetSafeAuditExtension(extension);
+            values.Add(("DocumentExtension", GetSafeAuditExtension(extension)));
         }
 
         if (sizeBytes.HasValue)
         {
-            values["DocumentSizeBytes"] = Math.Max(sizeBytes.Value, 0);
+            values.Add(("DocumentSizeBytes", Math.Max(sizeBytes.Value, 0)));
         }
 
         if (recognizedPlaceholderCount.HasValue)
         {
-            values["RecognizedPlaceholderCount"] = recognizedPlaceholderCount.Value;
+            values.Add(("RecognizedPlaceholderCount",
+                recognizedPlaceholderCount.Value));
         }
 
-        return values;
+        return ContractTemplateAuditValues.Create(values.ToArray());
     }
 
     private static string GetSafeAuditExtension(string? fileNameOrExtension)
@@ -2102,6 +3349,10 @@ public sealed class ContractTemplateService : IContractTemplateService
 
         var response = MapTemplateDetail(template);
         response.Versions = versions.Select(MapVersionSummary).ToList();
+        response.CurrentPublishedVersionNo = versions
+            .FirstOrDefault(version =>
+                version.TemplateVersionId == template.CurrentPublishedVersionId)
+            ?.VersionNo;
         return response;
     }
 
@@ -2128,10 +3379,108 @@ public sealed class ContractTemplateService : IContractTemplateService
             .OrderBy(term => term.DisplayOrder)
             .ThenBy(term => term.TemplateTermId)
             .ToListAsync(cancellationToken);
+        var legalBases = await _dbContext.TblContractTemplateLegalBases
+            .AsNoTracking()
+            .Where(item => item.TemplateVersionId == versionId)
+            .OrderBy(item => item.DisplayOrder)
+            .ThenBy(item => item.TemplateLegalBasisId)
+            .ToListAsync(cancellationToken);
+        var paymentMilestones = await _dbContext.TblContractTemplatePaymentMilestones
+            .AsNoTracking()
+            .Where(item => item.TemplateVersionId == versionId)
+            .OrderBy(item => item.DisplayOrder)
+            .ThenBy(item => item.TemplatePaymentMilestoneId)
+            .ToListAsync(cancellationToken);
+        var itemTableLayout = await LoadItemTableLayoutRowsAsync(
+            versionId,
+            tracking: false,
+            cancellationToken);
 
         var response = MapVersionDetail(version, template);
+        if (version.PreviewedByEmployeeId is int previewedByEmployeeId)
+        {
+            response.PreviewedByEmployeeName =
+                await _dbContext.TblEmployees
+                    .AsNoTracking()
+                    .Where(employee =>
+                        employee.EmployeeId == previewedByEmployeeId)
+                    .Select(employee => employee.EmployeeFullName)
+                    .SingleOrDefaultAsync(cancellationToken);
+        }
         response.Terms = terms.Select(MapTerm).ToList();
+        foreach (var term in response.Terms)
+        {
+            term.PaymentMilestones = paymentMilestones
+                .Where(item => item.TemplateTermId == term.TemplateTermId)
+                .Select(MapPaymentMilestone).ToList();
+        }
+        response.LegalBases = legalBases.Select(MapLegalBasis).ToList();
+        response.ItemTableLayout = itemTableLayout
+            .Select(MapItemTableLayout)
+            .ToList();
+        response.Appendices = (await LoadAppendicesAsync(versionId,
+            cancellationToken)).ToList();
         return response;
+    }
+
+    private async Task<List<TblContractTemplateItemTableColumnLayout>>
+        LoadItemTableLayoutRowsAsync(
+            int versionId,
+            bool tracking,
+            CancellationToken cancellationToken)
+    {
+        var query = _dbContext.TblContractTemplateItemTableColumnLayouts
+            .Where(item => item.TemplateVersionId == versionId);
+        if (!tracking) query = query.AsNoTracking();
+
+        var rows = await query
+            .OrderBy(item => item.DisplayOrder)
+            .ToListAsync(cancellationToken);
+        ContractTableLayoutPolicy.RequireItemColumnWidths(rows.Select(item => (
+            item.ColumnKey,
+            (int)item.DisplayOrder,
+            (int)item.WidthBps)));
+
+        return rows;
+    }
+
+    private static IEnumerable<TblContractTemplateItemTableColumnLayout>
+        CreateItemTableLayoutRows(
+            int versionId,
+            IReadOnlyList<int> widths,
+            int employeeId,
+            DateTime createdDate)
+    {
+        ContractTableLayoutPolicy.RequireCanonicalWidths(
+            widths,
+            ContractTableLayoutPolicy.ItemColumnKeys.Count,
+            "ItemTableLayoutInvalid");
+        return ContractTableLayoutPolicy.ItemColumnKeys.Select((key, order) =>
+            new TblContractTemplateItemTableColumnLayout
+            {
+                TemplateVersionId = versionId,
+                ColumnKey = key,
+                DisplayOrder = checked((byte)order),
+                WidthBps = checked((short)widths[order]),
+                CreatedEmployeeId = employeeId,
+                CreatedDate = createdDate
+            });
+    }
+
+    private async Task EnsureLegalBasisCodeAndOrderAreAvailableAsync(
+        int versionId, string basisCode, int displayOrder, int? excludedId,
+        CancellationToken cancellationToken)
+    {
+        var duplicate = await _dbContext.TblContractTemplateLegalBases.AnyAsync(
+            item => item.TemplateVersionId == versionId
+                && item.TemplateLegalBasisId != excludedId
+                && (item.BasisCode == basisCode || item.DisplayOrder == displayOrder),
+            cancellationToken);
+        if (duplicate)
+        {
+            throw new ArgumentException(
+                "BasisCode và DisplayOrder phải duy nhất trong template version.");
+        }
     }
 
     private async Task EnsureTermCodeAndDisplayOrderAreAvailableAsync(
@@ -2190,9 +3539,112 @@ public sealed class ContractTemplateService : IContractTemplateService
             NormalizeRequired(termCode, 100, nameof(termCode)),
             NormalizeRequired(termTitle, 500, nameof(termTitle)),
             NormalizeOptional(termTitleEn, 500),
-            NormalizeOptional(termContent),
-            NormalizeOptional(termContentEn),
+            NormalizeRichText(termContent, nameof(termContent)),
+            NormalizeRichText(termContentEn, nameof(termContentEn)),
             displayOrder);
+    }
+
+    private static string? NormalizeRichText(string? value, string parameterName)
+    {
+        var normalized = NormalizeOptional(value);
+        if (normalized is null)
+        {
+            return null;
+        }
+
+        if (!ContractTermRichText.TryParse(normalized, out _))
+        {
+            throw new ArgumentException(
+                "Nội dung phải dùng định dạng rich text v4 hợp lệ.",
+                parameterName);
+        }
+
+        return normalized;
+    }
+
+    private async Task EnsureSinglePaymentTermAsync(int versionId,
+        ContractTermKind kind, int? excludedTermId, CancellationToken cancellationToken)
+    {
+        if (kind != ContractTermKind.Payment) return;
+        if (await _dbContext.TblContractTemplateTerms.AnyAsync(term =>
+                term.TemplateVersionId == versionId
+                && term.TemplateTermId != excludedTermId
+                && term.TermKind == (byte)ContractTermKind.Payment,
+                cancellationToken))
+            throw new ArgumentException("Mỗi template version chỉ có một điều khoản thanh toán.");
+    }
+
+    private async Task EnsurePaymentTermAsync(int versionId, int termId,
+        CancellationToken cancellationToken)
+    {
+        var valid = await _dbContext.TblContractTemplateTerms.AnyAsync(term =>
+            term.TemplateTermId == termId
+            && term.TemplateVersionId == versionId
+            && term.TermKind == (byte)ContractTermKind.Payment, cancellationToken);
+        if (!valid) throw new ArgumentException("Đợt thanh toán chỉ thuộc điều khoản loại Thanh toán.");
+    }
+
+    private async Task EnsurePaymentMilestoneUniqueAsync(int versionId, int termId,
+        string code, int order, int? excludedId, CancellationToken cancellationToken)
+    {
+        if (await _dbContext.TblContractTemplatePaymentMilestones.AnyAsync(item =>
+                item.TemplateVersionId == versionId && item.TemplateTermId == termId
+                && item.TemplatePaymentMilestoneId != excludedId
+                && (item.MilestoneCode == code || item.DisplayOrder == order),
+                cancellationToken))
+            throw new ArgumentException("Mã và thứ tự đợt thanh toán phải duy nhất.");
+    }
+
+    private static void ValidateTermKind(ContractTermKind kind)
+    {
+        if (!Enum.IsDefined(kind)) throw new ArgumentException("Loại điều khoản không hợp lệ.");
+    }
+
+    private static (string Code, string TitleVi, string? TitleEn, decimal Percent,
+        PaymentDueAnchor Anchor, int Offset, PaymentDayCountMode DayCount,
+        string? ConditionVi, string? ConditionEn, int Order)
+        NormalizePaymentMilestone(SaveContractTemplatePaymentMilestoneRequest request)
+    {
+        if (!Enum.IsDefined(request.DueAnchor) || !Enum.IsDefined(request.DayCountMode))
+            throw new ArgumentException("Mốc hạn hoặc cách đếm ngày không hợp lệ.");
+        if (request.PaymentPercent <= 0 || request.PaymentPercent > 100)
+            throw new ArgumentException("Tỷ lệ thanh toán phải lớn hơn 0 và không vượt 100%.");
+        if (request.DueOffsetDays < 0 || request.DisplayOrder < 0)
+            throw new ArgumentException("Số ngày và thứ tự không được âm.");
+        var conditionVi = NormalizeOptional(request.ConditionVi, 2000);
+        return (NormalizeRequired(request.MilestoneCode, 100, nameof(request.MilestoneCode)).ToUpperInvariant(),
+            NormalizeRequired(request.TitleVi, 500, nameof(request.TitleVi)),
+            NormalizeOptional(request.TitleEn, 500), request.PaymentPercent,
+            request.DueAnchor, request.DueOffsetDays, request.DayCountMode,
+            conditionVi, NormalizeOptional(request.ConditionEn, 2000), request.DisplayOrder);
+    }
+
+    private static (string BasisCode, string ContentVi, string? ContentEn,
+        int DisplayOrder) NormalizeLegalBasis(string? basisCode,
+        string? contentVi, string? contentEn, int displayOrder)
+    {
+        if (displayOrder < 0)
+        {
+            throw new ArgumentException("DisplayOrder không được âm.");
+        }
+
+        var normalizedContentVi = NormalizeRichText(contentVi, nameof(contentVi))
+            ?? throw new ArgumentException(
+                "Nội dung căn cứ tiếng Việt không được để trống.",
+                nameof(contentVi));
+
+        return (NormalizeRequired(basisCode, 100, nameof(basisCode)),
+            normalizedContentVi,
+            NormalizeRichText(contentEn, nameof(contentEn)),
+            displayOrder);
+    }
+
+    private static void ValidateDocumentType(TemplateDocumentType type)
+    {
+        if (!Enum.IsDefined(type))
+        {
+            throw new ArgumentException("DocumentType không hợp lệ.");
+        }
     }
 
     private static void ValidateLanguageMode(ContractLanguageMode mode)
@@ -2201,6 +3653,23 @@ public sealed class ContractTemplateService : IContractTemplateService
         {
             throw new ArgumentException("LanguageMode không hợp lệ.");
         }
+    }
+
+    private static string NormalizeTemplateCode(string? value)
+    {
+        var normalized = NormalizeRequired(
+                value,
+                50,
+                nameof(CreateContractTemplateRequest.TemplateCode))
+            .ToUpperInvariant();
+        if (!TemplateCodePattern.IsMatch(normalized))
+        {
+            throw new ArgumentException(
+                "Mã mẫu chỉ được gồm chữ cái không dấu, chữ số, dấu gạch ngang hoặc gạch dưới; không được bắt đầu hoặc kết thúc bằng dấu gạch.",
+                nameof(CreateContractTemplateRequest.TemplateCode));
+        }
+
+        return normalized;
     }
 
     private static string NormalizeRequired(
@@ -2311,6 +3780,20 @@ public sealed class ContractTemplateService : IContractTemplateService
             .Property(entity => entity.RowVersion)
             .OriginalValue = expectedRowVersion;
 
+    private void SetOriginalRowVersion(
+        TblContractTemplateLegalBasis basis,
+        byte[] expectedRowVersion) =>
+        _dbContext.Entry(basis)
+            .Property(entity => entity.RowVersion)
+            .OriginalValue = expectedRowVersion;
+
+    private void SetOriginalRowVersion(
+        TblContractTemplatePaymentMilestone item,
+        byte[] expectedRowVersion) =>
+        _dbContext.Entry(item)
+            .Property(entity => entity.RowVersion)
+            .OriginalValue = expectedRowVersion;
+
     private void SetSyntheticRowVersionIfNeeded(TblContractTemplate template)
     {
         if (IsInMemoryProvider() && template.RowVersion is not { Length: 8 })
@@ -2333,6 +3816,20 @@ public sealed class ContractTemplateService : IContractTemplateService
         if (IsInMemoryProvider() && term.RowVersion is not { Length: 8 })
         {
             term.RowVersion = NewSyntheticRowVersion();
+        }
+    }
+
+    private void SetSyntheticRowVersionIfNeeded(TblContractTemplatePaymentMilestone item)
+    {
+        if (IsInMemoryProvider() && item.RowVersion is not { Length: 8 })
+            item.RowVersion = NewSyntheticRowVersion();
+    }
+
+    private void SetSyntheticRowVersionIfNeeded(TblContractTemplateLegalBasis basis)
+    {
+        if (IsInMemoryProvider() && basis.RowVersion is not { Length: 8 })
+        {
+            basis.RowVersion = NewSyntheticRowVersion();
         }
     }
 
@@ -2361,6 +3858,14 @@ public sealed class ContractTemplateService : IContractTemplateService
         }
     }
 
+    private void RotateLegalBasisRowVersionIfNeeded(TblContractTemplateLegalBasis basis)
+    {
+        if (IsInMemoryProvider())
+        {
+            basis.RowVersion = NewSyntheticRowVersion();
+        }
+    }
+
     private bool IsInMemoryProvider() =>
         _dbContext.Database.ProviderName
             == "Microsoft.EntityFrameworkCore.InMemory";
@@ -2368,6 +3873,28 @@ public sealed class ContractTemplateService : IContractTemplateService
     private static byte[] NewSyntheticRowVersion() =>
         BitConverter.GetBytes(
             Interlocked.Increment(ref _syntheticRowVersionSeed));
+
+    private static BusinessRuleException
+        CreateDraftVersionAlreadyExistsException() => new(
+            StatusCodes.Status409Conflict,
+            ContractTemplateErrorCodes.DraftVersionAlreadyExists,
+            "Mẫu hợp đồng đã có một bản nháp đang làm việc. Hãy tiếp tục chỉnh sửa bản nháp hiện tại.");
+
+    private static bool IsUniqueConstraintViolation(
+        DbUpdateException exception)
+    {
+        for (Exception? current = exception;
+             current is not null;
+             current = current.InnerException)
+        {
+            if (current is SqlException { Number: 2601 or 2627 })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> operation,
@@ -2491,6 +4018,16 @@ public sealed class ContractTemplateService : IContractTemplateService
             RowVersion = EncodeRowVersion(version.RowVersion)
         };
 
+    private static ContractTemplateItemTableColumnLayoutResponse MapItemTableLayout(
+        TblContractTemplateItemTableColumnLayout item) => new()
+        {
+            ItemTableColumnLayoutId = item.ItemTableColumnLayoutId,
+            TemplateVersionId = item.TemplateVersionId,
+            ColumnKey = item.ColumnKey,
+            DisplayOrder = item.DisplayOrder,
+            WidthBps = item.WidthBps
+        };
+
     private static ContractTemplatePreviewResponse MapPreviewResponse(
         TblContractTemplateVersion version,
         bool isReused)
@@ -2527,11 +4064,47 @@ public sealed class ContractTemplateService : IContractTemplateService
             TermContentEn = term.TermContentEn,
             IsNegotiable = term.IsNegotiable,
             DisplayOrder = term.DisplayOrder,
+            TermKind = (ContractTermKind)term.TermKind,
             CreatedEmployeeId = term.CreatedEmployeeId,
             CreatedDate = term.CreatedDate,
             UpdatedEmployeeId = term.UpdatedEmployeeId,
             UpdatedDate = term.UpdatedDate,
             RowVersion = EncodeRowVersion(term.RowVersion)
+        };
+
+    private static ContractTemplatePaymentMilestoneResponse MapPaymentMilestone(
+        TblContractTemplatePaymentMilestone item) => new()
+        {
+            TemplatePaymentMilestoneId = item.TemplatePaymentMilestoneId,
+            TemplateVersionId = item.TemplateVersionId,
+            TemplateTermId = item.TemplateTermId,
+            MilestoneCode = item.MilestoneCode,
+            TitleVi = item.TitleVi,
+            TitleEn = item.TitleEn,
+            PaymentPercent = item.PaymentPercent,
+            DueAnchor = (PaymentDueAnchor)item.DueAnchor,
+            DueOffsetDays = item.DueOffsetDays,
+            DayCountMode = (PaymentDayCountMode)item.DayCountMode,
+            ConditionVi = item.ConditionVi,
+            ConditionEn = item.ConditionEn,
+            DisplayOrder = item.DisplayOrder,
+            RowVersion = EncodeRowVersion(item.RowVersion)
+        };
+
+    private static ContractTemplateLegalBasisResponse MapLegalBasis(
+        TblContractTemplateLegalBasis basis) => new()
+        {
+            TemplateLegalBasisId = basis.TemplateLegalBasisId,
+            TemplateVersionId = basis.TemplateVersionId,
+            BasisCode = basis.BasisCode,
+            ContentVi = basis.ContentVi,
+            ContentEn = basis.ContentEn,
+            DisplayOrder = basis.DisplayOrder,
+            CreatedEmployeeId = basis.CreatedEmployeeId,
+            CreatedDate = basis.CreatedDate,
+            UpdatedEmployeeId = basis.UpdatedEmployeeId,
+            UpdatedDate = basis.UpdatedDate,
+            RowVersion = EncodeRowVersion(basis.RowVersion)
         };
 
     private static void TouchVersion(

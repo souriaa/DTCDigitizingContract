@@ -1,23 +1,43 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 
-public partial class TblNotification
+public sealed class TblNotification
 {
-    public int NotificationId { get; set; }
+    public long NotificationId { get; set; }
+    public string EventKey { get; set; } = null!;
+    public string ModuleCode { get; set; } = null!;
+    public string EventCode { get; set; } = null!;
+    public string SubjectType { get; set; } = null!;
+    public int SubjectId { get; set; }
+    public int? ActorEmployeeId { get; set; }
+    public string Title { get; set; } = null!;
+    public string? Body { get; set; }
+    public DateTime OccurredAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public string? ActionKey { get; set; }
+    public ICollection<TblNotificationRecipient> Recipients { get; set; } = [];
+    public TblNotificationDispatchOutbox? DispatchOutbox { get; set; }
+}
 
-    public int UserId { get; set; }
+public sealed class TblNotificationRecipient
+{
+    public long NotificationRecipientId { get; set; }
+    public long NotificationId { get; set; }
+    public int EmployeeId { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? ReadAtUtc { get; set; }
+    public TblNotification Notification { get; set; } = null!;
+}
 
-    public string NotificationTitle { get; set; } = null!;
-
-    public string? NotificationMessage { get; set; }
-
-    public string? ObjectType { get; set; }
-
-    public int? ObjectId { get; set; }
-
-    public bool IsRead { get; set; }
-
-    public DateTime CreatedDate { get; set; }
+public sealed class TblNotificationDispatchOutbox
+{
+    public long OutboxId { get; set; }
+    public long NotificationId { get; set; }
+    public string Status { get; set; } = "Pending";
+    public int AttemptCount { get; set; }
+    public DateTime NextAttemptAtUtc { get; set; }
+    public Guid? LeaseId { get; set; }
+    public DateTime? LeaseUntilUtc { get; set; }
+    public DateTime? DispatchedAtUtc { get; set; }
+    public string? LastErrorCode { get; set; }
+    public TblNotification Notification { get; set; } = null!;
 }

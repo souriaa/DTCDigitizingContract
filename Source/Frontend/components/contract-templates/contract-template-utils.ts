@@ -5,13 +5,30 @@ export const getContractTemplateErrorMessage = (
   const apiError = error as {
     response?: {
       status?: number;
-      data?: { message?: string; errors?: string[] | Record<string, string[]> };
+      data?: {
+        code?: string;
+        message?: string;
+        errors?: string[] | Record<string, string[]>;
+      };
     };
     message?: string;
   };
   const data = apiError.response?.data;
 
+  if (Array.isArray(data?.errors) && data.errors.some(code =>
+    code.startsWith("Placeholder") || code === "SystemPlaceholderImmutable" || code === "CustomPlaceholdersDisabled")) {
+    return data.message || fallback;
+  }
+
   if (apiError.response?.status === 409) {
+    if (
+      data?.code === "DraftVersionAlreadyExists" ||
+      (Array.isArray(data?.errors) &&
+        data.errors.includes("DraftVersionAlreadyExists"))
+    ) {
+      return "Mẫu hợp đồng đã có một bản nháp đang làm việc. Hãy tiếp tục chỉnh sửa bản nháp hiện tại.";
+    }
+
     return "Dữ liệu đã được thay đổi bởi người khác. Vui lòng tải lại và thử lại.";
   }
 
@@ -48,8 +65,20 @@ export const parseValidationMessages = (message?: string | null) => {
       if (item === "UnknownPlaceholder") {
         return "Tài liệu có placeholder không nằm trong catalog.";
       }
+      if (item.startsWith("UnknownPlaceholder:")) {
+        return `Placeholder {{${item.split(":")[1]}}} không nằm trong catalog.`;
+      }
+      if (item.startsWith("InvalidPlaceholderSyntax:")) {
+        return `Placeholder {{${item.split(":")[1]}}} sai cú pháp. Key phải viết hoa và chỉ chứa chữ, số hoặc dấu gạch dưới.`;
+      }
+      if (item === "InvalidPlaceholderSyntax") {
+        return "Tài liệu có placeholder sai hoặc chưa đóng đủ {{ }}.";
+      }
       if (item.startsWith("MissingRequiredPlaceholder:")) {
         return `Thiếu placeholder bắt buộc {{${item.split(":")[1]}}}.`;
+      }
+      if (item.startsWith("InactivePlaceholder:")) {
+        return `Placeholder {{${item.split(":")[1]}}} đã ngừng dùng. Hãy kích hoạt lại hoặc thay placeholder trong DOCX.`;
       }
       if (item.startsWith("MultiplicityViolation:")) {
         return `Placeholder {{${item.split(":")[1]}}} xuất hiện sai số lần cho phép.`;

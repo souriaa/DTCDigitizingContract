@@ -10,6 +10,7 @@ using ContractManagement.Infrastructure.MultiTenancy.Interfaces;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ContractManagement.Domains.Services.Contract;
 
@@ -27,19 +28,55 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
     private readonly CustomerAccessCryptography _cryptography;
     private readonly IContractService _contractService;
     private readonly IContractAuditWriter _auditWriter;
+    private readonly CustomerOtpOptions _otpOptions;
 
     public CustomerContractAccessService(
         DbDtctechContext dbContext,
         ICurrentTenant currentTenant,
         CustomerAccessCryptography cryptography,
         IContractService contractService,
-        IContractAuditWriter auditWriter)
+        IContractAuditWriter auditWriter,
+        IOptions<CustomerOtpOptions> otpOptions)
     {
         _dbContext = dbContext;
         _currentTenant = currentTenant;
         _cryptography = cryptography;
         _contractService = contractService;
         _auditWriter = auditWriter;
+        _otpOptions = otpOptions.Value;
+    }
+
+    public async Task<CustomerAccessLinkAvailabilityResponse> GetLinkAvailabilityAsync(
+        string linkToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(linkToken))
+        {
+            return CreateLinkAvailabilityResponse("Unavailable");
+        }
+
+        var tenantId = _currentTenant.GetRequiredTenant().TenantId;
+        var link = await _dbContext.TblContractCustomerAccessLinks
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.TenantId == tenantId
+                && x.TokenHash == _cryptography.HashSecret(linkToken),
+                cancellationToken);
+
+        if (link is null)
+        {
+            return CreateLinkAvailabilityResponse("Unavailable");
+        }
+
+        var now = DateTime.UtcNow;
+        if (!link.ActivatedAt.HasValue
+            && !link.RevokedAt.HasValue
+            && link.ExpiresAt > now)
+        {
+            return CreateLinkAvailabilityResponse("PendingActivation");
+        }
+
+        return CreateLinkAvailabilityResponse(
+            IsLinkActive(link, now) ? "Available" : "Unavailable");
     }
 
     public async Task<CustomerOtpRequestAcceptedResponse> RequestOtpAsync(
@@ -49,7 +86,9 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
     {
         var response = new CustomerOtpRequestAcceptedResponse
         {
-            PublicChallengeId = _cryptography.CreatePublicChallengeId()
+            PublicChallengeId = _cryptography.CreatePublicChallengeId(),
+            // Determined only by configuration, including for decoy responses.
+            DeliveryChannel = _otpOptions.UsesSmtp ? "Email" : "Sms"
         };
 
         if (string.IsNullOrWhiteSpace(linkToken)
@@ -77,6 +116,16 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                 {
                     await transaction.CommitAsync(cancellationToken);
                     return response;
+                }
+
+                // The link can be prepared while the contract is still Draft, but it
+                // is activated only when negotiation starts.
+                if (!link.ActivatedAt.HasValue
+                    && !link.RevokedAt.HasValue
+                    && link.ExpiresAt > now)
+                {
+                    throw new InvalidOperationException(
+                        "Chỉ có thể xem hợp đồng khi hợp đồng đang ở trạng thái đàm phán.");
                 }
 
                 if (!IsLinkActive(link, now))
@@ -144,6 +193,25 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                     return response;
                 }
 
+                string? recipientEmail = null;
+                if (_otpOptions.UsesSmtp)
+                {
+                    // Resolve within this tenant and contract; never trust a public recipient input.
+                    recipientEmail = (await (
+                        from contract in _dbContext.TblContracts
+                        join customer in _dbContext.TblCustomers on contract.CustomerId equals customer.CustomerId
+                        where contract.ContractId == link.ContractId
+                        select customer.CustomerEmail).SingleOrDefaultAsync(cancellationToken))?.Trim();
+                    if (!CustomerOtpSmtpOptions.IsEmailAddress(recipientEmail))
+                    {
+                        StageSystemAudit(link, ContractAuditActionTypes.CustomerOtpFailed, now,
+                            ContractAuditResults.Failed, ContractAuditFailureCodes.OtpDeliveryFailed);
+                        await _dbContext.SaveChangesAsync(cancellationToken);
+                        await transaction.CommitAsync(cancellationToken);
+                        return response;
+                    }
+                }
+
                 var usableChallenges = await _dbContext.TblContractCustomerOtpChallenges
                     .Where(x => x.LinkId == link.CustomerAccessLinkId
                         && x.UsedAt == null
@@ -177,8 +245,12 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                     new TblContractCustomerOtpDeliveryOutbox
                     {
                         ChallengeId = challengeToCreate.CustomerOtpChallengeId,
-                        EncryptedPayload = _cryptography.EncryptDeliveryPayload(
-                            new CustomerOtpDeliveryMessage(normalizedPhone, otp)),
+                        PhoneCiphertext = _cryptography.EncryptScalar(normalizedPhone),
+                        OtpCiphertext = _cryptography.EncryptScalar(otp),
+                        EmailCiphertext = recipientEmail is null
+                            ? null
+                            : _cryptography.EncryptScalar(recipientEmail),
+                        DeliveryExpiresAt = challengeToCreate.ExpiresAt,
                         Status = "Pending",
                         AttemptCount = 0,
                         NextAttemptAt = now,
@@ -618,6 +690,13 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
         && !link.RevokedAt.HasValue
         && link.ExpiresAt > now;
 
+    private static CustomerAccessLinkAvailabilityResponse CreateLinkAvailabilityResponse(
+        string state) => new()
+        {
+            IsAvailable = state == "Available",
+            State = state
+        };
+
     private static string GetLinkFailureCode(
         TblContractCustomerAccessLink link) => link.RevokedAt.HasValue
         ? ContractAuditFailureCodes.LinkRevoked
@@ -676,8 +755,8 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
         string? failureCode = null,
         string? subjectType = null,
         int? subjectId = null,
-        IReadOnlyDictionary<string, object?>? previousValues = null,
-        IReadOnlyDictionary<string, object?>? newValues = null)
+        IReadOnlyCollection<ContractAuditValueInput>? previousValues = null,
+        IReadOnlyCollection<ContractAuditValueInput>? newValues = null)
     {
         _auditWriter.StageAudits(
         [

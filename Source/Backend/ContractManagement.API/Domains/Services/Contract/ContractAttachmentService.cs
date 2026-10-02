@@ -1,6 +1,7 @@
 ﻿using ContractManagement.Common.Enums;
 using ContractManagement.Domains.DTOs.Requests.Contract;
 using ContractManagement.Domains.DTOs.Responses.Contract;
+using ContractManagement.Domains.DTOs.Responses.File;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Interfaces.File;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -21,15 +22,18 @@ namespace ContractManagement.Domains.Services.Contract
         private readonly DbDtctechContext _dbContext;
         private readonly IFileStorageService _fileStorageService;
         private readonly IContractResourceAuthorizationService _contractAuthorization;
+        private readonly IContractAuditWriter _contractAuditWriter;
 
         public ContractAttachmentService(
             DbDtctechContext dbContext,
             IFileStorageService fileStorageService,
-            IContractResourceAuthorizationService contractAuthorization)
+            IContractResourceAuthorizationService contractAuthorization,
+            IContractAuditWriter contractAuditWriter)
         {
             _dbContext = dbContext;
             _fileStorageService = fileStorageService;
             _contractAuthorization = contractAuthorization;
+            _contractAuditWriter = contractAuditWriter;
         }
 
         public async Task<ContractAttachmentResponse> UploadAsync(
@@ -47,29 +51,86 @@ namespace ContractManagement.Domains.Services.Contract
                 throw new ArgumentException("DocumentType không hợp lệ.");
             }
 
-            // 3. Upload file vào FileStorage generic.
-            // Backend tự gán objectType = Contract, objectId = contractId.
-            var uploadedFile = await _fileStorageService.UploadAsync(
-                request.File,
-                "Contract",
-                contractId,
-                uploadedBy);
-
-            // 4. Lưu metadata riêng cho hợp đồng.
-            var attachment = new TblContractAttachment
+            var uploaderName = await _dbContext.TblEmployees
+                .AsNoTracking()
+                .Where(employee => employee.EmployeeId == uploadedBy)
+                .Select(employee => employee.EmployeeFullName)
+                .SingleOrDefaultAsync();
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
-                ContractId = contractId,
-                ContractFileName = uploadedFile.FileName,
-                ContractFilePath = uploadedFile.FilePath,
-                DocumentType = request.DocumentType,
-                UploadDate = DateTime.Now,
-                UploadEmployeeId = uploadedBy
-            };
+                FileStorageResponse? uploadedFile = null;
+                await using var transaction = await _dbContext.Database
+                    .BeginTransactionAsync();
+                try
+                {
+                    // Backend tự gán objectType = Contract, objectId = contractId.
+                    uploadedFile = await _fileStorageService.UploadAsync(
+                        request.File,
+                        "Contract",
+                        contractId,
+                        uploadedBy);
 
-            _dbContext.TblContractAttachments.Add(attachment);
-            await _dbContext.SaveChangesAsync();
+                    var now = DateTime.UtcNow;
+                    var attachment = new TblContractAttachment
+                    {
+                        ContractId = contractId,
+                        ContractFileName = uploadedFile.FileName,
+                        ContractFilePath = uploadedFile.FilePath,
+                        DocumentType = request.DocumentType,
+                        UploadDate = now,
+                        UploadEmployeeId = uploadedBy
+                    };
 
-            return MapToResponse(attachment);
+                    _dbContext.TblContractAttachments.Add(attachment);
+                    await _dbContext.SaveChangesAsync();
+
+                    _contractAuditWriter.StageEmployeeAudits(
+                    [
+                        new EmployeeContractAuditWriteRequest(
+                            contractId,
+                            null,
+                            uploadedBy,
+                            ContractAuditActionTypes.ContractAttachmentUploaded,
+                            ContractAuditResults.Succeeded,
+                            now,
+                            SubjectType:
+                                ContractAuditSubjectTypes.Contract,
+                            SubjectId: contractId,
+                            NewValues: ContractAuditValues.Create(
+                                ("AttachmentId", attachment.AttachmentId),
+                                ("FileName", attachment.ContractFileName),
+                                ("DocumentType", attachment.DocumentType),
+                                ("UploadDate", attachment.UploadDate)))
+                    ]);
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    var response = MapToResponse(attachment);
+                    response.UploadEmployeeName = uploaderName;
+                    return response;
+                }
+                catch
+                {
+                    try
+                    {
+                        await transaction.RollbackAsync();
+                    }
+                    catch
+                    {
+                        // Giữ lại exception gốc để execution strategy quyết định retry.
+                    }
+
+                    _dbContext.ChangeTracker.Clear();
+                    if (uploadedFile is not null)
+                    {
+                        await _fileStorageService.DeleteUploadedArtifactAsync(
+                            uploadedFile);
+                    }
+
+                    throw;
+                }
+            });
         }
 
         public async Task<List<ContractAttachmentResponse>> GetByContractAsync(
@@ -86,7 +147,56 @@ namespace ContractManagement.Domains.Services.Contract
                 .OrderByDescending(x => x.UploadDate)
                 .ToListAsync();
 
-            return attachments.Select(MapToResponse).ToList();
+            var uploaderIds = attachments
+                .Where(attachment => attachment.UploadEmployeeId.HasValue)
+                .Select(attachment => attachment.UploadEmployeeId!.Value)
+                .Distinct()
+                .ToArray();
+            var uploaderNames = uploaderIds.Length == 0
+                ? new Dictionary<int, string?>()
+                : await _dbContext.TblEmployees
+                    .AsNoTracking()
+                    .Where(employee => uploaderIds.Contains(employee.EmployeeId))
+                    .ToDictionaryAsync(
+                        employee => employee.EmployeeId,
+                        employee => employee.EmployeeFullName);
+
+            return attachments.Select(attachment =>
+            {
+                var response = MapToResponse(attachment);
+                if (attachment.UploadEmployeeId is int uploaderId
+                    && uploaderNames.TryGetValue(uploaderId, out var name))
+                {
+                    response.UploadEmployeeName = name;
+                }
+                return response;
+            }).ToList();
+        }
+
+        public async Task<(Stream Stream, string FileName)?> DownloadAsync(
+            int contractId,
+            int attachmentId,
+            int employeeId)
+        {
+            await _contractAuthorization.EnsureCanReadAsync(contractId, employeeId);
+
+            var attachment = await _dbContext.TblContractAttachments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(candidate => candidate.ContractId == contractId
+                    && candidate.AttachmentId == attachmentId);
+            if (attachment is null)
+            {
+                return null;
+            }
+
+            var fileId = await _dbContext.TblFileStorages
+                .AsNoTracking()
+                .Where(file => file.FilePath == attachment.ContractFilePath)
+                .Select(file => (int?)file.FileId)
+                .FirstOrDefaultAsync();
+            return fileId.HasValue
+                ? await _fileStorageService.DownloadAsync(fileId.Value)
+                : null;
         }
 
         public async Task DeleteAsync(
@@ -114,13 +224,34 @@ namespace ContractManagement.Domains.Services.Contract
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.FilePath == attachment.ContractFilePath);
 
+            var now = DateTime.UtcNow;
+            _dbContext.TblContractAttachments.Remove(attachment);
+            _contractAuditWriter.StageEmployeeAudits(
+            [
+                new EmployeeContractAuditWriteRequest(
+                    contractId,
+                    null,
+                    employeeId,
+                    ContractAuditActionTypes.ContractAttachmentDeleted,
+                    ContractAuditResults.Succeeded,
+                    now,
+                    SubjectType:
+                        ContractAuditSubjectTypes.Contract,
+                    SubjectId: contractId,
+                    PreviousValues: ContractAuditValues.Create(
+                        ("AttachmentId", attachment.AttachmentId),
+                        ("FileName", attachment.ContractFileName),
+                        ("DocumentType", attachment.DocumentType),
+                        ("UploadDate", attachment.UploadDate)))
+            ]);
+
             if (fileStorage != null)
             {
                 await _fileStorageService.DeleteAsync(fileStorage.FileId);
             }
 
-            // Xóa metadata riêng trong tbl_ContractAttachment.
-            _dbContext.TblContractAttachments.Remove(attachment);
+            // FileStorageService có thể đã SaveChanges; lệnh này xử lý trường
+            // hợp file metadata không tồn tại và giữ ý nghĩa rõ ràng cho service.
             await _dbContext.SaveChangesAsync();
         }
 

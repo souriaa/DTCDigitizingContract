@@ -6,6 +6,11 @@ import { toast } from "@/components/ui/sonner";
 
 import { Button } from "@/components/ui/button";
 import {
+  CodeInput,
+  isValidCodeValue,
+  normalizeCodeValue,
+} from "@/components/ui/custom/code-input";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
+  getTemplateDocumentTypeLabel,
+  TemplateDocumentType,
   type ContractTemplateDetailResponse,
 } from "@/services/contract-template-api";
 import { getContractTemplateErrorMessage } from "./contract-template-utils";
@@ -47,6 +54,9 @@ export function ContractTemplateFormDialog({
   const [templateCode, setTemplateCode] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [templateNameEn, setTemplateNameEn] = useState("");
+  const [documentType, setDocumentType] = useState<TemplateDocumentType>(
+    TemplateDocumentType.SoftwareSupplyContract,
+  );
   const [languageMode, setLanguageMode] = useState<ContractLanguageMode>(
     ContractLanguageMode.Vietnamese,
   );
@@ -59,20 +69,28 @@ export function ContractTemplateFormDialog({
     setTemplateCode(template?.templateCode ?? "");
     setTemplateName(template?.templateName ?? "");
     setTemplateNameEn(template?.templateNameEn ?? "");
-    setLanguageMode(
-      template?.languageMode ?? ContractLanguageMode.Vietnamese,
+    setDocumentType(
+      template?.documentType ?? TemplateDocumentType.SoftwareSupplyContract,
     );
+    setLanguageMode(template?.languageMode ?? ContractLanguageMode.Vietnamese);
     setDescription(template?.description ?? "");
     setInitialChangeNote("");
   }, [isOpen, template]);
 
   const handleSubmit = async () => {
+    const normalizedTemplateCode = normalizeCodeValue(templateCode, true);
     if (!templateName.trim()) {
       toast.error("Vui lòng nhập tên mẫu hợp đồng.");
       return;
     }
-    if (!isEdit && !templateCode.trim()) {
+    if (!isEdit && !normalizedTemplateCode) {
       toast.error("Vui lòng nhập mã mẫu hợp đồng.");
+      return;
+    }
+    if (!isEdit && !isValidCodeValue(normalizedTemplateCode)) {
+      toast.error(
+        "Mã mẫu chỉ được gồm chữ cái không dấu, chữ số, dấu gạch ngang hoặc gạch dưới.",
+      );
       return;
     }
     if (
@@ -93,15 +111,18 @@ export function ContractTemplateFormDialog({
             rowVersion: template.rowVersion,
           })
         : await contractTemplateApi.create({
-            templateCode: templateCode.trim(),
+            templateCode: normalizedTemplateCode,
             templateName: templateName.trim(),
             templateNameEn: templateNameEn.trim() || null,
+            documentType,
             languageMode,
             description: description.trim() || null,
             initialChangeNote: initialChangeNote.trim() || null,
           });
 
-      toast.success(isEdit ? "Đã cập nhật mẫu hợp đồng." : "Đã tạo mẫu hợp đồng.");
+      toast.success(
+        isEdit ? "Đã cập nhật mẫu hợp đồng." : "Đã tạo mẫu hợp đồng.",
+      );
       onSuccess(result);
       onClose();
     } catch (error) {
@@ -121,7 +142,7 @@ export function ContractTemplateFormDialog({
           <DialogDescription>
             {isEdit
               ? "Chỉ tên và mô tả có thể thay đổi sau khi tạo."
-              : "Hệ thống sẽ đồng thời tạo Version 1 ở trạng thái bản nháp."}
+              : "Hệ thống sẽ đồng thời tạo phiên bản đầu tiên ở trạng thái bản nháp."}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,13 +151,52 @@ export function ContractTemplateFormDialog({
             <Label htmlFor="template-code">
               Mã mẫu <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <CodeInput
               id="template-code"
               value={templateCode}
-              onChange={(event) => setTemplateCode(event.target.value)}
+              onValueChange={setTemplateCode}
               disabled={isEdit}
               placeholder="VD: SOFTWARE-SUPPLY-VI"
+              maxLength={50}
+              aria-describedby="template-code-help"
             />
+            <p
+              id="template-code-help"
+              className="text-xs leading-relaxed text-muted-foreground"
+            ></p>
+          </div>
+          <div className="space-y-2">
+            <Label>
+              Loại tài liệu <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={String(documentType)}
+              onValueChange={(value) =>
+                setDocumentType(Number(value) as TemplateDocumentType)
+              }
+              disabled={isEdit}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  TemplateDocumentType.SoftwareSupplyContract,
+                  TemplateDocumentType.SoftwareMaintenanceContract,
+                  TemplateDocumentType.SoftwareUpkeepContract,
+                  TemplateDocumentType.Quotation,
+                  TemplateDocumentType.PaymentRequest,
+                  TemplateDocumentType.HandoverRecord,
+                  TemplateDocumentType.AcceptanceRecord,
+                  TemplateDocumentType.LiquidationRecord,
+                  TemplateDocumentType.Other,
+                ].map((type) => (
+                  <SelectItem key={type} value={String(type)}>
+                    {getTemplateDocumentTypeLabel(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>
@@ -198,7 +258,7 @@ export function ContractTemplateFormDialog({
           </div>
           {!isEdit && (
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="initial-change-note">Ghi chú Version 1</Label>
+              <Label htmlFor="initial-change-note">Ghi chú phiên bản 1</Label>
               <Textarea
                 id="initial-change-note"
                 value={initialChangeNote}

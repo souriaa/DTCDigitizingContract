@@ -1,6 +1,8 @@
 ﻿using ContractManagement.API.Common.Responses;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.Interfaces.Security;
+using ContractManagement.Domains.Interfaces.ContractTemplate;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Text.Json;
@@ -63,6 +65,29 @@ namespace ContractManagement.Middleware
                     new AuthorizationErrorResponse(
                         rbacException.Code,
                         rbacException.Message));
+                return;
+            }
+
+            if (exception is ContractTemplatePdfRenderingException pdfException)
+            {
+                context.Response.ContentType = "application/json";
+                context.Response.StatusCode =
+                    StatusCodes.Status503ServiceUnavailable;
+                await context.Response.WriteAsJsonAsync(
+                    new AuthorizationErrorResponse(
+                        pdfException.FailureCode,
+                        pdfException.Message));
+                return;
+            }
+
+            if (exception is BusinessRuleException businessRuleException)
+            {
+                context.Response.ContentType = "application/json";
+                context.Response.StatusCode = businessRuleException.StatusCode;
+                await context.Response.WriteAsJsonAsync(
+                    new AuthorizationErrorResponse(
+                        businessRuleException.Code,
+                        businessRuleException.Message));
                 return;
             }
 

@@ -10,4 +10,8 @@ public sealed record AuthMeResponse(
     string TenantCode,
     string TenantName,
     string PermissionVersion,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    bool MustChangePassword,
+    DateTime? PasswordChangedAt,
+    string? ImageUrl,
+    string DefaultPage);

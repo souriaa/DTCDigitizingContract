@@ -26,6 +26,24 @@ public partial class TblContractAudit
     /// </summary>
     public int? ActorCustomerAccessSessionId { get; set; }
 
+    /// <summary>
+    /// Immutable, non-secret actor context captured when the audit is persisted.
+    /// </summary>
+    public string? ActorDisplayNameSnapshot { get; set; }
+
+    public string? ActorMaskedPhoneSnapshot { get; set; }
+
+    public string? ActorPhoneSourceSnapshot { get; set; }
+
+    /// <summary>
+    /// Immutable contract context used by tenant-wide audit views.
+    /// </summary>
+    public string? ContractCodeSnapshot { get; set; }
+
+    public string? ContractNameSnapshot { get; set; }
+
+    public int? VersionNoSnapshot { get; set; }
+
     public string ActionType { get; set; } = null!;
 
     public string Result { get; set; } = null!;
@@ -40,10 +58,6 @@ public partial class TblContractAudit
 
     public string? Reason { get; set; }
 
-    public string? PreviousValuesJson { get; set; }
-
-    public string? NewValuesJson { get; set; }
-
     public string? FailureCode { get; set; }
 
     public DateTime OccurredAt { get; set; }
@@ -53,4 +67,7 @@ public partial class TblContractAudit
     public string? UserAgent { get; set; }
 
     public string CorrelationId { get; set; } = null!;
+
+    public ICollection<TblContractAuditValue> Values { get; set; } =
+        new List<TblContractAuditValue>();
 }

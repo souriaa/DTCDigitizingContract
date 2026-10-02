@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,9 +18,10 @@ import {
   employeeApi,
   type EmployeeDirectoryResponse,
 } from "@/services/employees-api";
-import { contractApi, ContractDetailResponse } from "@/services/contract-api";
+import { contractApi } from "@/services/contract-api";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useRouter } from "next/navigation";
 
 interface TransferResponsibilityModalProps {
@@ -29,7 +31,6 @@ interface TransferResponsibilityModalProps {
   rowVersion: string;
   currentEmployeeId?: number | null;
   currentEmployeeName?: string | null;
-  onSuccess: (updatedContract: ContractDetailResponse) => void;
 }
 
 export function TransferResponsibilityModal({
@@ -39,13 +40,13 @@ export function TransferResponsibilityModal({
   rowVersion,
   currentEmployeeId,
   currentEmployeeName,
-  onSuccess,
 }: TransferResponsibilityModalProps) {
   const router = useRouter();
 
   const [employees, setEmployees] = useState<EmployeeDirectoryResponse[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [newEmployeeId, setNewEmployeeId] = useState<string>("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
   const [reason, setReason] = useState<string>(
     "Bàn giao công việc quản lý hợp đồng",
   );
@@ -53,11 +54,16 @@ export function TransferResponsibilityModal({
 
   useEffect(() => {
     if (isOpen) {
+      const timeoutId = window.setTimeout(() => {
       const fetchEmployees = async () => {
         setIsLoadingEmployees(true);
         try {
-          const res = await employeeApi.getDirectory();
-          setEmployees(res);
+          const res = await employeeApi.searchDirectory({
+            page: 1,
+            pageSize: 50,
+            keyword: employeeSearch.trim() || undefined,
+          });
+          setEmployees(res.items);
         } catch (error) {
           console.error("Lỗi khi tải danh sách nhân viên:", error);
           toast.error("Không thể tải danh sách nhân viên.");
@@ -65,9 +71,11 @@ export function TransferResponsibilityModal({
           setIsLoadingEmployees(false);
         }
       };
-      fetchEmployees();
+      void fetchEmployees();
+      }, 350);
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [isOpen]);
+  }, [employeeSearch, isOpen]);
 
   const handleTransfer = () => {
     if (!newEmployeeId) {
@@ -97,19 +105,17 @@ export function TransferResponsibilityModal({
             rowVersion: rowVersion,
           });
 
-          const updatedContractData: any =
-            await contractApi.getDetail(contractId);
-          const updatedContract = updatedContractData.data
-            ? updatedContractData.data
-            : updatedContractData;
-
-          onSuccess(updatedContract);
           onClose();
-          router.push("/contracts");
+          toast.success("Chuyển giao người phụ trách thành công.");
+          router.replace("/contracts");
         } catch (error: any) {
           console.error("Lỗi chuyển giao người phụ trách:", error);
-          const data = error?.response?.data.message;
-          toast.error(data);
+          toast.error(
+            getApiErrorMessage(
+              error,
+              "Không thể chuyển giao người phụ trách. Vui lòng thử lại.",
+            ),
+          );
         } finally {
           setIsSubmitting(false);
         }
@@ -132,6 +138,11 @@ export function TransferResponsibilityModal({
         <Label>
           Người phụ trách mới <span className="text-red-500">*</span>
         </Label>
+        <Input
+          value={employeeSearch}
+          onChange={(event) => setEmployeeSearch(event.target.value)}
+          placeholder="Tìm theo tên, mã hoặc phòng ban..."
+        />
         <Select value={newEmployeeId} onValueChange={setNewEmployeeId}>
           <SelectTrigger className="w-full">
             <SelectValue
@@ -147,7 +158,8 @@ export function TransferResponsibilityModal({
               .filter((emp) => emp.employeeId !== currentEmployeeId)
               .map((emp) => (
                 <SelectItem key={emp.employeeId} value={String(emp.employeeId)}>
-                  {emp.employeeFullName || `Nhân viên #${emp.employeeId}`}
+                  {emp.employeeFullName || "Chưa có tên nhân viên"}
+                  {emp.employeeCode ? ` • ${emp.employeeCode}` : ""}
                   {emp.departmentName ? ` • ${emp.departmentName}` : ""}
                 </SelectItem>
               ))}

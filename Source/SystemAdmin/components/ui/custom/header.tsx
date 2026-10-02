@@ -4,6 +4,7 @@ import { Bell, LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/hooks/use-auth-store";
 import { authApi } from "@/services/auth-api";
+import { resolveProfileImageUrl } from "@/services/profile-api";
 
 export function Header({ title }: { title: string }) {
   const router = useRouter();
@@ -40,7 +42,6 @@ export function Header({ title }: { title: string }) {
           </h2>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
           <button className="relative p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-card"></span>
@@ -51,9 +52,20 @@ export function Header({ title }: { title: string }) {
               <Button
                 variant="default"
                 size="icon"
-                className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-primary/80 hover:opacity-90 text-primary-foreground shadow-sm transition-transform hover:scale-105"
+                className="size-9 rounded-full p-0 shadow-sm transition-transform hover:scale-105"
               >
-                {user?.username?.[0]?.toUpperCase() ?? ""}
+                <Avatar className="size-9">
+                  {user?.imageUrl && (
+                    <AvatarImage
+                      src={resolveProfileImageUrl(user.imageUrl)}
+                      alt={user.fullName || "System Admin"}
+                      className="object-cover"
+                    />
+                  )}
+                  <AvatarFallback className="bg-primary font-semibold text-primary-foreground">
+                    {user?.username?.[0]?.toUpperCase() ?? "S"}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -75,14 +87,10 @@ export function Header({ title }: { title: string }) {
               <DropdownMenuSeparator />
 
               <DropdownMenuItem asChild className="cursor-pointer py-2">
-                <Link href="/dashboard/profile">
+                <Link href="/profile">
                   <User className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">Hồ sơ cá nhân</span>
                 </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer py-2">
-                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">Đổi mật khẩu</span>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

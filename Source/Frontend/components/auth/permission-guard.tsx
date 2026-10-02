@@ -73,6 +73,10 @@ const PERMISSION_METADATA: Record<string, { title: string; category: string }> =
       title: "Quản lý hợp đồng cá nhân",
       category: "Hợp đồng",
     },
+    [RBAC_PERMISSIONS.contractApprovalDecide]: {
+      title: "Xử lý phê duyệt hợp đồng",
+      category: "Hợp đồng",
+    },
     [RBAC_PERMISSIONS.contractSupport]: {
       title: "Hỗ trợ xử lý hợp đồng",
       category: "Hợp đồng",
@@ -96,6 +100,10 @@ const PERMISSION_METADATA: Record<string, { title: string; category: string }> =
     [RBAC_PERMISSIONS.securityAuditReadTenant]: {
       title: "Xem nhật ký bảo mật hệ thống",
       category: "Bảo mật",
+    },
+    [RBAC_PERMISSIONS.tenantLegalProfileManage]: {
+      title: "Quản lý hồ sơ pháp lý doanh nghiệp",
+      category: "Tổ chức",
     },
     [RBAC_PERMISSIONS.fileAccessByResource]: {
       title: "Truy cập tệp tin đính kèm",

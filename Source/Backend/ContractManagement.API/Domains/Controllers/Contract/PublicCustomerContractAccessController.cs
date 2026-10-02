@@ -32,9 +32,27 @@ public sealed class PublicCustomerContractAccessController : ControllerBase
     }
 
     /// <summary>
+    /// Kiểm tra public link có thể bắt đầu xác minh hay không mà không trả dữ liệu hợp đồng,
+    /// số điện thoại xác minh hoặc nguyên nhân chi tiết của link không hợp lệ.
+    /// </summary>
+    [HttpGet("{linkToken}/availability")]
+    public async Task<IActionResult> GetLinkAvailability(
+        string tenantCode,
+        string linkToken)
+    {
+        SetNoStore();
+        var response = await _customerAccessService.GetLinkAvailabilityAsync(
+            linkToken,
+            HttpContext.RequestAborted);
+
+        return Ok(ApiResponse<CustomerAccessLinkAvailabilityResponse>.Ok(response));
+    }
+
+    /// <summary>
     /// Xin OTP cho public link bằng số điện thoại đã được nhân viên chọn làm số xác minh.
-    /// API luôn trả accepted chung, không tiết lộ phone, tenant hoặc link có khớp hay không. FE giữ
-    /// public challenge ID trong response để gửi ở bước xác thực OTP.
+    /// Link chờ kích hoạt vì hợp đồng còn Draft trả lỗi nghiệp vụ rõ ràng. Các trường hợp link,
+    /// tenant hoặc phone không khớp vẫn trả accepted chung để không làm lộ thông tin. FE giữ public
+    /// challenge ID trong response để gửi ở bước xác thực OTP.
     /// </summary>
     [HttpPost("{linkToken}/otp/request")]
     public async Task<IActionResult> RequestOtp(

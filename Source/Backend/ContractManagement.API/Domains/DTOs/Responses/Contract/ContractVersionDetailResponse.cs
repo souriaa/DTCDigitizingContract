@@ -11,7 +11,7 @@
 
         public int? SourceVersionId { get; set; }
 
-        public int? TemplateVersionId { get; set; }
+        public int TemplateVersionId { get; set; }
 
         public string? ChangeNote { get; set; }
 
@@ -46,6 +46,13 @@
         public List<ContractItemDetailResponse> Items { get; set; } = [];
 
         public List<ContractTermDetailResponse> Terms { get; set; } = [];
+
+        public List<ContractPaymentMilestoneResponse> PaymentMilestones { get; set; } = [];
+
+        public List<ContractAppendixResponse> Appendices { get; set; } = [];
+
+        public List<ContractAppendixOptionResponse> AvailableOptionalAppendices
+            { get; set; } = [];
 
         /// <summary>
         /// Comments thuộc đúng version này, theo thứ tự thời gian tạo.

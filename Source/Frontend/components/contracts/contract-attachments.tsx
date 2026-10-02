@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   CheckCircle2,
+  CircleAlert,
   Download,
   FileArchive,
   FileImage,
@@ -18,10 +19,12 @@ import {
   Loader2,
   Paperclip,
   Plus,
+  RotateCcw,
   Trash2,
   UploadCloud,
   X,
 } from "lucide-react";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,8 +71,18 @@ export interface ContractAttachmentItem {
 interface ContractAttachmentsProps {
   contractId: number;
   initialAttachments?: ContractAttachmentItem[];
-  mockMode?: boolean;
   canManage?: boolean;
+}
+
+type UploadQueueStatus = "pending" | "uploading" | "success" | "error";
+
+interface UploadQueueItem {
+  id: string;
+  file: File;
+  documentType: ContractDocumentType;
+  status: UploadQueueStatus;
+  progress: number;
+  errorMessage?: string;
 }
 
 function getExtension(fileName: string) {
@@ -102,17 +115,12 @@ function mapAttachment(
 ): ContractAttachmentItem {
   return {
     id: attachment.attachmentId,
-    name:
-      attachment.contractFileName ||
-      `Tài liệu #${attachment.attachmentId}`,
+    name: attachment.contractFileName || "Tài liệu không tên",
     documentType: attachment.documentType,
     documentTypeName:
-      documentTypeLabel(attachment.documentType) ||
-      attachment.documentTypeName,
+      documentTypeLabel(attachment.documentType) || attachment.documentTypeName,
     uploadedAt: attachment.uploadDate,
-    uploadedBy: attachment.uploadEmployeeId
-      ? `Nhân viên #${attachment.uploadEmployeeId}`
-      : undefined,
+    uploadedBy: attachment.uploadEmployeeName || undefined,
     downloadUrl: attachment.contractFilePath,
   };
 }
@@ -120,23 +128,19 @@ function mapAttachment(
 export function ContractAttachments({
   contractId,
   initialAttachments = [],
-  mockMode = true,
   canManage = true,
 }: ContractAttachmentsProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] =
     useState<ContractAttachmentItem[]>(initialAttachments);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentType, setDocumentType] = useState<ContractDocumentType>(99);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [isLoadingAttachments, setIsLoadingAttachments] = useState(!mockMode);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadAttachments = useCallback(async () => {
-    if (mockMode) return;
-
     setIsLoadingAttachments(true);
     setLoadError(null);
 
@@ -148,36 +152,61 @@ export function ContractAttachments({
     } finally {
       setIsLoadingAttachments(false);
     }
-  }, [contractId, mockMode]);
+  }, [contractId]);
 
   useEffect(() => {
     void loadAttachments();
   }, [loadAttachments]);
 
-  const validateAndSelectFile = (file?: File) => {
-    if (!canManage) return;
-    if (!file) return;
+  const addFilesToQueue = (files: File[]) => {
+    if (!canManage || files.length === 0) return;
 
-    if (file.size === 0) {
-      toast.error("File đang trống (0 byte). Vui lòng chọn file có nội dung.");
-      return;
-    }
+    const invalid = {
+      empty: 0,
+      unsupported: 0,
+      oversized: 0,
+    };
+    const accepted = files.flatMap<UploadQueueItem>((file, index) => {
+      if (file.size === 0) {
+        invalid.empty += 1;
+        return [];
+      }
+      if (!ACCEPTED_EXTENSIONS.includes(getExtension(file.name))) {
+        invalid.unsupported += 1;
+        return [];
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        invalid.oversized += 1;
+        return [];
+      }
 
-    const extension = getExtension(file.name);
-    if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      toast.error("Định dạng file chưa được hỗ trợ.");
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("File vượt quá dung lượng tối đa 10 MB.");
-      return;
-    }
+      return [
+        {
+          id: `${Date.now()}-${index}-${file.name}-${file.lastModified}`,
+          file,
+          documentType: 99,
+          status: "pending",
+          progress: 0,
+        },
+      ];
+    });
 
-    setSelectedFile(file);
+    if (accepted.length > 0) {
+      setUploadQueue((current) => [...current, ...accepted]);
+    }
+    if (invalid.empty > 0) {
+      toast.error(`${invalid.empty} tệp bị bỏ qua vì không có nội dung.`);
+    }
+    if (invalid.unsupported > 0) {
+      toast.error(`${invalid.unsupported} tệp có định dạng chưa hỗ trợ.`);
+    }
+    if (invalid.oversized > 0) {
+      toast.error(`${invalid.oversized} tệp vượt quá dung lượng 10 MB.`);
+    }
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    validateAndSelectFile(event.target.files?.[0]);
+    addFilesToQueue(Array.from(event.target.files ?? []));
     event.target.value = "";
   };
 
@@ -185,77 +214,106 @@ export function ContractAttachments({
     event.preventDefault();
     setIsDragging(false);
     if (!canManage) return;
-    validateAndSelectFile(event.dataTransfer.files?.[0]);
+    addFilesToQueue(Array.from(event.dataTransfer.files));
+  };
+
+  const updateQueueItem = (
+    itemId: string,
+    update: Partial<Omit<UploadQueueItem, "id" | "file">>,
+  ) => {
+    setUploadQueue((current) =>
+      current.map((item) =>
+        item.id === itemId ? { ...item, ...update } : item,
+      ),
+    );
+  };
+
+  const uploadQueueItem = async (item: UploadQueueItem) => {
+    updateQueueItem(item.id, {
+      status: "uploading",
+      progress: 1,
+      errorMessage: undefined,
+    });
+    try {
+      const response = await contractAttachmentsApi.upload(
+        contractId,
+        item.file,
+        item.documentType,
+        (progress) => updateQueueItem(item.id, { progress }),
+      );
+      setAttachments((current) => [
+        {
+          id: response.attachmentId,
+          name: response.contractFileName || item.file.name,
+          size: item.file.size,
+          documentType: response.documentType,
+          documentTypeName: response.documentTypeName,
+          uploadedAt: response.uploadDate,
+          uploadedBy: response.uploadEmployeeName || undefined,
+          downloadUrl: response.contractFilePath,
+        },
+        ...current,
+      ]);
+
+      updateQueueItem(item.id, { status: "success", progress: 100 });
+      return true;
+    } catch (error) {
+      updateQueueItem(item.id, {
+        status: "error",
+        progress: 0,
+        errorMessage: getApiErrorMessage(
+          error,
+          "Không thể tải tệp lên. Vui lòng thử lại.",
+        ),
+      });
+      return false;
+    }
   };
 
   const handleUpload = async () => {
-    if (!canManage) return;
-    if (!selectedFile) {
-      toast.error("Vui lòng chọn file cần đính kèm.");
+    if (!canManage || isUploading) return;
+    const pendingItems = uploadQueue.filter(
+      (item) => item.status === "pending" || item.status === "error",
+    );
+    if (pendingItems.length === 0) {
+      toast.error("Vui lòng chọn tệp cần đính kèm.");
       return;
     }
 
     setIsUploading(true);
-    try {
-      if (mockMode) {
-        const newAttachment: ContractAttachmentItem = {
-          id: Date.now(),
-          name: selectedFile.name,
-          size: selectedFile.size,
-          documentType,
-          documentTypeName: documentTypeLabel(documentType),
-          uploadedAt: new Date().toISOString(),
-          uploadedBy: "Bạn",
-        };
-        setAttachments((current) => [newAttachment, ...current]);
-      } else {
-        const response = await contractAttachmentsApi.upload(
-          contractId,
-          selectedFile,
-          documentType,
-        );
-        setAttachments((current) => [
-          {
-            id: response.attachmentId,
-            name: response.contractFileName || selectedFile.name,
-            size: selectedFile.size,
-            documentType: response.documentType,
-            documentTypeName: response.documentTypeName,
-            uploadedAt: response.uploadDate,
-            uploadedBy: response.uploadEmployeeId
-              ? `Nhân viên #${response.uploadEmployeeId}`
-              : undefined,
-            downloadUrl: response.contractFilePath,
-          },
-          ...current,
-        ]);
-      }
+    const results = await Promise.all(pendingItems.map(uploadQueueItem));
+    setIsUploading(false);
 
-      setSelectedFile(null);
-      setDocumentType(99);
+    const successCount = results.filter(Boolean).length;
+    if (successCount > 0) {
       toast.success(
-        mockMode
-          ? "Đã thêm tài liệu vào bản xem thử."
-          : "Đính kèm tài liệu thành công.",
+        `Đã tải lên ${successCount}/${pendingItems.length} tài liệu.`,
       );
-    } catch {
-      toast.error("Không thể tải file lên. Vui lòng thử lại.");
-    } finally {
-      setIsUploading(false);
     }
+    if (successCount < pendingItems.length) {
+      toast.error(
+        `${pendingItems.length - successCount} tệp tải lên thất bại. Bạn có thể thử lại từng tệp.`,
+      );
+    }
+  };
+
+  const retryUpload = async (item: UploadQueueItem) => {
+    if (isUploading) return;
+    setIsUploading(true);
+    const success = await uploadQueueItem(item);
+    setIsUploading(false);
+    if (success) toast.success(`Đã tải lên ${item.file.name}.`);
   };
 
   const handleDelete = async (attachment: ContractAttachmentItem) => {
     if (!canManage) return;
     setDeletingId(attachment.id);
     try {
-      if (!mockMode) {
-        await contractAttachmentsApi.delete(contractId, attachment.id);
-      }
+      await contractAttachmentsApi.delete(contractId, attachment.id);
       setAttachments((current) =>
         current.filter((item) => item.id !== attachment.id),
       );
-      toast.success(mockMode ? "Đã xóa khỏi bản xem thử." : "Đã xóa tài liệu.");
+      toast.success("Đã xóa tài liệu.");
     } catch {
       toast.error("Không thể xóa tài liệu. Vui lòng thử lại.");
     } finally {
@@ -263,17 +321,26 @@ export function ContractAttachments({
     }
   };
 
-  const handleDownload = (attachment: ContractAttachmentItem) => {
-    if (!attachment.downloadUrl || mockMode) {
-      toast.info("Bản xem thử chưa có file thật để tải xuống.");
-      return;
+  const handleDownload = async (attachment: ContractAttachmentItem) => {
+    try {
+      const blob = await contractAttachmentsApi.download(
+        contractId,
+        attachment.id,
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = attachment.name;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể tải tài liệu."));
     }
-    window.open(attachment.downloadUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden gap-0">
         <CardHeader className="border-b">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -282,17 +349,9 @@ export function ContractAttachments({
                 Tài liệu hợp đồng
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {attachments.length} file đang được lưu trong hồ sơ
+                {attachments.length} tài liệu đang được lưu trong hồ sơ
               </p>
             </div>
-            {mockMode && (
-              <Badge
-                variant="outline"
-                className="border-amber-200 bg-amber-50 text-amber-700"
-              >
-                Chế độ xem thử
-              </Badge>
-            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -307,9 +366,7 @@ export function ContractAttachments({
                 <FileText className="size-7" />
               </div>
               <p className="mt-4 font-semibold">Không thể tải chứng từ</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {loadError}
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
               <Button
                 variant="outline"
                 className="mt-5"
@@ -334,7 +391,7 @@ export function ContractAttachments({
                 onClick={() => inputRef.current?.click()}
               >
                 <Plus className="size-4" />
-                Chọn file đầu tiên
+                Chọn tệp đầu tiên
               </Button>
             </div>
           ) : (
@@ -375,7 +432,7 @@ export function ContractAttachments({
                           )}
                         </div>
                         <Badge variant="secondary" className="mt-2 font-normal">
-                          {attachment.documentTypeName}
+                          {documentTypeLabel(attachment.documentType)}
                         </Badge>
                       </div>
                     </div>
@@ -419,10 +476,11 @@ export function ContractAttachments({
           <input
             ref={inputRef}
             type="file"
+            multiple
             className="hidden"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
             onChange={handleFileChange}
-            disabled={!canManage}
+            disabled={!canManage || isUploading}
           />
 
           <div
@@ -436,10 +494,7 @@ export function ContractAttachments({
             }`}
             onClick={() => canManage && inputRef.current?.click()}
             onKeyDown={(event) => {
-              if (
-                canManage &&
-                (event.key === "Enter" || event.key === " ")
-              ) {
+              if (canManage && (event.key === "Enter" || event.key === " ")) {
                 inputRef.current?.click();
               }
             }}
@@ -454,7 +509,9 @@ export function ContractAttachments({
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <UploadCloud className="size-6" />
             </div>
-            <p className="mt-3 text-sm font-semibold">Kéo thả file vào đây</p>
+            <p className="mt-3 text-sm font-semibold">
+              Kéo thả một hoặc nhiều tệp vào đây
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               hoặc bấm để chọn từ máy tính
             </p>
@@ -463,70 +520,180 @@ export function ContractAttachments({
             </p>
           </div>
 
-          {selectedFile && (
-            <div className="rounded-xl border bg-muted/30 p-3">
-              <div className="flex items-center gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <CheckCircle2 className="size-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(selectedFile.size)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  onClick={() => setSelectedFile(null)}
-                >
-                  <X className="size-4" />
-                </Button>
+          {uploadQueue.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  Danh sách tải lên ({uploadQueue.length})
+                </p>
+                {uploadQueue.some((item) => item.status === "success") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isUploading}
+                    onClick={() =>
+                      setUploadQueue((current) =>
+                        current.filter((item) => item.status !== "success"),
+                      )
+                    }
+                  >
+                    Dọn tệp đã xong
+                  </Button>
+                )}
               </div>
-              <Progress value={100} className="mt-3 h-1" />
+
+              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {uploadQueue.map((item) => {
+                  const FileIcon = getFileIcon(item.file.name);
+                  const isComplete = item.status === "success";
+                  const isFailed = item.status === "error";
+                  const isItemUploading = item.status === "uploading";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border p-3 ${
+                        isFailed
+                          ? "border-destructive/40 bg-destructive/5"
+                          : isComplete
+                            ? "border-emerald-500/30 bg-emerald-500/5"
+                            : "bg-muted/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                            isFailed
+                              ? "bg-destructive/10 text-destructive"
+                              : isComplete
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-primary/10 text-primary"
+                          }`}
+                        >
+                          {isFailed ? (
+                            <CircleAlert className="size-4" />
+                          ) : isComplete ? (
+                            <CheckCircle2 className="size-4" />
+                          ) : isItemUploading ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <FileIcon className="size-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate text-sm font-medium"
+                            title={item.file.name}
+                          >
+                            {item.file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(item.file.size)}
+                          </p>
+                        </div>
+                        {isFailed && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            title="Thử tải lại"
+                            disabled={isUploading}
+                            onClick={() => void retryUpload(item)}
+                          >
+                            <RotateCcw className="size-4" />
+                          </Button>
+                        )}
+                        {!isItemUploading && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            title="Bỏ khỏi danh sách"
+                            disabled={isUploading}
+                            onClick={() =>
+                              setUploadQueue((current) =>
+                                current.filter(
+                                  (queueItem) => queueItem.id !== item.id,
+                                ),
+                              )
+                            }
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        <Select
+                          value={String(item.documentType)}
+                          disabled={isUploading || isComplete}
+                          onValueChange={(value) =>
+                            updateQueueItem(item.id, {
+                              documentType: Number(
+                                value,
+                              ) as ContractDocumentType,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full bg-background">
+                            <SelectValue placeholder="Chọn loại chứng từ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONTRACT_DOCUMENT_TYPES.map((type) => (
+                              <SelectItem
+                                key={type.value}
+                                value={String(type.value)}
+                              >
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {(isItemUploading || isComplete) && (
+                        <div className="mt-3 space-y-1">
+                          <Progress value={item.progress} className="h-1" />
+                          <p className="text-right text-[11px] text-muted-foreground">
+                            {isComplete ? "Đã tải lên" : `${item.progress}%`}
+                          </p>
+                        </div>
+                      )}
+                      {item.errorMessage && (
+                        <p className="mt-2 text-xs text-destructive">
+                          {item.errorMessage}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Loại chứng từ</p>
-            <Select
-              value={String(documentType)}
-              disabled={!canManage}
-              onValueChange={(value) =>
-                setDocumentType(Number(value) as ContractDocumentType)
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Chọn loại chứng từ" />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTRACT_DOCUMENT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={String(type.value)}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <Button
             className="w-full"
-            disabled={!canManage || !selectedFile || isUploading}
-            onClick={handleUpload}
+            disabled={
+              !canManage ||
+              isUploading ||
+              !uploadQueue.some(
+                (item) => item.status === "pending" || item.status === "error",
+              )
+            }
+            onClick={() => void handleUpload()}
           >
             {isUploading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <UploadCloud className="size-4" />
             )}
-            {isUploading ? "Đang tải lên..." : "Đính kèm tài liệu"}
+            {isUploading
+              ? "Đang tải lên..."
+              : `Tải ${uploadQueue.filter((item) => item.status === "pending" || item.status === "error").length} tệp`}
           </Button>
 
           <p className="text-center text-xs leading-5 text-muted-foreground">
-            File được phân loại để dễ theo dõi tiến độ hoàn thiện hồ sơ hợp
+            Tệp được phân loại để dễ theo dõi tiến độ hoàn thiện hồ sơ hợp
             đồng.
           </p>
         </CardContent>
@@ -549,7 +716,6 @@ export function ContractDocuments({
     <ContractAttachments
       contractId={contract.contractId}
       canManage={canManage}
-      mockMode={false}
     />
   );
 }

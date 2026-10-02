@@ -2,6 +2,7 @@ using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Filter;
 using Microsoft.AspNetCore.Mvc;
@@ -9,12 +10,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace ContractManagement.Domains.Controllers.ContractTemplate;
 
 /// <summary>
-/// API quản trị catalog/template/version draft của SoftwareSupply.
+/// API quản trị catalog, template và version nháp của mọi loại tài liệu.
 /// </summary>
 [ApiController]
 [Route("api/contract-templates")]
 [SessionAuthorize(RbacPermissions.TemplateManage)]
-public sealed class ContractTemplateController : ControllerBase
+public sealed partial class ContractTemplateController : ControllerBase
 {
     private readonly IContractTemplateService _service;
 
@@ -24,15 +25,16 @@ public sealed class ContractTemplateController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/contract-templates/placeholder-catalog - đọc Catalog V1 cố định của SoftwareSupply.
+    /// GET /api/contract-templates/placeholder-catalog - catalog hệ thống và placeholder tùy chỉnh của tenant.
     /// </summary>
     /// <remarks>
     /// Luồng: xác thực session và AdminOfficer active, sau đó trả danh sách placeholder hệ thống.
-    /// Catalog chỉ đọc; tenant không được tự thêm key, đổi DataSource, requiredness hoặc multiplicity.
+    /// CustomEnabled cho biết tenant được tạo/sửa placeholder scalar qua các endpoint quản lý.
     /// Mục đích: làm nguồn sự thật để Slice 09 nhận diện và validate placeholder trong DOCX.
     /// </remarks>
     [HttpGet("placeholder-catalog")]
-    public async Task<IActionResult> GetPlaceholderCatalog()
+    public async Task<IActionResult> GetPlaceholderCatalog(
+        [FromQuery] TemplateDocumentType documentType)
     {
         if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
         {
@@ -42,6 +44,7 @@ public sealed class ContractTemplateController : ControllerBase
         try
         {
             var result = await _service.GetPlaceholderCatalogAsync(
+                documentType,
                 employeeId,
                 HttpContext.RequestAborted);
             return Ok(ApiResponse<SoftwareSupplyPlaceholderCatalogResponse>.Ok(
@@ -55,11 +58,11 @@ public sealed class ContractTemplateController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/contract-templates - liệt kê Template SoftwareSupply trong tenant hiện tại.
+    /// GET /api/contract-templates - liệt kê mọi loại template trong tenant hiện tại.
     /// </summary>
     /// <remarks>
-    /// Luồng: xác thực actor, chuẩn hóa page/pageSize/keyword, lọc theo tenant và DocumentType,
-    /// rồi trả metadata theo dạng phân trang. Route này phục vụ màn hình danh sách quản trị.
+    /// Luồng: xác thực actor, chuẩn hóa page/pageSize/keyword rồi trả metadata theo dạng
+    /// phân trang. Route này phục vụ màn hình danh sách quản trị mọi loại tài liệu.
     /// </remarks>
     [HttpGet]
     public async Task<IActionResult> List(
@@ -91,7 +94,7 @@ public sealed class ContractTemplateController : ControllerBase
     /// POST /api/contract-templates - tạo Template mới cùng Version 1 Draft.
     /// </summary>
     /// <remarks>
-    /// Luồng: validate input và mã không trùng, server tự gán SoftwareSupplyContract, Active,
+    /// Luồng: validate input, loại tài liệu và mã không trùng; server gán Active,
     /// VersionNo = 1, Draft và NotValidated, sau đó ghi Template + Version trong một transaction.
     /// Mục đích: khởi tạo authoring aggregate hoàn chỉnh, không để Template hoặc Version mồ côi.
     /// </remarks>
@@ -227,14 +230,60 @@ public sealed class ContractTemplateController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/contract-templates/versions/{sourceVersionId}/copy - tạo Draft mới từ Published hiện hành.
+    /// PUT /api/contract-templates/versions/{versionId}/item-table-layout -
+    /// cập nhật tỷ lệ tám cột bảng sản phẩm/dịch vụ của Draft.
+    /// </summary>
+    [HttpPut("versions/{versionId:int}/item-table-layout")]
+    [ProducesResponseType(
+        typeof(ApiResponse<ContractTemplateVersionDetailResponse>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateItemTableLayout(
+        int versionId,
+        [FromBody] UpdateContractTemplateItemTableLayoutRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
+        {
+            return unauthorized!;
+        }
+
+        try
+        {
+            var result = await _service.UpdateItemTableLayoutAsync(
+                versionId, request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplateVersionDetailResponse>.Ok(
+                result,
+                "Đã cập nhật bố cục bảng sản phẩm/dịch vụ."));
+        }
+        catch (ContractTemplatePreviewException exception)
+        {
+            return BadRequest(ApiResponse<object>.Fail(
+                exception.Message,
+                [exception.FailureCode]));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Forbidden(exception);
+        }
+    }
+
+    /// <summary>
+    /// POST /api/contract-templates/versions/{sourceVersionId}/copy - tạo Draft mới từ version bất biến.
     /// </summary>
     /// <remarks>
-    /// Luồng: chỉ chấp nhận source là CurrentPublishedVersion, kiểm tra source RowVersion, tạo
+    /// Luồng: chỉ chấp nhận khi mẫu chưa có Draft, với nguồn là CurrentPublishedVersion hoặc
+    /// Retired mới nhất khi mẫu không còn bản Published hiện hành. Sau khi kiểm tra source RowVersion, hệ thống tạo
     /// VersionNo tiếp theo và copy soft terms trong một transaction. File, hash, validation và
-    /// extraction cũ không được copy; source Published vẫn giữ nguyên.
+    /// extraction cũ không được copy; source Published/Retired vẫn giữ nguyên và bất biến.
     /// </remarks>
     [HttpPost("versions/{sourceVersionId:int}/copy")]
+    [ProducesResponseType(
+        typeof(ApiResponse<ContractTemplateVersionDetailResponse>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CopyVersion(
         int sourceVersionId,
         [FromBody] CopyContractTemplateVersionRequest request,
@@ -467,11 +516,11 @@ public sealed class ContractTemplateController : ControllerBase
 
     /// <summary>
     /// GET /api/contract-templates/versions/{versionId}/preview/pdf - tải PDF
-    /// preview bất biến của version Published hoặc Retired.
+    /// preview hiện hành của Draft hoặc preview bất biến của Published/Retired.
     /// </summary>
     [HttpGet("versions/{versionId:int}/preview/pdf")]
     [Produces("application/pdf")]
-    public async Task<IActionResult> DownloadPublishedPreviewPdf(
+    public async Task<IActionResult> DownloadPreviewPdf(
         int versionId,
         CancellationToken cancellationToken)
     {
@@ -482,9 +531,15 @@ public sealed class ContractTemplateController : ControllerBase
 
         try
         {
-            var result = await _service.DownloadPublishedPreviewPdfAsync(
+            var result = await _service.DownloadPreviewPdfAsync(
                 versionId, employeeId, cancellationToken);
             return File(result.Stream, "application/pdf", result.FileName);
+        }
+        catch (ContractTemplatePdfRenderingException exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                ApiResponse<object>.Fail(exception.Message,
+                    [exception.FailureCode]));
         }
         catch (ContractTemplatePreviewException exception)
         {
@@ -638,6 +693,154 @@ public sealed class ContractTemplateController : ControllerBase
             return Ok(ApiResponse<object>.Ok(
                 new { versionId, termId },
                 "Xóa template term thành công."));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Forbidden(exception);
+        }
+    }
+
+    [HttpPost("versions/{versionId:int}/terms/{termId:int}/payment-milestones")]
+    public async Task<IActionResult> AddPaymentMilestone(int versionId, int termId,
+        [FromBody] CreateContractTemplatePaymentMilestoneRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized)) return unauthorized!;
+        try
+        {
+            var result = await _service.AddPaymentMilestoneAsync(versionId, termId,
+                request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplatePaymentMilestoneResponse>.Ok(result,
+                "Thêm đợt thanh toán thành công."));
+        }
+        catch (UnauthorizedAccessException exception) { return Forbidden(exception); }
+    }
+
+    [HttpPut("versions/{versionId:int}/terms/{termId:int}/payment-milestones/{milestoneId:int}")]
+    public async Task<IActionResult> UpdatePaymentMilestone(int versionId, int termId,
+        int milestoneId, [FromBody] UpdateContractTemplatePaymentMilestoneRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized)) return unauthorized!;
+        try
+        {
+            var result = await _service.UpdatePaymentMilestoneAsync(versionId, termId,
+                milestoneId, request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplatePaymentMilestoneResponse>.Ok(result,
+                "Cập nhật đợt thanh toán thành công."));
+        }
+        catch (UnauthorizedAccessException exception) { return Forbidden(exception); }
+    }
+
+    [HttpDelete("versions/{versionId:int}/terms/{termId:int}/payment-milestones/{milestoneId:int}")]
+    public async Task<IActionResult> DeletePaymentMilestone(int versionId, int termId,
+        int milestoneId, [FromBody] DeleteContractTemplatePaymentMilestoneRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized)) return unauthorized!;
+        try
+        {
+            await _service.DeletePaymentMilestoneAsync(versionId, termId, milestoneId,
+                request, employeeId, cancellationToken);
+            return Ok(ApiResponse<object>.Ok(new { versionId, termId, milestoneId },
+                "Xóa đợt thanh toán thành công."));
+        }
+        catch (UnauthorizedAccessException exception) { return Forbidden(exception); }
+    }
+
+    [HttpPut("versions/{versionId:int}/terms/{termId:int}/payment-milestones/order")]
+    public async Task<IActionResult> ReorderPaymentMilestones(int versionId, int termId,
+        [FromBody] ReorderContractTemplatePaymentMilestonesRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized)) return unauthorized!;
+        try
+        {
+            var result = await _service.ReorderPaymentMilestonesAsync(versionId, termId,
+                request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplateVersionDetailResponse>.Ok(result,
+                "Sắp xếp đợt thanh toán thành công."));
+        }
+        catch (UnauthorizedAccessException exception) { return Forbidden(exception); }
+    }
+
+    [HttpPost("versions/{versionId:int}/legal-bases")]
+    public async Task<IActionResult> AddLegalBasis(
+        int versionId,
+        [FromBody] CreateContractTemplateLegalBasisRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
+            return unauthorized!;
+        try
+        {
+            var result = await _service.AddLegalBasisAsync(versionId, request,
+                employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplateLegalBasisResponse>.Ok(result,
+                "Thêm căn cứ hợp đồng thành công."));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Forbidden(exception);
+        }
+    }
+
+    [HttpPut("versions/{versionId:int}/legal-bases/order")]
+    public async Task<IActionResult> ReorderLegalBases(
+        int versionId,
+        [FromBody] ReorderContractTemplateLegalBasesRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
+            return unauthorized!;
+        try
+        {
+            var result = await _service.ReorderLegalBasesAsync(versionId,
+                request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplateVersionDetailResponse>.Ok(result,
+                "Sắp xếp căn cứ hợp đồng thành công."));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Forbidden(exception);
+        }
+    }
+
+    [HttpPut("versions/{versionId:int}/legal-bases/{legalBasisId:int}")]
+    public async Task<IActionResult> UpdateLegalBasis(
+        int versionId, int legalBasisId,
+        [FromBody] UpdateContractTemplateLegalBasisRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
+            return unauthorized!;
+        try
+        {
+            var result = await _service.UpdateLegalBasisAsync(versionId,
+                legalBasisId, request, employeeId, cancellationToken);
+            return Ok(ApiResponse<ContractTemplateLegalBasisResponse>.Ok(result,
+                "Cập nhật căn cứ hợp đồng thành công."));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Forbidden(exception);
+        }
+    }
+
+    [HttpDelete("versions/{versionId:int}/legal-bases/{legalBasisId:int}")]
+    public async Task<IActionResult> DeleteLegalBasis(
+        int versionId, int legalBasisId,
+        [FromBody] DeleteContractTemplateLegalBasisRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetEmployeeId(out var employeeId, out var unauthorized))
+            return unauthorized!;
+        try
+        {
+            await _service.DeleteLegalBasisAsync(versionId, legalBasisId,
+                request, employeeId, cancellationToken);
+            return Ok(ApiResponse<object>.Ok(new { versionId, legalBasisId },
+                "Xóa căn cứ hợp đồng thành công."));
         }
         catch (UnauthorizedAccessException exception)
         {

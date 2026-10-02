@@ -21,12 +21,26 @@ export const CONTRACT_AUDIT_ACTION_TYPES = [
   "ResponsibleAssigned",
   "ResponsibilityTransferred",
   "DraftUpdated",
+  "ApprovalSubmitted",
+  "ApprovalApproved",
+  "ApprovalReturned",
+  "ApprovalRejected",
+  "ApprovalWithdrawn",
+  "SignedEvidenceUploaded",
+  "SignedEvidenceSuperseded",
+  "AcceptanceEvidenceUploaded",
+  "PaymentAdded",
+  "PaymentVoided",
+  "ContractCompleted",
+  "ContractAttachmentUploaded",
+  "ContractAttachmentDeleted",
   "NegotiationStarted",
   "NegotiationRoundCreated",
   "ExternalFeedbackCreated",
   "NegotiationReplyCreated",
   "NegotiationCommentResolved",
   "NegotiationCommentReopened",
+  "NegotiationCommentCarriedForward",
   "VerificationPhoneSelected",
   "VerificationPhoneChanged",
   "CustomerAccessLinkCreated",
@@ -46,6 +60,25 @@ export const CONTRACT_AUDIT_ACTION_TYPES = [
   "CustomerCommentReplyCreated",
   "PublicAccessDenied",
   "ConcurrencyConflict",
+  "PaymentMilestoneStatusChanged",
+  "PaymentMilestoneAnchored",
+  "AcceptanceRecordFinalized",
+  "AcceptanceRecordUpdated",
+  "AcceptanceRecordCreated",
+] as const;
+
+export const CONTRACT_AUDIT_SUBJECT_TYPES = [
+  "Contract",
+  "ContractVersion",
+  "NegotiationComment",
+  "CustomerAccessLink",
+  "CustomerOtpChallenge",
+  "CustomerAccessSession",
+  "ApprovalRequest",
+  "SignedEvidence",
+  "AcceptanceEvidence",
+  "Payment",
+  "AcceptanceRecord",
 ] as const;
 
 export type ContractAuditActorType =
@@ -53,16 +86,24 @@ export type ContractAuditActorType =
 export type ContractAuditResult = (typeof CONTRACT_AUDIT_RESULTS)[number];
 export type ContractAuditActionType =
   (typeof CONTRACT_AUDIT_ACTION_TYPES)[number];
+export type ContractAuditSubjectType =
+  (typeof CONTRACT_AUDIT_SUBJECT_TYPES)[number];
 
 export interface ContractAuditFilterRequest {
   contractId?: number;
   versionId?: number;
   actorType?: ContractAuditActorType;
+  actorEmployeeId?: number;
+  actorCustomerAccessSessionId?: number;
   actionType?: ContractAuditActionType;
   result?: ContractAuditResult;
+  correlationId?: string;
+  subjectType?: ContractAuditSubjectType;
+  subjectId?: number;
+  failureCode?: string;
   fromUtc?: string;
   toUtc?: string;
-  page?: number;
+  cursor?: string;
   pageSize?: number;
 }
 
@@ -75,6 +116,12 @@ export interface ContractAuditResponse {
   actorType: ContractAuditActorType;
   actorEmployeeId: number | null;
   actorCustomerAccessSessionId: number | null;
+  actorDisplayName?: string | null;
+  actorMaskedPhone?: string | null;
+  actorPhoneSource?: string | null;
+  contractCode?: string | null;
+  contractName?: string | null;
+  versionNo?: number | null;
   actionType: ContractAuditActionType;
   result: ContractAuditResult;
   failureCode: string | null;
@@ -87,12 +134,12 @@ export interface ContractAuditResponse {
   correlationId: string;
 }
 
-export interface ContractAuditPagedResult {
+export interface ContractAuditCursorPageResult {
   items: ContractAuditResponse[];
   totalCount: number;
-  page: number;
   pageSize: number;
-  totalPages: number;
+  hasMore: boolean;
+  nextCursor?: string | null;
 }
 
 export const CONTRACT_AUDIT_ACTOR_LABELS: Record<
@@ -104,12 +151,30 @@ export const CONTRACT_AUDIT_ACTOR_LABELS: Record<
   System: "Hệ thống",
 };
 
-export const CONTRACT_AUDIT_RESULT_LABELS: Record<ContractAuditResult, string> = {
-  Succeeded: "Thành công",
-  Failed: "Thất bại",
-  Denied: "Bị từ chối",
-  RateLimited: "Vượt giới hạn",
-  ConcurrencyConflict: "Xung đột dữ liệu",
+export const CONTRACT_AUDIT_RESULT_LABELS: Record<ContractAuditResult, string> =
+  {
+    Succeeded: "Thành công",
+    Failed: "Thất bại",
+    Denied: "Bị từ chối",
+    RateLimited: "Vượt giới hạn",
+    ConcurrencyConflict: "Xung đột dữ liệu",
+  };
+
+export const CONTRACT_AUDIT_SUBJECT_LABELS: Record<
+  ContractAuditSubjectType,
+  string
+> = {
+  Contract: "Hợp đồng",
+  ContractVersion: "Phiên bản",
+  NegotiationComment: "Bình luận đàm phán",
+  CustomerAccessLink: "Link khách hàng",
+  CustomerOtpChallenge: "Yêu cầu OTP",
+  CustomerAccessSession: "Phiên khách hàng",
+  ApprovalRequest: "Yêu cầu duyệt",
+  SignedEvidence: "Bản scan đã ký",
+  AcceptanceEvidence: "Chứng từ nghiệm thu",
+  Payment: "Khoản thanh toán",
+  AcceptanceRecord: "Biên bản nghiệm thu",
 };
 
 export const CONTRACT_AUDIT_ACTION_LABELS: Record<
@@ -120,12 +185,26 @@ export const CONTRACT_AUDIT_ACTION_LABELS: Record<
   ResponsibleAssigned: "Gán nhân viên phụ trách",
   ResponsibilityTransferred: "Chuyển người phụ trách",
   DraftUpdated: "Cập nhật bản nháp",
+  ApprovalSubmitted: "Gửi hợp đồng để duyệt",
+  ApprovalApproved: "Duyệt hợp đồng",
+  ApprovalReturned: "Trả hợp đồng để chỉnh sửa",
+  ApprovalRejected: "Từ chối version hợp đồng",
+  ApprovalWithdrawn: "Rút yêu cầu duyệt",
+  SignedEvidenceUploaded: "Tải bản scan hợp đồng đã ký",
+  SignedEvidenceSuperseded: "Thay bản scan hợp đồng đã ký",
+  AcceptanceEvidenceUploaded: "Tải biên bản nghiệm thu",
+  PaymentAdded: "Ghi nhận khoản thanh toán",
+  PaymentVoided: "Hủy khoản thanh toán",
+  ContractCompleted: "Hoàn tất hợp đồng",
+  ContractAttachmentUploaded: "Tải lên tệp đính kèm",
+  ContractAttachmentDeleted: "Xóa tệp đính kèm",
   NegotiationStarted: "Bắt đầu đàm phán",
   NegotiationRoundCreated: "Tạo vòng đàm phán",
   ExternalFeedbackCreated: "Tạo phản hồi đàm phán",
   NegotiationReplyCreated: "Trả lời phản hồi đàm phán",
   NegotiationCommentResolved: "Đánh dấu đã xử lý phản hồi",
   NegotiationCommentReopened: "Mở lại phản hồi",
+  NegotiationCommentCarriedForward: "Chuyển tiếp phản hồi sang vòng mới",
   VerificationPhoneSelected: "Chọn số điện thoại xác minh",
   VerificationPhoneChanged: "Đổi số điện thoại xác minh",
   CustomerAccessLinkCreated: "Tạo link truy cập khách hàng",
@@ -145,9 +224,21 @@ export const CONTRACT_AUDIT_ACTION_LABELS: Record<
   CustomerCommentReplyCreated: "Khách hàng trả lời bình luận",
   PublicAccessDenied: "Từ chối truy cập công khai",
   ConcurrencyConflict: "Xung đột khi cập nhật",
+  PaymentMilestoneStatusChanged: "Thay đổi trạng thái thanh toán",
+  PaymentMilestoneAnchored: "Chốt thanh toán",
+  AcceptanceRecordFinalized: "Kết thúc biên bản nghiệm thu",
+  AcceptanceRecordUpdated: "Cập nhật biên bản nghiệm thu",
+  AcceptanceRecordCreated: "Tạo biên bản nghiệm thu",
 };
 
 export const contractAuditApi = {
   getList: (params: ContractAuditFilterRequest) =>
-    axiosClient.get<unknown, ContractAuditPagedResult>(BASE_URL, { params }),
+    axiosClient.get<unknown, ContractAuditCursorPageResult>(BASE_URL, {
+      params,
+    }),
+  exportCsv: (params: ContractAuditFilterRequest) =>
+    axiosClient.get<unknown, Blob>(`${BASE_URL}/export`, {
+      params,
+      responseType: "blob",
+    }),
 };

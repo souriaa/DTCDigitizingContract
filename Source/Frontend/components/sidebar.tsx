@@ -7,6 +7,8 @@ import {
   BriefcaseBusiness,
   Building2,
   ChevronLeft,
+  ClipboardCheck,
+  FileBadge,
   FileSignature,
   FileText,
   FolderTree,
@@ -24,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +41,7 @@ import {
   type RbacPermission,
 } from "@/lib/rbac";
 import { useSidebar } from "./sidebar-context";
+import { resolveProfileImageUrl } from "@/services/profile-api";
 
 interface NavItem {
   label: string;
@@ -56,6 +60,12 @@ const navItems: NavItem[] = [
       RBAC_PERMISSIONS.contractReadOwn,
       RBAC_PERMISSIONS.contractReadTenant,
     ],
+  },
+  {
+    label: "Phê duyệt hợp đồng",
+    icon: ClipboardCheck,
+    href: "/contract-approvals",
+    requiredPermissions: [RBAC_PERMISSIONS.contractApprovalDecide],
   },
   {
     label: "Mẫu hợp đồng",
@@ -123,7 +133,12 @@ const navItems: NavItem[] = [
     href: "/admin/departments",
     requiredPermissions: [RBAC_PERMISSIONS.departmentManage],
   },
-  { label: "Cấu hình", icon: Settings, href: "/dashboard/settings" },
+  {
+    label: "Hồ sơ pháp lý",
+    icon: FileBadge,
+    href: "/admin/legal-profile",
+    requiredPermissions: [RBAC_PERMISSIONS.tenantLegalProfileManage],
+  },
 ];
 
 export function Sidebar() {
@@ -286,9 +301,18 @@ export function Sidebar() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-accent transition-colors justify-start focus:outline-none">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-primary/80 flex items-center justify-center text-sm font-bold flex-shrink-0 text-primary-foreground shadow-sm">
-                      {user?.fullName?.[0]?.toUpperCase() ?? "U"}
-                    </div>
+                    <Avatar className="size-10 shadow-sm">
+                      {user?.imageUrl && (
+                        <AvatarImage
+                          src={resolveProfileImageUrl(user.imageUrl)}
+                          alt={user.fullName || "Người dùng"}
+                          className="object-cover"
+                        />
+                      )}
+                      <AvatarFallback className="bg-primary text-sm font-bold text-primary-foreground">
+                        {user?.fullName?.[0]?.toUpperCase() ?? "U"}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">
                         {user?.fullName || "Người dùng"}
@@ -307,14 +331,16 @@ export function Sidebar() {
                   className="w-64 rounded-xl z-60"
                 >
                   <DropdownMenuItem asChild className="cursor-pointer py-2.5">
-                    <Link href="/dashboard/profile">
+                    <Link href="/profile">
                       <User className="mr-2 h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">Hồ sơ cá nhân</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer py-2.5">
-                    <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Đổi mật khẩu</span>
+                  <DropdownMenuItem asChild className="cursor-pointer py-2.5">
+                    <Link href="/change-password">
+                      <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Đổi mật khẩu</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

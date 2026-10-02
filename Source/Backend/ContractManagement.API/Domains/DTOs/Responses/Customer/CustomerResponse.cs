@@ -1,4 +1,4 @@
-﻿namespace ContractManagement.API.Domains.DTOs.Responses.Customer
+namespace ContractManagement.API.Domains.DTOs.Responses.Customer
 {
     /// <summary>
     /// Response trả về thông tin khách hàng.
@@ -13,6 +13,18 @@
         public string? CustomerFullName { get; set; }
 
         public string? CustomerCompany { get; set; }
+
+        public string? CustomerTaxCode { get; set; }
+
+        public string? CustomerMobile { get; set; }
+
+        public string? CustomerPhone { get; set; }
+
+        public string? CustomerContactPersonName { get; set; }
+
+        public string? CustomerContactPersonPhone { get; set; }
+
+        public string? CustomerContactPersonTitle { get; set; }
 
         public byte? Status { get; set; }
     }
@@ -33,7 +45,23 @@
 
         public string? CustomerPhone { get; set; }
 
+        public string? CustomerFaxNumber { get; set; }
+
         public string? CustomerTaxCode { get; set; }
+
+        public string? CustomerRepresentativeName { get; set; }
+
+        public string? CustomerRepresentativeTitle { get; set; }
+
+        public string? CustomerContactPersonName { get; set; }
+
+        public string? CustomerContactPersonPhone { get; set; }
+
+        public string? CustomerContactPersonTitle { get; set; }
+
+        public string? CustomerBankAccountNumber { get; set; }
+
+        public string? CustomerBankName { get; set; }
 
         public string? CustomerAddress { get; set; }
 

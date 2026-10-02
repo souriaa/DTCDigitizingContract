@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
+  MessageSquareText,
   Plus,
   ShieldCheck,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DateFilter } from "@/components/ui/custom/date-filter";
 import { ContractTermComments } from "./contract-term-comments";
 import {
   ContractTermCard,
@@ -21,13 +27,23 @@ import {
   ContractLanguageMode,
   ContractNegotiationCommentResponse,
   ContractStatus,
+  ContractTermKind,
   ContractTermDetailResponse,
 } from "@/services/contract-api";
+import { ContractPaymentDueAnchor } from "@/services/contract-completion-api";
+
+const parseDateString = (str?: string | null) => {
+  if (!str) return undefined;
+  const [y, m, d] = str.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+};
 
 export function ContractTerms({
   contract,
   setContract,
   canEdit,
+  canComment,
   onDraftChange,
 }: {
   contract: ContractDetailResponse;
@@ -35,10 +51,14 @@ export function ContractTerms({
     React.SetStateAction<ContractDetailResponse | null>
   >;
   canEdit: boolean;
+  canComment: boolean;
   onDraftChange?: () => void;
 }) {
   const isEditable = canEdit;
   const terms = contract.currentVersion?.terms || [];
+  const manualPaymentMilestones = (
+    contract.currentVersion?.paymentMilestones ?? []
+  ).filter((item) => item.dueAnchor === ContractPaymentDueAnchor.ManualDate);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -73,6 +93,28 @@ export function ContractTerms({
     });
   };
 
+  const handleManualPaymentDateChange = (
+    milestoneId: number,
+    value: string,
+  ) => {
+    onDraftChange?.();
+    setContract((prev) => {
+      if (!prev?.currentVersion) return prev;
+      return {
+        ...prev,
+        currentVersion: {
+          ...prev.currentVersion,
+          paymentMilestones: prev.currentVersion.paymentMilestones.map(
+            (item) =>
+              item.paymentMilestoneId === milestoneId
+                ? { ...item, anchorDate: value || null, dueDate: null }
+                : item,
+          ),
+        },
+      };
+    });
+  };
+
   const handleAddTerm = () => {
     onDraftChange?.();
     setContract((prev) => {
@@ -97,6 +139,7 @@ export function ContractTerms({
         termTitleEn: null,
         termContent: "",
         termContentEn: null,
+        termKind: ContractTermKind.General,
         isNegotiable: true,
         displayOrder: newDisplayOrder,
         rowVersion: "",
@@ -196,97 +239,163 @@ export function ContractTerms({
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-3 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="size-5 text-primary" />
-          Chi tiết các Điều khoản
-        </CardTitle>
-        {isEditable && (
-          <Button
-            className="w-full sm:w-auto"
-            variant="outline"
-            size="sm"
-            onClick={handleAddTerm}
-          >
-            <Plus className="size-4 mr-2" />
-            Thêm Điều khoản
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {paginatedTerms.map((term, pageIndex) => {
-          const termIndex =
-            (currentPage - 1) * itemsPerPage + pageIndex;
-
-          return (
-            <ContractTermCard
-              key={term.termId}
-              term={term}
-              inputId={String(term.termId)}
-              editable={isEditable}
-              isBilingual={
-                contract.languageMode === ContractLanguageMode.Bilingual
-              }
-              canMoveUp={termIndex > 0}
-              canMoveDown={termIndex < terms.length - 1}
-              onChange={(field, value) =>
-                handleTermChange(term.termId, field, value)
-              }
-              onMove={(direction) =>
-                handleMoveTerm(term.termId, direction)
-              }
-              onRemove={() => handleRemoveTerm(term.termId)}
-            >
-              {term.isNegotiable &&
-                term.termId > 0 &&
-                (contract.status === ContractStatus.Negotiating ||
-                  (contract.currentVersion.comments || []).some(
-                    (comment) => comment.termId === term.termId,
-                  )) && (
-                  <ContractTermComments
-                    contractId={contract.contractId}
-                    versionId={contract.currentVersion.versionId}
-                    termId={term.termId}
-                    termCode={term.termCode}
-                    termTitle={term.termTitle}
-                    comments={contract.currentVersion.comments || []}
-                    canWrite={
-                      canEdit &&
-                      contract.status === ContractStatus.Negotiating &&
-                      !contract.currentVersion.isLocked
-                    }
-                    onCommentChanged={handleCommentChanged}
-                  />
-                )}
-            </ContractTermCard>
-          );
-        })}
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="size-4 mr-1" /> Trước
-            </Button>
-            <span className="text-sm font-medium">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Sau <ChevronRight className="size-4 ml-1" />
-            </Button>
+    <div className="space-y-4">
+      <Card className="gap-0 p-0">
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <MessageSquareText className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold">Trao đổi chung</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Thảo luận các nội dung áp dụng cho toàn bộ hợp đồng, không gắn
+                với một điều khoản cụ thể.
+              </p>
+            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            {!canComment && <Badge variant="secondary">Chỉ xem</Badge>}
+            <ContractTermComments
+              contractId={contract.contractId}
+              versionId={contract.currentVersion.versionId}
+              termId={null}
+              comments={contract.currentVersion.comments || []}
+              canWrite={canComment}
+              onCommentChanged={handleCommentChanged}
+              triggerClassName="mt-0"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-3 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-5 text-primary" />
+            Chi tiết các Điều khoản
+          </CardTitle>
+          {isEditable && (
+            <Button
+              className="w-full sm:w-auto"
+              variant="outline"
+              size="sm"
+              onClick={handleAddTerm}
+            >
+              <Plus className="size-4 mr-2" />
+              Thêm Điều khoản
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {paginatedTerms.map((term, pageIndex) => {
+            const termIndex = (currentPage - 1) * itemsPerPage + pageIndex;
+
+            return (
+              <ContractTermCard
+                key={term.termId}
+                term={term}
+                inputId={String(term.termId)}
+                editable={isEditable}
+                isBilingual={
+                  contract.languageMode === ContractLanguageMode.Bilingual
+                }
+                canMoveUp={termIndex > 0}
+                canMoveDown={termIndex < terms.length - 1}
+                onChange={(field, value) =>
+                  handleTermChange(term.termId, field, value)
+                }
+                onMove={(direction) => handleMoveTerm(term.termId, direction)}
+                onRemove={
+                  term.termKind === ContractTermKind.Payment
+                    ? undefined
+                    : () => handleRemoveTerm(term.termId)
+                }
+              >
+                {term.isNegotiable &&
+                  term.termId > 0 &&
+                  (contract.status === ContractStatus.Negotiating ||
+                    (contract.currentVersion.comments || []).some(
+                      (comment) => comment.termId === term.termId,
+                    )) && (
+                    <ContractTermComments
+                      contractId={contract.contractId}
+                      versionId={contract.currentVersion.versionId}
+                      termId={term.termId}
+                      termCode={term.termCode}
+                      termTitle={term.termTitle}
+                      comments={contract.currentVersion.comments || []}
+                      canWrite={canComment}
+                      onCommentChanged={handleCommentChanged}
+                    />
+                  )}
+              </ContractTermCard>
+            );
+          })}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="size-4 mr-1" /> Trước
+              </Button>
+              <span className="text-sm font-medium">
+                Trang {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+              >
+                Sau <ChevronRight className="size-4 ml-1" />
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {manualPaymentMilestones.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Mốc ngày thanh toán thủ công</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            {manualPaymentMilestones.map((milestone) => (
+              <div key={milestone.paymentMilestoneId} className="space-y-1.5">
+                <Label
+                  htmlFor={`contract-payment-date-${milestone.paymentMilestoneId}`}
+                >
+                  {milestone.titleVi} — Ngày bắt đầu tính hạn
+                </Label>
+                <DateFilter
+                  id={`contract-payment-date-${milestone.paymentMilestoneId}`}
+                  date={parseDateString(milestone.anchorDate)}
+                  disabled={!isEditable}
+                  onChange={(date) =>
+                    handleManualPaymentDateChange(
+                      milestone.paymentMilestoneId,
+                      date ? format(date, "yyyy-MM-dd") : "",
+                    )
+                  }
+                  placeholder="Chọn ngày bắt đầu tính hạn"
+                  className="w-full flex-1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Hệ thống cộng thêm {milestone.dueOffsetDays} ngày để tính hạn.
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

@@ -1,5 +1,10 @@
 import axiosClient from "@/lib/axios-interceptor";
-import { ContractLanguageMode } from "@/services/contract-api";
+import {
+  ContractLanguageMode,
+  ContractTermKind,
+} from "@/services/contract-api";
+
+export { ContractTermKind } from "@/services/contract-api";
 
 export enum TemplateDocumentType {
   Quotation = 1,
@@ -25,6 +30,19 @@ export enum TemplateValidationStatus {
   Invalid = 2,
 }
 
+export enum PaymentDueAnchor {
+  ContractSigned = 1,
+  ContractEffectiveDate = 2,
+  AcceptanceCompleted = 3,
+  PreviousMilestonePaid = 4,
+  ManualDate = 5,
+}
+
+export enum PaymentDayCountMode {
+  CalendarDays = 1,
+  BusinessDays = 2,
+}
+
 export enum TemplatePlaceholderDataKind {
   Scalar = 1,
   DynamicBlock = 2,
@@ -33,6 +51,7 @@ export enum TemplatePlaceholderDataKind {
 export enum TemplatePlaceholderMultiplicity {
   ExactlyOne = 1,
   ZeroOrOne = 2,
+  ZeroOrMore = 3,
 }
 
 export const getTemplateDocumentTypeLabel = (type?: TemplateDocumentType) => {
@@ -92,12 +111,14 @@ export interface ContractTemplateFilterRequest {
   page?: number;
   pageSize?: number;
   keyword?: string;
+  documentType?: TemplateDocumentType;
 }
 
 export interface CreateContractTemplateRequest {
   templateCode: string;
   templateName: string;
   templateNameEn?: string | null;
+  documentType: TemplateDocumentType;
   languageMode: ContractLanguageMode;
   description?: string | null;
   initialChangeNote?: string | null;
@@ -128,6 +149,7 @@ export interface RetireContractTemplateVersionRequest {
 }
 
 export interface CreateContractTemplateTermRequest {
+  termKind: ContractTermKind;
   termCode: string;
   termTitle: string;
   termTitleEn?: string | null;
@@ -159,7 +181,48 @@ export interface ReorderContractTemplateTermsRequest {
   terms: ReorderContractTemplateTermItem[];
 }
 
+export interface CreateContractTemplateAppendixRequest {
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  isRequired: boolean;
+  isSelectedByDefault: boolean;
+  displayOrder: number;
+  versionRowVersion: string;
+}
+
+export interface UpdateContractTemplateAppendixRequest
+  extends CreateContractTemplateAppendixRequest {
+  rowVersion: string;
+}
+
+export interface CreateContractTemplateAppendixTermRequest {
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  displayOrder: number;
+  versionRowVersion: string;
+  appendixRowVersion: string;
+}
+
+export interface UpdateContractTemplateAppendixTermRequest
+  extends CreateContractTemplateAppendixTermRequest {
+  rowVersion: string;
+}
+
 export interface SoftwareSupplyPlaceholderDefinition {
+  id?: number | null;
+  isSystem: boolean;
+  isActive: boolean;
+  sourceFieldKey?: string | null;
+  moduleKey?: string | null;
+  valueType?: number | null;
+  defaultValue?: string | null;
+  formatString?: string | null;
+  rowVersion?: string | null;
   key: string;
   label: string;
   isRequired: boolean;
@@ -169,8 +232,60 @@ export interface SoftwareSupplyPlaceholderDefinition {
 }
 
 export interface SoftwareSupplyPlaceholderCatalogResponse {
+  customEnabled: boolean;
   catalogVersion: string;
   items: SoftwareSupplyPlaceholderDefinition[];
+}
+
+export interface CreateContractTemplateLegalBasisRequest {
+  basisCode: string;
+  contentVi: string;
+  contentEn?: string | null;
+  displayOrder: number;
+  versionRowVersion: string;
+}
+
+export interface UpdateContractTemplateLegalBasisRequest
+  extends CreateContractTemplateLegalBasisRequest {
+  rowVersion: string;
+}
+
+export interface ReorderContractTemplateLegalBasesRequest {
+  versionRowVersion: string;
+  legalBases: Array<{
+    legalBasisId: number;
+    rowVersion: string;
+    displayOrder: number;
+  }>;
+}
+
+export interface ContractPlaceholderSourceField {
+  sourceFieldKey: string;
+  moduleKey: string;
+  moduleLabel: string;
+  fieldLabel: string;
+  valueType: number;
+  isNullable: boolean;
+  allowedFormats: string[];
+  sampleValue: string;
+  formattedSamples: Record<string, string>;
+}
+
+export interface SaveContractPlaceholderRequest {
+  placeholderKey: string;
+  fieldLabel: string;
+  sourceFieldKey: string;
+  defaultValue: string | null;
+  formatString: string | null;
+  rowVersion?: string | null;
+}
+
+export interface ContractPlaceholderUsage {
+  templateId: number;
+  templateVersionId: number;
+  templateCode: string;
+  versionNo: number;
+  status: TemplateVersionStatus;
 }
 
 export interface ContractTemplateResponse {
@@ -182,6 +297,7 @@ export interface ContractTemplateResponse {
   languageMode: ContractLanguageMode;
   description?: string | null;
   currentPublishedVersionId?: number | null;
+  currentPublishedVersionNo?: number | null;
   isActive: boolean;
   createdEmployeeId: number;
   createdDate: string;
@@ -199,6 +315,33 @@ export interface AvailableContractTemplateVersionResponse {
   languageMode: ContractLanguageMode;
   templateVersionId: number;
   versionNo: number;
+}
+
+export interface AvailableContractTemplateTermResponse {
+  templateTermId: number;
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  isNegotiable: boolean;
+  displayOrder: number;
+  termKind: ContractTermKind;
+  paymentMilestones: ContractTemplatePaymentMilestoneResponse[];
+}
+
+export interface AvailableContractTemplateVersionDetailResponse
+  extends AvailableContractTemplateVersionResponse {
+  terms: AvailableContractTemplateTermResponse[];
+  appendices: ContractTemplateAppendixResponse[];
+}
+
+export interface AvailableContractTemplateFilterRequest {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  documentType?: TemplateDocumentType;
+  languageMode?: ContractLanguageMode;
 }
 
 export interface ContractTemplateVersionSummaryResponse {
@@ -229,11 +372,100 @@ export interface ContractTemplateTermResponse {
   termContentEn?: string | null;
   isNegotiable: boolean;
   displayOrder: number;
+  termKind: ContractTermKind;
+  paymentMilestones: ContractTemplatePaymentMilestoneResponse[];
   createdEmployeeId: number;
   createdDate: string;
   updatedEmployeeId?: number | null;
   updatedDate?: string | null;
   rowVersion: string;
+}
+
+export interface ContractTemplateLegalBasisResponse {
+  templateLegalBasisId: number;
+  templateVersionId: number;
+  basisCode: string;
+  contentVi: string;
+  contentEn?: string | null;
+  displayOrder: number;
+  createdEmployeeId: number;
+  createdDate: string;
+  updatedEmployeeId?: number | null;
+  updatedDate?: string | null;
+  rowVersion: string;
+}
+
+export interface ContractTemplateAppendixTermResponse {
+  templateAppendixTermId: number;
+  templateAppendixId: number;
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  displayOrder: number;
+  createdEmployeeId: number;
+  createdDate: string;
+  updatedEmployeeId?: number | null;
+  updatedDate?: string | null;
+  rowVersion: string;
+}
+
+export interface ContractTemplateAppendixResponse {
+  templateAppendixId: number;
+  templateVersionId: number;
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  isRequired: boolean;
+  isSelectedByDefault: boolean;
+  displayOrder: number;
+  createdEmployeeId: number;
+  createdDate: string;
+  updatedEmployeeId?: number | null;
+  updatedDate?: string | null;
+  rowVersion: string;
+  terms: ContractTemplateAppendixTermResponse[];
+}
+
+export interface ContractTemplatePaymentMilestoneResponse {
+  templatePaymentMilestoneId: number;
+  templateVersionId: number;
+  templateTermId: number;
+  milestoneCode: string;
+  titleVi: string;
+  titleEn?: string | null;
+  paymentPercent: number;
+  dueAnchor: PaymentDueAnchor;
+  dueOffsetDays: number;
+  dayCountMode: PaymentDayCountMode;
+  conditionVi?: string | null;
+  conditionEn?: string | null;
+  displayOrder: number;
+  rowVersion: string;
+}
+
+export interface ContractTemplateItemTableColumnLayoutResponse {
+  itemTableColumnLayoutId: number;
+  templateVersionId: number;
+  columnKey: string;
+  displayOrder: number;
+  widthBps: number;
+}
+
+export interface SaveContractTemplatePaymentMilestoneRequest {
+  milestoneCode: string;
+  titleVi: string;
+  titleEn?: string | null;
+  paymentPercent: number;
+  dueAnchor: PaymentDueAnchor;
+  dueOffsetDays: number;
+  dayCountMode: PaymentDayCountMode;
+  conditionVi?: string | null;
+  conditionEn?: string | null;
+  displayOrder: number;
+  versionRowVersion: string;
 }
 
 export interface ContractTemplateVersionDetailResponse {
@@ -252,10 +484,14 @@ export interface ContractTemplateVersionDetailResponse {
   previewSourceHash?: string | null;
   previewedAt?: string | null;
   previewedByEmployeeId?: number | null;
+  previewedByEmployeeName?: string | null;
   createdDate: string;
   updatedDate?: string | null;
   rowVersion: string;
   terms: ContractTemplateTermResponse[];
+  legalBases: ContractTemplateLegalBasisResponse[];
+  itemTableLayout: ContractTemplateItemTableColumnLayoutResponse[];
+  appendices: ContractTemplateAppendixResponse[];
 }
 
 export interface ContractTemplatePreviewResponse {
@@ -283,10 +519,35 @@ export const contractTemplateApi = {
     axiosClient.get<unknown, AvailableContractTemplateVersionResponse[]>(
       `${BASE_URL}/available`,
     ),
-  getPlaceholderCatalog: () =>
+  searchAvailable: (params: AvailableContractTemplateFilterRequest) =>
+    axiosClient.get<
+      unknown,
+      PagedResult<AvailableContractTemplateVersionResponse>
+    >(`${BASE_URL}/available/search`, { params }),
+  getAvailableByVersionId: (templateVersionId: number) =>
+    axiosClient.get<
+      unknown,
+      AvailableContractTemplateVersionDetailResponse
+    >(`${BASE_URL}/available/${templateVersionId}`),
+  getPlaceholderCatalog: (documentType: TemplateDocumentType) =>
     axiosClient.get<unknown, SoftwareSupplyPlaceholderCatalogResponse>(
       `${BASE_URL}/placeholder-catalog`,
+      { params: { documentType } },
     ),
+  getPlaceholderSourceFields: () =>
+    axiosClient.get<unknown, ContractPlaceholderSourceField[]>(`${BASE_URL}/placeholder-source-fields`),
+  createPlaceholder: (data: SaveContractPlaceholderRequest) =>
+    axiosClient.post<unknown, SoftwareSupplyPlaceholderDefinition>(`${BASE_URL}/placeholders`, data),
+  updatePlaceholder: (id: number, data: SaveContractPlaceholderRequest) =>
+    axiosClient.put<unknown, SoftwareSupplyPlaceholderDefinition>(`${BASE_URL}/placeholders/${id}`, data),
+  setPlaceholderActive: (id: number, isActive: boolean, rowVersion: string) =>
+    axiosClient.post<unknown, SoftwareSupplyPlaceholderDefinition>(`${BASE_URL}/placeholders/${id}/${isActive ? "activate" : "deactivate"}`, { rowVersion }),
+  getPlaceholderUsage: (id: number) =>
+    axiosClient.get<unknown, ContractPlaceholderUsage[]>(`${BASE_URL}/placeholders/${id}/usage`),
+  deletePlaceholder: (id: number, rowVersion: string) =>
+    axiosClient.delete<unknown, boolean>(`${BASE_URL}/placeholders/${id}`, {
+      data: { rowVersion },
+    }),
 
   getList: (params: ContractTemplateFilterRequest) =>
     axiosClient.get<unknown, PagedResult<ContractTemplateResponse>>(BASE_URL, {
@@ -299,6 +560,7 @@ export const contractTemplateApi = {
   getById: (templateId: number) =>
     axiosClient.get<unknown, ContractTemplateDetailResponse>(
       `${BASE_URL}/${templateId}`,
+      { headers: { "Cache-Control": "no-cache" } },
     ),
 
   update: (templateId: number, data: UpdateContractTemplateRequest) =>
@@ -310,6 +572,16 @@ export const contractTemplateApi = {
   getVersion: (versionId: number) =>
     axiosClient.get<unknown, ContractTemplateVersionDetailResponse>(
       `${BASE_URL}/versions/${versionId}`,
+      { headers: { "Cache-Control": "no-cache" } },
+    ),
+
+  updateItemTableLayout: (
+    versionId: number,
+    data: { versionRowVersion: string; columnWidthsBps: number[] },
+  ) =>
+    axiosClient.put<unknown, ContractTemplateVersionDetailResponse>(
+      `${BASE_URL}/versions/${versionId}/item-table-layout`,
+      data,
     ),
 
   copyVersion: (
@@ -369,7 +641,7 @@ export const contractTemplateApi = {
       data,
     ),
 
-  downloadPublishedPreviewPdf: (versionId: number) =>
+  downloadPreviewPdf: (versionId: number) =>
     axiosClient.get<unknown, Blob>(
       `${BASE_URL}/versions/${versionId}/preview/pdf`,
       { responseType: "blob" },
@@ -408,5 +680,186 @@ export const contractTemplateApi = {
     axiosClient.delete<unknown, { versionId: number; termId: number }>(
       `${BASE_URL}/versions/${versionId}/terms/${termId}`,
       { data },
+    ),
+
+  addPaymentMilestone: (
+    versionId: number,
+    termId: number,
+    data: SaveContractTemplatePaymentMilestoneRequest,
+  ) =>
+    axiosClient.post<unknown, ContractTemplatePaymentMilestoneResponse>(
+      `${BASE_URL}/versions/${versionId}/terms/${termId}/payment-milestones`,
+      data,
+    ),
+
+  updatePaymentMilestone: (
+    versionId: number,
+    termId: number,
+    milestoneId: number,
+    data: SaveContractTemplatePaymentMilestoneRequest & { rowVersion: string },
+  ) =>
+    axiosClient.put<unknown, ContractTemplatePaymentMilestoneResponse>(
+      `${BASE_URL}/versions/${versionId}/terms/${termId}/payment-milestones/${milestoneId}`,
+      data,
+    ),
+
+  deletePaymentMilestone: (
+    versionId: number,
+    termId: number,
+    milestoneId: number,
+    rowVersion: string,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.delete(
+      `${BASE_URL}/versions/${versionId}/terms/${termId}/payment-milestones/${milestoneId}`,
+      { data: { rowVersion, versionRowVersion } },
+    ),
+
+  reorderPaymentMilestones: (
+    versionId: number,
+    termId: number,
+    versionRowVersion: string,
+    milestones: Array<{
+      milestoneId: number;
+      rowVersion: string;
+      displayOrder: number;
+    }>,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateVersionDetailResponse>(
+      `${BASE_URL}/versions/${versionId}/terms/${termId}/payment-milestones/order`,
+      { versionRowVersion, milestones },
+    ),
+
+  addLegalBasis: (
+    versionId: number,
+    data: CreateContractTemplateLegalBasisRequest,
+  ) =>
+    axiosClient.post<unknown, ContractTemplateLegalBasisResponse>(
+      `${BASE_URL}/versions/${versionId}/legal-bases`,
+      data,
+    ),
+
+  updateLegalBasis: (
+    versionId: number,
+    legalBasisId: number,
+    data: UpdateContractTemplateLegalBasisRequest,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateLegalBasisResponse>(
+      `${BASE_URL}/versions/${versionId}/legal-bases/${legalBasisId}`,
+      data,
+    ),
+
+  reorderLegalBases: (
+    versionId: number,
+    data: ReorderContractTemplateLegalBasesRequest,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateVersionDetailResponse>(
+      `${BASE_URL}/versions/${versionId}/legal-bases/order`,
+      data,
+    ),
+
+  deleteLegalBasis: (
+    versionId: number,
+    legalBasisId: number,
+    rowVersion: string,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.delete<unknown, { versionId: number; legalBasisId: number }>(
+      `${BASE_URL}/versions/${versionId}/legal-bases/${legalBasisId}`,
+      { data: { rowVersion, versionRowVersion } },
+    ),
+
+  addAppendix: (
+    versionId: number,
+    data: CreateContractTemplateAppendixRequest,
+  ) =>
+    axiosClient.post<unknown, ContractTemplateAppendixResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices`,
+      data,
+    ),
+
+  updateAppendix: (
+    versionId: number,
+    appendixId: number,
+    data: UpdateContractTemplateAppendixRequest,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateAppendixResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}`,
+      data,
+    ),
+
+  deleteAppendix: (
+    versionId: number,
+    appendixId: number,
+    rowVersion: string,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.delete<unknown, { versionId: number; appendixId: number }>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}`,
+      { data: { rowVersion, versionRowVersion } },
+    ),
+
+  reorderAppendices: (
+    versionId: number,
+    versionRowVersion: string,
+    appendices: Array<{
+      templateAppendixId: number;
+      rowVersion: string;
+      displayOrder: number;
+    }>,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateVersionDetailResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices/order`,
+      { versionRowVersion, appendices },
+    ),
+
+  addAppendixTerm: (
+    versionId: number,
+    appendixId: number,
+    data: CreateContractTemplateAppendixTermRequest,
+  ) =>
+    axiosClient.post<unknown, ContractTemplateAppendixTermResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}/terms`,
+      data,
+    ),
+
+  updateAppendixTerm: (
+    versionId: number,
+    appendixId: number,
+    termId: number,
+    data: UpdateContractTemplateAppendixTermRequest,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateAppendixTermResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}/terms/${termId}`,
+      data,
+    ),
+
+  deleteAppendixTerm: (
+    versionId: number,
+    appendixId: number,
+    termId: number,
+    rowVersion: string,
+    appendixRowVersion: string,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.delete<unknown, { versionId: number; appendixId: number; termId: number }>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}/terms/${termId}`,
+      { data: { rowVersion, appendixRowVersion, versionRowVersion } },
+    ),
+
+  reorderAppendixTerms: (
+    versionId: number,
+    appendixId: number,
+    versionRowVersion: string,
+    appendixRowVersion: string,
+    terms: Array<{
+      templateAppendixTermId: number;
+      rowVersion: string;
+      displayOrder: number;
+    }>,
+  ) =>
+    axiosClient.put<unknown, ContractTemplateAppendixResponse>(
+      `${BASE_URL}/versions/${versionId}/appendices/${appendixId}/terms/order`,
+      { versionRowVersion, appendixRowVersion, terms },
     ),
 };

@@ -1,12 +1,13 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
 using ContractManagement.Domains.Policies.ContractTemplate;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
+using System.Xml;
 
 namespace ContractManagement.Domains.Services.ContractTemplate;
 
@@ -17,28 +18,25 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 public sealed class ContractTemplateDocumentValidator
     : IContractTemplateDocumentValidator
 {
+    private readonly IContractPlaceholderCatalog? _catalog;
+
+    public ContractTemplateDocumentValidator(IContractPlaceholderCatalog? catalog = null) => _catalog = catalog;
     public const long MaxDocumentSizeBytes = 10 * 1024 * 1024;
 
     private const long MaxUncompressedPackageBytes = 100 * 1024 * 1024;
     private const int MaxPackageEntries = 10_000;
     private const int MaxValidationMessageLength = 4_000;
-    private const string WordprocessingNamespace =
-        "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
     private static readonly Regex ValidTokenRegex = new(
         "^\\{\\{[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\\}\\}$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static readonly HashSet<string> RevisionElementNames =
-    [
-        "ins", "del", "moveFrom", "moveTo", "moveFromRangeStart",
-        "moveFromRangeEnd", "moveToRangeStart", "moveToRangeEnd",
-        "rPrChange", "pPrChange", "tblPrChange", "trPrChange",
-        "tcPrChange", "sectPrChange", "numPrChange"
-    ];
+    private static readonly Regex DisplayableInvalidTokenRegex = new(
+        "^\\{\\{[A-Za-z0-9_]{1,100}\\}\\}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public async Task<ContractTemplateDocumentValidationResult> ValidateAsync(
         IFormFile? file,
+        TemplateDocumentType documentType,
         CancellationToken cancellationToken = default)
     {
         var extension = GetSafeExtension(file?.FileName);
@@ -101,13 +99,6 @@ public sealed class ContractTemplateDocumentValidator
             }
 
             stream.Position = 0;
-            if (ContainsCommentPart(stream))
-            {
-                return ContractTemplateDocumentValidationResult.RejectTechnical(
-                    "WordCommentsNotAllowed", extension, documentBytes.LongLength);
-            }
-
-            stream.Position = 0;
             using var document = WordprocessingDocument.Open(stream, false);
             var mainPart = document.MainDocumentPart;
             if (mainPart?.Document is null)
@@ -123,32 +114,19 @@ public sealed class ContractTemplateDocumentValidator
                     "MacroNotAllowed", extension, documentBytes.LongLength);
             }
 
-            if (document.Parts.Any(part => part.OpenXmlPart.ContentType.Contains(
-                    "comments", StringComparison.OrdinalIgnoreCase)))
-            {
-                return ContractTemplateDocumentValidationResult.RejectTechnical(
-                    "WordCommentsNotAllowed", extension, documentBytes.LongLength);
-            }
-
             var roots = GetTextRoots(mainPart).ToList();
-            if (mainPart.DocumentSettingsPart?.Settings?
-                    .Elements<TrackRevisions>().Any() == true
-                || roots.Any(ContainsTrackedChanges))
-            {
-                return ContractTemplateDocumentValidationResult.RejectTechnical(
-                    "TrackedChangesNotAllowed", extension, documentBytes.LongLength);
-            }
 
-            var schemaError = new OpenXmlValidator()
-                .Validate(document)
-                .FirstOrDefault();
-            if (schemaError is not null)
-            {
-                return ContractTemplateDocumentValidationResult.RejectTechnical(
-                    "OoxmlStructureInvalid", extension, documentBytes.LongLength);
-            }
+            // Do not use OpenXmlValidator as an upload gate. Real DOCX files
+            // created by newer Microsoft 365 builds and third-party editors can
+            // contain valid extension metadata that an older schema profile
+            // reports as an error. Comments and tracked changes are also legal
+            // WordprocessingML. They are ignored by placeholder extraction and
+            // do not execute code. Invalid/missing placeholders still produce a
+            // catalog-invalid version that cannot be published.
 
-            return ValidatePlaceholders(roots, extension, documentBytes);
+            var catalog = await GetCatalogAsync(documentType, cancellationToken);
+            return ValidatePlaceholders(roots, extension, documentBytes, catalog.Where(x => x.IsActive).ToArray(),
+                catalog.Where(x => !x.IsActive).Select(x => x.Key).ToHashSet(StringComparer.Ordinal));
         }
         catch (OperationCanceledException)
         {
@@ -157,6 +135,7 @@ public sealed class ContractTemplateDocumentValidator
         catch (Exception exception) when (exception is IOException
             or InvalidDataException
             or OpenXmlPackageException
+            or XmlException
             or ArgumentException)
         {
             return ContractTemplateDocumentValidationResult.RejectTechnical(
@@ -164,18 +143,52 @@ public sealed class ContractTemplateDocumentValidator
         }
     }
 
+    private async Task<IReadOnlyList<SoftwareSupplyPlaceholderDefinition>>
+        GetCatalogAsync(
+            TemplateDocumentType documentType,
+            CancellationToken cancellationToken)
+    {
+        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        {
+            if (_catalog is null)
+            {
+                return AcceptanceRecordPlaceholderCatalog.All;
+            }
+
+            var tenantCatalog = await _catalog.GetAsync(
+                includeInactive: true,
+                cancellationToken: cancellationToken);
+            return AcceptanceRecordPlaceholderCatalog.All
+                .Concat(tenantCatalog.Where(item => !item.IsSystem
+                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                        system.Key != item.Key)))
+                .ToArray();
+        }
+
+        if (ContractTemplatePolicy.CreatesContract(documentType))
+        {
+            return _catalog is null
+                ? ContractPlaceholderCatalog.SystemDefinitions
+                : await _catalog.GetAsync(
+                    includeInactive: true,
+                    cancellationToken: cancellationToken);
+        }
+
+        return [];
+    }
+
     private static ContractTemplateDocumentValidationResult ValidatePlaceholders(
         IReadOnlyCollection<OpenXmlElement> roots,
         string extension,
-        byte[] documentBytes)
+        byte[] documentBytes,
+        IReadOnlyList<SoftwareSupplyPlaceholderDefinition> catalog,
+        IReadOnlySet<string> inactiveKeys)
     {
-        var catalog = SoftwareSupplyPlaceholderCatalog.GetAll();
         var catalogByKey = catalog.ToDictionary(
             item => item.Key,
             StringComparer.Ordinal);
         var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
         var messages = new List<string>();
-        var hasUnknownToken = false;
 
         foreach (var root in roots)
         {
@@ -189,18 +202,14 @@ public sealed class ContractTemplateDocumentValidator
                 {
                     if (!catalogByKey.ContainsKey(token))
                     {
-                        hasUnknownToken = true;
+                        if (inactiveKeys.Contains(token)) messages.Add($"InactivePlaceholder:{token}");
+                        else messages.Add($"UnknownPlaceholder:{token}");
                         continue;
                     }
 
                     occurrences[token] = occurrences.GetValueOrDefault(token) + 1;
                 }
             }
-        }
-
-        if (hasUnknownToken)
-        {
-            messages.Add("UnknownPlaceholder");
         }
 
         foreach (var definition in catalog)
@@ -217,6 +226,7 @@ public sealed class ContractTemplateDocumentValidator
             {
                 TemplatePlaceholderMultiplicity.ExactlyOne => count != 1,
                 TemplatePlaceholderMultiplicity.ZeroOrOne => count > 1,
+                TemplatePlaceholderMultiplicity.ZeroOrMore => false,
                 _ => true
             };
             if (violatesMultiplicity)
@@ -244,7 +254,11 @@ public sealed class ContractTemplateDocumentValidator
             ValidationMessage: message,
             FileExtension: extension,
             FileSizeBytes: documentBytes.LongLength,
-            DocumentBytes: documentBytes);
+            DocumentBytes: documentBytes)
+        {
+            Definitions = catalog.Where(x => occurrences.ContainsKey(x.Key)).ToArray(),
+            CatalogRevision = ContractPlaceholderCatalog.Fingerprint(catalog)
+        };
     }
 
     private static IEnumerable<string> ParseTokens(
@@ -268,7 +282,9 @@ public sealed class ContractTemplateDocumentValidator
                 var token = paragraphText[index..(closingIndex + 2)];
                 if (!ValidTokenRegex.IsMatch(token))
                 {
-                    messages.Add("InvalidPlaceholderSyntax");
+                    messages.Add(DisplayableInvalidTokenRegex.IsMatch(token)
+                        ? $"InvalidPlaceholderSyntax:{token[2..^2]}"
+                        : "InvalidPlaceholderSyntax");
                 }
                 else
                 {
@@ -327,12 +343,6 @@ public sealed class ContractTemplateDocumentValidator
         }
     }
 
-    private static bool ContainsTrackedChanges(OpenXmlElement root) =>
-        root.Descendants().Any(element =>
-            string.Equals(element.NamespaceUri, WordprocessingNamespace,
-                StringComparison.Ordinal)
-            && RevisionElementNames.Contains(element.LocalName));
-
     private static bool IsSafeWordprocessingPackage(Stream stream)
     {
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read,
@@ -383,15 +393,6 @@ public sealed class ContractTemplateDocumentValidator
             leaveOpen: false);
         return reader.ReadToEnd().Contains("vbaProject",
             StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ContainsCommentPart(Stream stream)
-    {
-        using var archive = new ZipArchive(stream, ZipArchiveMode.Read,
-            leaveOpen: true);
-        return archive.Entries.Any(entry => entry.FullName.StartsWith(
-                "word/comments", StringComparison.OrdinalIgnoreCase)
-            && entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
     }
 
     private static async Task<ReadResult> ReadAtMostTenMiBAsync(

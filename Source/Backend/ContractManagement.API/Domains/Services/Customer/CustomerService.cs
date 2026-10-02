@@ -1,4 +1,4 @@
-﻿using ContractManagement.API.Common.Responses;
+using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Customer;
 using ContractManagement.API.Domains.DTOs.Responses.Customer;
 using ContractManagement.API.Domains.Interfaces.Customer;
@@ -50,6 +50,8 @@ namespace ContractManagement.API.Domains.Services.Customer
                     (x.CustomerCompany != null && x.CustomerCompany.Contains(keyword)) ||
                     (x.CustomerEmail != null && x.CustomerEmail.Contains(keyword)) ||
                     (x.CustomerMobile != null && x.CustomerMobile.Contains(keyword)) ||
+                    (x.CustomerContactPersonName != null && x.CustomerContactPersonName.Contains(keyword)) ||
+                    (x.CustomerContactPersonPhone != null && x.CustomerContactPersonPhone.Contains(keyword)) ||
                     (x.CustomerTaxCode != null && x.CustomerTaxCode.Contains(keyword)));
             }
 
@@ -98,7 +100,12 @@ namespace ContractManagement.API.Domains.Services.Customer
                 query = query.Where(x =>
                     (x.CustomerCode != null && x.CustomerCode.Contains(normalizedKeyword))
                     || (x.CustomerFullName != null && x.CustomerFullName.Contains(normalizedKeyword))
-                    || (x.CustomerCompany != null && x.CustomerCompany.Contains(normalizedKeyword)));
+                    || (x.CustomerCompany != null && x.CustomerCompany.Contains(normalizedKeyword))
+                    || (x.CustomerTaxCode != null && x.CustomerTaxCode.Contains(normalizedKeyword))
+                    || (x.CustomerMobile != null && x.CustomerMobile.Contains(normalizedKeyword))
+                    || (x.CustomerPhone != null && x.CustomerPhone.Contains(normalizedKeyword))
+                    || (x.CustomerContactPersonName != null && x.CustomerContactPersonName.Contains(normalizedKeyword))
+                    || (x.CustomerContactPersonPhone != null && x.CustomerContactPersonPhone.Contains(normalizedKeyword)));
             }
 
             return await query
@@ -111,6 +118,12 @@ namespace ContractManagement.API.Domains.Services.Customer
                     CustomerCode = x.CustomerCode,
                     CustomerFullName = x.CustomerFullName,
                     CustomerCompany = x.CustomerCompany,
+                    CustomerTaxCode = x.CustomerTaxCode,
+                    CustomerMobile = x.CustomerMobile,
+                    CustomerPhone = x.CustomerPhone,
+                    CustomerContactPersonName = x.CustomerContactPersonName,
+                    CustomerContactPersonPhone = x.CustomerContactPersonPhone,
+                    CustomerContactPersonTitle = x.CustomerContactPersonTitle,
                     Status = x.Status
                 })
                 .ToListAsync(cancellationToken);
@@ -160,7 +173,15 @@ namespace ContractManagement.API.Domains.Services.Customer
                 CustomerEmail = request.CustomerEmail?.Trim(),
                 CustomerMobile = request.CustomerMobile?.Trim(),
                 CustomerPhone = request.CustomerPhone?.Trim(),
+                CustomerFaxNumber = request.CustomerFaxNumber?.Trim(),
                 CustomerTaxCode = request.CustomerTaxCode?.Trim(),
+                CustomerRepresentativeName = request.CustomerRepresentativeName?.Trim(),
+                CustomerRepresentativeTitle = request.CustomerRepresentativeTitle?.Trim(),
+                CustomerContactPersonName = request.CustomerContactPersonName?.Trim(),
+                CustomerContactPersonPhone = request.CustomerContactPersonPhone?.Trim(),
+                CustomerContactPersonTitle = request.CustomerContactPersonTitle?.Trim(),
+                CustomerBankAccountNumber = request.CustomerBankAccountNumber?.Trim(),
+                CustomerBankName = request.CustomerBankName?.Trim(),
                 CustomerAddress = request.CustomerAddress?.Trim(),
                 CustomerCity = request.CustomerCity?.Trim(),
                 CustomerCountry = request.CustomerCountry?.Trim(),
@@ -215,7 +236,15 @@ namespace ContractManagement.API.Domains.Services.Customer
             customer.CustomerEmail = request.CustomerEmail?.Trim();
             customer.CustomerMobile = request.CustomerMobile?.Trim();
             customer.CustomerPhone = request.CustomerPhone?.Trim();
+            customer.CustomerFaxNumber = request.CustomerFaxNumber?.Trim();
             customer.CustomerTaxCode = request.CustomerTaxCode?.Trim();
+            customer.CustomerRepresentativeName = request.CustomerRepresentativeName?.Trim();
+            customer.CustomerRepresentativeTitle = request.CustomerRepresentativeTitle?.Trim();
+            customer.CustomerContactPersonName = request.CustomerContactPersonName?.Trim();
+            customer.CustomerContactPersonPhone = request.CustomerContactPersonPhone?.Trim();
+            customer.CustomerContactPersonTitle = request.CustomerContactPersonTitle?.Trim();
+            customer.CustomerBankAccountNumber = request.CustomerBankAccountNumber?.Trim();
+            customer.CustomerBankName = request.CustomerBankName?.Trim();
             customer.CustomerAddress = request.CustomerAddress?.Trim();
             customer.CustomerCity = request.CustomerCity?.Trim();
             customer.CustomerCountry = request.CustomerCountry?.Trim();
@@ -288,7 +317,15 @@ namespace ContractManagement.API.Domains.Services.Customer
                 CustomerEmail = customer.CustomerEmail,
                 CustomerMobile = customer.CustomerMobile,
                 CustomerPhone = customer.CustomerPhone,
+                CustomerFaxNumber = customer.CustomerFaxNumber,
                 CustomerTaxCode = customer.CustomerTaxCode,
+                CustomerRepresentativeName = customer.CustomerRepresentativeName,
+                CustomerRepresentativeTitle = customer.CustomerRepresentativeTitle,
+                CustomerContactPersonName = customer.CustomerContactPersonName,
+                CustomerContactPersonPhone = customer.CustomerContactPersonPhone,
+                CustomerContactPersonTitle = customer.CustomerContactPersonTitle,
+                CustomerBankAccountNumber = customer.CustomerBankAccountNumber,
+                CustomerBankName = customer.CustomerBankName,
                 CustomerAddress = customer.CustomerAddress,
                 CustomerCity = customer.CustomerCity,
                 CustomerCountry = customer.CustomerCountry,

@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { CodeInput } from "@/components/ui/custom/code-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -150,8 +151,8 @@ export function EmployeeFormModal({
       }
       if (!employeePassword.trim()) {
         newErrors.employeePassword = "Mật khẩu không được để trống";
-      } else if (employeePassword.length < 6) {
-        newErrors.employeePassword = "Mật khẩu tối thiểu 6 ký tự";
+      } else if (employeePassword.length < 12) {
+        newErrors.employeePassword = "Mật khẩu tối thiểu 12 ký tự";
       }
     }
 
@@ -285,11 +286,11 @@ export function EmployeeFormModal({
                 Mã nhân viên{" "}
                 {!isViewMode && <span className="text-destructive">*</span>}
               </Label>
-              <Input
+              <CodeInput
                 id="employeeCode"
                 placeholder="EMP-001"
                 value={employeeCode}
-                onChange={(e) => setEmployeeCode(e.target.value)}
+                onValueChange={setEmployeeCode}
                 maxLength={30}
                 disabled={isViewMode}
                 aria-invalid={!!errors.employeeCode}
@@ -313,6 +314,7 @@ export function EmployeeFormModal({
                 placeholder="••••••"
                 value={employeePassword}
                 onChange={(e) => setEmployeePassword(e.target.value)}
+                minLength={12}
                 maxLength={100}
                 aria-invalid={!!errors.employeePassword}
               />

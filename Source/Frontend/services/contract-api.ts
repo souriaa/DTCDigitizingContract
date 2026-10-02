@@ -1,4 +1,5 @@
 import axiosClient from "@/lib/axios-interceptor";
+import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
 
 export enum ContractType {
   SoftwareSupply = 1,
@@ -22,6 +23,11 @@ export const getContractTypeLabel = (type?: ContractType) => {
 export enum ContractLanguageMode {
   Vietnamese = 1,
   Bilingual = 2,
+}
+
+export enum ContractTermKind {
+  General = 0,
+  Payment = 1,
 }
 
 export const getContractLanguageModeLabel = (mode?: ContractLanguageMode) => {
@@ -214,6 +220,98 @@ export interface CreateContractRequest {
   currencyCode: string;
   languageMode: ContractLanguageMode;
   items: CreateContractItemRequest[];
+  terms?: CreateContractTermRequest[] | null;
+  paymentMilestoneDates: ContractPaymentMilestoneDateRequest[];
+  selectedOptionalTemplateAppendixIds?: number[];
+}
+
+export interface ContractAppendixTermResponse {
+  appendixTermId: number;
+  appendixId: number;
+  sourceTemplateAppendixTermId?: number | null;
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  displayOrder: number;
+  rowVersion: string;
+}
+
+export interface ContractAppendixResponse {
+  appendixId: number;
+  contractId: number;
+  versionId: number;
+  sourceTemplateAppendixId?: number | null;
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  isRequired: boolean;
+  displayOrder: number;
+  rowVersion: string;
+  terms: ContractAppendixTermResponse[];
+}
+
+export interface ContractAppendixOptionResponse {
+  templateAppendixId: number;
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  displayOrder: number;
+}
+
+export interface CreateContractAppendixTermRequest {
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  displayOrder: number;
+  versionRowVersion: string;
+  appendixRowVersion: string;
+}
+
+export interface UpdateContractAppendixTermRequest
+  extends CreateContractAppendixTermRequest {
+  rowVersion: string;
+}
+
+export interface CreateContractAppendixRequest {
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  versionRowVersion: string;
+}
+
+export interface ReorderContractAppendixItem {
+  appendixId: number;
+  rowVersion: string;
+  displayOrder: number;
+}
+
+export interface ReorderContractAppendicesRequest {
+  versionRowVersion: string;
+  appendices: ReorderContractAppendixItem[];
+}
+
+export interface ContractPaymentMilestoneDateRequest {
+  sourceTemplatePaymentMilestoneId: number;
+  anchorDate: string;
+}
+
+export interface CreateContractTermRequest {
+  sourceTemplateTermId?: number | null;
+  termKind?: ContractTermKind;
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  isNegotiable: boolean;
+  displayOrder: number;
 }
 
 export interface UpdateContractTermRequest {
@@ -240,6 +338,7 @@ export interface UpdateContractDraftRequest {
   currencyCode: string;
   items: UpdateContractItemRequest[];
   terms: UpdateContractTermRequest[];
+  paymentMilestoneDates: ContractPaymentMilestoneDateRequest[];
 }
 
 export interface StartContractNegotiationRequest {
@@ -332,6 +431,7 @@ export interface ContractTermDetailResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  termKind: ContractTermKind;
   isNegotiable: boolean;
   displayOrder: number;
   rowVersion: string;
@@ -346,6 +446,7 @@ export enum ContractNegotiationCommentEventType {
   Created = 1,
   Resolved = 2,
   Reopened = 3,
+  CarriedForward = 4,
 }
 
 export type ContractNegotiationCommentSource =
@@ -366,10 +467,14 @@ export interface ContractNegotiationCommentResponse {
   versionId: number;
   termId?: number | null;
   parentCommentId?: number | null;
+  carriedForwardFromCommentId?: number | null;
+  carriedForwardFromVersionId?: number | null;
+  carriedForwardFromVersionNo?: number | null;
   content: string;
   source: ContractNegotiationCommentSource;
   externalFeedback: boolean;
   recordedByEmployeeId: number;
+  recordedByDisplayName?: string | null;
   createdEmployeeId: number;
   state: ContractNegotiationCommentState;
   createdDate: string;
@@ -395,7 +500,7 @@ export interface ContractVersionDetailResponse {
   versionId: number;
   versionNo: number;
   sourceVersionId?: number | null;
-  templateVersionId?: number | null;
+  templateVersionId: number;
   changeNote?: string | null;
   currencyCode: string;
   subtotal: number;
@@ -411,7 +516,10 @@ export interface ContractVersionDetailResponse {
   rowVersion: string;
   items: ContractItemDetailResponse[];
   terms: ContractTermDetailResponse[];
+  paymentMilestones: ContractPaymentMilestoneResponse[];
   comments: ContractNegotiationCommentResponse[];
+  appendices: ContractAppendixResponse[];
+  availableOptionalAppendices: ContractAppendixOptionResponse[];
 }
 
 export interface ContractCustomerSummaryResponse {
@@ -433,13 +541,40 @@ export interface ContractEmployeeSummaryResponse {
   employeeMobile?: string | null;
 }
 
+export const CONTRACT_APPROVAL_READINESS_CODES = {
+  contractNotNegotiating: "ContractNotNegotiating",
+  currentVersionLocked: "CurrentVersionLocked",
+  contractCodeRequired: "ContractCodeRequired",
+  contractNameRequired: "ContractNameRequired",
+  contractItemRequired: "ContractItemRequired",
+  contractTermRequired: "ContractTermRequired",
+  invalidContractDateRange: "InvalidContractDateRange",
+  contractTotalMismatch: "ContractTotalMismatch",
+  bilingualContractNameRequired: "BilingualContractNameRequired",
+  bilingualItemNameRequired: "BilingualItemNameRequired",
+  bilingualTermTitleRequired: "BilingualTermTitleRequired",
+} as const;
+
+export interface ContractApprovalReadinessBlockerResponse {
+  code: string;
+  message: string;
+}
+
+export interface ContractApprovalReadinessResponse {
+  canSubmit: boolean;
+  hasEverBeenShared: boolean;
+  hasActiveCurrentVersionLink: boolean;
+  openCommentCount: number;
+  blockers: ContractApprovalReadinessBlockerResponse[];
+}
+
 export interface ContractDetailResponse {
   contractId: number;
   contractCode?: string | null;
   contractName: string;
   contractNameEn?: string | null;
   contractType: ContractType;
-  templateVersionId?: number | null;
+  templateVersionId: number;
   parentContractId?: number | null;
   status: ContractStatus;
   signDate?: string | null;
@@ -452,7 +587,6 @@ export interface ContractDetailResponse {
   totalPayment: number;
   currencyCode: string;
   languageMode: ContractLanguageMode;
-  isLegacy: boolean;
   createdEmployeeId: number;
   createdDate: string;
   updatedDate?: string | null;
@@ -460,6 +594,7 @@ export interface ContractDetailResponse {
   customer: ContractCustomerSummaryResponse;
   responsibleEmployee: ContractEmployeeSummaryResponse;
   currentVersion: ContractVersionDetailResponse;
+  approvalReadiness: ContractApprovalReadinessResponse;
 }
 
 export interface CreateContractResponse {
@@ -495,6 +630,10 @@ export interface SubmitContractForApprovalResponse {
   approvalStatus: ApprovalRequestStatus;
   submittedDate: string;
   snapshotHash: string;
+  submittedDocxFileId: number;
+  submittedDocxHash: string;
+  submittedPdfFileId: number;
+  submittedPdfHash: string;
   contractRowVersion: string;
   versionRowVersion: string;
 }
@@ -513,6 +652,14 @@ export interface ContractCustomerAccessLinkResponse {
   state: string;
   expiresAt: string;
   publicUrl: string;
+}
+
+export interface CurrentContractCustomerAccessLinkResponse {
+  linkId: number;
+  state: string;
+  versionId: number;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface ContractNegotiationRoundVersionResponse {
@@ -539,6 +686,8 @@ export interface CreateContractNegotiationRoundResponse {
   rowVersion: string;
   sourceVersion: ContractNegotiationRoundVersionResponse;
   currentVersion: ContractNegotiationRoundVersionResponse;
+  carriedForwardThreadCount: number;
+  carriedForwardCommentCount: number;
   totals: ContractFinancialTotalsResponse;
 }
 
@@ -652,6 +801,12 @@ const normalizeContractItemFinance = <T extends CreateContractItemRequest>(
 
 const normalizeCreateContractRequest = (data: CreateContractRequest) => ({
   ...data,
+  ...(data.selectedOptionalTemplateAppendixIds?.length
+    ? {
+        selectedOptionalTemplateAppendixIds:
+          data.selectedOptionalTemplateAppendixIds,
+      }
+    : {}),
   items: data.items.map(normalizeContractItemFinance),
 });
 
@@ -677,6 +832,16 @@ export const contractApi = {
   },
   getDetail: (id: number) => {
     return axiosClient.get<any, ContractDetailResponse>(`${BASE_URL}/${id}`);
+  },
+  downloadPreviewDocx: (id: number) => {
+    return axiosClient.get<any, Blob>(`${BASE_URL}/${id}/preview/docx`, {
+      responseType: "blob",
+    });
+  },
+  downloadPreviewPdf: (id: number) => {
+    return axiosClient.get<any, Blob>(`${BASE_URL}/${id}/preview/pdf`, {
+      responseType: "blob",
+    });
   },
   create: (data: CreateContractRequest) => {
     return axiosClient.post<any, CreateContractResponse>(
@@ -724,6 +889,99 @@ export const contractApi = {
       `${BASE_URL}/${id}/versions/${versionId}`,
     );
   },
+  addAppendix: (
+    contractId: number,
+    versionId: number,
+    templateAppendixId: number,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.post<any, ContractAppendixResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices`,
+      { templateAppendixId, versionRowVersion },
+    ),
+  createAppendix: (
+    contractId: number,
+    versionId: number,
+    data: CreateContractAppendixRequest,
+  ) =>
+    axiosClient.post<unknown, ContractAppendixResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/custom`,
+      data,
+    ),
+  deleteAppendix: (
+    contractId: number,
+    versionId: number,
+    appendixId: number,
+    rowVersion: string,
+    versionRowVersion: string,
+  ) =>
+    axiosClient.delete<any, { appendixId: number }>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}`,
+      { data: { rowVersion, versionRowVersion } },
+    ),
+  reorderAppendices: (
+    contractId: number,
+    versionId: number,
+    data: ReorderContractAppendicesRequest,
+  ) =>
+    axiosClient.put<unknown, ContractAppendixResponse[]>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/order`,
+      data,
+    ),
+  addAppendixTerm: (
+    contractId: number,
+    versionId: number,
+    appendixId: number,
+    data: CreateContractAppendixTermRequest,
+  ) =>
+    axiosClient.post<any, ContractAppendixTermResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}/terms`,
+      data,
+    ),
+  updateAppendixTerm: (
+    contractId: number,
+    versionId: number,
+    appendixId: number,
+    termId: number,
+    data: UpdateContractAppendixTermRequest,
+  ) =>
+    axiosClient.put<any, ContractAppendixTermResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}/terms/${termId}`,
+      data,
+    ),
+  deleteAppendixTerm: (
+    contractId: number,
+    versionId: number,
+    appendixId: number,
+    termId: number,
+    data: {
+      rowVersion: string;
+      appendixRowVersion: string;
+      versionRowVersion: string;
+    },
+  ) =>
+    axiosClient.delete<any, { appendixId: number; termId: number }>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}/terms/${termId}`,
+      { data },
+    ),
+  reorderAppendixTerms: (
+    contractId: number,
+    versionId: number,
+    appendixId: number,
+    data: {
+      versionRowVersion: string;
+      appendixRowVersion: string;
+      terms: Array<{
+        appendixTermId: number;
+        rowVersion: string;
+        displayOrder: number;
+      }>;
+    },
+  ) =>
+    axiosClient.put<any, ContractAppendixResponse>(
+      `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}/terms/order`,
+      data,
+    ),
   getRootComments: (id: number) => {
     return axiosClient.get<any, ContractNegotiationCommentResponse[]>(
       `${BASE_URL}/${id}/comments`,
@@ -785,6 +1043,12 @@ export const contractApi = {
       `${BASE_URL}/${id}/customer-access/links`,
       data,
     );
+  },
+  getCurrentCustomerAccessLink: (id: number) => {
+    return axiosClient.get<
+      any,
+      CurrentContractCustomerAccessLinkResponse | null
+    >(`${BASE_URL}/${id}/customer-access/links/current`);
   },
   replaceCustomerAccessLink: (
     id: number,

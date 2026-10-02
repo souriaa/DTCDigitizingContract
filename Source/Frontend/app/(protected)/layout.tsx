@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authApi } from "@/services/auth-api";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/hooks/use-auth-store";
@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { getApiErrorCode } from "@/lib/api-error";
 import { RBAC_PERMISSION_VERSION } from "@/lib/rbac";
+import { NotificationProvider } from "@/components/notifications/notification-provider";
 
 export default function ProtectedLayout({
   children,
@@ -19,7 +20,9 @@ export default function ProtectedLayout({
   const [checkError, setCheckError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const router = useRouter();
+  const pathname = usePathname();
   const setUser = useAuthStore((state) => state.setUser);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -30,6 +33,13 @@ export default function ProtectedLayout({
         }
         setUser(userData);
         setCheckError(null);
+        if (
+          userData.mustChangePassword &&
+          pathname !== "/profile" &&
+          pathname !== "/change-password"
+        ) {
+          router.replace("/change-password?required=1");
+        }
       } catch (error) {
         setUser(null);
         const code = getApiErrorCode(error);
@@ -52,7 +62,7 @@ export default function ProtectedLayout({
     };
 
     checkAuth();
-  }, [router, setUser, retryKey]);
+  }, [pathname, router, setUser, retryKey]);
 
   if (isChecking) {
     return (
@@ -79,7 +89,25 @@ export default function ProtectedLayout({
     );
   }
 
+  if (
+    user?.mustChangePassword &&
+    pathname !== "/profile" &&
+    pathname !== "/change-password"
+  ) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background">
+        <Spinner text="Đang chuyển tới màn đổi mật khẩu..." />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <div className="h-screen w-screen bg-background" />;
+  }
+
   return (
+    <NotificationProvider key={`${user.tenantId}:${user.employeeId}`}
+      tenantId={user.tenantId} employeeId={user.employeeId}>
     <div className="flex flex-row h-screen w-screen overflow-hidden bg-background">
       <Sidebar />
       <main className="relative z-10 flex min-w-0 grow flex-col overflow-hidden">
@@ -96,5 +124,6 @@ export default function ProtectedLayout({
         </footer>
       </main>
     </div>
+    </NotificationProvider>
   );
 }

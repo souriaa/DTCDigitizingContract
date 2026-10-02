@@ -59,21 +59,54 @@ function formatShortDate(value?: string | null) {
 
 const STATUS_FILTER_OPTIONS = [
   { value: "All", label: "Tất cả trạng thái" },
-  { value: String(ContractStatus.Draft), label: getContractStatusLabel(ContractStatus.Draft) },
-  { value: String(ContractStatus.Negotiating), label: getContractStatusLabel(ContractStatus.Negotiating) },
-  { value: String(ContractStatus.PendingApproval), label: getContractStatusLabel(ContractStatus.PendingApproval) },
-  { value: String(ContractStatus.PendingSignature), label: getContractStatusLabel(ContractStatus.PendingSignature) },
-  { value: String(ContractStatus.Signed), label: getContractStatusLabel(ContractStatus.Signed) },
-  { value: String(ContractStatus.Completed), label: getContractStatusLabel(ContractStatus.Completed) },
-  { value: String(ContractStatus.Cancelled), label: getContractStatusLabel(ContractStatus.Cancelled) },
-  { value: String(ContractStatus.Rejected), label: getContractStatusLabel(ContractStatus.Rejected) },
+  {
+    value: String(ContractStatus.Draft),
+    label: getContractStatusLabel(ContractStatus.Draft),
+  },
+  {
+    value: String(ContractStatus.Negotiating),
+    label: getContractStatusLabel(ContractStatus.Negotiating),
+  },
+  {
+    value: String(ContractStatus.PendingApproval),
+    label: getContractStatusLabel(ContractStatus.PendingApproval),
+  },
+  {
+    value: String(ContractStatus.PendingSignature),
+    label: getContractStatusLabel(ContractStatus.PendingSignature),
+  },
+  {
+    value: String(ContractStatus.Signed),
+    label: getContractStatusLabel(ContractStatus.Signed),
+  },
+  {
+    value: String(ContractStatus.Completed),
+    label: getContractStatusLabel(ContractStatus.Completed),
+  },
+  {
+    value: String(ContractStatus.Cancelled),
+    label: getContractStatusLabel(ContractStatus.Cancelled),
+  },
+  {
+    value: String(ContractStatus.Rejected),
+    label: getContractStatusLabel(ContractStatus.Rejected),
+  },
 ];
 
 const CONTRACT_TYPE_FILTER_OPTIONS = [
   { value: "All", label: "Tất cả loại HĐ" },
-  { value: String(ContractType.SoftwareSupply), label: getContractTypeLabel(ContractType.SoftwareSupply) },
-  { value: String(ContractType.SoftwareMaintenance), label: getContractTypeLabel(ContractType.SoftwareMaintenance) },
-  { value: String(ContractType.SoftwareUpkeep), label: getContractTypeLabel(ContractType.SoftwareUpkeep) },
+  {
+    value: String(ContractType.SoftwareSupply),
+    label: getContractTypeLabel(ContractType.SoftwareSupply),
+  },
+  {
+    value: String(ContractType.SoftwareMaintenance),
+    label: getContractTypeLabel(ContractType.SoftwareMaintenance),
+  },
+  {
+    value: String(ContractType.SoftwareUpkeep),
+    label: getContractTypeLabel(ContractType.SoftwareUpkeep),
+  },
 ];
 
 export default function ContractListPage() {
@@ -82,6 +115,10 @@ export default function ContractListPage() {
   const canCreate = hasPermission(
     user?.permissions,
     RBAC_PERMISSIONS.contractCreate,
+  );
+  const canExecuteContracts = hasPermission(
+    user?.permissions,
+    RBAC_PERMISSIONS.contractExecutionRead,
   );
 
   const [data, setData] = useState<ContractListItemResponse[]>([]);
@@ -105,14 +142,23 @@ export default function ContractListPage() {
         page: pagination.pageIndex + 1,
         pageSize: pagination.pageSize,
         keyword: searchValue || undefined,
-        status: filterStatus !== "All" ? (Number(filterStatus) as ContractStatus) : undefined,
-        contractType: filterContractType !== "All" ? (Number(filterContractType) as ContractType) : undefined,
+        status:
+          filterStatus !== "All"
+            ? (Number(filterStatus) as ContractStatus)
+            : undefined,
+        contractType:
+          filterContractType !== "All"
+            ? (Number(filterContractType) as ContractType)
+            : undefined,
       };
       const res = await contractApi.getList(params);
       if (res) {
         setData(res.items || []);
         setRowCount(res.totalCount || 0);
-        setPageCount(res.totalPages || Math.ceil((res.totalCount || 0) / pagination.pageSize));
+        setPageCount(
+          res.totalPages ||
+            Math.ceil((res.totalCount || 0) / pagination.pageSize),
+        );
       }
     } catch (error) {
       console.error("Lỗi khi tải danh sách hợp đồng:", error);
@@ -122,7 +168,13 @@ export default function ContractListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.pageIndex, pagination.pageSize, searchValue, filterStatus, filterContractType]);
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    searchValue,
+    filterStatus,
+    filterContractType,
+  ]);
 
   useEffect(() => {
     fetchContracts();
@@ -206,7 +258,9 @@ export default function ContractListPage() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
-                {row.original.customerName || row.original.customerCompany || "Chưa cập nhật"}
+                {row.original.customerName ||
+                  row.original.customerCompany ||
+                  "Chưa cập nhật"}
               </p>
               {row.original.customerCompany && (
                 <p className="truncate text-xs text-muted-foreground">
@@ -221,15 +275,26 @@ export default function ContractListPage() {
         accessorKey: "responsibleEmployeeName",
         header: "Người phụ trách",
         cell: ({ row }) => {
-          const isMine = row.original.responsibleEmployeeId === user?.employeeId;
+          const isMine =
+            row.original.responsibleEmployeeId === user?.employeeId;
+          const isExecutionStage = [
+            ContractStatus.PendingSignature,
+            ContractStatus.Signed,
+            ContractStatus.Completed,
+          ].includes(row.original.status);
           return (
             <div className="min-w-36">
               <p className="truncate text-sm font-medium">
-                {row.original.responsibleEmployeeName || `#${row.original.responsibleEmployeeId}`}
+                {row.original.responsibleEmployeeName || "Chưa xác định"}
               </p>
               {!isMine && (
-                <Badge variant="outline" className="mt-1 text-[10px] text-muted-foreground">
-                  Chỉ xem
+                <Badge
+                  variant="outline"
+                  className="mt-1 text-[10px] text-muted-foreground"
+                >
+                  {canExecuteContracts && isExecutionStage
+                    ? "Thực hiện"
+                    : "Chỉ xem"}
                 </Badge>
               )}
             </div>
@@ -278,7 +343,7 @@ export default function ContractListPage() {
         },
       },
     ],
-    [loadingId, user?.employeeId],
+    [canExecuteContracts, loadingId, user?.employeeId],
   );
 
   const totalValue = useMemo(
@@ -295,8 +360,7 @@ export default function ContractListPage() {
   );
 
   const negotiatingCount = useMemo(
-    () =>
-      data.filter((c) => c.status === ContractStatus.Negotiating).length,
+    () => data.filter((c) => c.status === ContractStatus.Negotiating).length,
     [data],
   );
 
@@ -364,15 +428,18 @@ export default function ContractListPage() {
               Danh sách Hợp đồng
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Quản lý và theo dõi vòng đời hợp đồng: nháp, đàm phán, trình duyệt, ký và hoàn thành.
+              Quản lý và theo dõi vòng đời hợp đồng: nháp, đàm phán, trình
+              duyệt, ký và hoàn thành.
             </p>
           </div>
-          {canCreate && <Button
-            className="shadow-sm"
-            onClick={() => router.push("/contracts/create")}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Tạo hợp đồng nháp
-          </Button>}
+          {canCreate && (
+            <Button
+              className="shadow-sm"
+              onClick={() => router.push("/contracts/create")}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Tạo hợp đồng nháp
+            </Button>
+          )}
         </div>
 
         <SummaryCards items={summaryItems} />
@@ -395,7 +462,10 @@ export default function ContractListPage() {
               filterSlot={filters}
               isLoading={isLoading}
               onRowClick={(row) => handleView(row.contractId)}
-              mobileCardRenderer={(row: Row<ContractListItemResponse>, { isSelected, actionCell }) => {
+              mobileCardRenderer={(
+                row: Row<ContractListItemResponse>,
+                { isSelected, actionCell },
+              ) => {
                 const item = row.original;
                 return (
                   <div
@@ -423,7 +493,9 @@ export default function ContractListPage() {
                           Khách hàng
                         </p>
                         <p className="truncate font-medium">
-                          {item.customerName || item.customerCompany || "Chưa cập nhật"}
+                          {item.customerName ||
+                            item.customerCompany ||
+                            "Chưa cập nhật"}
                         </p>
                       </div>
                       <div>
@@ -433,10 +505,16 @@ export default function ContractListPage() {
                         </p>
                       </div>
                       <div className="col-span-2 border-t pt-2">
-                        <p className="text-xs text-muted-foreground">Người phụ trách</p>
+                        <p className="text-xs text-muted-foreground">
+                          Người phụ trách
+                        </p>
                         <div className="flex items-center gap-2">
-                          <p className="truncate font-medium">{item.responsibleEmployeeName || `#${item.responsibleEmployeeId}`}</p>
-                          {item.responsibleEmployeeId !== user?.employeeId && <Badge variant="outline">Chỉ xem</Badge>}
+                          <p className="truncate font-medium">
+                            {item.responsibleEmployeeName || "Chưa xác định"}
+                          </p>
+                          {item.responsibleEmployeeId !== user?.employeeId && (
+                            <Badge variant="outline">Chỉ xem</Badge>
+                          )}
                         </div>
                       </div>
                     </div>

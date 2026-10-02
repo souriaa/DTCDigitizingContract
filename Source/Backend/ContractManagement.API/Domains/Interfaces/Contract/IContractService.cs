@@ -17,7 +17,8 @@ namespace ContractManagement.Domains.Interfaces.Contract
         Task<PagedResult<ContractListItemResponse>> GetListAsync(
             ContractFilterRequest filter,
             int employeeId,
-            bool canReadTenant = false);
+            bool canReadTenant = false,
+            bool canReadExecution = false);
 
         /// <summary>
         /// Lấy các hợp đồng gốc đủ điều kiện cho dropdown
@@ -61,6 +62,11 @@ namespace ContractManagement.Domains.Interfaces.Contract
                 int employeeId,
                 string publicBaseUrl);
 
+        Task<CurrentContractCustomerAccessLinkResponse?>
+            GetCurrentCustomerAccessLinkAsync(
+                int contractId,
+                int employeeId);
+
         Task<ContractCustomerAccessLinkResponse>
             ReplaceCustomerAccessLinkAsync(
                 int contractId,
@@ -82,7 +88,8 @@ namespace ContractManagement.Domains.Interfaces.Contract
         Task<ContractDetailResponse> GetDetailAsync(
             int contractId,
             int employeeId,
-            bool canReadTenant = false);
+            bool canReadTenant = false,
+            bool canReadExecution = false);
 
         /// <summary>
         /// Cập nhật Contract, Items và Terms khi hợp đồng còn là Draft.
@@ -175,6 +182,31 @@ namespace ContractManagement.Domains.Interfaces.Contract
                 int versionId,
                 int employeeId,
                 bool canReadTenant = false);
+
+        Task<ContractAppendixResponse> AddAppendixAsync(
+            int contractId, int versionId, AddContractAppendixRequest request,
+            int employeeId);
+        Task<ContractAppendixResponse> CreateAppendixAsync(
+            int contractId, int versionId,
+            CreateContractAppendixRequest request, int employeeId);
+        Task DeleteAppendixAsync(
+            int contractId, int versionId, int appendixId,
+            DeleteContractAppendixRequest request, int employeeId);
+        Task<IReadOnlyList<ContractAppendixResponse>> ReorderAppendicesAsync(
+            int contractId, int versionId,
+            ReorderContractAppendicesRequest request, int employeeId);
+        Task<ContractAppendixTermResponse> AddAppendixTermAsync(
+            int contractId, int versionId, int appendixId,
+            CreateContractAppendixTermRequest request, int employeeId);
+        Task<ContractAppendixTermResponse> UpdateAppendixTermAsync(
+            int contractId, int versionId, int appendixId, int termId,
+            UpdateContractAppendixTermRequest request, int employeeId);
+        Task DeleteAppendixTermAsync(
+            int contractId, int versionId, int appendixId, int termId,
+            DeleteContractAppendixTermRequest request, int employeeId);
+        Task<ContractAppendixResponse> ReorderAppendixTermsAsync(
+            int contractId, int versionId, int appendixId,
+            ReorderContractAppendixTermsRequest request, int employeeId);
 
         Task<SubmitContractForApprovalResponse> SubmitForApprovalAsync(
             int contractId,

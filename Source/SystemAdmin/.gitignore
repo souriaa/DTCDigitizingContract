@@ -52,3 +52,5 @@ Thumbs.db
 # Coverage / Test
 # =========================
 coverage/
+
+graphify-out

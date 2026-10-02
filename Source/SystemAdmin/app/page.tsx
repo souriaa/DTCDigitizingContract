@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, FileText, ShieldCheck, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { authApi } from "@/services/auth-api";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,15 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get("error");
+      const passwordChanged = urlParams.get("password_changed");
+
+      if (passwordChanged === "1") {
+        const timer = setTimeout(() => {
+          toast.success("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+          window.history.replaceState(null, "", "/");
+        }, 100);
+        return () => clearTimeout(timer);
+      }
 
       if (error === "session_expired") {
         const timer = setTimeout(() => {
@@ -63,7 +73,7 @@ export default function LoginPage() {
       try {
         await authApi.getMe();
         router.push("/dashboard");
-      } catch (error) {
+      } catch {
         setIsLoading(false);
       }
     };
@@ -126,12 +136,8 @@ export default function LoginPage() {
 
       toast.success(data.message || "Đăng nhập thành công!");
       router.push("/dashboard");
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Đăng nhập thất bại, vui lòng thử lại.";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Đăng nhập thất bại, vui lòng thử lại."));
     } finally {
       setIsLoading(false);
     }
@@ -232,6 +238,7 @@ export default function LoginPage() {
                     </Label>
                     <a
                       href="#"
+                      tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       Quên mật khẩu?

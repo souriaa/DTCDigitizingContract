@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  GitBranch,
   Loader2,
   MessageSquareText,
   Reply,
@@ -30,7 +31,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { employeeApi } from "@/services/employees-api";
 import {
   contractApi,
   ContractNegotiationCommentResponse,
@@ -195,9 +195,6 @@ export function ContractTermComments({
   const [rootPage, setRootPage] = useState(1);
   const [content, setContent] = useState("");
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
-  const [employeeNames, setEmployeeNames] = useState<Record<number, string>>(
-    {},
-  );
   const [isLoadingRoots, setIsLoadingRoots] = useState(false);
   const [isLoadingChildren, setIsLoadingChildren] = useState(false);
   const [rootError, setRootError] = useState<string | null>(null);
@@ -217,6 +214,13 @@ export function ContractTermComments({
   const openRootCount = termRootComments.filter(
     (comment) => comment.state === ContractNegotiationCommentState.Open,
   ).length;
+  const selectedThreadHasOpenReplies = childComments.some(
+    (comment) => comment.state === ContractNegotiationCommentState.Open,
+  );
+  const selectedThreadNeedsResolution = Boolean(
+    selectedParent?.state === ContractNegotiationCommentState.Open ||
+      selectedThreadHasOpenReplies,
+  );
   const rootTotalPages = Math.max(
     1,
     Math.ceil(termRootComments.length / COMMENTS_PAGE_SIZE),
@@ -239,9 +243,6 @@ export function ContractTermComments({
     setRootPage((page) => Math.min(Math.max(page, 1), rootTotalPages));
   }, [rootTotalPages]);
 
-  const getEmployeeName = (employeeId: number) =>
-    employeeNames[employeeId] || `Nhân viên #${employeeId}`;
-
   const getCommentAuthorName = (
     comment: ContractNegotiationCommentResponse,
   ) => {
@@ -250,50 +251,29 @@ export function ContractTermComments({
 
     return comment.source === "Customer"
       ? "Khách hàng"
-      : getEmployeeName(comment.recordedByEmployeeId);
+      : comment.recordedByDisplayName?.trim() || "Không rõ nhân viên";
   };
 
-  const loadEmployeeNames = async (
-    targetComments: ContractNegotiationCommentResponse[],
+  const renderCarryForwardBadge = (
+    comment: ContractNegotiationCommentResponse,
   ) => {
-    const employeeIds = Array.from(
-      new Set(
-        targetComments
-          .filter(
-            (comment) =>
-              !dataSource?.getAuthorName?.(comment)?.trim() &&
-              comment.source !== "Customer" &&
-              comment.recordedByEmployeeId > 0,
-          )
-          .map((comment) => comment.recordedByEmployeeId),
-      ),
-    );
-    if (employeeIds.length === 0) return;
-
-    let entries: ReadonlyArray<readonly [number, string]> = [];
-    try {
-      const directory = await employeeApi.getDirectory();
-      const targetIds = new Set(employeeIds);
-      entries = directory
-        .filter((employee) => targetIds.has(employee.employeeId))
-        .map(
-          (employee) =>
-            [
-              employee.employeeId,
-              employee.employeeFullName?.trim() ||
-                `Nhân viên #${employee.employeeId}`,
-            ] as const,
-        );
-    } catch {
-      entries = employeeIds.map(
-        (employeeId) => [employeeId, `Nhân viên #${employeeId}`] as const,
-      );
+    if (
+      !comment.carriedForwardFromCommentId ||
+      !comment.carriedForwardFromVersionId
+    ) {
+      return null;
     }
 
-    setEmployeeNames((current) => ({
-      ...current,
-      ...Object.fromEntries(entries),
-    }));
+    return (
+      <Badge
+        variant="outline"
+        className="h-5 gap-1 border-sky-500/40 bg-sky-500/5 text-[10px] font-medium text-sky-700 dark:text-sky-300"
+        title={`Nguồn: phiên bản ${comment.carriedForwardFromVersionNo ?? "không rõ"}, bình luận được chuyển từ vòng trước`}
+      >
+        <GitBranch className="size-3" />
+        Từ vòng trước
+      </Badge>
+    );
   };
 
   const loadRootComments = async () => {
@@ -304,7 +284,6 @@ export function ContractTermComments({
         ? await dataSource.getRootComments()
         : await contractApi.getRootComments(contractId);
       setRootComments(result);
-      await loadEmployeeNames(result);
     } catch (error: any) {
       console.error("Lỗi tải comment cha:", error);
       setRootError(
@@ -330,12 +309,13 @@ export function ContractTermComments({
         (comment) => comment.versionId === versionId && matchesTerm(comment),
       );
       setChildComments(termReplies);
-      await loadEmployeeNames(termReplies);
+      return termReplies;
     } catch (error: any) {
       console.error("Lỗi tải comment con:", error);
       setChildError(
         getApiErrorMessage(error, "Không thể tải các câu trả lời."),
       );
+      return null;
     } finally {
       setIsLoadingChildren(false);
     }
@@ -399,7 +379,6 @@ export function ContractTermComments({
           });
 
       onCommentChanged?.(createdComment);
-      await loadEmployeeNames([createdComment]);
       setContent("");
       setReplyTarget(null);
 
@@ -468,6 +447,16 @@ export function ContractTermComments({
       }
 
       onCommentChanged?.(updatedComment);
+
+      if (action === "resolve" && !updatedComment.parentCommentId) {
+        const updatedChildren = await loadChildComments(
+          updatedComment.commentId,
+        );
+        updatedChildren?.forEach((childComment) =>
+          onCommentChanged?.(childComment),
+        );
+      }
+
       toast.success(
         action === "resolve"
           ? "Đã đánh dấu trao đổi là đã xử lý."
@@ -608,6 +597,7 @@ export function ContractTermComments({
                         ? "Đã xử lý"
                         : "Đang mở"}
                     </Badge>
+                    {renderCarryForwardBadge(selectedParent)}
                     <span className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">
                         {getCommentAuthorName(selectedParent)}
@@ -638,25 +628,26 @@ export function ContractTermComments({
                           onClick={() =>
                             void handleChangeState(
                               selectedParent,
-                              selectedParent.state ===
-                                ContractNegotiationCommentState.Resolved
-                                ? "reopen"
-                                : "resolve",
+                              selectedThreadNeedsResolution
+                                ? "resolve"
+                                : "reopen",
                             )
                           }
                         >
                           {processingCommentId === selectedParent.commentId ? (
                             <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                          ) : selectedParent.state ===
-                            ContractNegotiationCommentState.Resolved ? (
-                            <RotateCcw className="mr-1.5 size-3.5" />
-                          ) : (
+                          ) : selectedThreadNeedsResolution ? (
                             <CheckCircle2 className="mr-1.5 size-3.5" />
+                          ) : (
+                            <RotateCcw className="mr-1.5 size-3.5" />
                           )}
                           {selectedParent.state ===
-                          ContractNegotiationCommentState.Resolved
-                            ? "Mở lại"
-                            : "Đã xử lý"}
+                            ContractNegotiationCommentState.Resolved &&
+                          selectedThreadHasOpenReplies
+                            ? "Xử lý câu trả lời"
+                            : selectedThreadNeedsResolution
+                              ? "Đã xử lý"
+                              : "Mở lại"}
                         </Button>
                       )}
                     </div>
@@ -738,6 +729,7 @@ export function ContractTermComments({
                                   Đã xử lý
                                 </Badge>
                               )}
+                              {renderCarryForwardBadge(comment)}
                             </div>
                             <div className="mt-1.5 rounded-lg bg-muted px-3 py-2.5">
                               <p className="whitespace-pre-wrap text-sm leading-6">
@@ -879,11 +871,16 @@ export function ContractTermComments({
                                     {formatDateTime(comment.createdDate)}
                                   </p>
                                 </div>
-                                <Badge
-                                  variant={isResolved ? "secondary" : "outline"}
-                                >
-                                  {isResolved ? "Đã xử lý" : "Đang mở"}
-                                </Badge>
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  {renderCarryForwardBadge(comment)}
+                                  <Badge
+                                    variant={
+                                      isResolved ? "secondary" : "outline"
+                                    }
+                                  >
+                                    {isResolved ? "Đã xử lý" : "Đang mở"}
+                                  </Badge>
+                                </div>
                               </div>
                               <p className="mt-3 line-clamp-2 whitespace-pre-wrap text-sm leading-6">
                                 {comment.content}

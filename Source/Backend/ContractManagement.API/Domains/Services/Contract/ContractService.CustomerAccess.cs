@@ -96,9 +96,10 @@ public partial class ContractService
                 _dbContext.TblContractCustomerVerificationPhones.Add(phone);
                 await _dbContext.SaveChangesAsync();
 
+                TblContractCustomerAccessLink? revokedLink = null;
                 if (contract.CurrentCustomerAccessLinkId.HasValue)
                 {
-                    await RevokeCustomerLinkStateAsync(
+                    revokedLink = await RevokeCustomerLinkStateAsync(
                         contract.CurrentCustomerAccessLinkId.Value,
                         employeeId,
                         now,
@@ -109,8 +110,8 @@ public partial class ContractService
                 contract.CurrentVerificationPhoneId = phone.VerificationPhoneId;
                 contract.UpdatedEmployeeId = employeeId;
                 contract.UpdateDate = now;
-                _contractAuditWriter.StageEmployeeAudits(
-                [
+                var audits = new List<EmployeeContractAuditWriteRequest>
+                {
                     new EmployeeContractAuditWriteRequest(
                         contract.ContractId,
                         contract.CurrentVersionId,
@@ -123,11 +124,63 @@ public partial class ContractService
                         Reason: reason,
                         SubjectType: ContractAuditSubjectTypes.Contract,
                         SubjectId: contract.ContractId,
+                        PreviousValues: current is null
+                            ? null
+                            : ContractAuditValues.Create(
+                                ("VerificationPhoneId",
+                                    current.VerificationPhoneId),
+                                ("VerificationPhoneMasked",
+                                    MaskPhone(current.PhoneNumberNormalized)),
+                                ("PhoneSource", current.PhoneSource),
+                                ("LinkId",
+                                    revokedLink?.CustomerAccessLinkId),
+                                ("LinkState", revokedLink is null
+                                    ? "NoActiveLink"
+                                    : GetCustomerAccessLinkAuditState(
+                                        revokedLink,
+                                        now,
+                                        ignoreRevocation: true))),
                         NewValues: ContractAuditValues.Create(
                             ("VerificationPhoneId", phone.VerificationPhoneId),
+                            ("VerificationPhoneMasked",
+                                MaskPhone(phone.PhoneNumberNormalized)),
                             ("PhoneSource", phone.PhoneSource),
                             ("LinkState", "NoActiveLink")))
-                ]);
+                };
+
+                if (revokedLink is not null)
+                {
+                    audits.Add(new EmployeeContractAuditWriteRequest(
+                        contract.ContractId,
+                        revokedLink.VersionId,
+                        employeeId,
+                        ContractAuditActionTypes.CustomerAccessLinkRevoked,
+                        ContractAuditResults.Succeeded,
+                        now,
+                        Reason: "Verification phone changed",
+                        SubjectType:
+                            ContractAuditSubjectTypes.CustomerAccessLink,
+                        SubjectId: revokedLink.CustomerAccessLinkId,
+                        PreviousValues: ContractAuditValues.Create(
+                            ("VerificationPhoneId",
+                                revokedLink.VerificationPhoneId),
+                            ("LinkId", revokedLink.CustomerAccessLinkId),
+                            ("CurrentVersionId", revokedLink.VersionId),
+                            ("ExpiresAt", revokedLink.ExpiresAt),
+                            ("LinkState", GetCustomerAccessLinkAuditState(
+                                revokedLink,
+                                now,
+                                ignoreRevocation: true))),
+                        NewValues: ContractAuditValues.Create(
+                            ("VerificationPhoneId",
+                                revokedLink.VerificationPhoneId),
+                            ("LinkId", revokedLink.CustomerAccessLinkId),
+                            ("CurrentVersionId", revokedLink.VersionId),
+                            ("ExpiresAt", revokedLink.ExpiresAt),
+                            ("LinkState", "Revoked"))));
+                }
+
+                _contractAuditWriter.StageEmployeeAudits(audits);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return MapVerificationPhone(phone, true);
@@ -158,6 +211,45 @@ public partial class ContractService
             publicBaseUrl,
             requireResponsible: true,
             ContractAuditActionTypes.CustomerAccessLinkCreated);
+    }
+
+    public async Task<CurrentContractCustomerAccessLinkResponse?>
+        GetCurrentCustomerAccessLinkAsync(int contractId, int employeeId)
+    {
+        var contract = await GetCustomerAccessContractAsync(
+            contractId,
+            employeeId,
+            allowManagerOrAdmin: true);
+        if (!contract.CurrentCustomerAccessLinkId.HasValue)
+        {
+            return null;
+        }
+
+        var link = await _dbContext.TblContractCustomerAccessLinks
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item =>
+                item.CustomerAccessLinkId == contract.CurrentCustomerAccessLinkId.Value
+                && item.ContractId == contract.ContractId);
+        if (link is null || link.RevokedAt.HasValue)
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var state = link.ExpiresAt <= now
+            ? "Expired"
+            : link.ActivatedAt.HasValue && link.VersionId == contract.CurrentVersionId
+                ? "Active"
+                : "PendingActivation";
+
+        return new CurrentContractCustomerAccessLinkResponse
+        {
+            LinkId = link.CustomerAccessLinkId,
+            State = state,
+            VersionId = link.VersionId,
+            CreatedAt = link.CreatedDate,
+            ExpiresAt = link.ExpiresAt
+        };
     }
 
     public async Task<ContractCustomerAccessLinkResponse>
@@ -247,6 +339,11 @@ public partial class ContractService
                             ("ExpiresAt", link.ExpiresAt),
                             ("LinkState", "Revoked")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId, $"contract:{contractId}:customer-link:{linkId}:revoked",
+                        "CustomerAccessLinkRevoked", "Quyền truy cập khách hàng đã bị thu hồi",
+                        "customer-access", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -383,6 +480,11 @@ public partial class ContractService
                             ("ParentCommentId", comment.ParentCommentId),
                             ("State", "Open")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        null, $"contract:{contractId}:comment:{comment.CommentId}",
+                        "CustomerCommentCreated", "Khách hàng đã phản hồi đàm phán",
+                        "negotiation", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return new CustomerPublicNegotiationCommentResponse
@@ -451,18 +553,19 @@ public partial class ContractService
                     throw new InvalidOperationException("Current contract version is locked.");
                 }
 
+                TblContractCustomerAccessLink? previousLink = null;
                 if (linkIdToReplace.HasValue)
                 {
-                    var previous = await _dbContext.TblContractCustomerAccessLinks.SingleOrDefaultAsync(x =>
+                    previousLink = await _dbContext.TblContractCustomerAccessLinks.SingleOrDefaultAsync(x =>
                         x.CustomerAccessLinkId == linkIdToReplace.Value
                         && x.ContractId == contract.ContractId && x.RevokedAt == null);
-                    if (previous is null)
+                    if (previousLink is null)
                     {
                         throw new InvalidOperationException("Customer access link is not active.");
                     }
 
                     await RevokeCustomerLinkStateAsync(
-                        previous.CustomerAccessLinkId,
+                        previousLink.CustomerAccessLinkId,
                         employeeId,
                         now,
                         replacementReason ?? "Replaced");
@@ -510,13 +613,36 @@ public partial class ContractService
                         Reason: replacementReason,
                         SubjectType: ContractAuditSubjectTypes.CustomerAccessLink,
                         SubjectId: link.CustomerAccessLinkId,
+                        PreviousValues: previousLink is null
+                            ? null
+                            : ContractAuditValues.Create(
+                                ("VerificationPhoneId",
+                                    previousLink.VerificationPhoneId),
+                                ("LinkId",
+                                    previousLink.CustomerAccessLinkId),
+                                ("PreviousLinkId",
+                                    previousLink.CustomerAccessLinkId),
+                                ("CurrentVersionId", previousLink.VersionId),
+                                ("ExpiresAt", previousLink.ExpiresAt),
+                                ("LinkState",
+                                    GetCustomerAccessLinkAuditState(
+                                        previousLink,
+                                        now,
+                                        ignoreRevocation: true))),
                         NewValues: ContractAuditValues.Create(
                             ("VerificationPhoneId", link.VerificationPhoneId),
                             ("LinkId", link.CustomerAccessLinkId),
+                            ("NewLinkId", link.CustomerAccessLinkId),
                             ("CurrentVersionId", link.VersionId),
                             ("ExpiresAt", link.ExpiresAt),
                             ("LinkState", link.ActivatedAt.HasValue ? "Active" : "Pending")))
                 ]);
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
+                        employeeId,
+                        $"contract:{contractId}:customer-link:{link.CustomerAccessLinkId}:{auditAction}",
+                        auditAction, "Quyền truy cập khách hàng đã thay đổi",
+                        "customer-access", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return new ContractCustomerAccessLinkResponse
@@ -592,7 +718,8 @@ public partial class ContractService
         return normalized;
     }
 
-    private async Task RevokeCustomerLinkStateAsync(
+    private async Task<TblContractCustomerAccessLink?>
+        RevokeCustomerLinkStateAsync(
         int linkId,
         int revokedByEmployeeId,
         DateTime now,
@@ -602,7 +729,7 @@ public partial class ContractService
             x => x.CustomerAccessLinkId == linkId);
         if (link is null || link.RevokedAt.HasValue)
         {
-            return;
+            return null;
         }
 
         link.RevokedAt = now;
@@ -641,6 +768,26 @@ public partial class ContractService
                         ("RevocationReasonCode", "AccessInvalidated")))
             ]);
         }
+
+        return link;
+    }
+
+    private static string GetCustomerAccessLinkAuditState(
+        TblContractCustomerAccessLink link,
+        DateTime now,
+        bool ignoreRevocation = false)
+    {
+        if (!ignoreRevocation && link.RevokedAt.HasValue)
+        {
+            return "Revoked";
+        }
+
+        if (link.ExpiresAt <= now)
+        {
+            return "Expired";
+        }
+
+        return link.ActivatedAt.HasValue ? "Active" : "Pending";
     }
 
     private static bool IsCustomerAccessLinkActive(
@@ -661,14 +808,14 @@ public partial class ContractService
     private static ContractCustomerVerificationPhoneResponse MapVerificationPhone(
         TblContractCustomerVerificationPhone phone,
         bool isCurrent) => new()
-    {
-        VerificationPhoneId = phone.VerificationPhoneId,
-        PhoneSource = phone.PhoneSource,
-        MaskedPhoneNumber = MaskPhone(phone.PhoneNumberNormalized),
-        IsCurrent = isCurrent,
-        CreatedDate = phone.CreatedDate,
-        RowVersion = EncodeRowVersion(phone.RowVersion)
-    };
+        {
+            VerificationPhoneId = phone.VerificationPhoneId,
+            PhoneSource = phone.PhoneSource,
+            MaskedPhoneNumber = MaskPhone(phone.PhoneNumberNormalized),
+            IsCurrent = isCurrent,
+            CreatedDate = phone.CreatedDate,
+            RowVersion = EncodeRowVersion(phone.RowVersion)
+        };
 
     private static string NormalizePhoneSource(string source) => source?.Trim() switch
     {

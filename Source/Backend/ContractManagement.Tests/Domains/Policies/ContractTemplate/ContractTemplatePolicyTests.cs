@@ -8,14 +8,16 @@ public class ContractTemplatePolicyTests
     private static string ValidSha256Hash => new('a', 64);
 
     [Fact]
-    public void SoftwareSupplyPlaceholderCatalog_V1_HasExpectedShape()
+    public void SoftwareSupplyPlaceholderCatalog_V4_HasExpectedShape()
     {
         var catalog = SoftwareSupplyPlaceholderCatalog.All;
 
-        Assert.Equal("V1", SoftwareSupplyPlaceholderCatalog.Version);
-        Assert.Equal(25, catalog.Count);
-        Assert.Equal(17, catalog.Count(item => item.IsRequired));
-        Assert.Equal(8, catalog.Count(item => !item.IsRequired));
+        Assert.Equal("V4", SoftwareSupplyPlaceholderCatalog.Version);
+        Assert.Equal(37, catalog.Count);
+        Assert.DoesNotContain(catalog, item => item.IsRequired);
+        Assert.Equal(37, catalog.Count(item => !item.IsRequired));
+        Assert.All(catalog, item =>
+            Assert.Equal(TemplatePlaceholderMultiplicity.ZeroOrOne, item.Multiplicity));
         Assert.Equal(
             catalog.Count,
             catalog.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count());
@@ -24,14 +26,22 @@ public class ContractTemplatePolicyTests
             Assert.False(string.IsNullOrWhiteSpace(item.Key));
             Assert.False(string.IsNullOrWhiteSpace(item.DataSource));
         });
+        Assert.Equal(
+            "Customer.CustomerFullName",
+            SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_NAME")?.DataSource);
+        Assert.Null(SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_REPRESENTATIVE_TITLE"));
+        Assert.Equal(
+            "TenantLegalProfile.LegalEntityName",
+            SoftwareSupplyPlaceholderCatalog.Find(
+                "PROVIDER_LEGAL_NAME")?.DataSource);
     }
 
     [Theory]
-    [InlineData("CONTRACT_TERMS", TemplatePlaceholderDataKind.DynamicBlock, true, TemplatePlaceholderMultiplicity.ExactlyOne)]
-    [InlineData("CONTRACT_ITEM_TABLE", TemplatePlaceholderDataKind.DynamicBlock, true, TemplatePlaceholderMultiplicity.ExactlyOne)]
-    [InlineData("SIGNATURE_PROVIDER", TemplatePlaceholderDataKind.DynamicBlock, true, TemplatePlaceholderMultiplicity.ExactlyOne)]
-    [InlineData("SIGNATURE_CUSTOMER", TemplatePlaceholderDataKind.DynamicBlock, true, TemplatePlaceholderMultiplicity.ExactlyOne)]
-    [InlineData("PAYMENT_SCHEDULE_TABLE", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
+    [InlineData("CONTRACT_TERMS", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
+    [InlineData("CONTRACT_LEGAL_BASES", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
+    [InlineData("CONTRACT_ITEM_TABLE", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
+    [InlineData("SIGNATURE_PROVIDER", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
+    [InlineData("SIGNATURE_CUSTOMER", TemplatePlaceholderDataKind.DynamicBlock, false, TemplatePlaceholderMultiplicity.ZeroOrOne)]
     public void SoftwareSupplyPlaceholderCatalog_SpecialPlaceholdersHaveFixedMultiplicity(
         string key,
         TemplatePlaceholderDataKind expectedKind,
@@ -187,6 +197,62 @@ public class ContractTemplatePolicyTests
         Assert.Throws<InvalidOperationException>(
             () => ContractTemplatePolicy.EnsureCanEdit(
                 TemplateVersionStatus.Published));
+    }
+
+    [Fact]
+    public void CanCreateDraftFromSource_CurrentPublished_ReturnsTrue()
+    {
+        Assert.True(ContractTemplatePolicy.CanCreateDraftFromSource(
+            TemplateVersionStatus.Published,
+            isCurrentPublished: true,
+            hasCurrentPublished: true,
+            isLatestRetired: false,
+            hasExistingDraft: false));
+    }
+
+    [Theory]
+    [InlineData(TemplateVersionStatus.Published, true, true, false)]
+    [InlineData(TemplateVersionStatus.Retired, false, false, true)]
+    public void CanCreateDraftFromSource_ExistingDraft_ReturnsFalse(
+        TemplateVersionStatus sourceStatus,
+        bool isCurrentPublished,
+        bool hasCurrentPublished,
+        bool isLatestRetired)
+    {
+        Assert.False(ContractTemplatePolicy.CanCreateDraftFromSource(
+            sourceStatus,
+            isCurrentPublished,
+            hasCurrentPublished,
+            isLatestRetired,
+            hasExistingDraft: true));
+    }
+
+    [Fact]
+    public void CanCreateDraftFromSource_LatestRetiredWithoutPublishedOrDraft_ReturnsTrue()
+    {
+        Assert.True(ContractTemplatePolicy.CanCreateDraftFromSource(
+            TemplateVersionStatus.Retired,
+            isCurrentPublished: false,
+            hasCurrentPublished: false,
+            isLatestRetired: true,
+            hasExistingDraft: false));
+    }
+
+    [Theory]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, true)]
+    public void CanCreateDraftFromSource_IneligibleRetired_ReturnsFalse(
+        bool hasCurrentPublished,
+        bool isLatestRetired,
+        bool hasExistingDraft)
+    {
+        Assert.False(ContractTemplatePolicy.CanCreateDraftFromSource(
+            TemplateVersionStatus.Retired,
+            isCurrentPublished: false,
+            hasCurrentPublished,
+            isLatestRetired,
+            hasExistingDraft));
     }
 
     // =========================================================

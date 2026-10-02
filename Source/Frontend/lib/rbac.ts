@@ -1,4 +1,4 @@
-export const RBAC_PERMISSION_VERSION = "rbac-v1" as const;
+export const RBAC_PERMISSION_VERSION = "rbac-v2" as const;
 
 export const RBAC_PERMISSIONS = {
   employeeDirectoryRead: "employee.directory.read",
@@ -13,12 +13,19 @@ export const RBAC_PERMISSIONS = {
   contractReadOwn: "contract.read.own",
   contractReadTenant: "contract.read.tenant",
   contractManageOwn: "contract.manage.own",
+  contractApprovalDecide: "contract.approval.decide",
+  contractExecutionRead: "contract.execution.read",
+  contractSigningManage: "contract.signing.manage",
+  contractAcceptanceManage: "contract.acceptance.manage",
+  contractPaymentManage: "contract.payment.manage",
+  contractComplete: "contract.complete",
   contractSupport: "contract.support",
   templateAvailableRead: "template.available.read",
   templateManage: "template.manage",
   contractAuditReadOwn: "contract-audit.read.own",
   contractAuditReadTenant: "contract-audit.read.tenant",
   securityAuditReadTenant: "security-audit.read.tenant",
+  tenantLegalProfileManage: "tenant.legal-profile.manage",
   fileAccessByResource: "file.access-by-resource",
 } as const;
 

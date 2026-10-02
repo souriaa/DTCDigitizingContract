@@ -17,7 +17,7 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract
 
         public ContractType ContractType { get; set; }
 
-        public int? TemplateVersionId { get; set; }
+        public int TemplateVersionId { get; set; }
 
         public int? ParentContractId { get; set; }
 
@@ -43,8 +43,6 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract
 
         public ContractLanguageMode LanguageMode { get; set; }
 
-        public bool IsLegacy { get; set; }
-
         public int CreatedEmployeeId { get; set; }
 
         public DateTime CreatedDate { get; set; }
@@ -65,6 +63,12 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract
         } = new();
 
         public ContractVersionDetailResponse CurrentVersion
+        {
+            get;
+            set;
+        } = new();
+
+        public ContractApprovalReadinessResponse ApprovalReadiness
         {
             get;
             set;

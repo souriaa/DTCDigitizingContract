@@ -4,6 +4,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useRef,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -12,6 +13,9 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Clock,
+  ClipboardCheck,
+  Download,
+  Eye,
   FileSignature,
   FileText,
   Loader2,
@@ -25,18 +29,22 @@ import {
 
 import { Header } from "@/components/ui/custom/header";
 import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
+import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
+import { downloadBlob } from "@/components/contract-templates/contract-template-utils";
 
 import {
   contractApi,
-  ContractCustomerAccessLinkResponse,
+  CurrentContractCustomerAccessLinkResponse,
+  ContractAppendixTermResponse,
   ContractDetailResponse,
   ContractItemDiscountMode,
   ContractLanguageMode,
   ContractStatus,
+  ContractType,
   getContractTypeLabel,
   UpdateContractDraftRequest,
 } from "@/services/contract-api";
@@ -45,6 +53,7 @@ import { useAuthStore } from "@/hooks/use-auth-store";
 import { hasPermission, RBAC_PERMISSIONS } from "@/lib/rbac";
 import {
   getApiErrorMessage,
+  getBlobApiErrorMessage,
   isResourceNotFound,
   isStaleRowVersion,
 } from "@/lib/api-error";
@@ -56,17 +65,25 @@ import {
 } from "@/components/contracts/contract-helpers";
 import { ContractOverview } from "@/components/contracts/contract-overview";
 import { ContractTerms } from "@/components/contracts/contract-terms";
+import { ContractAppendices } from "@/components/contracts/contract-appendices";
 import { ContractNegotiation } from "@/components/contracts/contract-negotiation";
 import { ContractSignature } from "@/components/contracts/contract-signature";
 import { ContractDocuments } from "@/components/contracts/contract-attachments";
 import { ContractClosing } from "@/components/contracts/contract-closing";
 import { ContractAuditLog } from "@/components/contracts/contract-audit-log";
 import { TransferResponsibilityModal } from "@/components/contracts/transfer-responsibility-modal";
+import { ContractApprovalPanel } from "@/components/contracts/contract-approval-panel";
+import { ContractSigningPanel } from "@/components/contracts/contract-signing-panel";
+import { ContractSubmittedArtifactActions } from "@/components/contracts/contract-submitted-artifact-actions";
+import { ContractPaymentDueAnchor } from "@/services/contract-completion-api";
 
 const CONTRACT_TABS = [
   "overview",
   "terms",
+  "appendices",
   "negotiation",
+  "approval",
+  "customer-access",
   "signature",
   "documents",
   "closing",
@@ -75,84 +92,142 @@ const CONTRACT_TABS = [
 
 type ContractTab = (typeof CONTRACT_TABS)[number];
 
-type StoredCustomerAccessLink = Pick<
-  ContractCustomerAccessLinkResponse,
+type KnownCustomerAccessLink = Pick<
+  CurrentContractCustomerAccessLinkResponse,
   "linkId" | "state" | "expiresAt"
 >;
 
-const CUSTOMER_ACCESS_LINK_STORAGE_PREFIX = "contract-customer-access-link";
-
-const getCustomerAccessLinkStorageKey = (
-  contractId: number,
-  versionId: number,
-) => `${CUSTOMER_ACCESS_LINK_STORAGE_PREFIX}:${contractId}:${versionId}`;
-
-const readStoredCustomerAccessLink = (
-  contractId: number,
-  versionId: number,
-): StoredCustomerAccessLink | null => {
-  if (typeof window === "undefined") return null;
-
-  const storageKey = getCustomerAccessLinkStorageKey(contractId, versionId);
-  try {
-    const value = window.localStorage.getItem(storageKey);
-    if (!value) return null;
-
-    const parsed = JSON.parse(value) as StoredCustomerAccessLink;
-    const expiresAt = new Date(parsed.expiresAt).getTime();
-    if (
-      !Number.isInteger(parsed.linkId) ||
-      parsed.linkId <= 0 ||
-      !parsed.state ||
-      !parsed.expiresAt ||
-      !Number.isFinite(expiresAt) ||
-      expiresAt <= Date.now()
-    ) {
-      window.localStorage.removeItem(storageKey);
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
 const isContractTab = (value: string): value is ContractTab =>
   CONTRACT_TABS.some((tab) => tab === value);
+
+const appendixTermMatches = (
+  draft: ContractAppendixTermResponse,
+  saved: ContractAppendixTermResponse,
+) =>
+  draft.termCode.trim() === saved.termCode.trim() &&
+  draft.termTitle.trim() === saved.termTitle.trim() &&
+  (draft.termTitleEn?.trim() || "") === (saved.termTitleEn?.trim() || "") &&
+  (draft.termContent?.trim() || "") === (saved.termContent?.trim() || "") &&
+  (draft.termContentEn?.trim() || "") === (saved.termContentEn?.trim() || "");
+
+function ContractSaveShortcut({
+  enabled,
+  onSave,
+}: {
+  enabled: boolean;
+  onSave: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !enabled ||
+        event.defaultPrevented ||
+        event.repeat ||
+        event.altKey ||
+        event.shiftKey ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== "s" ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      )
+        return;
+      event.preventDefault();
+      onSave();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [enabled, onSave]);
+  return null;
+}
 
 export default function ContractDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const currentEmployeeId = user?.employeeId;
+  const currentPermissions = user?.permissions;
 
   const [contract, setContract] = useState<ContractDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const saveInFlightRef = useRef(false);
   const [isStartingNegotiation, setIsStartingNegotiation] = useState(false);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [isOpeningPdf, setIsOpeningPdf] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ContractTab>("overview");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [appendixDrafts, setAppendixDrafts] = useState<
+    Record<number, ContractAppendixTermResponse>
+  >({});
+  const [hasOpenAppendixForm, setHasOpenAppendixForm] = useState(false);
+  const [appendixOperationBusy, setAppendixOperationBusy] = useState(false);
+  const dirtyAppendixTerms =
+    contract?.currentVersion.appendices.flatMap((appendix) =>
+      appendix.terms
+        .filter((term) => {
+          const draft = appendixDrafts[term.appendixTermId];
+          return draft && !appendixTermMatches(draft, term);
+        })
+        .map((term) => ({
+          appendix,
+          term,
+          draft: appendixDrafts[term.appendixTermId],
+        })),
+    ) ?? [];
+  const hasUnsavedAppendixChanges = dirtyAppendixTerms.length > 0;
+  const hasAnyUnsavedChanges = hasUnsavedChanges || hasUnsavedAppendixChanges;
   const [knownCustomerAccessLink, setKnownCustomerAccessLink] =
-    useState<StoredCustomerAccessLink | null>(null);
-  const currentContractId = contract?.contractId ?? null;
-  const currentVersionId = contract?.currentVersion.versionId ?? null;
+    useState<KnownCustomerAccessLink | null>(null);
 
   useEffect(() => {
-    const syncTabFromHash = () => {
-      const tabFromHash = window.location.hash.slice(1);
+    let isMounted = true;
 
-      if (isContractTab(tabFromHash)) {
-        setActiveTab(tabFromHash);
+    const syncTabFromHash = () => {
+      if (!isMounted) return;
+      const tabFromHash = window.location.hash.slice(1);
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabFromQuery = searchParams.get("tab");
+      const targetTab = tabFromHash || tabFromQuery || "";
+
+      if (isContractTab(targetTab)) {
+        setActiveTab((current) =>
+          current === targetTab ? current : targetTab,
+        );
       }
     };
 
     syncTabFromHash();
-    window.addEventListener("hashchange", syncTabFromHash);
+    const timer = setTimeout(syncTabFromHash, 50);
 
-    return () => window.removeEventListener("hashchange", syncTabFromHash);
+    window.addEventListener("hashchange", syncTabFromHash);
+    window.addEventListener("popstate", syncTabFromHash);
+
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    window.history.pushState = function (...args) {
+      const result = originalPushState.apply(this, args);
+      setTimeout(syncTabFromHash, 0);
+      return result;
+    };
+
+    window.history.replaceState = function (...args) {
+      const result = originalReplaceState.apply(this, args);
+      setTimeout(syncTabFromHash, 0);
+      return result;
+    };
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", syncTabFromHash);
+      window.removeEventListener("popstate", syncTabFromHash);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
   }, []);
 
   const handleTabChange = (value: string) => {
@@ -170,7 +245,7 @@ export default function ContractDetailPage() {
   };
 
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
+    if (!hasAnyUnsavedChanges) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -179,7 +254,7 @@ export default function ContractDetailPage() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  }, [hasAnyUnsavedChanges]);
 
   const fetchContractDetail = useCallback(
     async (showLoading = true) => {
@@ -187,9 +262,16 @@ export default function ContractDetailPage() {
 
       try {
         if (showLoading) setIsLoading(true);
-        const res: any = await contractApi.getDetail(Number(params.id));
-        const contractData = res.data ? res.data : res;
-        setContract(contractData);
+        const contractId = Number(params.id);
+        const res = await contractApi.getDetail(contractId);
+        const canReadCustomerAccess =
+          res.responsibleEmployee?.employeeId === currentEmployeeId ||
+          hasPermission(currentPermissions, RBAC_PERMISSIONS.contractSupport);
+        const currentLink = canReadCustomerAccess
+          ? await contractApi.getCurrentCustomerAccessLink(contractId)
+          : null;
+        setContract(res);
+        setKnownCustomerAccessLink(currentLink);
         setHasUnsavedChanges(false);
         setError(null);
       } catch (err: any) {
@@ -209,7 +291,7 @@ export default function ContractDetailPage() {
         if (showLoading) setIsLoading(false);
       }
     },
-    [params.id],
+    [currentEmployeeId, currentPermissions, params.id],
   );
 
   // Gọi API lấy dữ liệu hợp đồng
@@ -217,59 +299,19 @@ export default function ContractDetailPage() {
     void fetchContractDetail().catch(() => undefined);
   }, [fetchContractDetail]);
 
-  useEffect(() => {
-    if (!currentContractId || !currentVersionId) {
-      setKnownCustomerAccessLink(null);
-      return;
-    }
-
-    const storageKey = getCustomerAccessLinkStorageKey(
-      currentContractId,
-      currentVersionId,
-    );
-    const syncStoredLink = () =>
-      setKnownCustomerAccessLink(
-        readStoredCustomerAccessLink(currentContractId, currentVersionId),
-      );
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === storageKey) syncStoredLink();
-    };
-
-    syncStoredLink();
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [currentContractId, currentVersionId]);
-
   const handleCustomerAccessLinkChange = useCallback(
-    (link: StoredCustomerAccessLink | null) => {
-      if (!currentContractId || !currentVersionId) return;
-
-      const storageKey = getCustomerAccessLinkStorageKey(
-        currentContractId,
-        currentVersionId,
+    (link: KnownCustomerAccessLink | null) => {
+      setKnownCustomerAccessLink(
+        link
+          ? {
+              linkId: link.linkId,
+              state: link.state,
+              expiresAt: link.expiresAt,
+            }
+          : null,
       );
-      if (link) {
-        const storedLink: StoredCustomerAccessLink = {
-          linkId: link.linkId,
-          state: link.state,
-          expiresAt: link.expiresAt,
-        };
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(storedLink));
-        } catch {
-          // State trong phiên hiện tại vẫn được cập nhật nếu storage bị chặn.
-        }
-        setKnownCustomerAccessLink(storedLink);
-      } else {
-        try {
-          window.localStorage.removeItem(storageKey);
-        } catch {
-          // Không có gì cần xử lý thêm khi storage bị chặn.
-        }
-        setKnownCustomerAccessLink(null);
-      }
     },
-    [currentContractId, currentVersionId],
+    [],
   );
 
   if (isLoading) {
@@ -306,184 +348,316 @@ export default function ContractDetailPage() {
   }
 
   const handleUpdateDraft = async () => {
-    if (!contract || !contract.currentVersion || !canManageContract) return;
-
-    if (!contract.contractName.trim()) {
-      toast.error("Tên hợp đồng không được để trống.");
-      return;
-    }
-
-    if (contract.currentVersion.items.length === 0) {
-      toast.error("Hợp đồng phải có ít nhất một sản phẩm hoặc dịch vụ.");
-      return;
-    }
-
-    if (contract.currentVersion.terms.length === 0) {
-      toast.error("Hợp đồng phải có ít nhất một điều khoản.");
-      return;
-    }
-
     if (
-      contract.effectiveDate &&
-      contract.expireDate &&
-      new Date(contract.expireDate) < new Date(contract.effectiveDate)
-    ) {
-      toast.error("Ngày hết hạn không được trước ngày hiệu lực.");
+      !contract ||
+      !canUpdateDraft ||
+      appendixOperationBusy ||
+      saveInFlightRef.current ||
+      !hasAnyUnsavedChanges
+    )
       return;
-    }
-
-    if (
-      contract.languageMode === ContractLanguageMode.Bilingual &&
-      !contract.contractNameEn?.trim()
-    ) {
-      toast.error("Hợp đồng song ngữ phải có tên hợp đồng tiếng Anh.");
-      return;
-    }
-
-    for (const item of contract.currentVersion.items) {
-      if (
-        contract.languageMode === ContractLanguageMode.Bilingual &&
-        !item.itemNameEn?.trim()
-      ) {
-        toast.error(`Vui lòng nhập tên tiếng Anh cho “${item.itemName}”.`);
-        return;
-      }
-      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-        toast.error(
-          "Vui lòng nhập số lượng hợp lệ cho tất cả sản phẩm/dịch vụ.",
-        );
-        return;
-      }
-
-      if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
-        toast.error(`Đơn giá của “${item.itemName}” không hợp lệ.`);
-        return;
-      }
-
-      if (
-        item.discountMode === ContractItemDiscountMode.Percentage &&
-        (item.discountPercent < 0 || item.discountPercent > 100)
-      ) {
-        toast.error(`Chiết khấu của “${item.itemName}” phải từ 0% đến 100%.`);
-        return;
-      }
-
-      const lineSubtotal = roundContractMoney(
-        item.quantity * item.unitPrice,
-        contract.currencyCode,
+    if (hasOpenAppendixForm) {
+      toast.error(
+        "Hãy hoàn tất hoặc hủy form thêm phụ lục/điều khoản trước khi lưu chung.",
       );
-      if (
-        item.discountMode === ContractItemDiscountMode.FixedAmount &&
-        (item.fixedDiscountAmount < 0 ||
-          item.fixedDiscountAmount > lineSubtotal)
-      ) {
-        toast.error(
-          `Số tiền giảm của “${item.itemName}” không được vượt quá tạm tính.`,
-        );
+      return;
+    }
+
+    for (const { draft } of dirtyAppendixTerms) {
+      if (!draft.termCode.trim() || !draft.termTitle.trim()) {
+        toast.error("Mã và tiêu đề điều khoản phụ lục là bắt buộc.");
         return;
       }
-
-      if (item.isTaxable && (item.vatPercent < 0 || item.vatPercent > 100)) {
-        toast.error(`Thuế VAT của “${item.itemName}” phải từ 0% đến 100%.`);
+      if (
+        contract.languageMode === ContractLanguageMode.Bilingual &&
+        (!draft.termTitleEn?.trim() ||
+          (!!draft.termContent?.trim() && !draft.termContentEn?.trim()))
+      ) {
+        toast.error(
+          `Điều khoản phụ lục “${draft.termCode}” chưa đủ nội dung tiếng Anh.`,
+        );
         return;
       }
     }
 
-    for (const term of contract.currentVersion.terms) {
-      if (!term.termTitle.trim()) {
-        toast.error("Tiêu đề điều khoản không được để trống.");
+    const manualPaymentMilestones =
+      contract.currentVersion.paymentMilestones.filter(
+        (item) => item.dueAnchor === ContractPaymentDueAnchor.ManualDate,
+      );
+
+    if (hasUnsavedChanges) {
+      if (!contract.contractName.trim()) {
+        toast.error("Tên hợp đồng không được để trống.");
+        return;
+      }
+
+      if (contract.currentVersion.items.length === 0) {
+        toast.error("Hợp đồng phải có ít nhất một sản phẩm hoặc dịch vụ.");
+        return;
+      }
+
+      if (contract.currentVersion.terms.length === 0) {
+        toast.error("Hợp đồng phải có ít nhất một điều khoản.");
+        return;
+      }
+
+      if (
+        contract.effectiveDate &&
+        contract.expireDate &&
+        new Date(contract.expireDate) < new Date(contract.effectiveDate)
+      ) {
+        toast.error("Ngày hết hạn không được trước ngày hiệu lực.");
         return;
       }
 
       if (
         contract.languageMode === ContractLanguageMode.Bilingual &&
-        (!term.termTitleEn?.trim() ||
-          (!!term.termContent?.trim() && !term.termContentEn?.trim()))
+        !contract.contractNameEn?.trim()
       ) {
+        toast.error("Hợp đồng song ngữ phải có tên hợp đồng tiếng Anh.");
+        return;
+      }
+
+      for (const item of contract.currentVersion.items) {
+        if (
+          contract.languageMode === ContractLanguageMode.Bilingual &&
+          !item.itemNameEn?.trim()
+        ) {
+          toast.error(`Vui lòng nhập tên tiếng Anh cho “${item.itemName}”.`);
+          return;
+        }
+        if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+          toast.error(
+            "Vui lòng nhập số lượng hợp lệ cho tất cả sản phẩm/dịch vụ.",
+          );
+          return;
+        }
+
+        if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
+          toast.error(`Đơn giá của “${item.itemName}” không hợp lệ.`);
+          return;
+        }
+
+        if (
+          item.discountMode === ContractItemDiscountMode.Percentage &&
+          (item.discountPercent < 0 || item.discountPercent > 100)
+        ) {
+          toast.error(`Chiết khấu của “${item.itemName}” phải từ 0% đến 100%.`);
+          return;
+        }
+
+        const lineSubtotal = roundContractMoney(
+          item.quantity * item.unitPrice,
+          contract.currencyCode,
+        );
+        if (
+          item.discountMode === ContractItemDiscountMode.FixedAmount &&
+          (item.fixedDiscountAmount < 0 ||
+            item.fixedDiscountAmount > lineSubtotal)
+        ) {
+          toast.error(
+            `Số tiền giảm của “${item.itemName}” không được vượt quá tạm tính.`,
+          );
+          return;
+        }
+
+        if (item.isTaxable && (item.vatPercent < 0 || item.vatPercent > 100)) {
+          toast.error(`Thuế VAT của “${item.itemName}” phải từ 0% đến 100%.`);
+          return;
+        }
+      }
+
+      for (const term of contract.currentVersion.terms) {
+        if (!term.termTitle.trim()) {
+          toast.error("Tiêu đề điều khoản không được để trống.");
+          return;
+        }
+
+        if (
+          contract.languageMode === ContractLanguageMode.Bilingual &&
+          (!term.termTitleEn?.trim() ||
+            (!!term.termContent?.trim() && !term.termContentEn?.trim()))
+        ) {
+          toast.error(
+            `Điều khoản “${term.termCode}” chưa đủ nội dung tiếng Anh.`,
+          );
+          return;
+        }
+      }
+
+      if (manualPaymentMilestones.some((item) => !item.anchorDate)) {
         toast.error(
-          `Điều khoản “${term.termCode}” chưa đủ nội dung tiếng Anh.`,
+          "Vui lòng nhập ngày bắt đầu tính hạn cho các đợt dùng Lịch thủ công.",
         );
         return;
       }
     }
 
+    saveInFlightRef.current = true;
     setIsUpdating(true);
+    let mainDraftSaved = false;
     try {
-      // Map payload chuẩn hóa theo UpdateContractDraftRequest
-      const payload: UpdateContractDraftRequest = {
-        rowVersion: contract.rowVersion,
-        currentVersionId: contract.currentVersion.versionId,
-        currentVersionRowVersion: contract.currentVersion.rowVersion,
-        customerId: contract.customer.customerId,
-        contractName: contract.contractName,
-        contractNameEn: contract.contractNameEn,
-        effectiveDate: contract.effectiveDate,
-        expireDate: contract.expireDate,
-        currencyCode: contract.currencyCode,
+      if (hasUnsavedChanges) {
+        // Map payload chuẩn hóa theo UpdateContractDraftRequest
+        const payload: UpdateContractDraftRequest = {
+          rowVersion: contract.rowVersion,
+          currentVersionId: contract.currentVersion.versionId,
+          currentVersionRowVersion: contract.currentVersion.rowVersion,
+          customerId: contract.customer.customerId,
+          contractName: contract.contractName,
+          contractNameEn: contract.contractNameEn,
+          effectiveDate: contract.effectiveDate,
+          expireDate: contract.expireDate,
+          currencyCode: contract.currencyCode,
 
-        // Map Items (Bao gồm Id và rowVersion)
-        items: contract.currentVersion.items.map((item) => ({
-          contractItemId: item.contractItemId < 0 ? null : item.contractItemId,
-          rowVersion: item.contractItemId < 0 ? null : item.rowVersion,
-          itemType: item.itemType,
-          sourceProductId: item.sourceProductId,
-          sourceServiceId: item.sourceServiceId,
-          itemCode: item.itemCode,
-          itemName: item.itemName,
-          itemNameEn: item.itemNameEn,
-          itemDescription: item.itemDescription,
-          itemDescriptionEn: item.itemDescriptionEn,
-          unitName: item.unitName,
-          unitNameEn: item.unitNameEn,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discountMode: item.discountMode,
-          discountPercent: item.discountPercent,
-          fixedDiscountAmount: item.fixedDiscountAmount,
-          isTaxable: item.isTaxable,
-          vatPercent: item.vatPercent,
-          displayOrder: item.displayOrder,
-        })),
+          // Map Items (Bao gồm Id và rowVersion)
+          items: contract.currentVersion.items.map((item) => ({
+            contractItemId:
+              item.contractItemId < 0 ? null : item.contractItemId,
+            rowVersion: item.contractItemId < 0 ? null : item.rowVersion,
+            itemType: item.itemType,
+            sourceProductId: item.sourceProductId,
+            sourceServiceId: item.sourceServiceId,
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            itemNameEn: item.itemNameEn,
+            itemDescription: item.itemDescription,
+            itemDescriptionEn: item.itemDescriptionEn,
+            unitName: item.unitName,
+            unitNameEn: item.unitNameEn,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountMode: item.discountMode,
+            discountPercent: item.discountPercent,
+            fixedDiscountAmount: item.fixedDiscountAmount,
+            isTaxable: item.isTaxable,
+            vatPercent: item.vatPercent,
+            displayOrder: item.displayOrder,
+          })),
 
-        // Map Terms (Bao gồm Id và rowVersion)
-        terms: contract.currentVersion.terms.map((term) => ({
-          termId: term.termId < 0 ? null : term.termId,
-          rowVersion: term.termId < 0 ? null : term.rowVersion,
-          termCode: term.termCode,
-          termTitle: term.termTitle,
-          termTitleEn: term.termTitleEn,
-          termContent: term.termContent,
-          termContentEn: term.termContentEn,
-          isNegotiable: term.isNegotiable,
-          displayOrder: term.displayOrder,
-        })),
-      };
+          // Map Terms (Bao gồm Id và rowVersion)
+          terms: contract.currentVersion.terms.map((term) => ({
+            termId: term.termId < 0 ? null : term.termId,
+            rowVersion: term.termId < 0 ? null : term.rowVersion,
+            termCode: term.termCode,
+            termTitle: term.termTitle,
+            termTitleEn: term.termTitleEn,
+            termContent: term.termContent,
+            termContentEn: term.termContentEn,
+            isNegotiable: term.isNegotiable,
+            displayOrder: term.displayOrder,
+          })),
+          paymentMilestoneDates: manualPaymentMilestones.map((item) => ({
+            sourceTemplatePaymentMilestoneId:
+              item.sourceTemplatePaymentMilestoneId!,
+            anchorDate: item.anchorDate!.slice(0, 10),
+          })),
+        };
 
-      const res: any = await contractApi.updateDraft(
-        contract.contractId,
-        payload,
+        const res: any = await contractApi.updateDraft(
+          contract.contractId,
+          payload,
+        );
+        const updatedData = res.data ? res.data : res;
+
+        setContract(updatedData); // Cập nhật lại UI với data mới
+        setHasUnsavedChanges(false);
+        mainDraftSaved = true;
+      }
+
+      for (const { appendix, term, draft } of dirtyAppendixTerms) {
+        const latest = await contractApi.getDetail(contract.contractId);
+        if (
+          latest.currentVersion.versionId !== contract.currentVersion.versionId
+        ) {
+          throw new Error(
+            "Phiên bản hợp đồng đã thay đổi. Vui lòng tải lại trang.",
+          );
+        }
+        const latestAppendix = latest.currentVersion.appendices.find(
+          (item) => item.appendixId === appendix.appendixId,
+        );
+        const latestTerm = latestAppendix?.terms.find(
+          (item) => item.appendixTermId === term.appendixTermId,
+        );
+        if (!latestAppendix || !latestTerm) {
+          throw new Error(
+            "Điều khoản phụ lục đã thay đổi. Vui lòng tải lại trang.",
+          );
+        }
+        if (appendixTermMatches(draft, latestTerm)) continue;
+        if (draft.rowVersion !== latestTerm.rowVersion) {
+          throw new Error(
+            `Điều khoản phụ lục “${draft.termCode}” đã được người khác sửa. Bản nháp của bạn vẫn được giữ lại.`,
+          );
+        }
+        const saved = await contractApi.updateAppendixTerm(
+          contract.contractId,
+          contract.currentVersion.versionId,
+          appendix.appendixId,
+          term.appendixTermId,
+          {
+            termCode: draft.termCode.trim(),
+            termTitle: draft.termTitle.trim(),
+            termTitleEn: draft.termTitleEn?.trim() || null,
+            termContent: draft.termContent?.trim() || null,
+            termContentEn: draft.termContentEn?.trim() || null,
+            displayOrder: latestTerm.displayOrder,
+            rowVersion: latestTerm.rowVersion,
+            appendixRowVersion: latestAppendix.rowVersion,
+            versionRowVersion: latest.currentVersion.rowVersion,
+          },
+        );
+        setAppendixDrafts((current) => ({
+          ...current,
+          [term.appendixTermId]: saved,
+        }));
+      }
+
+      if (hasUnsavedAppendixChanges) {
+        setContract(await contractApi.getDetail(contract.contractId));
+        setAppendixDrafts({});
+      }
+      toast.success(
+        hasUnsavedChanges && hasUnsavedAppendixChanges
+          ? "Đã lưu các thay đổi hợp đồng và phụ lục."
+          : hasUnsavedAppendixChanges
+            ? "Đã lưu các điều khoản phụ lục."
+            : "Cập nhật bản nháp thành công!",
       );
-      const updatedData = res.data ? res.data : res;
-
-      setContract(updatedData); // Cập nhật lại UI với data mới
-      setHasUnsavedChanges(false);
-      toast.success("Cập nhật bản nháp thành công!");
     } catch (err: any) {
       console.error("Lỗi cập nhật bản nháp:", err);
+      if (mainDraftSaved || !hasUnsavedChanges) {
+        try {
+          setContract(await contractApi.getDetail(contract.contractId));
+        } catch {
+          // Giữ bản nháp để người dùng thử lại khi tải dữ liệu thất bại.
+        }
+      }
       if (isStaleRowVersion(err)) {
-        await fetchContractDetail(false).catch(() => undefined);
-        toast.error("Hợp đồng đã được thay đổi ở nơi khác. Dữ liệu mới nhất đã được tải lại.");
+        toast.error(
+          "Hợp đồng đã được thay đổi ở nơi khác. Bản nháp của bạn vẫn được giữ lại; hãy kiểm tra xung đột trước khi thử lại.",
+        );
       } else {
-        toast.error(getApiErrorMessage(err, "Cập nhật bản nháp thất bại. Vui lòng thử lại."));
+        toast.error(
+          err instanceof Error && err.name === "Error"
+            ? err.message
+            : getApiErrorMessage(
+                err,
+                "Chưa lưu được toàn bộ thay đổi. Phần chưa lưu vẫn được giữ lại để thử lại.",
+              ),
+        );
       }
     } finally {
+      saveInFlightRef.current = false;
       setIsUpdating(false);
     }
   };
 
   const handleStartNegotiation = async () => {
     if (!contract || !canManageContract) return;
-    if (hasUnsavedChanges) {
+    if (isUpdating || appendixOperationBusy) return;
+    if (hasAnyUnsavedChanges) {
       toast.error("Vui lòng lưu các thay đổi trước khi bắt đầu đàm phán.");
       return;
     }
@@ -503,7 +677,12 @@ export default function ContractDetailPage() {
         await fetchContractDetail(false).catch(() => undefined);
         toast.error("Hợp đồng đã thay đổi. Dữ liệu mới nhất đã được tải lại.");
       } else {
-        toast.error(getApiErrorMessage(err, "Không thể bắt đầu đàm phán. Vui lòng thử lại."));
+        toast.error(
+          getApiErrorMessage(
+            err,
+            "Không thể bắt đầu đàm phán. Vui lòng thử lại.",
+          ),
+        );
       }
     } finally {
       setIsStartingNegotiation(false);
@@ -512,8 +691,16 @@ export default function ContractDetailPage() {
 
   const handleSubmitApproval = () => {
     if (!contract || !contract.currentVersion || !canManageContract) return;
-    if (hasUnsavedChanges) {
+    if (isUpdating || appendixOperationBusy) return;
+    if (hasAnyUnsavedChanges) {
       toast.error("Vui lòng lưu các thay đổi trước khi gửi duyệt.");
+      return;
+    }
+    if (!canSubmitApproval) {
+      toast.error(
+        effectiveApprovalBlockers[0]?.message ||
+          "Hợp đồng chưa đủ điều kiện gửi duyệt.",
+      );
       return;
     }
 
@@ -545,9 +732,13 @@ export default function ContractDetailPage() {
           console.error("Lỗi gửi duyệt hợp đồng:", err);
           if (isStaleRowVersion(err)) {
             await fetchContractDetail(false).catch(() => undefined);
-            toast.error("Hợp đồng đã thay đổi. Dữ liệu mới nhất đã được tải lại.");
+            toast.error(
+              "Hợp đồng đã thay đổi. Dữ liệu mới nhất đã được tải lại.",
+            );
           } else {
-            toast.error(getApiErrorMessage(err, "Không thể gửi duyệt. Vui lòng thử lại."));
+            toast.error(
+              getApiErrorMessage(err, "Không thể gửi duyệt. Vui lòng thử lại."),
+            );
           }
         } finally {
           setIsSubmittingApproval(false);
@@ -556,20 +747,133 @@ export default function ContractDetailPage() {
     });
   };
 
-  const isCurrentVersionShared =
-    contract.status === ContractStatus.Negotiating &&
-    knownCustomerAccessLink !== null;
   const isResponsibleEmployee =
     user?.employeeId === contract.responsibleEmployee?.employeeId;
   const canManageContract =
     isResponsibleEmployee &&
     hasPermission(user?.permissions, RBAC_PERMISSIONS.contractManageOwn);
+  const canViewCustomerAccess =
+    isResponsibleEmployee ||
+    hasPermission(user?.permissions, RBAC_PERMISSIONS.contractSupport);
+  const canManageSigning = hasPermission(
+    user?.permissions,
+    RBAC_PERMISSIONS.contractSigningManage,
+  );
+  const canManageAcceptance = hasPermission(
+    user?.permissions,
+    RBAC_PERMISSIONS.contractAcceptanceManage,
+  );
+  const canManagePayment = hasPermission(
+    user?.permissions,
+    RBAC_PERMISSIONS.contractPaymentManage,
+  );
+  const canCompleteContract = hasPermission(
+    user?.permissions,
+    RBAC_PERMISSIONS.contractComplete,
+  );
+  const visibleActiveTab =
+    activeTab === "customer-access" && !canViewCustomerAccess
+      ? canManageSigning
+        ? "signature"
+        : canManageAcceptance || canManagePayment || canCompleteContract
+          ? "closing"
+          : "overview"
+      : activeTab;
+  const effectiveApprovalBlockers = contract.approvalReadiness.blockers;
+  const canSubmitApproval = contract.approvalReadiness.canSubmit;
+  const isCurrentVersionShared = contract.approvalReadiness.hasEverBeenShared;
+  const hasActiveCurrentVersionLink =
+    contract.approvalReadiness.hasActiveCurrentVersionLink;
   const canUpdateDraft =
     canManageContract &&
     (contract.status === ContractStatus.Draft ||
       contract.status === ContractStatus.Negotiating) &&
-    !contract.currentVersion.isLocked &&
-    !isCurrentVersionShared;
+    !contract.currentVersion.isLocked;
+  const canCommentOnCurrentVersion =
+    canManageContract &&
+    contract.status === ContractStatus.Negotiating &&
+    !contract.currentVersion.isLocked;
+  const canPreviewContractDocument =
+    canManageContract &&
+    (contract.status === ContractStatus.Draft ||
+      contract.status === ContractStatus.Negotiating) &&
+    contract.contractType === ContractType.SoftwareSupply;
+
+  const viewContractPdf = async () => {
+    if (isOpeningPdf) return;
+
+    const previewWindow = window.open("about:blank", "_blank");
+    if (!previewWindow) {
+      toast.error(
+        "Trình duyệt đã chặn tab xem trước. Vui lòng cho phép cửa sổ bật lên.",
+      );
+      return;
+    }
+
+    previewWindow.opener = null;
+    previewWindow.document.title = "Đang tải hợp đồng...";
+    previewWindow.document.body.textContent = "Đang tải bản PDF hợp đồng...";
+
+    try {
+      setIsOpeningPdf(true);
+      const blob = await contractApi.downloadPreviewPdf(contract.contractId);
+      const pdfUrl = URL.createObjectURL(
+        blob.type === "application/pdf"
+          ? blob
+          : new Blob([blob], { type: "application/pdf" }),
+      );
+      previewWindow.location.replace(pdfUrl);
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error) {
+      previewWindow.close();
+      toast.error(
+        await getBlobApiErrorMessage(error, "Không thể mở bản PDF hợp đồng."),
+      );
+    } finally {
+      setIsOpeningPdf(false);
+    }
+  };
+
+  const downloadContractPdf = async () => {
+    if (isDownloadingPdf) return;
+
+    try {
+      setIsDownloadingPdf(true);
+      const blob = await contractApi.downloadPreviewPdf(contract.contractId);
+      downloadBlob(
+        blob,
+        `${contract.contractCode || `contract-${contract.contractId}`}-preview.pdf`,
+      );
+    } catch (error) {
+      toast.error(
+        await getBlobApiErrorMessage(error, "Không thể tải bản PDF hợp đồng."),
+      );
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const downloadContractDocx = async () => {
+    if (isDownloadingDocx) return;
+
+    try {
+      setIsDownloadingDocx(true);
+      const blob = await contractApi.downloadPreviewDocx(contract.contractId);
+      downloadBlob(
+        blob,
+        `${contract.contractCode || `contract-${contract.contractId}`}-preview.docx`,
+      );
+    } catch (error) {
+      toast.error(
+        await getBlobApiErrorMessage(
+          error,
+          "Không thể tải bản DOCX xem trước.",
+        ),
+      );
+    } finally {
+      setIsDownloadingDocx(false);
+    }
+  };
 
   return (
     <>
@@ -598,11 +902,50 @@ export default function ContractDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {canPreviewContractDocument && (
+              <SplitActionMenu
+                primaryLabel="Xem bản xem trước PDF"
+                primaryIcon={<Eye className="size-4" />}
+                onPrimaryClick={viewContractPdf}
+                isLoading={isOpeningPdf}
+                buttonClassName="h-9"
+                menuItems={[
+                  {
+                    label: "Tải bản xem trước DOCX",
+                    icon: isDownloadingDocx ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <FileText className="size-4" />
+                    ),
+                    onClick: downloadContractDocx,
+                    disabled: isDownloadingDocx,
+                  },
+                  {
+                    label: "Tải bản xem trước PDF",
+                    icon: isDownloadingPdf ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Download className="size-4" />
+                    ),
+                    onClick: downloadContractPdf,
+                    disabled: isDownloadingPdf,
+                  },
+                ]}
+              />
+            )}
+            <ContractSubmittedArtifactActions
+              contractId={contract.contractId}
+              versionId={contract.currentVersion.versionId}
+              enabled={
+                contract.status !== ContractStatus.Draft &&
+                contract.status !== ContractStatus.Negotiating
+              }
+            />
             {canUpdateDraft && (
               <Button
                 variant="outline"
                 onClick={handleUpdateDraft}
-                disabled={isUpdating}
+                disabled={isUpdating || appendixOperationBusy}
                 className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
               >
                 {isUpdating ? (
@@ -616,7 +959,12 @@ export default function ContractDetailPage() {
             {canManageContract && contract.status === ContractStatus.Draft && (
               <Button
                 onClick={handleStartNegotiation}
-                disabled={isStartingNegotiation || hasUnsavedChanges}
+                disabled={
+                  isStartingNegotiation ||
+                  isUpdating ||
+                  appendixOperationBusy ||
+                  hasAnyUnsavedChanges
+                }
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {isStartingNegotiation ? (
@@ -629,19 +977,26 @@ export default function ContractDetailPage() {
             )}
             {canManageContract &&
               contract.status === ContractStatus.Negotiating && (
-              <Button
-                onClick={handleSubmitApproval}
-                disabled={isSubmittingApproval || hasUnsavedChanges}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-              >
-                {isSubmittingApproval ? (
-                  <Loader2 className="size-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="size-4 mr-2" />
-                )}
-                Gửi duyệt
-              </Button>
-            )}
+                <Button
+                  onClick={handleSubmitApproval}
+                  disabled={
+                    isSubmittingApproval ||
+                    isUpdating ||
+                    appendixOperationBusy ||
+                    hasAnyUnsavedChanges ||
+                    !canSubmitApproval
+                  }
+                  title={effectiveApprovalBlockers[0]?.message}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {isSubmittingApproval ? (
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="size-4 mr-2" />
+                  )}
+                  Gửi duyệt
+                </Button>
+              )}
             {/* <Button variant="outline">
               <DatabaseZap className="size-4 mr-2" />
               Tạo từ báo giá
@@ -676,7 +1031,7 @@ export default function ContractDetailPage() {
             icon={<WalletCards className="size-4" />}
             label="Tổng thanh toán"
             value={
-              <span className="text-primary">
+              <span className="text-primary break-all">
                 {formatCurrency(
                   contract.totalPayment ?? contract.totalAmount,
                   contract.currencyCode,
@@ -707,40 +1062,83 @@ export default function ContractDetailPage() {
           </div>
         </div>
 
-        {isCurrentVersionShared && (
-          <Alert className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
-            <LockKeyhole className="size-4 text-amber-700" />
-            <AlertTitle>Phiên bản đang được chia sẻ với khách hàng</AlertTitle>
-            <AlertDescription>
-              Nội dung được chuyển sang chế độ chỉ xem để tránh thay đổi trực
-              tiếp dữ liệu khách hàng đang xem. Muốn chỉnh sửa, hãy tạo vòng
-              mới!
-            </AlertDescription>
-          </Alert>
-        )}
+        {isCurrentVersionShared &&
+          (contract.status === ContractStatus.Negotiating ||
+            contract.status === ContractStatus.Draft) && (
+            <Alert className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
+              <Users className="size-4 text-amber-700" />
+              <AlertTitle>
+                {hasActiveCurrentVersionLink
+                  ? "Phiên bản đang được chia sẻ với khách hàng"
+                  : "Phiên bản đã từng được chia sẻ với khách hàng"}
+              </AlertTitle>
+              <AlertDescription>
+                {hasActiveCurrentVersionLink
+                  ? "Mọi thay đổi sau khi lưu sẽ được khách hàng nhìn thấy trên cùng liên kết truy cập."
+                  : "Liên kết cũ hiện không còn hoạt động. Bạn vẫn có thể chỉnh sửa và lưu; chỉ cần tạo liên kết mới nếu muốn chia sẻ lại."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+        {canManageContract &&
+          contract.status === ContractStatus.Negotiating &&
+          !canSubmitApproval && (
+            <Alert className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
+              <Send className="size-4 text-amber-700" />
+              <AlertTitle>Chưa đủ điều kiện gửi duyệt</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc space-y-1 pl-5">
+                  {effectiveApprovalBlockers.map((blocker) => (
+                    <li key={blocker.code}>{blocker.message}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
         {!canManageContract && (
           <Alert>
             <LockKeyhole className="size-4" />
             <AlertTitle>Chế độ chỉ xem</AlertTitle>
             <AlertDescription>
-              Bạn có thể xem hợp đồng này, nhưng chỉ người phụ trách mới được
-              chỉnh sửa hoặc thực hiện các thao tác nghiệp vụ.
+              Nội dung hợp đồng chỉ người phụ trách mới được chỉnh sửa. Các thao
+              tác ký, nghiệm thu, thanh toán và hoàn tất phụ thuộc vào vai trò
+              của bạn.
             </AlertDescription>
           </Alert>
         )}
 
+        <ContractSaveShortcut
+          enabled={
+            canUpdateDraft &&
+            hasAnyUnsavedChanges &&
+            !isUpdating &&
+            !appendixOperationBusy &&
+            !hasOpenAppendixForm
+          }
+          onSave={() => void handleUpdateDraft()}
+        />
+
         <Tabs
-          value={activeTab}
+          value={visibleActiveTab}
           onValueChange={handleTabChange}
           className="space-y-4"
         >
           <TabsList className="flex h-auto w-full flex-wrap justify-start">
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="terms">Điều khoản</TabsTrigger>
-            <TabsTrigger value="negotiation">Đàm phán</TabsTrigger>
-            <TabsTrigger value="signature">Truy cập khách hàng</TabsTrigger>
             <TabsTrigger value="documents">Chứng từ</TabsTrigger>
+            <TabsTrigger value="negotiation">Vòng đàm phán</TabsTrigger>
+            <TabsTrigger value="terms">Điều khoản - Trao đổi</TabsTrigger>
+            <TabsTrigger value="appendices">
+              Phụ lục ({contract.currentVersion.appendices?.length ?? 0})
+            </TabsTrigger>
+            {canViewCustomerAccess && (
+              <TabsTrigger value="customer-access">
+                Truy cập khách hàng
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="approval">Phê duyệt</TabsTrigger>
+            <TabsTrigger value="signature">Ký hợp đồng</TabsTrigger>
             <TabsTrigger value="closing">Đóng hợp đồng</TabsTrigger>
             <TabsTrigger value="activity">Lịch sử hoạt động</TabsTrigger>
           </TabsList>
@@ -749,7 +1147,7 @@ export default function ContractDetailPage() {
             <ContractOverview
               contract={contract}
               setContract={handleContractChange}
-              canEdit={canUpdateDraft}
+              canEdit={canUpdateDraft && !appendixOperationBusy}
               onOpenTransferModal={() => setIsTransferModalOpen(true)}
             />
           </TabsContent>
@@ -758,8 +1156,28 @@ export default function ContractDetailPage() {
             <ContractTerms
               contract={contract}
               setContract={setContract}
-              canEdit={canUpdateDraft}
+              canEdit={canUpdateDraft && !appendixOperationBusy}
+              canComment={canCommentOnCurrentVersion}
               onDraftChange={() => setHasUnsavedChanges(true)}
+            />
+          </TabsContent>
+
+          <TabsContent value="appendices">
+            <ContractAppendices
+              contract={contract}
+              canEdit={canUpdateDraft}
+              onRefetch={() => fetchContractDetail(false)}
+              drafts={appendixDrafts}
+              onTermDraftChange={(term) =>
+                setAppendixDrafts((current) => ({
+                  ...current,
+                  [term.appendixTermId]: term,
+                }))
+              }
+              hasUnsavedChanges={hasAnyUnsavedChanges}
+              isSaving={isUpdating}
+              onPendingFormChange={setHasOpenAppendixForm}
+              onOperationChange={setAppendixOperationBusy}
             />
           </TabsContent>
 
@@ -768,21 +1186,39 @@ export default function ContractDetailPage() {
               contract={contract}
               setContract={setContract}
               canManage={canManageContract}
-              hasUnsavedChanges={hasUnsavedChanges}
+              hasUnsavedChanges={hasAnyUnsavedChanges}
               onNegotiationRoundCreated={() =>
                 handleCustomerAccessLinkChange(null)
               }
             />
           </TabsContent>
 
-          <TabsContent value="signature">
-            <ContractSignature
+          <TabsContent value="approval">
+            <ContractApprovalPanel
               contract={contract}
-              onContractRefetch={() => fetchContractDetail(false)}
-              knownLink={knownCustomerAccessLink}
-              hasUnsavedChanges={hasUnsavedChanges}
               canManage={canManageContract}
-              onCustomerAccessLinkChange={handleCustomerAccessLinkChange}
+              onContractRefetch={() => fetchContractDetail(false)}
+            />
+          </TabsContent>
+
+          {canViewCustomerAccess && (
+            <TabsContent value="customer-access">
+              <ContractSignature
+                contract={contract}
+                onContractRefetch={() => fetchContractDetail(false)}
+                knownLink={knownCustomerAccessLink}
+                hasUnsavedChanges={hasAnyUnsavedChanges}
+                canManage={canManageContract}
+                onCustomerAccessLinkChange={handleCustomerAccessLinkChange}
+              />
+            </TabsContent>
+          )}
+
+          <TabsContent value="signature">
+            <ContractSigningPanel
+              contract={contract}
+              canManageSigning={canManageSigning}
+              onContractRefetch={() => fetchContractDetail(false)}
             />
           </TabsContent>
 
@@ -794,7 +1230,13 @@ export default function ContractDetailPage() {
           </TabsContent>
 
           <TabsContent value="closing">
-            <ContractClosing contract={contract} />
+            <ContractClosing
+              contract={contract}
+              canManageAcceptance={canManageAcceptance}
+              canManagePayment={canManagePayment}
+              canComplete={canCompleteContract}
+              onContractRefetch={() => fetchContractDetail(false)}
+            />
           </TabsContent>
 
           <TabsContent value="activity">
@@ -810,11 +1252,10 @@ export default function ContractDetailPage() {
             rowVersion={contract.rowVersion}
             currentEmployeeId={contract.responsibleEmployee?.employeeId}
             currentEmployeeName={contract.responsibleEmployee?.employeeFullName}
-            onSuccess={(updated) => setContract(updated)}
           />
         )}
 
-        {hasUnsavedChanges && canUpdateDraft && (
+        {hasAnyUnsavedChanges && canUpdateDraft && (
           <Alert
             className="fixed bottom-6 right-6 z-50 w-[calc(100%-3rem)] max-w-md animate-in fade-in-0 slide-in-from-bottom-8 bg-background shadow-lg duration-300"
             aria-live="polite"
@@ -824,7 +1265,7 @@ export default function ContractDetailPage() {
               <span>Bạn có muốn lưu các thay đổi vừa thực hiện không?</span>
               <Button
                 onClick={handleUpdateDraft}
-                disabled={isUpdating}
+                disabled={isUpdating || appendixOperationBusy}
                 size="sm"
                 className="shrink-0"
               >
@@ -834,6 +1275,9 @@ export default function ContractDetailPage() {
                   <Save className="size-4 mr-2" />
                 )}
                 Lưu thay đổi
+                <kbd className="hidden rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-mono text-primary-foreground sm:inline-block">
+                  Ctrl+S
+                </kbd>
               </Button>
             </AlertDescription>
           </Alert>

@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FileText,
   KeyRound,
+  Link2Off,
   Loader2,
   LockKeyhole,
   MessageSquareText,
@@ -18,6 +19,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 import { PublicContractDiscussionModal } from "@/components/contracts/public-contract-comments";
+import { ContractTermCard } from "@/components/contracts/contract-term-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -44,10 +46,17 @@ import {
   CreateCustomerNegotiationCommentRequest,
   CustomerPublicNegotiationCommentResponse,
   CustomerSharedContractResponse,
+  CustomerAccessLinkAvailabilityState,
   publicContractApi,
 } from "@/services/public-contract-api";
 
-type AccessStep = "checking" | "phone" | "otp" | "contract" | "error";
+type AccessStep =
+  | "checking"
+  | "phone"
+  | "otp"
+  | "contract"
+  | "unavailable"
+  | "error";
 
 const getStatus = (error: any) => error?.response?.status as number | undefined;
 
@@ -72,6 +81,9 @@ export default function PublicContractPage() {
   const [step, setStep] = useState<AccessStep>("checking");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
+  const [deliveryChannel, setDeliveryChannel] = useState<"Email" | "Sms">(
+    "Sms",
+  );
   const [publicChallengeId, setPublicChallengeId] = useState<string | null>(
     null,
   );
@@ -89,6 +101,21 @@ export default function PublicContractPage() {
     setStep("phone");
     if (message) toast.error(message);
   }, []);
+
+  const showLinkUnavailable = useCallback(
+    (state: CustomerAccessLinkAvailabilityState) => {
+      setContract(null);
+      setPublicChallengeId(null);
+      setOtp("");
+      setPageError(
+        state === "PendingActivation"
+          ? "Hợp đồng chưa bắt đầu đàm phán. Vui lòng thử lại sau khi nhân viên kích hoạt link."
+          : "Link này đã hết hạn, bị thu hồi hoặc được thay thế bởi một link mới. Vui lòng liên hệ nhân viên phụ trách để nhận link mới.",
+      );
+      setStep("unavailable");
+    },
+    [],
+  );
 
   const loadSharedContract = useCallback(async () => {
     try {
@@ -111,9 +138,30 @@ export default function PublicContractPage() {
     }
   }, [resetToPhone, tenantCode]);
 
+  const initializeAccess = useCallback(async () => {
+    setStep("checking");
+    setPageError(null);
+
+    try {
+      const availability = await publicContractApi.getLinkAvailability(
+        tenantCode,
+        linkToken,
+      );
+      if (!availability.isAvailable) {
+        showLinkUnavailable(availability.state);
+        return;
+      }
+
+      await loadSharedContract();
+    } catch (error: any) {
+      setPageError(getErrorMessage(error, "Không thể kiểm tra link truy cập."));
+      setStep("error");
+    }
+  }, [linkToken, loadSharedContract, showLinkUnavailable, tenantCode]);
+
   useEffect(() => {
-    void loadSharedContract();
-  }, [loadSharedContract]);
+    void initializeAccess();
+  }, [initializeAccess]);
 
   const sortedItems = useMemo(
     () =>
@@ -140,10 +188,20 @@ export default function PublicContractPage() {
 
     try {
       setIsRequestingOtp(true);
+      const availability = await publicContractApi.getLinkAvailability(
+        tenantCode,
+        linkToken,
+      );
+      if (!availability.isAvailable) {
+        showLinkUnavailable(availability.state);
+        return;
+      }
+
       const result = await publicContractApi.requestOtp(tenantCode, linkToken, {
         phoneNumber: normalizedPhone,
       });
       setPublicChallengeId(result.publicChallengeId);
+      setDeliveryChannel(result.deliveryChannel ?? "Sms");
       setOtp("");
       setStep("otp");
       toast.info("Nếu thông tin hợp lệ, mã xác thực sẽ được gửi.");
@@ -177,11 +235,9 @@ export default function PublicContractPage() {
       setOtp("");
       setPublicChallengeId(null);
       toast.success("Xác thực thành công!");
-      await loadSharedContract();
+      await initializeAccess();
     } catch (error: any) {
-      resetToPhone(
-        getErrorMessage(error, "Không thể xác thực mã. Hãy yêu cầu mã mới."),
-      );
+      toast.error("Không thể xác thực mã. Hãy yêu cầu mã mới.");
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -232,11 +288,35 @@ export default function PublicContractPage() {
             <AlertTitle>Không thể mở hợp đồng</AlertTitle>
             <AlertDescription className="mt-2 space-y-3">
               <p>{pageError}</p>
-              <Button variant="outline" size="sm" onClick={loadSharedContract}>
+              <Button variant="outline" size="sm" onClick={initializeAccess}>
                 <RefreshCw /> Thử lại
               </Button>
             </AlertDescription>
           </Alert>
+        </div>
+      </>
+    );
+  }
+
+  if (step === "unavailable") {
+    return (
+      <>
+        <PublicThemeToggle />
+        <div className="flex min-h-screen items-center justify-center px-4 py-10">
+          <Card className="w-full max-w-md text-center shadow-lg">
+            <CardHeader>
+              <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <Link2Off />
+              </div>
+              <CardTitle>Link không còn khả dụng</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">{pageError}</p>
+              <Button variant="outline" onClick={initializeAccess}>
+                <RefreshCw /> Kiểm tra lại
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </>
     );
@@ -257,7 +337,9 @@ export default function PublicContractPage() {
             <p className="text-sm text-muted-foreground">
               {step === "phone"
                 ? "Nhập số điện thoại đã được chọn để truy cập hợp đồng."
-                : "Nhập mã xác thực được gửi tới số điện thoại của bạn."}
+                : deliveryChannel === "Email"
+                  ? "Nhập mã xác thực gửi tới email đã đăng ký của khách hàng. Vui lòng kiểm tra cả thư mục Spam. Nếu chưa nhận được mã, hãy liên hệ nhân viên phụ trách để kiểm tra email."
+                  : "Nhập mã xác thực được gửi tới số điện thoại của bạn."}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -505,39 +587,12 @@ export default function PublicContractPage() {
           </p>
         ) : (
           sortedTerms.map((term) => (
-            <Card key={term.termId}>
-              <CardHeader>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle className="text-base">
-                      {[term.termCode, term.termTitle]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </CardTitle>
-                    {term.termTitleEn && (
-                      <p className="mt-1 text-sm text-muted-foreground italic">
-                        {term.termTitleEn}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant={term.isNegotiable ? "default" : "secondary"}>
-                    {term.isNegotiable
-                      ? "Có thể thương lượng"
-                      : "Điều khoản cố định"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm leading-7">
-                  <p className="whitespace-pre-wrap">
-                    {term.termContent || "—"}
-                  </p>
-                  {term.termContentEn && (
-                    <p className="whitespace-pre-wrap text-muted-foreground italic">
-                      {term.termContentEn}
-                    </p>
-                  )}
-                </div>
+            <ContractTermCard
+              key={term.termId}
+              term={term}
+              inputId={`public-${term.termId}`}
+              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
+            >
                 <PublicContractDiscussionModal
                   termId={term.termId}
                   termCode={term.termCode}
@@ -546,8 +601,7 @@ export default function PublicContractPage() {
                   canWrite={term.isNegotiable}
                   onCreate={handleCreateComment}
                 />
-              </CardContent>
-            </Card>
+            </ContractTermCard>
           ))
         )}
       </section>

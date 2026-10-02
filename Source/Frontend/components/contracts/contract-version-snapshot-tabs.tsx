@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  FileStack,
   MessageSquareText,
   Package,
   ScrollText,
@@ -12,6 +13,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ContractTermCard } from "./contract-term-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
 import {
@@ -109,10 +111,10 @@ export function ContractVersionSnapshotTabs({
       termId,
       termCode:
         term?.termCode ||
-        (termId == null ? undefined : `Điều khoản #${termId}`),
+        (termId == null ? undefined : "Điều khoản đã xóa"),
       termTitle:
         term?.termTitle ||
-        (termId == null ? undefined : "Điều khoản không còn trong snapshot"),
+        (termId == null ? undefined : "Điều khoản không còn trong bản lưu"),
     };
   });
   const paginatedItems = version.items.slice(
@@ -125,7 +127,7 @@ export function ContractVersionSnapshotTabs({
   );
   return (
     <Tabs defaultValue="items" className="space-y-4">
-      <TabsList className="grid h-auto w-full grid-cols-3">
+      <TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-4">
         <TabsTrigger value="items">
           <Package className="size-4" />
           <span className="hidden sm:inline">Sản phẩm/Dịch vụ</span>
@@ -135,6 +137,11 @@ export function ContractVersionSnapshotTabs({
           <ScrollText className="size-4" />
           <span className="hidden sm:inline">Điều khoản</span>
           <span>({version.terms.length})</span>
+        </TabsTrigger>
+        <TabsTrigger value="appendices">
+          <FileStack className="size-4" />
+          <span className="hidden sm:inline">Phụ lục</span>
+          <span>({version.appendices?.length ?? 0})</span>
         </TabsTrigger>
         <TabsTrigger value="comments">
           <MessageSquareText className="size-4" />
@@ -146,7 +153,7 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="items" className="space-y-3">
         {version.items.length === 0 ? (
           <EmptyState icon={<Package className="size-8" />}>
-            Snapshot không có sản phẩm hoặc dịch vụ
+            Bản lưu không có sản phẩm hoặc dịch vụ
           </EmptyState>
         ) : (
           paginatedItems.map((item) => (
@@ -222,36 +229,16 @@ export function ContractVersionSnapshotTabs({
       <TabsContent value="terms" className="space-y-3">
         {version.terms.length === 0 ? (
           <EmptyState icon={<ScrollText className="size-8" />}>
-            Snapshot không có điều khoản
+            Bản lưu không có điều khoản
           </EmptyState>
         ) : (
           paginatedTerms.map((term) => (
-            <div key={term.termId} className="rounded-xl border p-4 sm:p-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {term.termCode} · Điều {term.displayOrder}
-                  </p>
-                  <h3 className="mt-1 font-semibold">{term.termTitle}</h3>
-                </div>
-                <Badge variant={term.isNegotiable ? "outline" : "secondary"}>
-                  {term.isNegotiable ? "Cho phép đàm phán" : "Điều khoản cứng"}
-                </Badge>
-              </div>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                {term.termContent || "Chưa có nội dung."}
-              </p>
-              {(term.termTitleEn || term.termContentEn) && (
-                <div className="mt-4 border-t pt-4">
-                  <p className="font-medium">
-                    {term.termTitleEn || "English content"}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                    {term.termContentEn || "No content."}
-                  </p>
-                </div>
-              )}
-            </div>
+            <ContractTermCard
+              key={term.termId}
+              term={term}
+              inputId={`snapshot-${term.termId}`}
+              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
+            />
           ))
         )}
         <PaginationControls
@@ -262,10 +249,51 @@ export function ContractVersionSnapshotTabs({
         />
       </TabsContent>
 
+      <TabsContent value="appendices" className="space-y-4">
+        {(version.appendices?.length ?? 0) === 0 ? (
+          <EmptyState icon={<FileStack className="size-8" />}>
+            Bản lưu không có phụ lục
+          </EmptyState>
+        ) : (
+          [...version.appendices]
+            .sort((a, b) => a.displayOrder - b.displayOrder)
+            .map((appendix) => (
+              <div key={appendix.appendixId} className="rounded-xl border p-4 sm:p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">
+                    {appendix.appendixCode} — {appendix.appendixName}
+                  </h3>
+                  <Badge variant={appendix.isRequired ? "default" : "outline"}>
+                    {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
+                  </Badge>
+                </div>
+                {appendix.appendixDescription && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {appendix.appendixDescription}
+                  </p>
+                )}
+                <div className="mt-4 space-y-3">
+                  {appendix.terms.map((term) => (
+                    <ContractTermCard
+                      key={term.appendixTermId}
+                      term={{ ...term, isNegotiable: false }}
+                      inputId={`snapshot-appendix-${term.appendixTermId}`}
+                      isBilingual={Boolean(
+                        term.termTitleEn || term.termContentEn
+                      )}
+                      showNegotiation={false}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+        )}
+      </TabsContent>
+
       <TabsContent value="comments" className="space-y-3">
         {commentScopes.length === 0 ? (
           <EmptyState icon={<MessageSquareText className="size-8" />}>
-            Version này chưa có bình luận
+            Phiên bản này chưa có bình luận
           </EmptyState>
         ) : (
           commentScopes.map((scope) => (

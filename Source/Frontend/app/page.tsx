@@ -48,7 +48,7 @@ export default function LoginPage() {
   }>({});
 
   const validateTenantCode = (value: string): string | undefined => {
-    if (!value.trim()) return "Vui lòng nhập Mã công ty (Tenant Code)";
+    if (!value.trim()) return "Vui lòng nhập Mã công ty";
     return undefined;
   };
 
@@ -56,6 +56,15 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get("error");
+      const passwordChanged = urlParams.get("password_changed");
+
+      if (passwordChanged === "1") {
+        const timer = setTimeout(() => {
+          toast.success("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+          window.history.replaceState(null, "", "/");
+        }, 100);
+        return () => clearTimeout(timer);
+      }
 
       if (error === "session_expired" || error === "employee_inactive") {
         const timer = setTimeout(() => {
@@ -74,13 +83,22 @@ export default function LoginPage() {
   useEffect(() => {
     const checkAlreadyLoggedIn = async () => {
       if (isAuthenticated && user) {
-        router.push("/dashboard");
+        router.push(
+          user.mustChangePassword
+            ? "/change-password?required=1"
+            : user.defaultPage || "/dashboard",
+        );
         return;
       }
 
       try {
-        await authApi.getMe();
-        router.push("/dashboard");
+        const profile = await authApi.getMe();
+        setUser(profile);
+        router.push(
+          profile.mustChangePassword
+            ? "/change-password?required=1"
+            : profile.defaultPage || "/dashboard",
+        );
       } catch (error) {
         setIsLoading(false);
       }
@@ -172,7 +190,13 @@ export default function LoginPage() {
       );
 
       toast.success(data.message || "Đăng nhập thành công!");
-      router.push("/dashboard");
+      const profile = await authApi.getMe();
+      setUser(profile);
+      router.push(
+        profile.mustChangePassword
+          ? "/change-password?required=1"
+          : profile.defaultPage || "/dashboard",
+      );
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -305,6 +329,7 @@ export default function LoginPage() {
                     </Label>
                     <a
                       href="#"
+                      tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       Quên mật khẩu?

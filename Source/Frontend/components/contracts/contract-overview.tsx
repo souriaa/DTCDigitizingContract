@@ -131,7 +131,9 @@ export function ContractOverview({
         .lookup()
         .then((items) =>
           setCustomers(
-            items.filter((customer) => customer.status === CustomerStatus.Active),
+            items.filter(
+              (customer) => customer.status === CustomerStatus.Active,
+            ),
           ),
         )
         .catch((err) => console.error(err));
@@ -356,7 +358,7 @@ export function ContractOverview({
                   onChange={(e) =>
                     handleRootChange("contractNameEn", e.target.value)
                   }
-                  placeholder="Enter the contract name..."
+                  placeholder="Nhập tên hợp đồng bằng tiếng Anh..."
                 />
               ) : (
                 <p className="font-medium">
@@ -424,7 +426,7 @@ export function ContractOverview({
 
             {/* SỬA NGÀY THÁNG */}
             <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 font-semibold">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <CalendarDays className="size-4" /> Hiệu lực
               </div>
               {isEditable ? (
@@ -597,7 +599,7 @@ export function ContractOverview({
                                     e.target.value,
                                   )
                                 }
-                                placeholder="Enter the English item name..."
+                                placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
                               />
                             </div>
                           )}

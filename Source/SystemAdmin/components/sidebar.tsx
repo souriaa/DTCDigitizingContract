@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -8,16 +8,16 @@ import {
   ChevronLeft,
   FileText,
   HeartPulse,
-  LayoutDashboard,
   LogOut,
   Menu,
   ScrollText,
   Settings,
-  ShieldCheck,
+  LayoutDashboard,
   User,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,10 +29,11 @@ import { useSidebar } from "./sidebar-context";
 import { useAuthStore } from "@/hooks/use-auth-store";
 import { authApi } from "@/services/auth-api";
 import { cn } from "@/lib/utils";
+import { resolveProfileImageUrl } from "@/services/profile-api";
 
 const navItems = [
   {
-    label: "Tổng quan",
+    label: "Dashboard",
     icon: LayoutDashboard,
     href: "/dashboard",
     disabled: false,
@@ -44,28 +45,16 @@ const navItems = [
     disabled: false,
   },
   {
-    label: "Quản trị viên",
-    icon: ShieldCheck,
-    href: "/administrators",
-    disabled: false,
-  },
-  {
     label: "Giám sát hệ thống",
     icon: HeartPulse,
     href: "/system-health",
-    disabled: true,
+    disabled: false,
   },
   {
     label: "Nhật ký bảo mật",
     icon: ScrollText,
     href: "/audit-logs",
     disabled: false,
-  },
-  {
-    label: "Cấu hình",
-    icon: Settings,
-    href: "/settings",
-    disabled: true,
   },
 ];
 
@@ -75,10 +64,6 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
 
   const handleLogout = async () => {
     logout();
@@ -92,21 +77,18 @@ export function Sidebar() {
 
   const renderNavigation = (mobile = false) => (
     <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
-      <p
+      {/* <p
         className={cn(
           "mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground",
           !mobile && !isExpanded && "sr-only",
         )}
       >
         Quản trị hệ thống
-      </p>
+      </p> */}
 
       {navItems.map((item) => {
         const Icon = item.icon;
-        const isActive =
-          item.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(item.href);
+        const isActive = pathname.startsWith(item.href);
         const showLabel = mobile || isExpanded;
         const commonClassName = cn(
           "group relative flex min-h-10 items-center rounded-xl text-sm transition-colors",
@@ -161,6 +143,7 @@ export function Sidebar() {
             href={item.href}
             className={commonClassName}
             title={showLabel ? undefined : item.label}
+            onClick={() => setIsMobileOpen(false)}
           >
             {content}
           </Link>
@@ -178,9 +161,18 @@ export function Sidebar() {
             mobile || isExpanded ? "gap-3" : "justify-center",
           )}
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-            {user?.username?.[0]?.toUpperCase() ?? "S"}
-          </div>
+          <Avatar className="size-9">
+            {user?.imageUrl && (
+              <AvatarImage
+                src={resolveProfileImageUrl(user.imageUrl)}
+                alt={user.fullName || "System Admin"}
+                className="object-cover"
+              />
+            )}
+            <AvatarFallback className="bg-primary text-sm font-bold text-primary-foreground">
+              {user?.username?.[0]?.toUpperCase() ?? "S"}
+            </AvatarFallback>
+          </Avatar>
           {(mobile || isExpanded) && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">
@@ -199,9 +191,15 @@ export function Sidebar() {
         className="w-60 rounded-xl"
       >
         <DropdownMenuItem asChild className="cursor-pointer py-2.5">
-          <Link href="/dashboard/profile">
+          <Link href="/profile">
             <User className="mr-2 size-4 text-muted-foreground" />
             Hồ sơ cá nhân
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer py-2.5">
+          <Link href="/change-password">
+            <Settings className="mr-2 size-4 text-muted-foreground" />
+            Đổi mật khẩu
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -283,7 +281,7 @@ export function Sidebar() {
           <aside className="fixed inset-y-0 left-0 z-50 flex w-[290px] flex-col bg-card shadow-2xl lg:hidden">
             <div className="flex h-16 items-center justify-between border-b px-4">
               <Link
-                href="/dashboard"
+                href="/tenants"
                 className="flex min-w-0 items-center gap-2.5"
               >
                 <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">

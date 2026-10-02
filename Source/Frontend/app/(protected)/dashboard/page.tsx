@@ -1,212 +1,307 @@
 "use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  FileText,
+  CalendarRange,
   Clock,
-  AlertCircle,
-  FileCheck2,
-  FilePlus,
-  CheckCircle2,
-  TrendingUp,
-  TrendingDown,
+  FilePlus2,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
+
+import { ContractStatusChart } from "@/components/dashboard/contract-status-chart";
+import { ContractVolumeChart } from "@/components/dashboard/contract-volume-chart";
+import { CurrencyAmountCards } from "@/components/dashboard/currency-amount-cards";
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { DashboardSummaryCards } from "@/components/dashboard/dashboard-summary-cards";
+import { ExpiringContracts } from "@/components/dashboard/expiring-contracts";
+import { RecentContractActivities } from "@/components/dashboard/recent-contract-activities";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DateRangeFilter,
+  type DateRange,
+} from "@/components/ui/custom/date-range-filter";
 import { Header } from "@/components/ui/custom/header";
+import { useAuthStore } from "@/hooks/use-auth-store";
+import { usePermission } from "@/hooks/use-permission";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import { dashboardApi, type DashboardResponse } from "@/services/dashboard-api";
+import { cn } from "@/lib/utils";
+
+function initialRange(): DateRange {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 29);
+  return { from, to };
+}
+
+function startOfLocalDay(value?: Date) {
+  if (!value) return undefined;
+  const result = new Date(value);
+  result.setHours(0, 0, 0, 0);
+  return result.toISOString();
+}
+
+function endOfLocalDay(value?: Date) {
+  if (!value) return undefined;
+  const result = new Date(value);
+  result.setHours(23, 59, 59, 999);
+  return result.toISOString();
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Chào buổi sáng";
+  if (hour < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
+}
+
+type PresetKey = "7d" | "30d" | "90d" | "year";
 
 export default function DashboardPage() {
-  const stats = [
-    {
-      label: "Tổng Hợp đồng",
-      value: "1,248",
-      trend: "+12.5%",
-      isPositive: true,
-      icon: FileText,
-      color: "text-indigo-600 dark:text-indigo-400",
-      bg: "bg-indigo-100 dark:bg-indigo-500/15",
-      border:
-        "group-hover:border-indigo-300 dark:group-hover:border-indigo-500/40",
-    },
-    {
-      label: "Chờ Phê duyệt",
-      value: "24",
-      trend: "-2.4%",
-      isPositive: true,
-      icon: Clock,
-      color: "text-amber-600 dark:text-amber-400",
-      bg: "bg-amber-100 dark:bg-amber-500/15",
-      border:
-        "group-hover:border-amber-300 dark:group-hover:border-amber-500/40",
-    },
-    {
-      label: "Sắp Hết hạn",
-      value: "12",
-      trend: "+4.1%",
-      isPositive: false,
-      icon: AlertCircle,
-      color: "text-rose-600 dark:text-rose-400",
-      bg: "bg-rose-100 dark:bg-rose-500/15",
-      border: "group-hover:border-rose-300 dark:group-hover:border-rose-500/40",
-    },
-    {
-      label: "Đã Thanh lý",
-      value: "856",
-      trend: "+8.2%",
-      isPositive: true,
-      icon: FileCheck2,
-      color: "text-emerald-600 dark:text-emerald-400",
-      bg: "bg-emerald-100 dark:bg-emerald-500/15",
-      border:
-        "group-hover:border-emerald-300 dark:group-hover:border-emerald-500/40",
-    },
-  ];
+  const user = useAuthStore((state) => state.user);
+  const { can } = usePermission();
+  const canDecideApprovals = can(RBAC_PERMISSIONS.contractApprovalDecide);
+  const [dateRange, setDateRange] = useState<DateRange>(initialRange);
+  const [activePreset, setActivePreset] = useState<PresetKey | null>("30d");
+  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const recentActivities = [
-    {
-      action: "Tạo mới Hợp đồng Bán",
-      details: "HĐ #HB-2024-001 - Công ty TNHH ABC",
-      time: "2 giờ trước",
-      icon: FilePlus,
-      iconColor: "text-indigo-500 dark:text-indigo-400",
-      iconBg: "bg-indigo-50 dark:bg-indigo-500/15",
-    },
-    {
-      action: "Phê duyệt Phụ lục",
-      details: "Phụ lục #PL-01 cho HĐ #HB-2023-102",
-      time: "4 giờ trước",
-      icon: CheckCircle2,
-      iconColor: "text-emerald-500 dark:text-emerald-400",
-      iconBg: "bg-emerald-50 dark:bg-emerald-500/15",
-    },
-    {
-      action: "Cảnh báo Hết hạn",
-      details: "Hợp đồng Mua #HM-092 sắp hết hiệu lực trong 5 ngày tới",
-      time: "6 giờ trước",
-      icon: AlertCircle,
-      iconColor: "text-rose-500 dark:text-rose-400",
-      iconBg: "bg-rose-50 dark:bg-rose-500/15",
-    },
-  ];
+  const loadDashboard = useCallback(async () => {
+    if (dateRange.from && dateRange.to && dateRange.from > dateRange.to) {
+      setError("Ngày bắt đầu không được sau ngày kết thúc.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await dashboardApi.get({
+        from: startOfLocalDay(dateRange.from),
+        to: endOfLocalDay(dateRange.to),
+        expiryDays: 30,
+      });
+
+      setData(response);
+      setLastUpdated(
+        new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      );
+    } catch (loadError) {
+      setError(
+        getApiErrorMessage(loadError, "Không thể tải dữ liệu dashboard."),
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadDashboard());
+  }, [loadDashboard]);
+
+  const handleApplyPreset = (preset: PresetKey) => {
+    const to = new Date();
+    const from = new Date();
+    if (preset === "7d") {
+      from.setDate(from.getDate() - 6);
+    } else if (preset === "30d") {
+      from.setDate(from.getDate() - 29);
+    } else if (preset === "90d") {
+      from.setDate(from.getDate() - 89);
+    } else if (preset === "year") {
+      from.setMonth(0, 1);
+    }
+    setActivePreset(preset);
+    setDateRange({ from, to });
+  };
+
+  const greeting = useMemo(() => getGreeting(), []);
 
   return (
     <>
       <Header title="Dashboard" />
       <div className="grow overflow-y-auto">
-        <div className="px-3 py-5 sm:px-6 sm:py-8 lg:px-10 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-1.5 tracking-tight">
-              Xin chào, Quản trị viên
-            </h1>
-            <p className="text-muted-foreground">
-              Dưới đây là tình hình số hóa hợp đồng hôm nay.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-            {stats.map((stat, i) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={i}
-                  className={`group bg-card rounded-2xl border border-border p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 cursor-default ${stat.border}`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-muted-foreground text-sm font-medium mb-1">
-                        {stat.label}
-                      </p>
-                      <h3 className="text-3xl font-bold text-foreground tracking-tight">
-                        {stat.value}
-                      </h3>
-                    </div>
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${stat.bg}`}
+        <main className="space-y-6 px-4 py-6 sm:px-6 lg:px-8 mx-auto animate-in fade-in duration-300">
+          {/* Executive Hero Banner */}
+          <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-7 shadow-xs">
+            <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              {/* Welcome Info */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Sparkles className="size-4" />
+                  </span>
+                  <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+                    {greeting}, {user?.fullName || "Quản trị viên"}
+                  </h1>
+                  {data && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1.5 py-1 px-3 bg-card/80 backdrop-blur-xs font-semibold text-xs border-primary/20 text-primary"
                     >
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 mt-2">
-                    {stat.isPositive ? (
-                      <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-rose-500" />
-                    )}
-                    <span
-                      className={`text-sm font-semibold ${
-                        stat.isPositive ? "text-emerald-600" : "text-rose-600"
-                      }`}
-                    >
-                      {stat.trend}
-                    </span>
-                    <span className="text-muted-foreground text-sm ml-1">
-                      so với tháng trước
-                    </span>
-                  </div>
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>
+                        {data.scope === "Tenant"
+                          ? "Toàn tổ chức"
+                          : "Hợp đồng phụ trách"}
+                      </span>
+                    </Badge>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <h3 className="text-lg font-bold text-foreground mb-4 tracking-tight">
-                Lưu lượng Hợp đồng
-              </h3>
-              <div className="h-64 bg-muted/30 rounded-xl flex items-center justify-center border border-dashed border-border">
-                <p className="text-muted-foreground text-sm flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" /> Khu vực nhúng Biểu đồ
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Theo dõi tiến độ ký kết, trạng thái phê duyệt, dòng tiền và
+                  cảnh báo hạn hợp đồng trong thời gian thực.
                 </p>
+                {lastUpdated && (
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground/80">
+                    <Clock className="size-3" />
+                    <span>Cập nhật lần cuối: {lastUpdated}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadDashboard()}
+                  disabled={isLoading}
+                  className="h-9 gap-1.5 rounded-xl border-border bg-card/80 hover:bg-card shadow-xs"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "size-3.5",
+                      isLoading && "animate-spin text-primary",
+                    )}
+                  />
+                  <span>Làm mới</span>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  className="h-9 gap-1.5 rounded-xl shadow-xs transition-transform hover:scale-102"
+                >
+                  <Link href="/contracts/create">
+                    <FilePlus2 className="size-4" />
+                    <span>Tạo hợp đồng</span>
+                  </Link>
+                </Button>
               </div>
             </div>
 
-            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <h3 className="text-lg font-bold text-foreground mb-4 tracking-tight">
-                Tỷ lệ Trạng thái
-              </h3>
-              <div className="h-64 bg-muted/30 rounded-xl flex items-center justify-center border border-dashed border-border">
-                <p className="text-muted-foreground text-sm flex items-center gap-2">
-                  <FileCheck2 className="w-4 h-4" /> Khu vực nhúng Biểu đồ Tròn
-                </p>
+            {/* Date Range Control Bar */}
+            <div className="relative z-10 mt-6 flex flex-col gap-3 pt-5 border-t border-border/50 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarRange className="size-4 text-muted-foreground hidden sm:block" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Khoảng thời gian:
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { key: "7d", label: "7 ngày qua" },
+                      { key: "30d", label: "30 ngày qua" },
+                      { key: "90d", label: "90 ngày qua" },
+                      { key: "year", label: "Năm nay" },
+                    ] as const
+                  ).map((preset) => (
+                    <Button
+                      key={preset.key}
+                      variant={
+                        activePreset === preset.key ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() => handleApplyPreset(preset.key)}
+                      className={cn(
+                        "h-8 rounded-lg px-2.5 text-xs transition-colors",
+                        activePreset === preset.key
+                          ? "font-semibold shadow-xs"
+                          : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Date Range Picker */}
+              <div className="flex items-center">
+                <DateRangeFilter
+                  dateRange={dateRange}
+                  onChange={(newRange) => {
+                    setActivePreset(null);
+                    setDateRange(newRange);
+                  }}
+                  buttonClassName="bg-card/80 h-8 rounded-lg text-xs"
+                />
               </div>
             </div>
           </div>
 
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-foreground mb-6 tracking-tight">
-              Hoạt động gần đây
-            </h3>
+          {/* Error Message */}
+          {error && (
+            <Alert variant="destructive" className="rounded-2xl">
+              <AlertDescription className="flex items-center justify-between">
+                <span>{error}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadDashboard()}
+                  className="h-7 text-xs"
+                >
+                  Thử lại
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Main Dashboard Content */}
+          {isLoading && !data ? (
+            <DashboardSkeleton />
+          ) : data ? (
             <div className="space-y-6">
-              {recentActivities.map((activity, i) => {
-                const ActivityIcon = activity.icon;
-                return (
-                  <div
-                    key={i}
-                    className="group relative flex flex-col gap-2 transition-transform duration-200 hover:translate-x-1 sm:flex-row sm:items-start sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                      <div
-                        className={`mt-0.5 w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${activity.iconBg}`}
-                      >
-                        <ActivityIcon
-                          className={`w-5 h-5 ${activity.iconColor}`}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-foreground font-semibold text-sm mb-0.5 group-hover:text-primary transition-colors">
-                          {activity.action}
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          {activity.details}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="ml-[52px] w-fit rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground sm:ml-4 sm:whitespace-nowrap">
-                      {activity.time}
-                    </span>
-                  </div>
-                );
-              })}
+              {/* Section 1: KPI Summary Cards */}
+              <DashboardSummaryCards
+                items={data.summary}
+                hrefs={{
+                  total: "/contracts",
+                  drafting: "/contracts",
+                  pendingApproval: "/contracts",
+                  pendingSignature: "/contracts",
+                  signed: "/contracts",
+                  completedRejected: "/contracts",
+                  expiring: "/contracts",
+                }}
+              />
+
+              {/* Section 2: Charts Grid */}
+              <div className="grid gap-6 xl:grid-cols-2">
+                <ContractVolumeChart data={data.volumeSeries} />
+                <ContractStatusChart data={data.statusDistribution} />
+              </div>
+
+              {/* Section 3: Financial & Currency Breakdown */}
+              <CurrencyAmountCards items={data.amountByCurrency} />
+
+              {/* Section 4: Operational Feeds (Activities & Expiring) */}
+              <div className="grid gap-6 xl:grid-cols-2">
+                <RecentContractActivities items={data.recentActivities} />
+                <ExpiringContracts items={data.expiringContracts} />
+              </div>
             </div>
-          </div>
-        </div>
+          ) : null}
+        </main>
       </div>
     </>
   );

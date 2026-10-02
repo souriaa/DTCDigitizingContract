@@ -1,7 +1,11 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
+using ContractManagement.API.Domains.DTOs.Responses.Contract;
+using ContractManagement.API.Domains.Notifications;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
+using ContractManagement.Domains.Interfaces.File;
 using ContractManagement.Domains.Services.Contract;
 using ContractManagement.Infrastructure.MultiTenancy.Enums;
 using ContractManagement.Infrastructure.MultiTenancy.Models;
@@ -13,6 +17,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
+using System.Security.Cryptography;
+using static ContractManagement.Tests.ContractRichTextTestData;
+using static ContractManagement.Tests.AuditValueTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
@@ -21,6 +28,7 @@ public class ContractServiceResponsibilityTransferTests
     private const int ContractId = 11;
     private const int VersionId = 12;
     private const int CustomerId = 13;
+    private const int NewCustomerId = 14;
     private const int CreatorEmployeeId = 90;
     private const int CurrentResponsibleEmployeeId = 101;
     private const int NewResponsibleEmployeeId = 202;
@@ -74,6 +82,28 @@ public class ContractServiceResponsibilityTransferTests
             NewResponsibleEmployeeId,
             ContractAuditResults.Succeeded,
             expectedReason: "Bàn giao phụ trách");
+    }
+
+    [Fact]
+    public async Task Transfer_StagesNotificationForNewOwnerInSameUnitOfWork()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        await AddEmployeeAsync(context, NewResponsibleEmployeeId, EmployeeType.Technical);
+        var authorization = new ContractResourceAuthorizationService(context);
+        var publisher = new NotificationPublisher(context,
+            [new ContractNotificationResourcePolicy(context, authorization)]);
+        var notifications = new ContractNotificationProducer(context, publisher);
+
+        await CreateService(context, notifications: notifications)
+            .TransferResponsibilityAsync(ContractId, CreateTransferRequest(),
+                CurrentResponsibleEmployeeId);
+
+        var notification = Assert.Single(await context.TblNotifications
+            .Include(x => x.Recipients).Include(x => x.DispatchOutbox).ToListAsync());
+        Assert.Equal(NewResponsibleEmployeeId, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal("ResponsibilityTransferred", notification.EventCode);
+        Assert.Equal("Pending", notification.DispatchOutbox?.Status);
     }
 
     [Theory]
@@ -505,6 +535,341 @@ public class ContractServiceResponsibilityTransferTests
         Assert.Equal(ContractStatus.Negotiating, detail.Status);
     }
 
+    [Fact]
+    public async Task UpdateDraft_ShouldAuditCustomerAndEditableContentChanges()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+
+        context.TblCustomers.Add(new TblCustomer
+        {
+            CustomerId = NewCustomerId,
+            CustomerCode = "KH-NEW",
+            CustomerCompany = "Công ty khách hàng mới",
+            Status = 1
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var request = CreateUpdateRequest();
+        request.CustomerId = NewCustomerId;
+        request.ContractNameEn = "Updated contract";
+        request.EffectiveDate = new DateTime(2026, 9, 1);
+        request.ExpireDate = new DateTime(2027, 8, 31);
+        request.Items[0].ItemCode = "SP-NEW";
+        request.Items[0].DiscountMode =
+            ContractItemDiscountMode.Percentage;
+        request.Items[0].DiscountPercent = 10m;
+        request.Items[0].VatPercent = 10m;
+
+        await CreateService(context).UpdateDraftAsync(
+            ContractId,
+            request,
+            CurrentResponsibleEmployeeId);
+
+        var audit = await context.TblContractAudits
+            .SingleAsync(x =>
+                x.ActionType == ContractAuditActionTypes.DraftUpdated);
+        Assert.Equal(
+            CustomerId,
+            ContractValue(audit, AuditValueSide.Previous,
+                ContractAuditFieldCode.CustomerId).IntegerValue);
+        Assert.Equal(
+            "Khách hàng kiểm thử",
+            ContractValue(audit, AuditValueSide.Previous,
+                ContractAuditFieldCode.CustomerName).StringValue);
+        Assert.Equal(
+            NewCustomerId,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.CustomerId).IntegerValue);
+        Assert.Equal(
+            "Công ty khách hàng mới",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.CustomerName).StringValue);
+        Assert.Equal(
+            "Updated contract",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.ContractNameEn).StringValue);
+        Assert.Equal(
+            100m,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.Subtotal).DecimalValue);
+        Assert.Equal(
+            10m,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.TotalDiscount).DecimalValue);
+        Assert.Equal(
+            9m,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.TotalVat).DecimalValue);
+        Assert.Contains(
+            "SP-NEW",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.AddedItems).StringValue);
+        Assert.Contains(
+            "GENERAL",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.AddedTerms).StringValue);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_ShouldAuditUpdatedAndRemovedItemsAndTerms()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        var now = DateTime.UtcNow;
+
+        context.TblContractItems.AddRange(
+            new TblContractItem
+            {
+                ContractItemId = 21,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                ItemType = (byte)ContractItemType.Product,
+                ItemCode = "SP-OLD",
+                ItemName = "Sản phẩm cũ",
+                Quantity = 1m,
+                UnitPrice = 100m,
+                LineSubtotal = 100m,
+                LineTotal = 100m,
+                DisplayOrder = 1,
+                CreatedEmployeeId = CreatorEmployeeId,
+                CreatedDate = now,
+                RowVersion = InitialRowVersion()
+            },
+            new TblContractItem
+            {
+                ContractItemId = 22,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                ItemType = (byte)ContractItemType.Service,
+                ItemCode = "DV-REMOVE",
+                ItemName = "Dịch vụ sẽ xóa",
+                Quantity = 1m,
+                UnitPrice = 0m,
+                DisplayOrder = 2,
+                CreatedEmployeeId = CreatorEmployeeId,
+                CreatedDate = now,
+                RowVersion = InitialRowVersion()
+            });
+        context.TblContractTerms.AddRange(
+            new TblContractTerm
+            {
+                TermId = 31,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                TermCode = "GENERAL",
+                TermTitle = "Điều khoản cũ",
+                TermContent = RichText("Nội dung cũ"),
+                IsNegotiable = true,
+                DisplayOrder = 1,
+                CreatedEmployeeId = CreatorEmployeeId,
+                CreatedDate = now,
+                RowVersion = InitialRowVersion()
+            },
+            new TblContractTerm
+            {
+                TermId = 32,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                TermCode = "REMOVE",
+                TermTitle = "Điều khoản sẽ xóa",
+                DisplayOrder = 2,
+                CreatedEmployeeId = CreatorEmployeeId,
+                CreatedDate = now,
+                RowVersion = InitialRowVersion()
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var request = CreateUpdateRequest();
+        request.Items[0].ContractItemId = 21;
+        request.Items[0].RowVersion =
+            Convert.ToBase64String(InitialRowVersion());
+        request.Items[0].ItemCode = "SP-UPDATED";
+        request.Items[0].ItemName = "Sản phẩm đã sửa";
+        request.Items[0].Quantity = 2m;
+        request.Terms[0].TermId = 31;
+        request.Terms[0].RowVersion =
+            Convert.ToBase64String(InitialRowVersion());
+        request.Terms[0].TermTitle = "Điều khoản đã sửa";
+        request.Terms[0].TermContent = RichText("Nội dung mới");
+
+        await CreateService(context).UpdateDraftAsync(
+            ContractId,
+            request,
+            CurrentResponsibleEmployeeId);
+
+        var audit = await context.TblContractAudits
+            .SingleAsync(x =>
+                x.ActionType == ContractAuditActionTypes.DraftUpdated);
+        Assert.Contains(
+            "DV-REMOVE",
+            ContractValue(audit, AuditValueSide.Previous,
+                ContractAuditFieldCode.RemovedItems).StringValue);
+        Assert.Contains(
+            "REMOVE",
+            ContractValue(audit, AuditValueSide.Previous,
+                ContractAuditFieldCode.RemovedTerms).StringValue);
+        Assert.Contains(
+            "SP-UPDATED",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.UpdatedItems).StringValue);
+        Assert.Contains(
+            "Số lượng",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.UpdatedItems).StringValue);
+        Assert.Contains(
+            "GENERAL",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.UpdatedTerms).StringValue);
+        Assert.Contains(
+            "Nội dung",
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.UpdatedTerms).StringValue);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_SharedCurrentVersion_ShouldAllowOwnerUpdate()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)ContractStatus.Negotiating;
+        contract.CurrentCustomerAccessLinkId = 45;
+        context.TblContractCustomerAccessLinks.Add(
+            new TblContractCustomerAccessLink
+            {
+                CustomerAccessLinkId = 45,
+                TenantId = TenantId,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                VerificationPhoneId = 46,
+                TokenHash = "shared-version-link-hash",
+                CreatedByEmployeeId = CurrentResponsibleEmployeeId,
+                CreatedDate = DateTime.UtcNow.AddDays(-2),
+                ActivatedAt = DateTime.UtcNow.AddDays(-2),
+                ExpiresAt = DateTime.UtcNow.AddDays(1),
+                RowVersion = InitialRowVersion()
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        await CreateService(context).UpdateDraftAsync(
+            ContractId,
+            CreateUpdateRequest(),
+            CurrentResponsibleEmployeeId);
+
+        var updatedContract = await context.TblContracts
+            .AsNoTracking()
+            .SingleAsync();
+        var link = await context.TblContractCustomerAccessLinks
+            .AsNoTracking()
+            .SingleAsync();
+        Assert.Equal("Hợp đồng đã cập nhật", updatedContract.ContractName);
+        Assert.Equal(45, updatedContract.CurrentCustomerAccessLinkId);
+        Assert.Equal(VersionId, link.VersionId);
+        Assert.Null(link.RevokedAt);
+    }
+
+    [Fact]
+    public async Task SubmitForApproval_ShouldAuditStatusLockAndApprovalRequest()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        await AddEmployeeAsync(
+            context,
+            ManagerEmployeeId,
+            EmployeeType.Manager);
+
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)ContractStatus.Negotiating;
+        contract.CurrentCustomerAccessLinkId = 43;
+        context.TblContractCustomerAccessLinks.Add(
+            new TblContractCustomerAccessLink
+            {
+                CustomerAccessLinkId = 43,
+                TenantId = TenantId,
+                ContractId = ContractId,
+                VersionId = VersionId,
+                VerificationPhoneId = 44,
+                TokenHash = "approval-link-hash",
+                CreatedByEmployeeId = CurrentResponsibleEmployeeId,
+                CreatedDate = DateTime.UtcNow,
+                ActivatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1),
+                RowVersion = InitialRowVersion()
+            });
+        context.TblContractItems.Add(new TblContractItem
+        {
+            ContractItemId = 41,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            ItemType = (byte)ContractItemType.Product,
+            ItemName = "Sản phẩm gửi duyệt",
+            Quantity = 1m,
+            UnitPrice = 100m,
+            LineSubtotal = 100m,
+            LineTotal = 100m,
+            DisplayOrder = 1,
+            CreatedEmployeeId = CreatorEmployeeId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = InitialRowVersion()
+        });
+        context.TblContractTerms.Add(new TblContractTerm
+        {
+            TermId = 42,
+            ContractId = ContractId,
+            VersionId = VersionId,
+            TermCode = "APPROVAL",
+            TermTitle = "Điều khoản gửi duyệt",
+            IsNegotiable = true,
+            DisplayOrder = 1,
+            CreatedEmployeeId = CreatorEmployeeId,
+            CreatedDate = DateTime.UtcNow,
+            RowVersion = InitialRowVersion()
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var response = await CreateService(context).SubmitForApprovalAsync(
+            ContractId,
+            new SubmitContractForApprovalRequest
+            {
+                RowVersion = Convert.ToBase64String(InitialRowVersion()),
+                CurrentVersionId = VersionId,
+                CurrentVersionRowVersion =
+                    Convert.ToBase64String(InitialRowVersion())
+            },
+            CurrentResponsibleEmployeeId);
+
+        var audit = await context.TblContractAudits.SingleAsync(x =>
+            x.ActionType == ContractAuditActionTypes.ApprovalSubmitted);
+        Assert.Equal(
+            (byte)ContractStatus.Negotiating,
+            audit.PreviousContractStatus);
+        Assert.Equal(
+            (byte)ContractStatus.PendingApproval,
+            audit.NewContractStatus);
+
+        Assert.False(ContractValue(audit, AuditValueSide.Previous,
+            ContractAuditFieldCode.VersionLocked).BooleanValue);
+        Assert.True(ContractValue(audit, AuditValueSide.New,
+            ContractAuditFieldCode.VersionLocked).BooleanValue);
+        Assert.Equal(
+            response.ApprovalRequestId,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.ApprovalRequestId).IntegerValue);
+        Assert.Equal(
+            (byte)ApprovalRequestStatus.Pending,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.ApprovalStatus).IntegerValue);
+        Assert.Equal(
+            response.SnapshotHash,
+            ContractValue(audit, AuditValueSide.New,
+                ContractAuditFieldCode.SnapshotHash).StringValue);
+    }
+
     private static DbDtctechContext CreateContext()
     {
         var options =
@@ -524,7 +889,8 @@ public class ContractServiceResponsibilityTransferTests
     private static ContractService CreateService(
         DbDtctechContext context,
         Func<IContractAuditWriter, IContractAuditWriter>?
-            writerDecorator = null)
+            writerDecorator = null,
+        ContractNotificationProducer? notifications = null)
     {
         var currentTenant = new CurrentTenant();
         currentTenant.Set(new ResolvedTenant(
@@ -556,7 +922,13 @@ public class ContractServiceResponsibilityTransferTests
             writer = writerDecorator(writer);
         }
 
-        return new ContractService(context, writer);
+        return new ContractService(
+            context,
+            writer,
+            currentTenant,
+            new StaticSubmissionRenderer(),
+            new MemoryPrivateFileStorage(),
+            notifications);
     }
 
     private static async Task SeedContractAsync(
@@ -586,12 +958,12 @@ public class ContractServiceResponsibilityTransferTests
             CurrentVersionId = VersionId,
             ContractCode = "HD-TEST-11",
             ContractName = "Hợp đồng kiểm thử",
+            TemplateVersionId = 1,
             Status = (byte)ContractStatus.Draft,
             TotalAmount = 100m,
             CurrencyCode = "VND",
             LanguageMode =
                 (byte)ContractLanguageMode.Vietnamese,
-            IsLegacy = false,
             CreatedEmployeeId = CreatorEmployeeId,
             CreatedDate = DateTime.UtcNow,
             RowVersion = rowVersion ?? InitialRowVersion()
@@ -603,6 +975,7 @@ public class ContractServiceResponsibilityTransferTests
                 VersionId = VersionId,
                 ContractId = ContractId,
                 VersionNo = 1,
+                TemplateVersionId = 1,
                 IsLocked = false,
                 CreatedEmployeeId = CreatorEmployeeId,
                 CreatedDate = DateTime.UtcNow,
@@ -630,6 +1003,54 @@ public class ContractServiceResponsibilityTransferTests
 
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
+    }
+
+    private sealed class StaticSubmissionRenderer
+        : IContractSubmissionArtifactRenderer
+    {
+        public Task<ContractSubmissionArtifactRenderResult> RenderAsync(
+            int contractId,
+            int employeeId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ContractSubmissionArtifactRenderResult(
+                ContractSnapshotTestData.Create(ContractId, VersionId),
+                1,
+                [0x50, 0x4B, 0x03, 0x04, 0x01],
+                "contract-submitted.docx",
+                "%PDF-test"u8.ToArray(),
+                "contract-submitted.pdf"));
+    }
+
+    private sealed class MemoryPrivateFileStorage : IPrivateFileStorage
+    {
+        public async Task<StoredPrivateFile> SaveAsync(
+            PrivateFileSaveRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            await using var memory = new MemoryStream();
+            await request.Content.CopyToAsync(memory, cancellationToken);
+            var content = memory.ToArray();
+            return new StoredPrivateFile(
+                $"{request.TenantCode}/{request.ObjectType}/{request.ObjectId}/{Guid.NewGuid():N}{Path.GetExtension(request.OriginalFileName)}",
+                request.OriginalFileName,
+                request.ContentType,
+                content.LongLength,
+                Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
+                DateTime.UtcNow,
+                request.TenantCode);
+        }
+
+        public Task<Stream> OpenReadAsync(
+            string tenantCode,
+            string storageKey,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task DeleteAsync(
+            string tenantCode,
+            string storageKey,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private static TransferContractResponsibilityRequest
@@ -678,7 +1099,7 @@ public class ContractServiceResponsibilityTransferTests
                 {
                     TermCode = "GENERAL",
                     TermTitle = "Điều khoản chung",
-                    TermContent = "Nội dung kiểm thử",
+                    TermContent = RichText("Nội dung kiểm thử"),
                     IsNegotiable = true,
                     DisplayOrder = 1
                 }

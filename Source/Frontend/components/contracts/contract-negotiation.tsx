@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
-import { ContractTermComments } from "@/components/contracts/contract-term-comments";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ import { formatDate } from "@/lib/format-date";
 import {
   contractApi,
   ContractDetailResponse,
-  ContractNegotiationCommentResponse,
   ContractStatus,
   ContractVersionDetailResponse,
   ContractVersionHistoryResponse,
@@ -90,17 +88,15 @@ export function ContractNegotiation({
   const [historyPage, setHistoryPage] = useState(1);
 
   const currentVersion = contract.currentVersion;
-  const canCreateRound =
-    canManage &&
-    contract.status === ContractStatus.Negotiating &&
-    !currentVersion.isLocked;
-  const canWriteGeneralComments =
-    canManage &&
-    contract.status === ContractStatus.Negotiating &&
-    !currentVersion.isLocked;
-
+  const canBranchFromApprovalDecision =
+    contract.status === ContractStatus.Negotiating ||
+    contract.status === ContractStatus.Rejected;
+  const canCreateRound = canManage && canBranchFromApprovalDecision;
   const loadVersionHistory = useCallback(async () => {
-    if (contract.status !== ContractStatus.Negotiating) {
+    if (
+      contract.status !== ContractStatus.Negotiating &&
+      contract.status !== ContractStatus.Rejected
+    ) {
       setVersionHistory([]);
       setSelectedVersion(null);
       return;
@@ -228,7 +224,11 @@ export function ContractNegotiation({
       setSelectedVersionId(updatedContract.currentVersion.versionId);
       setContract(updatedContract);
       toast.success(
-        `Đã khóa phiên bản ${result.sourceVersion.versionNo} và tạo phiên bản ${result.currentVersion.versionNo}.`,
+        `Đã khóa phiên bản ${result.sourceVersion.versionNo} và tạo phiên bản ${result.currentVersion.versionNo}.${
+          result.carriedForwardThreadCount > 0
+            ? ` Đã chuyển tiếp ${result.carriedForwardThreadCount} luồng trao đổi còn mở (${result.carriedForwardCommentCount} bình luận).`
+            : ""
+        }`,
       );
     } catch (error: any) {
       console.error("Lỗi tạo vòng đàm phán:", error);
@@ -261,78 +261,8 @@ export function ContractNegotiation({
     }
   };
 
-  const handleGeneralCommentChanged = (
-    changedComment: ContractNegotiationCommentResponse,
-  ) => {
-    const updateComments = (
-      comments: ContractNegotiationCommentResponse[] | undefined,
-    ) => {
-      const currentComments = comments || [];
-      const commentExists = currentComments.some(
-        (comment) => comment.commentId === changedComment.commentId,
-      );
-
-      return commentExists
-        ? currentComments.map((comment) =>
-            comment.commentId === changedComment.commentId
-              ? changedComment
-              : comment,
-          )
-        : [...currentComments, changedComment];
-    };
-
-    setContract((current) =>
-      current
-        ? {
-            ...current,
-            currentVersion: {
-              ...current.currentVersion,
-              comments: updateComments(current.currentVersion.comments),
-            },
-          }
-        : current,
-    );
-    setSelectedVersion((current) =>
-      current?.versionId === changedComment.versionId
-        ? { ...current, comments: updateComments(current.comments) }
-        : current,
-    );
-  };
-
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-              <MessageSquareText className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-semibold">Trao đổi chung</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Thảo luận các nội dung áp dụng cho toàn bộ hợp đồng, không gắn
-                với một điều khoản cụ thể.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-            {!canWriteGeneralComments && (
-              <Badge variant="secondary">Chỉ xem</Badge>
-            )}
-            <ContractTermComments
-              contractId={contract.contractId}
-              versionId={currentVersion.versionId}
-              termId={null}
-              comments={currentVersion.comments || []}
-              canWrite={canWriteGeneralComments}
-              onCommentChanged={handleGeneralCommentChanged}
-              triggerClassName="mt-0"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -409,7 +339,7 @@ export function ContractNegotiation({
             )}
           </div>
 
-          {contract.status === ContractStatus.Negotiating && (
+          {canBranchFromApprovalDecision && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -548,7 +478,7 @@ export function ContractNegotiation({
                               Bản sao lưu đã chọn
                             </p>
                             <h4 className="mt-1 text-xl font-bold">
-                              Version {selectedVersion.versionNo}
+                              Phiên bản {selectedVersion.versionNo}
                             </h4>
                           </div>
                           <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -658,9 +588,9 @@ export function ContractNegotiation({
           <DialogHeader>
             <DialogTitle>Tạo vòng đàm phán mới</DialogTitle>
             <DialogDescription>
-              Phiên bản {currentVersion.versionNo} sẽ được khóa và sao lưu. Hệ
-              thống sau đó tạo phiên bản {currentVersion.versionNo + 1} để bạn
-              tiếp tục chỉnh sửa.
+              {currentVersion.isLocked
+                ? `Phiên bản ${currentVersion.versionNo} vẫn được giữ nguyên và hệ thống sẽ tạo phiên bản ${currentVersion.versionNo + 1} để bạn chỉnh sửa.`
+                : `Phiên bản ${currentVersion.versionNo} sẽ được khóa và sao lưu. Hệ thống sau đó tạo phiên bản ${currentVersion.versionNo + 1} để bạn tiếp tục chỉnh sửa.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -669,9 +599,10 @@ export function ContractNegotiation({
               <FileLock2 className="size-4" />
               <AlertTitle>Ảnh hưởng sau khi tạo vòng mới</AlertTitle>
               <AlertDescription>
-                Comment của version hiện tại chỉ còn trong lịch sử. Link và
+                Các luồng trao đổi còn mở sẽ được chuyển sang phiên bản mới để
+                tiếp tục xử lý; các luồng đã đóng chỉ còn trong lịch sử. Liên kết và
                 phiên truy cập khách hàng hiện tại sẽ mất hiệu lực; sau khi sửa
-                version mới, bạn cần tạo link khác để gửi khách hàng.
+                phiên bản mới, bạn cần tạo liên kết khác để gửi khách hàng.
               </AlertDescription>
             </Alert>
 
@@ -711,7 +642,7 @@ export function ContractNegotiation({
               ) : (
                 <GitBranch className="mr-2 size-4" />
               )}
-              Tạo version {currentVersion.versionNo + 1}
+              Tạo phiên bản {currentVersion.versionNo + 1}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace ContractManagement.API.Domains.CustomerAccess;
 
 /// <summary>
-/// Leases encrypted OTP outbox rows tenant-by-tenant. It never logs the payload.
+/// Leases encrypted OTP outbox rows tenant-by-tenant. It never logs ciphertext or plaintext values.
 /// </summary>
 public sealed class CustomerOtpDeliveryOutboxWorker : BackgroundService
 {
@@ -111,7 +111,8 @@ public sealed class CustomerOtpDeliveryOutboxWorker : BackgroundService
                 .SingleOrDefaultAsync(x => x.CustomerOtpChallengeId == candidate.ChallengeId,
                     cancellationToken);
             if (challenge is null || challenge.ExpiresAt <= DateTime.UtcNow
-                || challenge.InvalidatedAt.HasValue || challenge.LockedAt.HasValue)
+                || challenge.InvalidatedAt.HasValue || challenge.LockedAt.HasValue
+                || challenge.UsedAt.HasValue)
             {
                 candidate.Status = "Failed";
                 candidate.FailedAt = DateTime.UtcNow;
@@ -128,7 +129,13 @@ public sealed class CustomerOtpDeliveryOutboxWorker : BackgroundService
 
             try
             {
-                var message = cryptography.DecryptDeliveryPayload(candidate.EncryptedPayload);
+                var message = new CustomerOtpDeliveryMessage(
+                    cryptography.DecryptScalar(candidate.PhoneCiphertext),
+                    cryptography.DecryptScalar(candidate.OtpCiphertext),
+                    candidate.EmailCiphertext is null
+                        ? null
+                        : cryptography.DecryptScalar(candidate.EmailCiphertext),
+                    candidate.DeliveryExpiresAt);
                 if (challenge.ExpiresAt <= DateTime.UtcNow)
                 {
                     throw new InvalidOperationException("OTP challenge expired before delivery.");
@@ -158,6 +165,13 @@ public sealed class CustomerOtpDeliveryOutboxWorker : BackgroundService
                 candidate.LeaseId = null;
                 candidate.LeaseUntil = null;
                 candidate.LastFailure = exception.GetType().Name;
+                // SMTP exception messages can contain recipient addresses; log only safe metadata.
+                _logger.LogWarning(
+                    "Customer OTP delivery failed. Tenant {TenantId}, outbox {OutboxId}, attempt {Attempt}, error {ErrorType}, SMTP status {SmtpStatus}",
+                    tenant.TenantId, candidate.CustomerOtpDeliveryOutboxId, candidate.AttemptCount,
+                    exception.GetType().Name,
+                    exception is System.Net.Mail.SmtpException smtpException
+                        ? (int?)smtpException.StatusCode : null);
                 if (candidate.AttemptCount >= _options.MaxDeliveryAttempts
                     || challenge.ExpiresAt <= failedAt)
                 {

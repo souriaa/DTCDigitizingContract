@@ -1,13 +1,13 @@
 import axiosClient from "@/lib/axios-interceptor";
 
 export const CONTRACT_DOCUMENT_TYPES = [
-  { value: 0, label: "File báo giá" },
+  { value: 0, label: "Tệp báo giá" },
   { value: 1, label: "Biên bản nghiệm thu" },
   { value: 2, label: "Biên bản bàn giao" },
   { value: 3, label: "Biên bản thanh lý" },
   { value: 4, label: "Hóa đơn VAT" },
   { value: 5, label: "Bảo lãnh ngân hàng" },
-  { value: 6, label: "Bản scan đã ký" },
+  { value: 6, label: "Bản quét đã ký" },
   { value: 99, label: "Tài liệu khác" },
 ] as const;
 
@@ -23,6 +23,7 @@ export interface ContractAttachmentResponse {
   documentTypeName: string;
   uploadDate?: string;
   uploadEmployeeId?: number;
+  uploadEmployeeName?: string | null;
 }
 
 const getBaseUrl = (contractId: number) =>
@@ -39,6 +40,7 @@ export const contractAttachmentsApi = {
     contractId: number,
     file: File,
     documentType: ContractDocumentType,
+    onProgress?: (progress: number) => void,
   ) {
     const formData = new FormData();
     formData.append("file", file);
@@ -47,7 +49,17 @@ export const contractAttachmentsApi = {
     return axiosClient.post<any, ContractAttachmentResponse>(
       getBaseUrl(contractId),
       formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (event) => {
+          const total = event.total ?? file.size;
+          if (total > 0) {
+            onProgress?.(
+              Math.min(99, Math.round((event.loaded / total) * 100)),
+            );
+          }
+        },
+      },
     );
   },
 
@@ -55,5 +67,13 @@ export const contractAttachmentsApi = {
     return axiosClient.delete<any, { contractId: number; attachmentId: number }>(
       `${getBaseUrl(contractId)}/${attachmentId}`,
     );
+  },
+
+  async download(contractId: number, attachmentId: number) {
+    const blob = await axiosClient.get<unknown, Blob>(
+      `${getBaseUrl(contractId)}/${attachmentId}/download`,
+      { responseType: "blob" },
+    );
+    return blob;
   },
 };

@@ -75,6 +75,7 @@ public sealed class CentralDbContext : DbContext
             entity.Property(x => x.FailureCode).HasMaxLength(64).IsUnicode(false);
             entity.Property(x => x.TargetType).HasMaxLength(50).IsUnicode(false);
             entity.Property(x => x.TargetId).HasMaxLength(100).IsUnicode(false);
+            entity.Property(x => x.ChangedFields).HasMaxLength(1000).IsUnicode(false);
             entity.Property(x => x.OccurredAt).HasColumnType("datetime2");
             entity.Property(x => x.IpAddress).HasMaxLength(45).IsUnicode(false);
             entity.Property(x => x.UserAgent).HasMaxLength(1024);
@@ -120,6 +121,50 @@ public sealed class CentralDbContext : DbContext
             entity.Property(x => x.CreatedAt)
                 .HasColumnType("datetime2");
 
+            entity.Property(x => x.UpdatedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(x => x.PasswordChangedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(x => x.MustChangePassword)
+                .HasDefaultValue(false);
+
+            entity.Property(x => x.SessionVersion)
+                .HasDefaultValue(1);
+
+            entity.Property(x => x.AvatarStorageKey)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.AvatarContentType)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+
+            entity.Property(x => x.AvatarSha256)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+
+            entity.Property(x => x.AvatarUpdatedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(x => x.CoverStorageKey)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.CoverContentType)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+
+            entity.Property(x => x.CoverSha256)
+                .HasMaxLength(64)
+                .IsUnicode(false);
+
+            entity.Property(x => x.CoverUpdatedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+
             entity.HasIndex(x => x.Username)
                 .IsUnique();
         });
@@ -137,10 +182,11 @@ public sealed class CentralDbContext : DbContext
             entity.Property(x => x.TenantCode)
                 .HasMaxLength(50)
                 .IsUnicode(false)
+                .UseCollation("Latin1_General_100_CI_AS")
                 .IsRequired();
 
             entity.Property(x => x.TenantName)
-                .HasMaxLength(200)
+                .HasMaxLength(500)
                 .IsRequired();
 
             /*

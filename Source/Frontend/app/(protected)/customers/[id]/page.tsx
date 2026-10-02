@@ -23,6 +23,7 @@ import {
   CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CodeInput } from "@/components/ui/custom/code-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -268,7 +269,15 @@ function CustomerDetailPageContent() {
     customerEmail: "",
     customerMobile: "",
     customerPhone: "",
+    customerFaxNumber: "",
     customerTaxCode: "",
+    customerRepresentativeName: "",
+    customerRepresentativeTitle: "",
+    customerContactPersonName: "",
+    customerContactPersonPhone: "",
+    customerContactPersonTitle: "",
+    customerBankAccountNumber: "",
+    customerBankName: "",
     customerAddress: "",
     customerCity: "",
     customerCountry: "",
@@ -293,7 +302,15 @@ function CustomerDetailPageContent() {
         customerEmail: res.customerEmail,
         customerMobile: res.customerMobile,
         customerPhone: res.customerPhone,
+        customerFaxNumber: res.customerFaxNumber,
         customerTaxCode: res.customerTaxCode,
+        customerRepresentativeName: res.customerRepresentativeName,
+        customerRepresentativeTitle: res.customerRepresentativeTitle,
+        customerContactPersonName: res.customerContactPersonName,
+        customerContactPersonPhone: res.customerContactPersonPhone,
+        customerContactPersonTitle: res.customerContactPersonTitle,
+        customerBankAccountNumber: res.customerBankAccountNumber,
+        customerBankName: res.customerBankName,
         customerAddress: res.customerAddress,
         customerCity: res.customerCity,
         customerCountry: res.customerCountry,
@@ -425,7 +442,7 @@ function CustomerDetailPageContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="lg:col-span-1 space-y-6">
             <Card className="border-border shadow-sm bg-card gap-0 pb-0">
               <CardHeader className="flex flex-col gap-3 border-b border-border/50 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -447,7 +464,7 @@ function CustomerDetailPageContent() {
               <CardContent className="p-5 space-y-4">
                 <div className="grid gap-2">
                   <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Tên KH / Đại diện *
+                    Tên khách hàng *
                   </Label>
                   <Input
                     readOnly={!isEditingProfile}
@@ -487,14 +504,14 @@ function CustomerDetailPageContent() {
                     <Label className="text-xs font-semibold uppercase text-muted-foreground">
                       Mã KH
                     </Label>
-                    <Input
+                    <CodeInput
                       readOnly={!isEditingProfile}
                       className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
                       value={formData.customerCode ?? ""}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          customerCode: e.target.value,
+                          customerCode: value,
                         })
                       }
                     />
@@ -516,8 +533,42 @@ function CustomerDetailPageContent() {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Số tài khoản ngân hàng
+                    </Label>
+                    <Input
+                      readOnly={!isEditingProfile}
+                      className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                      value={formData.customerBankAccountNumber ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerBankAccountNumber: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Tên ngân hàng
+                    </Label>
+                    <Input
+                      readOnly={!isEditingProfile}
+                      className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                      value={formData.customerBankName ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerBankName: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="grid gap-2">
                     <Label className="text-xs font-semibold uppercase text-muted-foreground">
                       Số di động
@@ -553,6 +604,22 @@ function CustomerDetailPageContent() {
                       }
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Fax
+                    </Label>
+                    <Input
+                      readOnly={!isEditingProfile}
+                      className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                      value={formData.customerFaxNumber ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerFaxNumber: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-2">
@@ -572,6 +639,121 @@ function CustomerDetailPageContent() {
                         })
                       }
                     />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Người liên lạc / làm việc trực tiếp
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Đầu mối phối hợp công việc, không thay thế người đại diện
+                      pháp luật.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2 col-span-2">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Họ và tên
+                      </Label>
+                      <Input
+                        readOnly={!isEditingProfile}
+                        className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                        placeholder="Họ và tên người liên hệ"
+                        value={formData.customerContactPersonName ?? ""}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            customerContactPersonName: event.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Chức danh
+                      </Label>
+                      <Input
+                        readOnly={!isEditingProfile}
+                        className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                        placeholder="VD: Trưởng phòng mua hàng"
+                        value={formData.customerContactPersonTitle ?? ""}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            customerContactPersonTitle: event.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Số điện thoại
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="tel"
+                          readOnly={!isEditingProfile}
+                          className={`h-9 pl-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                          placeholder="0912345678"
+                          value={formData.customerContactPersonPhone ?? ""}
+                          onChange={(event) =>
+                            setFormData({
+                              ...formData,
+                              customerContactPersonPhone: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Người đại diện pháp luật
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Đầu mối ký kết hợp đồng với công ty.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Họ và tên
+                      </Label>
+                      <Input
+                        readOnly={!isEditingProfile}
+                        className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                        placeholder="Họ và tên người đại diện"
+                        value={formData.customerRepresentativeName ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customerRepresentativeName: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Chức danh
+                      </Label>
+                      <Input
+                        readOnly={!isEditingProfile}
+                        className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                        placeholder="VD: Giám đốc"
+                        value={formData.customerRepresentativeTitle ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customerRepresentativeTitle: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -683,7 +865,21 @@ function CustomerDetailPageContent() {
                             customerEmail: customer.customerEmail,
                             customerMobile: customer.customerMobile,
                             customerPhone: customer.customerPhone,
+                            customerFaxNumber: customer.customerFaxNumber,
                             customerTaxCode: customer.customerTaxCode,
+                            customerRepresentativeName:
+                              customer.customerRepresentativeName,
+                            customerRepresentativeTitle:
+                              customer.customerRepresentativeTitle,
+                            customerContactPersonName:
+                              customer.customerContactPersonName,
+                            customerContactPersonPhone:
+                              customer.customerContactPersonPhone,
+                            customerContactPersonTitle:
+                              customer.customerContactPersonTitle,
+                            customerBankAccountNumber:
+                              customer.customerBankAccountNumber,
+                            customerBankName: customer.customerBankName,
                             customerAddress: customer.customerAddress,
                             customerCity: customer.customerCity,
                             customerCountry: customer.customerCountry,
@@ -727,7 +923,7 @@ function CustomerDetailPageContent() {
             </Card>
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-1 space-y-6">
             <Card className="border-border shadow-sm bg-card flex flex-col gap-0 min-h-[600px] pb-0">
               <CardHeader className="top-0 z-10 flex shrink-0 flex-col gap-3 rounded-t-xl border-b border-border/50 bg-card py-4 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">

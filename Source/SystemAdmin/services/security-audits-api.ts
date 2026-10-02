@@ -1,6 +1,6 @@
 import axiosClient from "@/lib/axios-interceptor";
 
-const BASE_URL = "/admin/security-audits";
+const BASE_URL = "/api/admin/security-audits";
 
 export const CENTRAL_SECURITY_AUDIT_ACTIONS = [
   "CentralApiAccessDenied",
@@ -30,6 +30,7 @@ export interface CentralSecurityAuditFilterRequest {
 export interface CentralSecurityAuditResponse {
   centralSecurityAuditId: number;
   actorSystemAdminId?: number | null;
+  actorDisplayName?: string | null;
   tenantId?: number | null;
   tenantCode?: string | null;
   action: string;

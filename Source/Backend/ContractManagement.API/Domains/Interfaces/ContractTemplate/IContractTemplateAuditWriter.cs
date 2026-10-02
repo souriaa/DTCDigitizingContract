@@ -1,3 +1,6 @@
+using System.Globalization;
+using ContractManagement.Infrastructure.Persistence.Application.Models;
+
 namespace ContractManagement.Domains.Interfaces.ContractTemplate;
 
 public static class ContractTemplateAuditActionTypes
@@ -14,6 +17,14 @@ public static class ContractTemplateAuditActionTypes
     public const string TemplateVersionRetired = "TemplateVersionRetired";
     public const string PdfRenderFailed = "PdfRenderFailed";
     public const string PublishConcurrencyConflict = "PublishConcurrencyConflict";
+    public const string TemplateAppendixCreated = "TemplateAppendixCreated";
+    public const string TemplateAppendixUpdated = "TemplateAppendixUpdated";
+    public const string TemplateAppendixDeleted = "TemplateAppendixDeleted";
+    public const string TemplateAppendicesReordered = "TemplateAppendicesReordered";
+    public const string TemplateAppendixTermCreated = "TemplateAppendixTermCreated";
+    public const string TemplateAppendixTermUpdated = "TemplateAppendixTermUpdated";
+    public const string TemplateAppendixTermDeleted = "TemplateAppendixTermDeleted";
+    public const string TemplateAppendixTermsReordered = "TemplateAppendixTermsReordered";
 }
 
 public static class ContractTemplateAuditResults
@@ -24,8 +35,98 @@ public static class ContractTemplateAuditResults
     public const string Conflict = "Conflict";
 }
 
+public enum ContractTemplateAuditFieldCode : byte
+{
+    DocumentFileId = 1,
+    DocumentExtension,
+    DocumentSizeBytes,
+    ValidationStatus,
+    RecognizedPlaceholderCount,
+    PreviewFileId,
+    PreviewSizeBytes,
+    PreviewStatus,
+    PublishedPreviewPdfFileId,
+    PublishedPreviewPdfSizeBytes,
+    PublishStatus,
+    TemplateAppendixId,
+    TemplateAppendixTermId,
+    AppendixCount,
+    AppendixTermCount
+}
+
+public sealed record ContractTemplateAuditValueInput(
+    ContractTemplateAuditFieldCode FieldCode,
+    bool IsNull,
+    int? IntegerValue = null,
+    long? LongValue = null,
+    string? StringValue = null)
+{
+    internal static ContractTemplateAuditValueInput Create(
+        ContractTemplateAuditFieldCode fieldCode,
+        object? value)
+    {
+        if (value is null)
+        {
+            return new(fieldCode, true);
+        }
+
+        return fieldCode switch
+        {
+            ContractTemplateAuditFieldCode.DocumentExtension
+                or ContractTemplateAuditFieldCode.ValidationStatus
+                or ContractTemplateAuditFieldCode.PreviewStatus
+                or ContractTemplateAuditFieldCode.PublishStatus
+                when value is string text =>
+                new(fieldCode, false, StringValue: text),
+            ContractTemplateAuditFieldCode.DocumentSizeBytes
+                or ContractTemplateAuditFieldCode.PreviewSizeBytes
+                or ContractTemplateAuditFieldCode.PublishedPreviewPdfSizeBytes =>
+                new(fieldCode, false, LongValue:
+                    Convert.ToInt64(value, CultureInfo.InvariantCulture)),
+            ContractTemplateAuditFieldCode.DocumentFileId
+                or ContractTemplateAuditFieldCode.RecognizedPlaceholderCount
+                or ContractTemplateAuditFieldCode.PreviewFileId
+                or ContractTemplateAuditFieldCode.PublishedPreviewPdfFileId
+                or ContractTemplateAuditFieldCode.TemplateAppendixId
+                or ContractTemplateAuditFieldCode.TemplateAppendixTermId
+                or ContractTemplateAuditFieldCode.AppendixCount
+                or ContractTemplateAuditFieldCode.AppendixTermCount =>
+                new(fieldCode, false, IntegerValue:
+                    Convert.ToInt32(value, CultureInfo.InvariantCulture)),
+            _ => throw new InvalidOperationException(
+                $"Template audit field {fieldCode} has an invalid value type.")
+        };
+    }
+}
+
+public static class ContractTemplateAuditValues
+{
+    public static IReadOnlyCollection<ContractTemplateAuditValueInput> Create(
+        params (string Key, object? Value)[] values)
+    {
+        var result = new List<ContractTemplateAuditValueInput>(values.Length);
+        var seen = new HashSet<ContractTemplateAuditFieldCode>();
+        foreach (var (key, value) in values)
+        {
+            if (!Enum.TryParse<ContractTemplateAuditFieldCode>(
+                    key,
+                    false,
+                    out var field)
+                || !seen.Add(field))
+            {
+                throw new InvalidOperationException(
+                    "Template audit field is unknown or duplicated.");
+            }
+
+            result.Add(ContractTemplateAuditValueInput.Create(field, value));
+        }
+
+        return result;
+    }
+}
+
 /// <summary>
-/// Only allow-listed metadata may be placed in the before/after dictionaries.
+/// Only allow-listed typed metadata may be placed in the before/after values.
 /// </summary>
 public sealed record ContractTemplateAuditWriteRequest(
     int TemplateId,
@@ -34,8 +135,8 @@ public sealed record ContractTemplateAuditWriteRequest(
     string ActionType,
     string Result,
     DateTime OccurredAt,
-    IReadOnlyDictionary<string, object?>? PreviousValues = null,
-    IReadOnlyDictionary<string, object?>? NewValues = null,
+    IReadOnlyCollection<ContractTemplateAuditValueInput>? PreviousValues = null,
+    IReadOnlyCollection<ContractTemplateAuditValueInput>? NewValues = null,
     string? FailureCode = null,
     string? CorrelationId = null);
 

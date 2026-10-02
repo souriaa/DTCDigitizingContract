@@ -36,7 +36,14 @@ function Input({
     if (type === "number" && maxLength && e.target.value.length > maxLength) {
       e.target.value = e.target.value.slice(0, maxLength);
     }
-    setCharCount(e.target.value.length);
+
+    // Với controlled input, giá trị mới có thể bị component cha từ chối
+    // (ví dụ đã đủ số chữ số). Chờ `value` hợp lệ cập nhật lại bộ đếm để
+    // tránh hiển thị sai như 17/14 dù nội dung thực tế không được chấp nhận.
+    if (value === undefined) {
+      setCharCount(e.target.value.length);
+    }
+
     if (onChange) {
       onChange(e);
     }
@@ -58,7 +65,8 @@ function Input({
     if (onClear) onClear();
   };
 
-  const showClearButton = charCount > 0 && !props.disabled;
+  const showClearButton = charCount > 0 && !props.disabled && !props.readOnly;
+  const showCharCount = Boolean(maxLength) && !props.disabled;
 
   return (
     <div className="relative w-full">
@@ -75,9 +83,9 @@ function Input({
           "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
           "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
           className,
-          showClearButton && maxLength
+          showClearButton && showCharCount
             ? "pr-16"
-            : maxLength
+            : showCharCount
               ? "pr-14"
               : showClearButton
                 ? "pr-9"
@@ -86,25 +94,28 @@ function Input({
         {...props}
       />
 
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 bg-transparent">
-        {showClearButton && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
-            aria-label="Clear input"
-            title="Xóa nội dung"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+      {(showClearButton || showCharCount) && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 bg-transparent">
+          {showClearButton && type != "file" && (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={handleClear}
+              className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
+              aria-label="Clear input"
+              title="Xóa nội dung"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
 
-        {maxLength && (
-          <div className="text-[11px] font-medium text-muted-foreground/70 min-w-[28px] text-right select-none shrink-0">
-            {charCount}/{maxLength}
-          </div>
-        )}
-      </div>
+          {showCharCount && type != "file" && (
+            <div className="text-[11px] font-medium text-muted-foreground/70 min-w-[28px] text-right select-none shrink-0">
+              {charCount}/{maxLength}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

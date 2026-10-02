@@ -101,3 +101,9 @@ generated/
 *.dotnet/
 dotnet_modules/
 runtimeconfig.dump.json
+
+
+# =========================
+# Private storeage
+# =========================
+private-storage/
