@@ -1,5 +1,6 @@
 using ContractManagement.API.Domains.Email;
 using ContractManagement.API.Domains.Recovery;
+using ContractManagement.Infrastructure.Branding;
 using ContractManagement.Infrastructure.MultiTenancy.Enums;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Central;
@@ -38,9 +39,9 @@ try
     if (args[0] == "smtp-test")
     {
         if (args.Length != 3 || !SmtpEmailOptions.IsEmailAddress(args[2])) throw new OpsError("Specify one explicitly approved SMTP test recipient.");
-        await new SmtpEmailTransport(Options.Create(smtp)).SendAsync(new(args[2], "Kiểm tra email khôi phục mật khẩu — eContract",
-            "Đây là thư thử cấu hình SMTP của hệ thống eContract. Không có mật khẩu, mã khôi phục hoặc thay đổi tài khoản nào trong thao tác này.",
-            "<html><body><h2>Kiểm tra email khôi phục mật khẩu</h2><p>Đây là thư thử SMTP của eContract.</p><p><strong>Không có mật khẩu, token hoặc thay đổi tài khoản.</strong></p></body></html>"), default);
+        await new SmtpEmailTransport(Options.Create(smtp)).SendAsync(new(args[2], $"Kiểm tra email khôi phục mật khẩu — {ApplicationBranding.Name}",
+            $"Đây là thư thử cấu hình SMTP của hệ thống {ApplicationBranding.Name}. Không có mật khẩu, mã khôi phục hoặc thay đổi tài khoản nào trong thao tác này.",
+            $"<html><body><h2>Kiểm tra email khôi phục mật khẩu</h2><p>Đây là thư thử SMTP của {ApplicationBranding.HtmlName}.</p><p><strong>Không có mật khẩu, token hoặc thay đổi tài khoản.</strong></p></body></html>"), default);
         Console.WriteLine("SMTP_ACCEPTED; explicit test recipient; no account changed. Mailbox delivery/spam placement is not asserted.");
         return 0;
     }

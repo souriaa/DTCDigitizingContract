@@ -46,7 +46,7 @@ public sealed class CustomerOtpSmtpTests
         Assert.False(mail.IsBodyHtml);
         Assert.Equal(System.Text.Encoding.UTF8, mail.BodyEncoding);
         Assert.Equal(System.Text.Encoding.UTF8, mail.SubjectEncoding);
-        Assert.Contains("Mã xác thực (OTP) của bạn", mail.Body);
+        Assert.Contains("Mã xác thực OTP của bạn", mail.Body);
         Assert.Empty(mail.Attachments);
 
         var htmlView = Assert.Single(mail.AlternateViews);

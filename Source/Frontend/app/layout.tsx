@@ -1,5 +1,6 @@
 import type React from "react";
 import type { Metadata } from "next";
+import { APP_NAME } from "@/lib/application-branding";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { SafeAnalytics } from "@/components/safe-analytics";
@@ -9,7 +10,7 @@ import { SidebarProvider } from "@/components/sidebar-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "eContract Hub | Quản lý Hợp đồng",
+  title: `${APP_NAME} | Quản lý Hợp đồng`,
   description:
     "Nền tảng số hóa, lưu trữ và quản lý hợp đồng doanh nghiệp (Mua, Bán, Phụ lục, Bàn giao).",
   generator: "Next.js",

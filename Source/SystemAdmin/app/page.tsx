@@ -6,6 +6,7 @@ import { Loader2, FileText, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { authApi } from "@/services/auth-api";
+import { APP_NAME } from "@/lib/application-branding";
 import { getApiErrorMessage } from "@/lib/api-error";
 
 import { Button } from "@/components/ui/button";
@@ -162,7 +163,7 @@ export default function LoginPage() {
               <FileText className="w-6 h-6 text-primary-foreground" />
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              eContract Hub
+              {APP_NAME}
             </span>
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
@@ -189,7 +190,7 @@ export default function LoginPage() {
                     <FileText className="w-5 h-5 text-primary-foreground" />
                   </div>
                   <span className="text-foreground font-bold text-lg">
-                    eContract
+                    {APP_NAME}
                   </span>
                 </div>
               </div>

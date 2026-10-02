@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Net.Mime;
 using System.Text;
+using ContractManagement.Infrastructure.Branding;
 using Microsoft.Extensions.Options;
 namespace ContractManagement.API.Domains.Email;
 public sealed class SmtpEmailTransport(IOptions<SmtpEmailOptions> options) : IEmailTransport
@@ -30,7 +31,7 @@ public sealed class SmtpEmailTransport(IOptions<SmtpEmailOptions> options) : IEm
     {
         var mail = new MailMessage
         {
-            From = new MailAddress(smtp.FromAddress!, smtp.FromName, Encoding.UTF8), Subject = message.Subject,
+            From = new MailAddress(smtp.FromAddress!, ApplicationBranding.Name, Encoding.UTF8), Subject = message.Subject,
             SubjectEncoding = Encoding.UTF8, Body = message.TextBody, BodyEncoding = Encoding.UTF8, IsBodyHtml = false
         };
         mail.To.Add(new MailAddress(message.Recipient));

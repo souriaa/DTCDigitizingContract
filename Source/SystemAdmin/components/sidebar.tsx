@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { APP_NAME } from "@/lib/application-branding";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
@@ -242,7 +243,7 @@ export function Sidebar() {
                 <FileText className="size-4" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold">eContract Hub</p>
+                <p className="truncate text-sm font-bold">{APP_NAME}</p>
                 <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   System Admin
                 </p>
@@ -288,7 +289,7 @@ export function Sidebar() {
                   <FileText className="size-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold">eContract Hub</p>
+                  <p className="text-sm font-bold">{APP_NAME}</p>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     System Admin
                   </p>

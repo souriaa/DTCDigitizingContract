@@ -8,7 +8,6 @@ public sealed class SmtpEmailOptions
     public string? Username { get; set; }
     public string? AppPassword { get; set; }
     public string? FromAddress { get; set; }
-    public string FromName { get; set; } = "Contract Management";
     public int TimeoutSeconds { get; set; } = 30;
     public bool IsConfigured() => !string.IsNullOrWhiteSpace(Host) && Port == 587
         && IsEmailAddress(Username) && IsEmailAddress(FromAddress)
