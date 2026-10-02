@@ -66,6 +66,8 @@ public sealed class TenantProvisioningService
             CancellationToken cancellationToken = default)
     {
         string tenantCode = command.TenantCode.Trim();
+        if (!PasswordRules.IsValid(command.InitialManager.EmployeePassword))
+            throw new ArgumentException(PasswordRules.ValidationMessage, nameof(command));
         if (tenantCode.Length is < 3 or > 50
             || tenantCode.Any(character => !char.IsAsciiLetterOrDigit(character)
                 && character != '-'))

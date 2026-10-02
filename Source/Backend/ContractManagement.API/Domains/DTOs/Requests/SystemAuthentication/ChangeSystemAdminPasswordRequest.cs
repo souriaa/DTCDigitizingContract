@@ -12,5 +12,6 @@ public sealed class ChangeSystemAdminPasswordRequest
     [Required]
     [MinLength(AccountPasswordPolicy.MinimumLength)]
     [MaxLength(AccountPasswordPolicy.MaximumLength)]
+    [NewAccountPassword]
     public string NewPassword { get; set; } = string.Empty;
 }

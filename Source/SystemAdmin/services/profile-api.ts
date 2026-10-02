@@ -7,6 +7,7 @@ export interface SystemAdminProfile {
   username: string;
   fullName: string;
   email: string | null;
+  recoveryEmailVerifiedAt: string | null;
   roleName: string;
   isActive: boolean;
   mustChangePassword: boolean;

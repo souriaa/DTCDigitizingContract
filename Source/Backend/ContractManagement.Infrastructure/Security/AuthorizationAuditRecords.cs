@@ -6,6 +6,12 @@ namespace ContractManagement.Infrastructure.Security;
 public static class AuthorizationAuditActionTypes
 {
     public const string AccessDenied = "AccessDenied";
+    public const string RecoveryEmailVerificationRequested = "RecoveryEmailVerificationRequested";
+    public const string RecoveryEmailVerified = "RecoveryEmailVerified";
+    public const string PasswordRecoveryDeliveryFailed = "PasswordRecoveryDeliveryFailed";
+    public const string PasswordRecoveryRequested = "PasswordRecoveryRequested";
+    public const string PasswordRecoveryCompleted = "PasswordRecoveryCompleted";
+    public const string PasswordRecoveryDenied = "PasswordRecoveryDenied";
     public const string CentralApiAccessDenied = "CentralApiAccessDenied";
     public const string SystemAdminLogin = "SystemAdminLogin";
     public const string EmployeeCreated = "EmployeeCreated";

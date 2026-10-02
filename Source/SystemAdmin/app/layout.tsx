@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Analytics } from "@vercel/analytics/next";
+import { SafeAnalytics } from "@/components/safe-analytics";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarProvider } from "@/components/sidebar-context";
@@ -52,7 +52,7 @@ export default function RootLayout({
 
           <Toaster richColors position="top-right" />
         </ThemeProvider>
-        <Analytics />
+        <SafeAnalytics />
       </body>
     </html>
   );

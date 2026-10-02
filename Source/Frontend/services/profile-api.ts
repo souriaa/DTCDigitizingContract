@@ -14,6 +14,7 @@ export interface EmployeeProfile {
   mobile: string | null;
   phone: string | null;
   email: string | null;
+  recoveryEmailVerifiedAt: string | null;
   address: string | null;
   departmentId: number | null;
   departmentName: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { isValidAccountPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import {
   Dialog,
   DialogContent,
@@ -151,8 +152,8 @@ export function EmployeeFormModal({
       }
       if (!employeePassword.trim()) {
         newErrors.employeePassword = "Mật khẩu không được để trống";
-      } else if (employeePassword.length < 12) {
-        newErrors.employeePassword = "Mật khẩu tối thiểu 12 ký tự";
+      } else if (!isValidAccountPassword(employeePassword)) {
+        newErrors.employeePassword = PASSWORD_POLICY_MESSAGE;
       }
     }
 
@@ -318,6 +319,7 @@ export function EmployeeFormModal({
                 maxLength={100}
                 aria-invalid={!!errors.employeePassword}
               />
+              <p className="text-xs text-muted-foreground">{PASSWORD_POLICY_MESSAGE}</p>
               {errors.employeePassword && (
                 <p className="text-xs text-destructive">
                   {errors.employeePassword}

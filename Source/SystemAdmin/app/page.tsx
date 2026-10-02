@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, FileText, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from "@/hooks/use-auth-store";
 
 export default function LoginPage() {
+  const recoveryLogin = useRef(false);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [email, setEmail] = useState("");
@@ -65,6 +66,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkAlreadyLoggedIn = async () => {
+      const query = new URLSearchParams(window.location.search);
+      if (query.get("password_reset") === "1") recoveryLogin.current = true;
+      if (recoveryLogin.current) {
+        // Keep other application/tenant sessions intact; skip automatic redirect for this login.
+        setIsLoading(false);
+        return;
+      }
       if (isAuthenticated && user) {
         router.push("/dashboard");
         return;
@@ -237,7 +245,7 @@ export default function LoginPage() {
                       Mật khẩu
                     </Label>
                     <a
-                      href="#"
+                      href={`/forgot-password?${new URLSearchParams({ accountName: email })}`}
                       tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
@@ -249,7 +257,7 @@ export default function LoginPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      maxLength={64}
+                      maxLength={100}
                       onChange={(e) => handlePasswordChange(e.target.value)}
                       onBlur={() => handleBlur("password")}
                       aria-invalid={!!errors.password}

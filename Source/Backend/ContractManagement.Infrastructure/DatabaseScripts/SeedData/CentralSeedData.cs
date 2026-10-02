@@ -35,6 +35,8 @@ public sealed class CentralSeedData : ICentralSeedData
         }
 
         var normalizedUsername = _options.Username.Trim();
+        if (!ContractManagement.Infrastructure.Security.PasswordRules.IsValid(_options.Password))
+            throw new InvalidOperationException(ContractManagement.Infrastructure.Security.PasswordRules.ValidationMessage);
         bool systemAdminExists =
             await _centralDbContext.SystemAdmins
                 .AnyAsync(

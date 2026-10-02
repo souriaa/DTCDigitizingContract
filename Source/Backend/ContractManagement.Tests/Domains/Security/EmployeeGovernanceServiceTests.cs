@@ -8,6 +8,7 @@ using ContractManagement.Infrastructure.MultiTenancy.Services;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using ContractManagement.Infrastructure.Security;
+using ContractManagement.Infrastructure.Persistence.Recovery;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,32 @@ namespace ContractManagement.Tests.Domains.Security;
 
 public sealed class EmployeeGovernanceServiceTests
 {
+    [Fact]
+    public async Task Manager_EmailChange_ClearsVerificationAndRevokesRecoveryInSameSave()
+    {
+        await using var db = CreateDbContext();
+        var manager = NewEmployee(1, EmployeeType.Manager);
+        var employee = NewEmployee(2, EmployeeType.Sale);
+        employee.EmployeeEmail = "before@example.test";
+        employee.RecoveryEmailVerifiedAt = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
+        var challenge = new AccountRecoveryChallenge { RecoveryChallengeId = 100, AccountId = 2,
+            PublicId = Guid.NewGuid(), Purpose = RecoveryPurpose.PasswordReset, TokenHash = new byte[32], EmailHash = new byte[32],
+            SessionVersionAtIssue = 1, CreatedAtUtc = now, LastRequestedAtUtc = now, ExpiresAtUtc = now.AddMinutes(15), RequestCount = 1 };
+        var mail = new AccountRecoveryEmailOutbox { AccountId = 2, RecoveryChallengeId = 100,
+            TemplateKind = RecoveryEmailKind.PasswordReset, Status = RecoveryDeliveryStatus.Pending,
+            CreatedAtUtc = now, NextAttemptAtUtc = now, TokenCiphertext = [1], RecipientCiphertext = [2] };
+        db.AddRange(manager, employee, challenge, mail); await db.SaveChangesAsync();
+        await CreateService(db).UpdateManagedEmployeeAsync(1, 2, new UpdateEmployeeRequest {
+            EmployeeFullName = employee.EmployeeFullName!, EmployeeEmail = "after@example.test",
+            EmployeeType = (byte)EmployeeType.Sale, RowVersion = Convert.ToBase64String(employee.RowVersion)
+        });
+        Assert.Equal("after@example.test", employee.EmployeeEmail);
+        Assert.Null(employee.RecoveryEmailVerifiedAt); Assert.NotNull(challenge.RevokedAtUtc);
+        Assert.Null(mail.TokenCiphertext); Assert.Null(mail.RecipientCiphertext);
+        Assert.Equal(RecoveryDeliveryStatus.Failed, mail.Status);
+    }
+
     [Fact]
     public async Task Manager_CannotCreateManagerOrModifyExistingManager()
     {

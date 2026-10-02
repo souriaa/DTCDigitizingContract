@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { isValidAccountPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import {
   Building2,
   CheckCircle2,
@@ -174,8 +175,8 @@ export default function TenantsPage() {
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
-    if (form.employeePassword.length < 12) {
-      toast.error("Mật khẩu tạm phải có ít nhất 12 ký tự.");
+    if (!isValidAccountPassword(form.employeePassword)) {
+      toast.error(PASSWORD_POLICY_MESSAGE);
       return;
     }
     setCreating(true);
@@ -727,14 +728,14 @@ export default function TenantsPage() {
                         <span
                           className={cn(
                             "text-[11px]",
-                            form.employeePassword.length < 12
+                            !isValidAccountPassword(form.employeePassword)
                               ? "text-destructive font-medium"
                               : "text-emerald-600 dark:text-emerald-400 font-medium",
                           )}
                         >
-                          {form.employeePassword.length < 12
-                            ? `${form.employeePassword.length}/12 ký tự`
-                            : "✓ Đủ 12 ký tự"}
+                          {isValidAccountPassword(form.employeePassword)
+                            ? "✓ Đáp ứng yêu cầu"
+                            : "Chưa đáp ứng yêu cầu"}
                         </span>
                       )}
                     </div>
@@ -743,6 +744,7 @@ export default function TenantsPage() {
                         id="employee-password"
                         required
                         minLength={12}
+                        maxLength={100}
                         type={showPassword ? "text" : "password"}
                         placeholder="Tối thiểu 12 ký tự"
                         value={form.employeePassword}
@@ -752,7 +754,7 @@ export default function TenantsPage() {
                         className={cn(
                           "text-sm",
                           form.employeePassword &&
-                            form.employeePassword.length < 12 &&
+                            !isValidAccountPassword(form.employeePassword) &&
                             "border-destructive focus-visible:ring-destructive/20",
                         )}
                         autoComplete="new-password"
@@ -775,15 +777,12 @@ export default function TenantsPage() {
                       className={cn(
                         "text-[11px]",
                         form.employeePassword &&
-                          form.employeePassword.length < 12
+                          !isValidAccountPassword(form.employeePassword)
                           ? "text-destructive"
                           : "text-muted-foreground",
                       )}
                     >
-                      {form.employeePassword &&
-                      form.employeePassword.length < 12
-                        ? "Mật khẩu quá ngắn, vui lòng nhập tối thiểu 12 ký tự."
-                        : "Mật khẩu quản trị viên ban đầu, yêu cầu tối thiểu 12 ký tự."}
+                      {PASSWORD_POLICY_MESSAGE}
                     </p>
                   </div>
 

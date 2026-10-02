@@ -317,7 +317,14 @@ namespace ContractManagement.API.Domains.Services.Employee
                     request.EmployeeFullName,
                     nameof(request.EmployeeFullName));
                 employee.EmployeeMobile = NormalizeOptional(request.EmployeeMobile);
-                employee.EmployeeEmail = NormalizeOptional(request.EmployeeEmail);
+                var nextEmail = NormalizeOptional(request.EmployeeEmail);
+                if (!string.Equals(employee.EmployeeEmail, nextEmail, StringComparison.Ordinal))
+                {
+                    employee.RecoveryEmailVerifiedAt = null;
+                    await ContractManagement.API.Domains.Recovery.RecoveryEmailInvalidation.RevokeAsync(
+                        _dbContext, employeeId, DateTime.UtcNow, cancellationToken);
+                }
+                employee.EmployeeEmail = nextEmail;
                 employee.DepartmentId = request.DepartmentId;
                 employee.EmployeeType = request.EmployeeType;
                 employee.DateModified = DateTime.UtcNow;

@@ -82,6 +82,12 @@ const createInitialFilters = (): SecurityAuditFilters => ({
 });
 
 const ACTION_LABELS: Record<string, string> = {
+  RecoveryEmailVerificationRequested: "Yêu cầu xác minh email khôi phục",
+  RecoveryEmailVerified: "Đã xác minh email khôi phục",
+  PasswordRecoveryDeliveryFailed: "Gửi email khôi phục thất bại",
+  PasswordRecoveryRequested: "Yêu cầu đặt lại mật khẩu",
+  PasswordRecoveryCompleted: "Đã khôi phục mật khẩu",
+  PasswordRecoveryDenied: "Từ chối khôi phục mật khẩu",
   AccessDenied: "Từ chối truy cập",
   EmployeeCreated: "Tạo nhân viên",
   EmployeeRoleChanged: "Thay đổi vai trò nhân viên",

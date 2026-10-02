@@ -3,6 +3,12 @@ import axiosClient from "@/lib/axios-interceptor";
 const BASE_URL = "/api/admin/security-audits";
 
 export const CENTRAL_SECURITY_AUDIT_ACTIONS = [
+  "RecoveryEmailVerificationRequested",
+  "RecoveryEmailVerified",
+  "PasswordRecoveryDeliveryFailed",
+  "PasswordRecoveryRequested",
+  "PasswordRecoveryCompleted",
+  "PasswordRecoveryDenied",
   "CentralApiAccessDenied",
   "SystemAdminLogin",
   "TenantProvisioned",
