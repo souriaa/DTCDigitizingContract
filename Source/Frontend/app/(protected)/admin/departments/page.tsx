@@ -18,6 +18,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { isAxiosError } from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
@@ -42,6 +46,11 @@ function DepartmentListPageContent() {
 
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [departmentCode, setDepartmentCode] = useState("");
+  const [departmentName, setDepartmentName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [toggleStatusId, setToggleStatusId] = useState<number | null>(null);
@@ -68,6 +77,33 @@ function DepartmentListPageContent() {
   useEffect(() => {
     fetchDepartments();
   }, []);
+
+  const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isCreating) return;
+    const code = departmentCode.trim();
+    const name = departmentName.trim();
+    if (!code || !name) {
+      setCreateError("Vui lòng nhập mã và tên phòng ban.");
+      return;
+    }
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      await departmentApi.create({ departmentCode: code, departmentName: name });
+      setIsCreateOpen(false);
+      toast.success("Tạo phòng ban thành công");
+      await fetchDepartments();
+    } catch (error) {
+      setCreateError(
+        isAxiosError(error) && typeof error.response?.data?.message === "string"
+          ? error.response.data.message
+          : "Không thể tạo phòng ban. Vui lòng thử lại.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return applyTableFilters({
@@ -302,7 +338,12 @@ function DepartmentListPageContent() {
               hệ thống.
             </p>
           </div>
-          <Button className="shadow-sm">
+          <Button className="shadow-sm" onClick={() => {
+            setDepartmentCode("");
+            setDepartmentName("");
+            setCreateError(null);
+            setIsCreateOpen(true);
+          }}>
             <Building2 className="w-4 h-4 mr-2" /> Thêm phòng ban
           </Button>
         </div>
@@ -379,6 +420,32 @@ function DepartmentListPageContent() {
             />
           </CardContent>
         </Card>
+
+        <Dialog open={isCreateOpen} onOpenChange={(open) => {
+          if (!isCreating) setIsCreateOpen(open);
+        }}>
+          <DialogContent className="sm:max-w-lg">
+            <form onSubmit={handleCreate} className="space-y-5">
+              <DialogHeader>
+                <DialogTitle>Thêm phòng ban</DialogTitle>
+                <DialogDescription>Nhập thông tin phòng ban mới. Phòng ban sẽ được tạo ở trạng thái hoạt động.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="department-code">Mã phòng ban <span className="text-destructive">*</span></Label>
+                <Input id="department-code" value={departmentCode} onChange={(event) => setDepartmentCode(event.target.value)} maxLength={20} required disabled={isCreating} placeholder="Ví dụ: SALES" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department-name">Tên phòng ban <span className="text-destructive">*</span></Label>
+                <Input id="department-name" value={departmentName} onChange={(event) => setDepartmentName(event.target.value)} maxLength={200} required disabled={isCreating} placeholder="Ví dụ: Phòng Kinh doanh" />
+              </div>
+              {createError && <p role="alert" className="text-sm text-destructive">{createError}</p>}
+              <DialogFooter>
+                <Button type="button" variant="outline" disabled={isCreating} onClick={() => setIsCreateOpen(false)}>Hủy</Button>
+                <Button type="submit" disabled={isCreating}>{isCreating ? "Đang tạo..." : "Tạo phòng ban"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <ConfirmDialog
           isOpen={!!toggleStatusId}
