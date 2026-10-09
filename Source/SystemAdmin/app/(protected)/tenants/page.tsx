@@ -1,7 +1,11 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { getAccountPasswordRules, isValidAccountPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import {
+  getAccountPasswordRules,
+  isValidAccountPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/password-policy";
 import {
   Building2,
   CheckCircle2,
@@ -136,8 +140,14 @@ export default function TenantsPage() {
   const passwordRules = getAccountPasswordRules(form.employeePassword);
   const passwordChecklist = [
     { label: "Độ dài từ 12 đến 100 ký tự", satisfied: passwordRules.hasLength },
-    { label: "Chứa ít nhất một chữ số (0–9)", satisfied: passwordRules.hasNumber },
-    { label: "Bao gồm chữ hoa (A–Z) và chữ thường (a–z)", satisfied: passwordRules.hasUpperAndLower },
+    {
+      label: "Chứa ít nhất một chữ số (0–9)",
+      satisfied: passwordRules.hasNumber,
+    },
+    {
+      label: "Bao gồm chữ hoa (A–Z) và chữ thường (a–z)",
+      satisfied: passwordRules.hasUpperAndLower,
+    },
   ];
 
   const loadTenants = useCallback(async () => {
@@ -653,8 +663,8 @@ export default function TenantsPage() {
                       className="font-mono text-sm"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Từ 3 đến 50 ký tự: chữ hoa, chữ thường, số và dấu gạch ngang.
-                      Mã không phân biệt hoa/thường khi đăng nhập.
+                      Từ 3 đến 50 ký tự: chữ hoa, chữ thường, số và dấu gạch
+                      ngang. Mã không phân biệt hoa/thường khi đăng nhập.
                     </p>
                   </div>
 
@@ -772,7 +782,9 @@ export default function TenantsPage() {
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        aria-label={
+                          showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                        }
                         aria-pressed={showPassword}
                         aria-controls="employee-password"
                       >
@@ -794,20 +806,42 @@ export default function TenantsPage() {
                     >
                       {PASSWORD_POLICY_MESSAGE}
                     </p>
-                    <div id="employee-password-rules" className="rounded-xl border border-border/60 bg-muted/30 p-3.5 space-y-2.5">
-                      <p className="text-xs font-semibold">Tiêu chuẩn an toàn mật khẩu:</p>
-                      <ul className="grid gap-2 text-xs sm:grid-cols-2" aria-live="polite" aria-atomic="true">
+                    <div
+                      id="employee-password-rules"
+                      className="rounded-xl border border-border/60 bg-muted/30 p-3.5 space-y-2.5"
+                    >
+                      <p className="text-xs font-semibold">
+                        Tiêu chuẩn an toàn mật khẩu:
+                      </p>
+                      <ul
+                        className="grid gap-2 text-xs sm:grid-cols-2"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
                         {passwordChecklist.map((rule) => (
-                          <li key={rule.label} className={cn("flex items-center gap-2", rule.satisfied ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground")}>
-                            <CheckCircle2 className={cn("size-3.5 shrink-0", !rule.satisfied && "opacity-30")} aria-hidden="true" />
-                            <span className="sr-only">{rule.satisfied ? "Đã đạt: " : "Chưa đạt: "}</span>
+                          <li
+                            key={rule.label}
+                            className={cn(
+                              "flex items-center gap-2",
+                              rule.satisfied
+                                ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            <CheckCircle2
+                              className={cn(
+                                "size-3.5 shrink-0",
+                                !rule.satisfied && "opacity-30",
+                              )}
+                              aria-hidden="true"
+                            />
+                            <span className="sr-only">
+                              {rule.satisfied ? "Đã đạt: " : "Chưa đạt: "}
+                            </span>
                             {rule.label}
                           </li>
                         ))}
                       </ul>
-                      <p className="text-[11px] text-muted-foreground">
-                        Tài khoản mới chưa có mật khẩu hiện tại để so sánh.
-                      </p>
                     </div>
                   </div>
 
