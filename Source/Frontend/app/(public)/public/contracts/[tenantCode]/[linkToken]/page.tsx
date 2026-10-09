@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { useContractDiscussionRealtime } from "@/hooks/use-contract-discussion-realtime";
 import {
   CalendarDays,
   FileText,
@@ -138,6 +139,18 @@ export default function PublicContractPage() {
     }
   }, [resetToPhone, tenantCode]);
 
+  const refreshDiscussions = useCallback(async (signal: AbortSignal) => {
+    try {
+      const comments = await publicContractApi.getComments(tenantCode, signal);
+      if (!signal.aborted) setContract((current) => current ? { ...current, comments } : current);
+    } catch (error) {
+      if (!signal.aborted && getStatus(error) === 401)
+        resetToPhone("Phiên truy cập đã hết hạn hoặc liên kết không còn hiệu lực. Vui lòng xác thực lại.");
+    }
+  }, [resetToPhone, tenantCode]);
+  useContractDiscussionRealtime(step === "contract"
+    ? `/public/contracts/${encodeURIComponent(tenantCode)}/discussion-hub` : null, refreshDiscussions);
+
   const initializeAccess = useCallback(async () => {
     setStep("checking");
     setPageError(null);
@@ -253,7 +266,7 @@ export default function PublicContractPage() {
       );
       setContract((current) =>
         current
-          ? { ...current, comments: [...current.comments, created] }
+          ? { ...current, comments: [...current.comments.filter((comment) => comment.commentId !== created.commentId), created] }
           : current,
       );
       return created;

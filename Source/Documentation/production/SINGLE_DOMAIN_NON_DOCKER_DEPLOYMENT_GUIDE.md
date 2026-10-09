@@ -134,6 +134,10 @@ worker_processes 1;
 events { worker_connections 1024; }
 
 http {
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
     server {
         listen 127.0.0.1:8080 default_server;
         return 444;
@@ -145,6 +149,10 @@ http {
         client_max_body_size 50m;
 
         location ^~ /api/ {
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_read_timeout 120s;
             proxy_set_header Host $http_host;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
@@ -158,7 +166,11 @@ http {
             proxy_pass http://127.0.0.1:5005;
         }
 
-        location ~ ^/public/contracts/[^/]+/(shared|comments|[^/]+/(availability|otp/(request|verify)))$ {
+        location ~ ^/public/contracts/[^/]+/(shared|comments|discussion-hub(/negotiate)?|[^/]+/(availability|otp/(request|verify)))$ {
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_read_timeout 120s;
             proxy_set_header Host $http_host;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
@@ -182,7 +194,9 @@ http {
 }
 ```
 
-Regex `/public/contracts/...` là bắt buộc với **route hiện tại**: API public của khách dùng `availability`, `otp`, `shared`, `comments`, còn trang nhập OTP cũng nằm dưới `/public/contracts/{tenantCode}/{linkToken}`. Chuyển cả tiền tố `/public/contracts/` sang API sẽ phá trang; không chuyển gì sẽ phá các request OTP. Nếu sau này thêm endpoint public, cập nhật route proxy hoặc chuyển API công khai về một tiền tố `/api/...` bằng một thay đổi code có test. Dòng `proxy_pass` **không có dấu `/` cuối** để giữ nguyên URI `/api/...`.
+Regex `/public/contracts/...` là bắt buộc với **route hiện tại**: API public của khách dùng `availability`, `otp`, `shared`, `comments`, `discussion-hub` và `discussion-hub/negotiate`, còn trang nhập OTP cũng nằm dưới `/public/contracts/{tenantCode}/{linkToken}`. Chuyển cả tiền tố `/public/contracts/` sang API sẽ phá trang; không chuyển gì sẽ phá các request OTP. Nếu sau này thêm endpoint public, cập nhật route proxy hoặc chuyển API công khai về một tiền tố `/api/...` bằng một thay đổi code có test. Dòng `proxy_pass` **không có dấu `/` cuối** để giữ nguyên URI `/api/...`.
+
+Các header `Upgrade`/`Connection` và `proxy_http_version 1.1` phục vụ WebSocket cho thông báo và trao đổi hợp đồng. Không cần cài SignalR riêng. Sau khi cập nhật API/Frontend, phải kiểm tra và tải lại cấu hình Nginx trên máy triển khai. Khách hàng kết nối bằng cookie HttpOnly đã cấp sau OTP; không đưa `linkToken` vào URL hub.
 
 Trước khi khởi động, kiểm tra các Nginx test cũ; nhiều master cùng giữ `8080` từng khiến request chạy vào cấu hình cũ và trả Next.js 404. Chỉ dừng tiến trình có đúng đường dẫn binary này, sau khi xem danh sách:
 
@@ -327,7 +341,14 @@ Không dùng `pm2 delete all` trên máy có ứng dụng khác. Sau khi đổi 
 
 Chỉ cấu hình HTTPS khi đã có DNS và certificate hợp lệ cho **cả** `app.example.com` và `admin.example.com`; thay các đường dẫn certificate mẫu dưới đây bằng đường dẫn thật. Block redirect HTTP có thể thêm sau khi TLS hoạt động.
 
+Đặt đoạn cấu hình dưới đây trong phạm vi `http` của Nginx (ví dụ tệp được include từ `http`). `map` phải ở ngoài các block `server`; nếu đã khai báo `$connection_upgrade` trong cấu hình chung thì chỉ giữ một khai báo.
+
 ```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
 server {
     listen 80;
     server_name app.example.com admin.example.com;
@@ -342,6 +363,10 @@ server {
     client_max_body_size 50m;
 
     location ^~ /api/ {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 120s;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -353,7 +378,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_pass http://127.0.0.1:5005;
     }
-    location ~ ^/public/contracts/[^/]+/(shared|comments|[^/]+/(availability|otp/(request|verify)))$ {
+    location ~ ^/public/contracts/[^/]+/(shared|comments|discussion-hub(/negotiate)?|[^/]+/(availability|otp/(request|verify)))$ {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 120s;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -382,6 +411,8 @@ server {
 ```
 
 Không thêm dấu `/` cuối `proxy_pass` của API hoặc regex public; không expose storage bằng `root`/`alias`. Tùy giới hạn file và thời gian render thật, điều chỉnh `client_max_body_size` và timeout có kiểm thử. Sau khi lưu: `sudo nginx -t` **trước** `sudo systemctl reload nginx`.
+
+Kiểm tra trao đổi thời gian thực bằng hai cửa sổ: nhân viên mở trao đổi chung/điều khoản; khách hàng xác minh OTP và mở cùng trao đổi. Tạo chủ đề, trả lời và đóng/mở lại chủ đề từ nhân viên phải cập nhật phía còn lại mà không tải lại trang. Khi đang nhập câu trả lời, tin mới không được xóa nội dung đang nhập. Sau mất mạng/kết nối lại, danh sách tự đồng bộ. Cookie OTP hết hạn, liên kết bị thu hồi hoặc hợp đồng sang vòng mới phải bị từ chối đọc; hợp đồng/tenant khác không nhận sự kiện của hợp đồng này.
 
 ### 4.4. DB, nghiệm thu và vận hành
 

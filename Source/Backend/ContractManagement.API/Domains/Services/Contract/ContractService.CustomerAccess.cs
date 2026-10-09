@@ -484,9 +484,11 @@ public partial class ContractService
                     await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
                         null, $"contract:{contractId}:comment:{comment.CommentId}",
                         "CustomerCommentCreated", "Khách hàng đã phản hồi đàm phán",
-                        "negotiation", now);
+                        "terms", now);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+                if (_discussionRealtime is not null)
+                    await _discussionRealtime.PublishAsync(contractId, versionId);
                 return new CustomerPublicNegotiationCommentResponse
                 {
                     CommentId = comment.CommentId,

@@ -619,6 +619,30 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
             request);
     }
 
+    public async Task<CustomerDiscussionAccess> GetDiscussionAccessAsync(
+        string sessionSecret, CancellationToken cancellationToken = default)
+    {
+        var context = await RequireActiveSessionAsync(sessionSecret, cancellationToken);
+        var available = await _dbContext.TblContracts.AsNoTracking().AnyAsync(x =>
+            x.ContractId == context.ContractId && x.CurrentVersionId == context.VersionId
+            && x.Status == (byte)ContractStatus.Negotiating, cancellationToken);
+        if (!available || !await _dbContext.TblContractVersions.AsNoTracking().AnyAsync(x =>
+                x.ContractId == context.ContractId && x.VersionId == context.VersionId && !x.IsLocked, cancellationToken))
+            throw new UnauthorizedAccessException("Customer access is no longer available.");
+        // Passive socket connections/refreshes do not extend the OTP session's idle lifetime.
+        return new(context.ContractId, context.VersionId, Min(context.Session.IdleExpiresAt, context.Session.HardExpiresAt));
+    }
+
+    public async Task<IReadOnlyList<CustomerPublicNegotiationCommentResponse>> GetCommentsAsync(
+        string sessionSecret, CancellationToken cancellationToken = default)
+    {
+        var access = await GetDiscussionAccessAsync(sessionSecret, cancellationToken);
+        var comments = await _dbContext.TblContractNegotiationComments.AsNoTracking()
+            .Where(x => x.ContractId == access.ContractId && x.VersionId == access.VersionId)
+            .OrderBy(x => x.CreatedDate).ThenBy(x => x.CommentId).ToListAsync(cancellationToken);
+        return comments.Select(MapPublicComment).ToList();
+    }
+
     private async Task<CustomerAccessSessionContext> RequireActiveSessionAsync(
         string sessionSecret,
         CancellationToken cancellationToken)

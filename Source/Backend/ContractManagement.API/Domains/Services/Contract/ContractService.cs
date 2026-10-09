@@ -19,6 +19,7 @@ using System.Data;
 using System.Security.Cryptography;
 using ContractManagement.API.Domains.CustomerAccess;
 using ContractManagement.API.Domains.Notifications;
+using ContractManagement.API.Domains.Discussions;
 using ContractManagement.Infrastructure.MultiTenancy.Interfaces;
 
 namespace ContractManagement.Domains.Services.Contract
@@ -49,27 +50,32 @@ namespace ContractManagement.Domains.Services.Contract
         private IContractPaymentDueDateService _paymentDueDates =
             new ContractPaymentDueDateService();
         private readonly ContractNotificationProducer? _notifications;
+        private readonly IContractDiscussionRealtimePublisher? _discussionRealtime;
         private IContractPlaceholderValueService PlaceholderValues => _placeholderValueService ??=
             new ContractPlaceholderValueService(_dbContext, new ContractPlaceholderSourceRegistry());
 
         public ContractService(
             DbDtctechContext dbContext,
-            IContractAuditWriter contractAuditWriter)
+            IContractAuditWriter contractAuditWriter,
+            IContractDiscussionRealtimePublisher? discussionRealtime = null)
         {
             _dbContext = dbContext;
             _contractAuditWriter = contractAuditWriter;
+            _discussionRealtime = discussionRealtime;
         }
 
         public ContractService(
             DbDtctechContext dbContext,
             IContractAuditWriter contractAuditWriter,
             ICurrentTenant currentTenant,
-            CustomerAccessCryptography customerAccessCryptography)
+            CustomerAccessCryptography customerAccessCryptography,
+            IContractDiscussionRealtimePublisher? discussionRealtime = null)
         {
             _dbContext = dbContext;
             _contractAuditWriter = contractAuditWriter;
             _currentTenant = currentTenant;
             _customerAccessCryptography = customerAccessCryptography;
+            _discussionRealtime = discussionRealtime;
         }
 
         public ContractService(
@@ -81,7 +87,8 @@ namespace ContractManagement.Domains.Services.Contract
             IPrivateFileStorage privateFileStorage,
             IContractPlaceholderValueService? placeholderValueService = null,
             IContractPaymentDueDateService? paymentDueDates = null,
-            ContractNotificationProducer? notifications = null)
+            ContractNotificationProducer? notifications = null,
+            IContractDiscussionRealtimePublisher? discussionRealtime = null)
             : this(
                 dbContext,
                 contractAuditWriter,
@@ -93,6 +100,7 @@ namespace ContractManagement.Domains.Services.Contract
             _submissionArtifactRenderer = submissionArtifactRenderer;
             _privateFileStorage = privateFileStorage;
             _notifications = notifications;
+            _discussionRealtime = discussionRealtime;
         }
 
         public ContractService(
@@ -3395,6 +3403,8 @@ namespace ContractManagement.Domains.Services.Contract
                         await _dbContext.SaveChangesAsync();
 
                         await transaction.CommitAsync();
+                        if (_discussionRealtime is not null)
+                            await _discussionRealtime.PublishAsync(contract.ContractId, version.VersionId);
                         return await MapCommentResponseAsync(comment);
                     }
                     catch (DbUpdateConcurrencyException exception)
@@ -3862,6 +3872,8 @@ namespace ContractManagement.Domains.Services.Contract
                     await _dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    if (_discussionRealtime is not null)
+                        await _discussionRealtime.PublishAsync(contractId, comment.VersionId);
                     return await MapCommentResponseAsync(comment);
                 }
                 catch (DbUpdateConcurrencyException exception)

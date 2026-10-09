@@ -1,4 +1,7 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
+using ContractManagement.API.Domains.Discussions;
+using ContractManagement.API.Domains.Models.Contract;
 using ContractManagement.API.Domains.CustomerAccess;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Requests.Public;
@@ -34,7 +37,8 @@ public sealed class ContractServiceSlice06Tests
     {
         await using var context = CreateContext();
         await SeedAsync(context);
-        var (contractService, customerAccess, cryptography) = CreateServices(context, provider);
+        var realtime = new RecordingDiscussionPublisher(context);
+        var (contractService, customerAccess, cryptography) = CreateServices(context, provider, realtime);
         var rowVersion = Convert.ToBase64String(InitialRowVersion());
 
         var phone = await contractService.UpdateCustomerVerificationPhoneAsync(
@@ -122,6 +126,19 @@ public sealed class ContractServiceSlice06Tests
             });
         Assert.Equal("Customer", comment.Source);
         Assert.Equal("Open", comment.LifecycleState);
+        Assert.Equal((ContractId, VersionId), Assert.Single(realtime.Publications));
+        var session = await context.TblContractCustomerAccessSessions.SingleAsync();
+        var idleExpiry = session.IdleExpiresAt;
+        var lastActivity = session.LastActivityAt;
+        var auditCount = await context.TblContractAudits.CountAsync();
+        var discussionAccess = await customerAccess.GetDiscussionAccessAsync(issue.SessionSecret);
+        Assert.Equal(ContractId, discussionAccess.ContractId);
+        Assert.Equal(VersionId, discussionAccess.VersionId);
+        Assert.Equal(idleExpiry, discussionAccess.ExpiresAt);
+        Assert.Equal(comment.CommentId, Assert.Single(await customerAccess.GetCommentsAsync(issue.SessionSecret)).CommentId);
+        Assert.Equal(idleExpiry, session.IdleExpiresAt);
+        Assert.Equal(lastActivity, session.LastActivityAt);
+        Assert.Equal(auditCount, await context.TblContractAudits.CountAsync());
 
         var persisted = await context.TblContractNegotiationComments.SingleAsync();
         Assert.Null(persisted.RecordedByEmployeeId);
@@ -153,6 +170,10 @@ public sealed class ContractServiceSlice06Tests
         Assert.Equal("Unavailable", revokedAvailability.State);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => customerAccess.GetSharedAsync(issue.SessionSecret));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => customerAccess.GetDiscussionAccessAsync(issue.SessionSecret));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => customerAccess.GetCommentsAsync(issue.SessionSecret));
     }
 
     [Fact]
@@ -266,6 +287,152 @@ public sealed class ContractServiceSlice06Tests
                 ContractAuditFieldCode.NewLinkId).IntegerValue);
     }
 
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("missing-cookie")]
+    [InlineData("wrong-secret")]
+    [InlineData("wrong-tenant")]
+    [InlineData("expired-idle")]
+    [InlineData("expired-hard")]
+    [InlineData("revoked-session")]
+    [InlineData("revoked-link")]
+    [InlineData("expired-link")]
+    [InlineData("pending-link")]
+    [InlineData("changed-version")]
+    [InlineData("locked-version")]
+    [InlineData("closed-negotiation")]
+    public async Task DiscussionCustomerAccess_RequiresActiveOtpAndCurrentNegotiatingVersion(string scenario)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var (_, access, crypto) = CreateServices(context);
+        var now = DateTime.UtcNow;
+        var contract = await context.TblContracts.SingleAsync();
+        contract.Status = (byte)ContractStatus.Negotiating;
+        var link = new TblContractCustomerAccessLink
+        {
+            CustomerAccessLinkId = 900, TenantId = TenantId, ContractId = ContractId,
+            VersionId = VersionId, VerificationPhoneId = 901, TokenHash = crypto.HashSecret("link-secret"),
+            CreatedByEmployeeId = EmployeeId, CreatedDate = now, ActivatedAt = now,
+            ExpiresAt = now.AddHours(1), RowVersion = InitialRowVersion()
+        };
+        var session = new TblContractCustomerAccessSession
+        {
+            CustomerAccessSessionId = 902, TenantId = TenantId, ContractId = ContractId,
+            VersionId = VersionId, LinkId = 900, VerificationPhoneId = 901,
+            SessionTokenHash = crypto.HashSecret("session-secret"), IssuedAt = now, LastActivityAt = now,
+            IdleExpiresAt = now.AddMinutes(30), HardExpiresAt = now.AddHours(1), RowVersion = InitialRowVersion()
+        };
+        var secret = "session-secret";
+        switch (scenario)
+        {
+            case "missing-cookie": secret = ""; break;
+            case "wrong-secret": secret = "other-session"; break;
+            case "wrong-tenant": session.TenantId++; break;
+            case "expired-idle": session.IdleExpiresAt = now.AddMinutes(-1); break;
+            case "expired-hard": session.HardExpiresAt = now.AddMinutes(-1); break;
+            case "revoked-session": session.RevokedAt = now; break;
+            case "revoked-link": link.RevokedAt = now; break;
+            case "expired-link": link.ExpiresAt = now.AddMinutes(-1); break;
+            case "pending-link": link.ActivatedAt = null; break;
+            case "changed-version": contract.CurrentVersionId++; break;
+            case "locked-version":
+                var version = await context.TblContractVersions.SingleAsync();
+                var snapshot = ContractSnapshotTestData.Create(ContractId, VersionId);
+                version.IsLocked = true;
+                version.SnapshotHash = SoftwareSupplyContractSnapshotFactory.CalculateHash(snapshot);
+                context.TblContractVersionLegalSnapshots.Add(
+                    SoftwareSupplyContractSnapshotFactory.CreatePersistenceGraph(snapshot, EmployeeId, now));
+                break;
+            case "closed-negotiation": contract.Status = (byte)ContractStatus.Draft; break;
+        }
+        context.TblContractCustomerAccessLinks.Add(link);
+        context.TblContractCustomerAccessSessions.Add(session);
+        for (var index = 0; index < 4; index++)
+            context.TblContractNegotiationComments.Add(new TblContractNegotiationComment
+            {
+                CommentId = 910 + index, ContractId = index == 2 ? ContractId + 1 : ContractId,
+                VersionId = index == 3 ? VersionId + 1 : VersionId,
+                ParentCommentId = index == 1 ? 910 : null, Content = $"Comment {index}",
+                Source = "Customer", CustomerAccessSessionId = 902, CreatedDate = now,
+                RowVersion = InitialRowVersion()
+            });
+        await context.SaveChangesAsync();
+        if (scenario != "valid")
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => access.GetDiscussionAccessAsync(secret));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => access.GetCommentsAsync(secret));
+            return;
+        }
+        var subscription = await access.GetDiscussionAccessAsync(secret);
+        Assert.Equal(ContractId, subscription.ContractId);
+        Assert.Equal(VersionId, subscription.VersionId);
+        var comments = await access.GetCommentsAsync(secret);
+        Assert.Equal(new[] { 910, 911 }, comments.Select(x => x.CommentId));
+        Assert.Equal(910, comments[1].ParentCommentId);
+        var json = JsonSerializer.Serialize(comments);
+        Assert.DoesNotContain("Session", json);
+        Assert.DoesNotContain("Employee", json);
+        Assert.DoesNotContain("RowVersion", json);
+        Assert.Equal(now, session.LastActivityAt);
+        Assert.Equal(now.AddMinutes(30), session.IdleExpiresAt);
+        Assert.Empty(context.TblContractAudits);
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("manager")]
+    [InlineData("other-employee")]
+    [InlineData("wrong-tenant")]
+    [InlineData("wrong-version")]
+    [InlineData("expired-session")]
+    public async Task DiscussionEmployeeAccess_UsesExistingSessionAndContractReadPermissions(string scenario)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var employee = await context.TblEmployees.SingleAsync();
+        employee.SessionVersion = 1;
+        if (scenario == "manager") employee.EmployeeType = (byte)EmployeeType.Manager;
+        if (scenario is "manager" or "other-employee") (await context.TblContracts.SingleAsync()).EmployeeId++;
+        await context.SaveChangesAsync();
+        var tenant = new CurrentTenant();
+        tenant.Set(new ResolvedTenant(TenantId, "tenant-906", "Tenant 906", TenantDatabaseMode.Dedicated, "InMemory"));
+        var (_, customerAccess, _) = CreateServices(context);
+        var access = new ContractDiscussionAccessService(tenant, context, customerAccess);
+        var http = new DefaultHttpContext { Session = new DiscussionTestSession() };
+        http.Session.SetInt32(AccountSessionKeys.EmployeeId, EmployeeId);
+        http.Session.SetInt32(AccountSessionKeys.EmployeeSessionVersion, scenario == "expired-session" ? 0 : 1);
+        http.Session.SetInt32("TenantId", scenario == "wrong-tenant" ? TenantId + 1 : TenantId);
+        http.Request.RouteValues["contractId"] = ContractId;
+        http.Request.RouteValues["versionId"] = scenario == "wrong-version" ? VersionId + 1 : VersionId;
+        if (scenario is "wrong-tenant" or "expired-session")
+            await Assert.ThrowsAsync<RbacOperationException>(() => access.ForEmployeeAsync(http));
+        else if (scenario is "other-employee" or "wrong-version")
+            await Assert.ThrowsAsync<KeyNotFoundException>(() => access.ForEmployeeAsync(http));
+        else
+        {
+            var subscription = await access.ForEmployeeAsync(http);
+            Assert.Equal(TenantId, subscription.TenantId);
+            Assert.Equal(ContractId, subscription.ContractId);
+            Assert.Equal(VersionId, subscription.VersionId);
+        }
+    }
+
+    private sealed class DiscussionTestSession : ISession
+    {
+        private readonly Dictionary<string, byte[]> values = [];
+        public bool IsAvailable => true;
+        public string Id => "discussion-test";
+        public IEnumerable<string> Keys => values.Keys;
+        public void Clear() => values.Clear();
+        public void Remove(string key) => values.Remove(key);
+        public void Set(string key, byte[] value) => values[key] = value;
+        public bool TryGetValue(string key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out byte[]? value) =>
+            values.TryGetValue(key, out value);
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private static DbDtctechContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<DbDtctechContext>()
@@ -278,7 +445,8 @@ public sealed class ContractServiceSlice06Tests
 
     private static (ContractService ContractService,
         CustomerContractAccessService CustomerAccess,
-        CustomerAccessCryptography Cryptography) CreateServices(DbDtctechContext context, string provider = "Fake")
+        CustomerAccessCryptography Cryptography) CreateServices(DbDtctechContext context, string provider = "Fake",
+            IContractDiscussionRealtimePublisher? realtime = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(
@@ -301,7 +469,7 @@ public sealed class ContractServiceSlice06Tests
             EncryptionKey = Convert.ToBase64String(Enumerable.Repeat((byte)2, 32).ToArray())
         });
         var cryptography = new CustomerAccessCryptography(options);
-        var contractService = new ContractService(context, audit, tenant, cryptography);
+        var contractService = new ContractService(context, audit, tenant, cryptography, realtime);
         return (
             contractService,
             new CustomerContractAccessService(
