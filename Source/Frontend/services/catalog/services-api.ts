@@ -3,6 +3,7 @@ import axiosClient from "@/lib/axios-interceptor";
 export enum ServiceStatus {
   Active = 1,
   Inactive = 0,
+  Deleted = 2,
 }
 
 export const getServiceStatusLabel = (status?: number | null) => {
@@ -11,6 +12,8 @@ export const getServiceStatusLabel = (status?: number | null) => {
       return "Đang hoạt động";
     case ServiceStatus.Inactive:
       return "Ngừng hoạt động";
+    case ServiceStatus.Deleted:
+      return "Đã xóa";
     default:
       return "Chưa cập nhật";
   }
@@ -104,10 +107,21 @@ export interface PagedResult<T> {
 
 const BASE_URL = "/api/catalog/services";
 
+export interface ServiceOptionResponse {
+  serviceId: number;
+  serviceName?: string | null;
+  serviceParentId?: number | null;
+  status?: number | null;
+}
+
 export const serviceApi = {
-  getList: (params: ServiceFilterParams) => {
+  getOptions: (signal?: AbortSignal) => {
+    return axiosClient.get<unknown, ServiceOptionResponse[]>(`${BASE_URL}/options`, { signal });
+  },
+  getList: (params: ServiceFilterParams, signal?: AbortSignal) => {
     return axiosClient.get<any, PagedResult<ServiceResponse>>(BASE_URL, {
       params,
+      signal,
     });
   },
   getById: (id: number) => {
@@ -128,6 +142,9 @@ export const serviceApi = {
   },
   delete: (id: number) => {
     return axiosClient.delete<any, { serviceId: number }>(`${BASE_URL}/${id}`);
+  },
+  restore: (id: number) => {
+    return axiosClient.post<unknown, { serviceId: number; status: number }>(`${BASE_URL}/${id}/restore`);
   },
 };
 

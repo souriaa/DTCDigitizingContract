@@ -20,5 +20,6 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
         Task SetStatusAsync(int id, byte status);
 
         Task DeleteAsync(int id);
+        Task RestoreAsync(int id);
     }
 }

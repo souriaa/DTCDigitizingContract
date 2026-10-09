@@ -1,5 +1,7 @@
 ﻿using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -30,6 +32,10 @@ namespace ContractManagement.Domains.Services.Catalog
             if (filter.PageSize <= 0) filter.PageSize = 20;
 
             var query = _dbContext.TblProducts.AsNoTracking();
+            if (filter.Status != CatalogItemStatuses.Deleted)
+            {
+                query = query.Where(x => x.Status != CatalogItemStatuses.Deleted);
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Keyword))
             {
@@ -85,7 +91,8 @@ namespace ContractManagement.Domains.Services.Catalog
         {
             var product = await _dbContext.TblProducts
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ProductId == id);
+                .FirstOrDefaultAsync(x => x.ProductId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (product == null)
             {
@@ -106,18 +113,7 @@ namespace ContractManagement.Domains.Services.Catalog
         {
             await ValidateCategoryAsync(request.CategoryId);
 
-            if (!string.IsNullOrWhiteSpace(request.ProductCode))
-            {
-                var code = request.ProductCode.Trim();
-
-                var codeExists = await _dbContext.TblProducts
-                    .AnyAsync(x => x.ProductCode == code);
-
-                if (codeExists)
-                {
-                    throw new InvalidOperationException("Mã sản phẩm đã tồn tại.");
-                }
-            }
+            await ValidateProductCodeAsync(request.ProductCode);
 
             var product = new TblProduct
             {
@@ -139,7 +135,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 MetaDescription = request.MetaDescription?.Trim(),
 
                 // Quy ước: 1 = Active, 0 = Inactive
-                Status = 1,
+                Status = CatalogItemStatuses.Active,
 
                 ProductCreatedDate = DateTime.Now
             };
@@ -153,7 +149,8 @@ namespace ContractManagement.Domains.Services.Catalog
         public async Task UpdateAsync(int id, UpdateProductRequest request)
         {
             var product = await _dbContext.TblProducts
-                .FirstOrDefaultAsync(x => x.ProductId == id);
+                .FirstOrDefaultAsync(x => x.ProductId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (product == null)
             {
@@ -162,18 +159,7 @@ namespace ContractManagement.Domains.Services.Catalog
 
             await ValidateCategoryAsync(request.CategoryId);
 
-            if (!string.IsNullOrWhiteSpace(request.ProductCode))
-            {
-                var code = request.ProductCode.Trim();
-
-                var codeExists = await _dbContext.TblProducts
-                    .AnyAsync(x => x.ProductId != id && x.ProductCode == code);
-
-                if (codeExists)
-                {
-                    throw new InvalidOperationException("Mã sản phẩm đã tồn tại.");
-                }
-            }
+            await ValidateProductCodeAsync(request.ProductCode, id);
 
             product.ProductCode = request.ProductCode?.Trim();
             product.ProductName = request.ProductName.Trim();
@@ -203,7 +189,8 @@ namespace ContractManagement.Domains.Services.Catalog
             }
 
             var product = await _dbContext.TblProducts
-                .FirstOrDefaultAsync(x => x.ProductId == id);
+                .FirstOrDefaultAsync(x => x.ProductId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (product == null)
             {
@@ -225,11 +212,45 @@ namespace ContractManagement.Domains.Services.Catalog
                 throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
             }
 
-            // Product có thể được dùng trong quotation/order sau này.
-            // Vì vậy delete ở đây xử lý như soft delete bằng Status = 0.
-            product.Status = 0;
+            // Hide from the catalog without removing contract, quotation,
+            // order or delivery references. Locking remains Status = 0.
+            product.Status = CatalogItemStatuses.Deleted;
 
             await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task RestoreAsync(int id)
+        {
+            var product = await _dbContext.TblProducts.FirstOrDefaultAsync(x => x.ProductId == id);
+            if (product == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
+            }
+            if (product.Status != CatalogItemStatuses.Deleted)
+            {
+                throw new InvalidOperationException("Chỉ có thể khôi phục sản phẩm đã xóa.");
+            }
+
+            await ValidateCategoryAsync(product.CategoryId);
+            product.Status = CatalogItemStatuses.Inactive;
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task ValidateProductCodeAsync(string? productCode, int? currentProductId = null)
+        {
+            if (string.IsNullOrWhiteSpace(productCode)) return;
+            var code = productCode.Trim();
+            var existing = await _dbContext.TblProducts.AsNoTracking()
+                .Where(x => x.ProductCode == code && (!currentProductId.HasValue || x.ProductId != currentProductId.Value))
+                .Select(x => new { x.ProductName, x.Status })
+                .FirstOrDefaultAsync();
+            if (existing == null) return;
+            if (existing.Status == CatalogItemStatuses.Deleted)
+            {
+                throw new BusinessRuleException(StatusCodes.Status409Conflict, "ProductCodeDeleted",
+                    $"Mã {code} thuộc sản phẩm \"{existing.ProductName}\" đã xóa. Hãy mở danh sách Đã xóa để khôi phục sản phẩm hoặc sử dụng mã khác.");
+            }
+            throw new InvalidOperationException("Mã sản phẩm đã tồn tại.");
         }
 
         private async Task ValidateCategoryAsync(int? categoryId)

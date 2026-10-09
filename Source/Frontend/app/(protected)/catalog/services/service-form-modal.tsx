@@ -14,14 +14,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Package, DollarSign, Globe } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import {
   serviceApi,
-  ServiceResponse,
-  CreateServiceRequest,
-  UpdateServiceRequest,
+  ServiceStatus,
+  type ServiceResponse,
+  type ServiceOptionResponse,
 } from "@/services/catalog/services-api";
+import {
+  serviceTypeApi,
+  type ServiceTypeOptionResponse,
+} from "@/services/catalog/service-types-api";
+
+const NO_SELECTION = "none";
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -39,6 +52,7 @@ export function ServiceFormModal({
   viewOnly = false,
 }: ServiceFormModalProps) {
   const isEditMode = !!item && !viewOnly;
+  const currentServiceId = item?.serviceId;
 
   const [activeTab, setActiveTab] = useState("basic");
 
@@ -67,6 +81,67 @@ export function ServiceFormModal({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [serviceTypes, setServiceTypes] = useState<ServiceTypeOptionResponse[]>([]);
+  const [parentServices, setParentServices] = useState<ServiceOptionResponse[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  const [optionsError, setOptionsError] = useState(false);
+  const [optionsAttempt, setOptionsAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    const loadOptions = async () => {
+      setIsLoadingOptions(true);
+      setOptionsError(false);
+      setServiceTypes([]);
+      setParentServices([]);
+      try {
+        const [types, services] = await Promise.all([
+          serviceTypeApi.getOptions(controller.signal),
+          serviceApi.getOptions(controller.signal),
+        ]);
+        if (cancelled) return;
+        setServiceTypes(types);
+        // Exclude self and descendants to avoid selecting a circular parent.
+        const excludedIds = new Set<number>(
+          currentServiceId == null ? [] : [currentServiceId],
+        );
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const service of services) {
+            if (
+              service.serviceParentId != null &&
+              excludedIds.has(service.serviceParentId) &&
+              !excludedIds.has(service.serviceId)
+            ) {
+              excludedIds.add(service.serviceId);
+              changed = true;
+            }
+          }
+        }
+        setParentServices(
+          services.filter(
+            (service) =>
+              service.status !== ServiceStatus.Deleted &&
+              !excludedIds.has(service.serviceId),
+          ),
+        );
+      } catch {
+        if (!cancelled) setOptionsError(true);
+      } finally {
+        if (!cancelled) setIsLoadingOptions(false);
+      }
+    };
+    void loadOptions();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isOpen, currentServiceId, optionsAttempt]);
+
+  console.log(serviceTypes, parentServices);
 
   useEffect(() => {
     if (isOpen) {
@@ -149,9 +224,6 @@ export function ServiceFormModal({
     if (!serviceName.trim()) {
       newErrors.serviceName = "Vui lòng nhập tên dịch vụ";
     }
-    if (serviceTypeId && isNaN(Number(serviceTypeId))) {
-      newErrors.serviceTypeId = "ID Loại dịch vụ phải là số";
-    }
     if (servicePrice && isNaN(Number(servicePrice))) {
       newErrors.servicePrice = "Đơn giá phải là số hợp lệ";
     }
@@ -164,7 +236,7 @@ export function ServiceFormModal({
 
     setErrors(newErrors);
 
-    if (newErrors.serviceName || newErrors.serviceTypeId) {
+    if (newErrors.serviceName) {
       setActiveTab("basic");
     } else if (
       newErrors.servicePrice ||
@@ -303,33 +375,96 @@ export function ServiceFormModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="serviceTypeId">ID Loại dịch vụ</Label>
-                <Input
-                  id="serviceTypeId"
-                  type="number"
-                  placeholder="Ví dụ: 1"
-                  value={serviceTypeId}
-                  onChange={(e) => setServiceTypeId(e.target.value)}
-                  disabled={viewOnly}
-                  aria-invalid={!!errors.serviceTypeId}
-                />
-                {errors.serviceTypeId && (
-                  <p className="text-xs text-destructive">
-                    {errors.serviceTypeId}
-                  </p>
-                )}
+                <Label htmlFor="serviceTypeId">Loại dịch vụ</Label>
+                <Select
+                  value={serviceTypeId || NO_SELECTION}
+                  onValueChange={(value) =>
+                    setServiceTypeId(value === NO_SELECTION ? "" : value)
+                  }
+                  disabled={
+                    viewOnly || isSaving || isLoadingOptions || optionsError
+                  }
+                >
+                  <SelectTrigger id="serviceTypeId" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isLoadingOptions ? "Đang tải..." : "Chọn loại dịch vụ"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SELECTION}>
+                      Không chọn loại dịch vụ
+                    </SelectItem>
+                    {serviceTypeId &&
+                      !serviceTypes.some(
+                        (type) => String(type.serviceTypeId) === serviceTypeId,
+                      ) && (
+                        <SelectItem value={serviceTypeId} disabled>
+                          {item?.serviceTypeName ||
+                            (isLoadingOptions
+                              ? "Đang tải..."
+                              : "Loại dịch vụ hiện tại không khả dụng")}
+                        </SelectItem>
+                      )}
+                    {serviceTypes.map((type) => (
+                      <SelectItem
+                        key={type.serviceTypeId}
+                        value={String(type.serviceTypeId)}
+                      >
+                        {type.serviceTypeName || "Loại dịch vụ chưa có tên"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="serviceParentId">ID Dịch vụ cha</Label>
-                <Input
-                  id="serviceParentId"
-                  type="number"
-                  placeholder="ID cha (nếu có)"
-                  value={serviceParentId}
-                  onChange={(e) => setServiceParentId(e.target.value)}
-                  disabled={viewOnly}
-                />
+                <Label htmlFor="serviceParentId">Dịch vụ cha</Label>
+                <Select
+                  value={serviceParentId || NO_SELECTION}
+                  onValueChange={(value) =>
+                    setServiceParentId(value === NO_SELECTION ? "" : value)
+                  }
+                  disabled={
+                    viewOnly || isSaving || isLoadingOptions || optionsError
+                  }
+                >
+                  <SelectTrigger id="serviceParentId" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isLoadingOptions ? "Đang tải..." : "Chọn dịch vụ cha"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SELECTION}>
+                      Không có dịch vụ cha
+                    </SelectItem>
+                    {serviceParentId &&
+                      !parentServices.some(
+                        (service) =>
+                          String(service.serviceId) === serviceParentId,
+                      ) && (
+                        <SelectItem value={serviceParentId} disabled>
+                          {isLoadingOptions
+                            ? "Đang tải..."
+                            : "Dịch vụ cha hiện tại không khả dụng"}
+                        </SelectItem>
+                      )}
+                    {parentServices.map((service) => (
+                      <SelectItem
+                        key={service.serviceId}
+                        value={String(service.serviceId)}
+                      >
+                        {service.serviceName || "Dịch vụ chưa có tên"}
+                        {service.status === ServiceStatus.Inactive
+                          ? " (Ngừng hoạt động)"
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">
@@ -344,6 +479,23 @@ export function ServiceFormModal({
                 />
               </div>
             </div>
+
+            {optionsError && (
+              <div
+                className="flex items-center gap-2 text-sm text-destructive"
+                role="alert"
+              >
+                Không thể tải loại dịch vụ và dịch vụ cha.
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOptionsAttempt((attempt) => attempt + 1)}
+                >
+                  Thử lại
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">

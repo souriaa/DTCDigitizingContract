@@ -807,6 +807,7 @@ export default function CreateContractPage() {
         const requestParams = {
           page: 1,
           pageSize: 100,
+          status: 1, // Only active products/services may be selected for a new contract.
           keyword: debouncedCatalogSearch || undefined,
         };
         let fetchedItems: CatalogItem[] = [];

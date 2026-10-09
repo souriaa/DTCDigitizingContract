@@ -1,5 +1,21 @@
 import axiosClient from "@/lib/axios-interceptor";
 
+export enum DepartmentStatus {
+  Active = 1,
+  Inactive = 0,
+}
+
+export const getDepartmentStatusLabel = (status?: number | null) => {
+  switch (status) {
+    case DepartmentStatus.Active:
+      return "Đang hoạt động";
+    case DepartmentStatus.Inactive:
+      return "Tạm khóa";
+    default:
+      return "Chưa xác định";
+  }
+};
+
 export interface CreateDepartmentRequest {
   departmentCode: string;
   departmentName: string;

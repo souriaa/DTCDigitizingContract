@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Header } from "@/components/ui/custom/header";
 import {
   Package,
@@ -12,6 +12,7 @@ import {
   UserCog,
   Plus,
   Layers,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,8 @@ import {
 import { DataTable } from "@/components/ui/custom/data-table-server";
 import { StatusBadge } from "@/components/ui/custom/status-badge";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
 import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
 import { SelectFilter } from "@/components/ui/custom/select-filter";
 import {
@@ -43,13 +46,16 @@ import { PageHeaderSkeleton } from "@/components/ui/custom/table-skeleton";
 import { ProductFormModal } from "./product-form-modal";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import { Badge } from "@/components/ui/badge";
 
 function ProductBulkActions({
   selectedRows,
   resetSelection,
+  onChanged,
 }: {
   selectedRows: ProductResponse[];
   resetSelection: () => void;
+  onChanged: () => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -69,21 +75,35 @@ function ProductBulkActions({
       toast.error("Lỗi khi cập nhật trạng thái hàng loạt");
     } finally {
       setIsLoading(false);
+      onChanged();
     }
   };
 
   const handleBulkDelete = async () => {
     setIsLoading(true);
     try {
-      await Promise.all(
+      const results = await Promise.allSettled(
         selectedRows.map((product) => productApi.delete(product.productId)),
       );
-      toast.success(`Đã xóa ${selectedRows.length} sản phẩm`);
+      const deletedCount = results.filter(
+        (result) => result.status === "fulfilled",
+      ).length;
+      if (deletedCount > 0) toast.success(`Đã xóa ${deletedCount} sản phẩm`);
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected") {
+        toast.error(
+          getApiErrorMessage(
+            failed.reason,
+            "Không thể xóa một số sản phẩm đã chọn.",
+          ),
+        );
+      }
       resetSelection();
     } catch (error) {
-      toast.error("Lỗi khi xóa hàng loạt");
+      toast.error(getApiErrorMessage(error, "Không thể xóa sản phẩm đã chọn."));
     } finally {
       setIsLoading(false);
+      onChanged();
     }
   };
 
@@ -103,7 +123,14 @@ function ProductBulkActions({
           label: "Xóa sản phẩm",
           icon: <Trash2 className="w-4 h-4" />,
           isDestructive: true,
-          onClick: handleBulkDelete,
+          onClick: () =>
+            showConfirmToast({
+              title: `Xóa ${selectedRows.length} sản phẩm?`,
+              description:
+                "Các mục sẽ bị ẩn khỏi danh mục. Dữ liệu hợp đồng đã có vẫn được giữ nguyên.",
+              confirmLabel: "Xác nhận xóa",
+              onConfirm: handleBulkDelete,
+            }),
         },
       ]}
     />
@@ -111,9 +138,10 @@ function ProductBulkActions({
 }
 
 const PRODUCT_STATUS_OPTIONS = [
-  { label: "Tất cả trạng thái", value: "All" },
+  { label: "Tất cả", value: "All" },
   { label: "Đang kinh doanh", value: String(ProductStatus.Active) },
   { label: "Ngừng kinh doanh", value: String(ProductStatus.Inactive) },
+  { label: "Đã xóa", value: String(ProductStatus.Deleted) },
 ];
 
 export default function ProductListPage() {
@@ -137,11 +165,18 @@ export default function ProductListPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isToggling, setIsToggling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [restoreItem, setRestoreItem] = useState<ProductResponse | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const isDeletedView = filterStatus === String(ProductStatus.Deleted);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductResponse | null>(null);
   const [viewingItem, setViewingItem] = useState<ProductResponse | null>(null);
+  const listRequest = useRef<AbortController | null>(null);
 
   const fetchProducts = useCallback(async () => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
     setIsLoading(true);
     try {
       const statusParam =
@@ -155,21 +190,39 @@ export default function ProductListPage() {
         ? format(dateRange.to, "yyyy-MM-dd")
         : undefined;
 
-      const res = await productApi.getList({
-        page: pagination.pageIndex + 1,
-        pageSize: pagination.pageSize,
-        keyword: searchTerm || undefined,
-        status: statusParam,
-        fromDate: fromDateParam,
-        toDate: toDateParam,
-      });
+      const res = await productApi.getList(
+        {
+          page: pagination.pageIndex + 1,
+          pageSize: pagination.pageSize,
+          keyword: searchTerm || undefined,
+          status: statusParam,
+          fromDate: fromDateParam,
+          toDate: toDateParam,
+        },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
 
       setProducts(res.items || []);
       setTotalCount(res.totalCount || 0);
+      if (
+        pagination.pageIndex > 0 &&
+        pagination.pageIndex >=
+          Math.max(1, Math.ceil(res.totalCount / pagination.pageSize))
+      ) {
+        setPagination((current) => ({
+          ...current,
+          pageIndex: Math.max(
+            0,
+            Math.ceil(res.totalCount / current.pageSize) - 1,
+          ),
+        }));
+      }
     } catch (error) {
-      toast.error("Lỗi khi tải danh sách sản phẩm");
+      if (!controller.signal.aborted)
+        toast.error("Lỗi khi tải danh sách sản phẩm");
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, [
     pagination.pageIndex,
@@ -182,6 +235,7 @@ export default function ProductListPage() {
 
   useEffect(() => {
     fetchProducts();
+    return () => listRequest.current?.abort();
   }, [fetchProducts]);
 
   const handleToggleStatusConfirm = async () => {
@@ -218,9 +272,26 @@ export default function ProductListPage() {
       setDeleteId(null);
       fetchProducts();
     } catch (error) {
-      toast.error("Không thể xóa sản phẩm");
+      toast.error(getApiErrorMessage(error, "Không thể xóa sản phẩm."));
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreItem || isRestoring) return;
+    setIsRestoring(true);
+    try {
+      await productApi.restore(restoreItem.productId);
+      toast.success(
+        "Đã khôi phục sản phẩm ở trạng thái ngừng kinh doanh. Hãy kiểm tra trước khi mở kinh doanh.",
+      );
+      setRestoreItem(null);
+      await fetchProducts();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể khôi phục sản phẩm."));
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -328,10 +399,20 @@ export default function ProductListPage() {
         accessorKey: "status",
         header: () => <div className="text-center">Trạng thái</div>,
         cell: ({ row }) => {
-          const statusVal = row.original.status;
+          const statusStr = getProductStatusLabel(row.original.status);
           return (
             <div className="flex justify-center min-w-[130px]">
-              <StatusBadge status={getProductStatusLabel(statusVal)} />
+              <Badge
+                variant={
+                  row.original.status === ProductStatus.Active
+                    ? "outline"
+                    : row.original.status === ProductStatus.Inactive
+                      ? "warning"
+                      : "destructive"
+                }
+              >
+                {statusStr}
+              </Badge>
             </div>
           );
         },
@@ -342,38 +423,53 @@ export default function ProductListPage() {
         cell: ({ row }) => {
           const item = row.original;
           const isActive = item.status === ProductStatus.Active;
+          const isDeleted = item.status === ProductStatus.Deleted;
           return (
             <SplitActionMenu
               primaryLabel="Chi tiết"
               primaryIcon={<Eye className="w-4 h-4" />}
               onPrimaryClick={() => setViewingItem(item)}
               isLoading={loadingId === item.productId}
-              menuItems={canManage ? [
-                {
-                  label: "Chỉnh sửa",
-                  icon: <UserCog className="w-4 h-4" />,
-                  onClick: () => {
-                    setEditingItem(item);
-                    setIsFormOpen(true);
-                  },
-                },
-                {
-                  label: isActive ? "Ngừng kinh doanh" : "Đang kinh doanh",
-                  icon: isActive ? (
-                    <Lock className="w-4 h-4" />
-                  ) : (
-                    <Unlock className="w-4 h-4" />
-                  ),
-                  isDestructive: isActive,
-                  onClick: () => setToggleStatusId(item.productId),
-                },
-                {
-                  label: "Xóa sản phẩm",
-                  icon: <Trash2 className="w-4 h-4" />,
-                  isDestructive: true,
-                  onClick: () => setDeleteId(item.productId),
-                },
-              ] : []}
+              menuItems={
+                canManage
+                  ? isDeleted
+                    ? [
+                        {
+                          label: "Khôi phục",
+                          icon: <RotateCcw className="w-4 h-4" />,
+                          onClick: () => setRestoreItem(item),
+                        },
+                      ]
+                    : [
+                        {
+                          label: "Chỉnh sửa",
+                          icon: <UserCog className="w-4 h-4" />,
+                          onClick: () => {
+                            setEditingItem(item);
+                            setIsFormOpen(true);
+                          },
+                        },
+                        {
+                          label: isActive
+                            ? "Ngừng kinh doanh"
+                            : "Mở kinh doanh",
+                          icon: isActive ? (
+                            <Lock className="w-4 h-4" />
+                          ) : (
+                            <Unlock className="w-4 h-4" />
+                          ),
+                          isDestructive: isActive,
+                          onClick: () => setToggleStatusId(item.productId),
+                        },
+                        {
+                          label: "Xóa sản phẩm",
+                          icon: <Trash2 className="w-4 h-4" />,
+                          isDestructive: true,
+                          onClick: () => setDeleteId(item.productId),
+                        },
+                      ]
+                  : []
+              }
             />
           );
         },
@@ -404,13 +500,15 @@ export default function ProductListPage() {
       },
       {
         title: "Ngừng kinh doanh (Trang này)",
-        value: products.length - activeCount,
+        value: products.filter(
+          (product) => product.status === ProductStatus.Inactive,
+        ).length,
         icon: <Lock className="w-6 h-6" />,
         iconWrapperClassName:
           "bg-amber-500/10 text-amber-600 dark:text-amber-500",
       },
     ],
-    [totalCount, activeCount, products.length],
+    [totalCount, activeCount, products],
   );
 
   const CustomFilters = (
@@ -455,21 +553,30 @@ export default function ProductListPage() {
             </p>
           </div>
 
-          {canManage && <Button
-            onClick={() => {
-              setEditingItem(null);
-              setIsFormOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" /> Thêm mới
-          </Button>}
+          {canManage && (
+            <Button
+              onClick={() => {
+                setEditingItem(null);
+                setIsFormOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Thêm mới
+            </Button>
+          )}
         </div>
 
         <SummaryCards items={summaryItems} isLoading={isLoading} />
+        {isDeletedView && (
+          <p className="text-sm text-muted-foreground">
+            Sản phẩm đã xóa chỉ có thể xem hoặc khôi phục. Sau khi khôi phục,
+            hãy chọn “Ngừng kinh doanh” để kiểm tra và mở kinh doanh khi cần.
+          </p>
+        )}
 
         <Card className="border-border shadow-sm bg-card min-h-[500px] flex flex-col gap-0 p-0">
           <CardContent className="p-4 flex flex-col justify-between flex-1 pb-0">
             <DataTable
+              key={isDeletedView ? "deleted" : "current"}
               columns={columns}
               data={products}
               pageCount={Math.ceil(totalCount / pagination.pageSize)}
@@ -482,12 +589,17 @@ export default function ProductListPage() {
               onRowClick={(row) => setViewingItem(row)}
               searchValue={searchTerm}
               onSearchChange={(value) => setSearchTerm(value)}
-              bulkActions={canManage ? (selectedRows, resetSelection) => (
-                <ProductBulkActions
-                  selectedRows={selectedRows}
-                  resetSelection={resetSelection}
-                />
-              ) : undefined}
+              bulkActions={
+                canManage && !isDeletedView
+                  ? (selectedRows, resetSelection) => (
+                      <ProductBulkActions
+                        selectedRows={selectedRows}
+                        resetSelection={resetSelection}
+                        onChanged={() => void fetchProducts()}
+                      />
+                    )
+                  : undefined
+              }
               mobileCardRenderer={(row, { isSelected, actionCell }) => {
                 const item = row.original;
                 return (
@@ -576,22 +688,42 @@ export default function ProductListPage() {
           onClose={() => setDeleteId(null)}
           onConfirm={handleDeleteConfirm}
           title="Xóa sản phẩm?"
-          description="Bạn có chắc chắn muốn xóa sản phẩm này? Hành động này không thể hoàn tác."
+          description="Sản phẩm sẽ bị ẩn khỏi danh mục và không thể chọn cho hợp đồng mới. Dữ liệu trong hợp đồng, báo giá và đơn hàng đã có vẫn được giữ nguyên. Bạn có thể khôi phục từ danh sách Đã xóa."
           confirmText="Xác nhận xóa"
           variant="destructive"
           titleClassName="text-destructive"
           isLoading={isDeleting}
         />
 
-        {canManage && <ProductFormModal
-          isOpen={isFormOpen}
-          onClose={() => {
-            setIsFormOpen(false);
-            setEditingItem(null);
-          }}
-          onSuccess={fetchProducts}
-          item={editingItem}
-        />}
+        <ConfirmDialog
+          isOpen={restoreItem !== null}
+          onClose={() => !isRestoring && setRestoreItem(null)}
+          onConfirm={handleRestoreConfirm}
+          isLoading={isRestoring}
+          title="Khôi phục sản phẩm?"
+          description={`Khôi phục sản phẩm "${restoreItem?.productName}" về trạng thái Ngừng kinh doanh. Dữ liệu cũ được giữ nguyên; hãy kiểm tra thông tin trước khi mở kinh doanh.`}
+          confirmText="Khôi phục"
+        />
+
+        {canManage && (
+          <ProductFormModal
+            isOpen={isFormOpen}
+            onClose={() => {
+              setIsFormOpen(false);
+              setEditingItem(null);
+            }}
+            onSuccess={fetchProducts}
+            onViewDeleted={(code) => {
+              setIsFormOpen(false);
+              setEditingItem(null);
+              setFilterStatus(String(ProductStatus.Deleted));
+              setSearchTerm(code);
+              setDateRange({ from: undefined, to: undefined });
+              setPagination((current) => ({ ...current, pageIndex: 0 }));
+            }}
+            item={editingItem}
+          />
+        )}
 
         <ProductFormModal
           isOpen={!!viewingItem}

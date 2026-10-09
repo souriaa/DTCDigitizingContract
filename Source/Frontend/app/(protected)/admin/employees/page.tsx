@@ -47,6 +47,7 @@ import { EmployeeFormModal } from "./employee-form-modal";
 import { getApiErrorMessage, isStaleRowVersion } from "@/lib/api-error";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import { Badge } from "@/components/ui/badge";
 
 function EmployeeBulkActions({
   selectedRows,
@@ -204,7 +205,9 @@ function EmployeeListPageContent() {
       setToggleStatusId(null);
     } catch (error) {
       if (isStaleRowVersion(error)) {
-        toast.error("Dữ liệu nhân viên đã thay đổi. Danh sách đã được tải lại.");
+        toast.error(
+          "Dữ liệu nhân viên đã thay đổi. Danh sách đã được tải lại.",
+        );
         await fetchEmployees();
         setToggleStatusId(null);
       } else {
@@ -316,7 +319,15 @@ function EmployeeListPageContent() {
           const statusStr = getEmployeeStatusLabel(row.original.status);
           return (
             <div className="text-center">
-              <StatusBadge status={statusStr} />
+              <Badge
+                variant={
+                  row.original.status === EmployeeStatus.Active
+                    ? "outline"
+                    : "destructive"
+                }
+              >
+                {statusStr}
+              </Badge>
             </div>
           );
         },

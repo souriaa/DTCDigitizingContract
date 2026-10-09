@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Package, FileText, Globe } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { getApiErrorCode, getApiErrorMessage } from "@/lib/api-error";
 import {
   productApi,
   ProductResponse,
@@ -41,6 +42,7 @@ interface ProductFormModalProps {
   onSuccess: (createdProduct?: ProductResponse) => void;
   item?: ProductResponse | null;
   viewOnly?: boolean;
+  onViewDeleted?: (code: string) => void;
 }
 
 export function ProductFormModal({
@@ -49,6 +51,7 @@ export function ProductFormModal({
   onSuccess,
   item,
   viewOnly = false,
+  onViewDeleted,
 }: ProductFormModalProps) {
   const isEditMode = !!item && !viewOnly;
 
@@ -56,6 +59,7 @@ export function ProductFormModal({
 
   // Basic Info
   const [productCode, setProductCode] = useState("");
+  const [deletedConflictCode, setDeletedConflictCode] = useState<string | null>(null);
   const [productName, setProductName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productPrice, setProductPrice] = useState("");
@@ -145,6 +149,7 @@ export function ProductFormModal({
   useEffect(() => {
     if (isOpen) {
       setErrors({});
+      setDeletedConflictCode(null);
       setActiveTab("basic");
       if (item) {
         setProductCode(item.productCode || "");
@@ -235,6 +240,7 @@ export function ProductFormModal({
 
   const handleSubmit = async () => {
     if (viewOnly || !validate()) return;
+    setDeletedConflictCode(null);
     setIsSaving(true);
     try {
       let createdProduct: ProductResponse | undefined;
@@ -272,13 +278,14 @@ export function ProductFormModal({
       }
       onSuccess(createdProduct);
       onClose();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        (isEditMode
-          ? "Không thể cập nhật sản phẩm"
-          : "Không thể thêm sản phẩm");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error,
+        isEditMode ? "Không thể cập nhật sản phẩm" : "Không thể thêm sản phẩm");
+      if (getApiErrorCode(error) === "ProductCodeDeleted") {
+        setDeletedConflictCode(productCode.trim());
+        setErrors((current) => ({ ...current, productCode: message }));
+        setActiveTab("basic");
+      }
       toast.error(message);
     } finally {
       setIsSaving(false);
@@ -346,7 +353,11 @@ export function ProductFormModal({
                   id="productCode"
                   placeholder="PROD-001"
                   value={productCode}
-                  onValueChange={setProductCode}
+                  onValueChange={(value) => {
+                    setProductCode(value);
+                    setDeletedConflictCode(null);
+                    setErrors((current) => ({ ...current, productCode: "" }));
+                  }}
                   disabled={viewOnly}
                   aria-invalid={!!errors.productCode}
                   maxLength={50}
@@ -355,6 +366,12 @@ export function ProductFormModal({
                   <p className="text-xs text-destructive">
                     {errors.productCode}
                   </p>
+                )}
+                {!viewOnly && deletedConflictCode !== null && deletedConflictCode === productCode.trim() && onViewDeleted && (
+                  <Button type="button" variant="outline" size="sm"
+                    onClick={() => onViewDeleted(deletedConflictCode)}>
+                    Xem sản phẩm đã xóa
+                  </Button>
                 )}
               </div>
 

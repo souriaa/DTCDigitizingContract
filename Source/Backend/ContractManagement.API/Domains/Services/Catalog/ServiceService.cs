@@ -1,5 +1,6 @@
 ﻿using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -22,6 +23,23 @@ namespace ContractManagement.Domains.Services.Catalog
             _dbContext = dbContext;
         }
 
+        public Task<List<ServiceOptionResponse>> GetOptionsAsync(CancellationToken cancellationToken = default)
+        {
+            return _dbContext.TblServices
+                .AsNoTracking()
+                .Where(x => x.Status != CatalogItemStatuses.Deleted)
+                .OrderBy(x => x.ServiceName)
+                .ThenBy(x => x.ServiceId)
+                .Select(x => new ServiceOptionResponse
+                {
+                    ServiceId = x.ServiceId,
+                    ServiceName = x.ServiceName,
+                    ServiceParentId = x.ServiceParentId,
+                    Status = x.Status
+                })
+                .ToListAsync(cancellationToken);
+        }
+
         private IQueryable<TblService> ApplyDateFilter(IQueryable<TblService> query, DateTime? startDate, DateTime? endDate)
         {
             if (!startDate.HasValue && !endDate.HasValue)
@@ -41,8 +59,11 @@ namespace ContractManagement.Domains.Services.Catalog
             if (filter.PageSize <= 0) filter.PageSize = 20;
 
             var query = _dbContext.TblServices
-                .AsNoTracking()
-                .AsQueryable();
+                .AsNoTracking();
+            if (filter.Status != CatalogItemStatuses.Deleted)
+            {
+                query = query.Where(x => x.Status != CatalogItemStatuses.Deleted);
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Keyword))
             {
@@ -101,7 +122,8 @@ namespace ContractManagement.Domains.Services.Catalog
         {
             var service = await _dbContext.TblServices
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ServiceId == id);
+                .FirstOrDefaultAsync(x => x.ServiceId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (service == null)
             {
@@ -150,7 +172,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 Others = request.Others?.Trim(),
 
                 // Quy ước: 1 = Active, 0 = Inactive
-                Status = 1,
+                Status = CatalogItemStatuses.Active,
 
                 UserCreated = createdBy,
                 DateCreated = DateTime.Now,
@@ -173,7 +195,8 @@ namespace ContractManagement.Domains.Services.Catalog
             int updatedBy)
         {
             var service = await _dbContext.TblServices
-                .FirstOrDefaultAsync(x => x.ServiceId == id);
+                .FirstOrDefaultAsync(x => x.ServiceId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (service == null)
             {
@@ -220,7 +243,8 @@ namespace ContractManagement.Domains.Services.Catalog
             }
 
             var service = await _dbContext.TblServices
-                .FirstOrDefaultAsync(x => x.ServiceId == id);
+                .FirstOrDefaultAsync(x => x.ServiceId == id
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (service == null)
             {
@@ -244,12 +268,50 @@ namespace ContractManagement.Domains.Services.Catalog
                 throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
             }
 
-            // Không hard delete vì service có thể được dùng trong báo giá/hợp đồng sau này.
-            // Xóa ở đây hiểu là ẩn/ngưng sử dụng.
-            service.Status = 0;
+            if (await _dbContext.TblServices.AnyAsync(x =>
+                    x.ServiceParentId == id && x.Status != CatalogItemStatuses.Deleted))
+            {
+                throw new InvalidOperationException(
+                    "Dịch vụ đang có dịch vụ con. Hãy chuyển hoặc xóa các dịch vụ con trước.");
+            }
+
+            // Preserve historical references, but distinguish deletion from locking.
+            service.Status = CatalogItemStatuses.Deleted;
             service.UserModified = updatedBy;
             service.DateModified = DateTime.Now;
 
+            await _dbContext.SaveChangesAsync();
+            await UpdateParentHasChildAsync(service.ServiceParentId);
+        }
+
+        public async Task RestoreAsync(int id, int updatedBy)
+        {
+            var service = await _dbContext.TblServices.FirstOrDefaultAsync(x => x.ServiceId == id);
+            if (service == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
+            }
+            if (service.Status != CatalogItemStatuses.Deleted)
+            {
+                throw new InvalidOperationException("Chỉ có thể khôi phục dịch vụ đã xóa.");
+            }
+            await ValidateServiceTypeAsync(service.ServiceTypeId);
+            if (service.ServiceParentId.HasValue && !await _dbContext.TblServices.AnyAsync(x =>
+                    x.ServiceId == service.ServiceParentId.Value && x.Status != CatalogItemStatuses.Deleted))
+            {
+                throw new InvalidOperationException("Dịch vụ cha không tồn tại hoặc đã xóa. Hãy khôi phục dịch vụ cha trước.");
+            }
+
+            service.Status = CatalogItemStatuses.Inactive;
+            service.UserModified = updatedBy;
+            service.DateModified = DateTime.Now;
+            service.HasChild = await _dbContext.TblServices.AnyAsync(x =>
+                x.ServiceParentId == id && x.Status != CatalogItemStatuses.Deleted);
+            if (service.ServiceParentId.HasValue)
+            {
+                var parent = await _dbContext.TblServices.SingleAsync(x => x.ServiceId == service.ServiceParentId.Value);
+                parent.HasChild = true;
+            }
             await _dbContext.SaveChangesAsync();
         }
 
@@ -284,7 +346,8 @@ namespace ContractManagement.Domains.Services.Catalog
             }
 
             var exists = await _dbContext.TblServices
-                .AnyAsync(x => x.ServiceId == parentServiceId.Value);
+                .AnyAsync(x => x.ServiceId == parentServiceId.Value
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             if (!exists)
             {
@@ -308,7 +371,8 @@ namespace ContractManagement.Domains.Services.Catalog
             }
 
             parent.HasChild = await _dbContext.TblServices
-                .AnyAsync(x => x.ServiceParentId == parentServiceId.Value);
+                .AnyAsync(x => x.ServiceParentId == parentServiceId.Value
+                    && x.Status != CatalogItemStatuses.Deleted);
 
             await _dbContext.SaveChangesAsync();
         }

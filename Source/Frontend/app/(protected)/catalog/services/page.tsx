@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Header } from "@/components/ui/custom/header";
 import {
   Eye,
@@ -12,6 +12,7 @@ import {
   DollarSign,
   Layers,
   Power,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +28,8 @@ import {
 } from "@/services/catalog/services-api";
 import { DataTable } from "@/components/ui/custom/data-table-server";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
 import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
 import { StatusBadge } from "@/components/ui/custom/status-badge";
 import {
@@ -47,28 +50,44 @@ import {
 import { ServiceFormModal } from "./service-form-modal";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import { Badge } from "@/components/ui/badge";
 
 function ServiceBulkActions({
   selectedRows,
   resetSelection,
+  onChanged,
 }: {
   selectedRows: ServiceResponse[];
   resetSelection: () => void;
+  onChanged: () => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleBulkDelete = async () => {
     setIsLoading(true);
     try {
-      await Promise.all(
+      const results = await Promise.allSettled(
         selectedRows.map((item) => serviceApi.delete(item.serviceId)),
       );
-      toast.success(`Đã xóa ${selectedRows.length} dịch vụ`);
+      const deletedCount = results.filter(
+        (result) => result.status === "fulfilled",
+      ).length;
+      if (deletedCount > 0) toast.success(`Đã xóa ${deletedCount} dịch vụ`);
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected") {
+        toast.error(
+          getApiErrorMessage(
+            failed.reason,
+            "Không thể xóa một số dịch vụ đã chọn.",
+          ),
+        );
+      }
       resetSelection();
     } catch (error) {
-      toast.error("Lỗi khi xóa dịch vụ");
+      toast.error(getApiErrorMessage(error, "Không thể xóa dịch vụ đã chọn."));
     } finally {
       setIsLoading(false);
+      onChanged();
     }
   };
 
@@ -76,7 +95,15 @@ function ServiceBulkActions({
     <SplitActionMenu
       primaryLabel="Xóa dịch vụ"
       primaryIcon={<Trash2 className="w-4 h-4" />}
-      onPrimaryClick={handleBulkDelete}
+      onPrimaryClick={() =>
+        showConfirmToast({
+          title: `Xóa ${selectedRows.length} dịch vụ?`,
+          description:
+            "Các mục sẽ bị ẩn khỏi danh mục. Dữ liệu hợp đồng đã có vẫn được giữ nguyên.",
+          confirmLabel: "Xác nhận xóa",
+          onConfirm: handleBulkDelete,
+        })
+      }
       isLoading={isLoading}
       menuItems={[]}
     />
@@ -103,9 +130,13 @@ export default function ServiceListPage() {
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [restoreItem, setRestoreItem] = useState<ServiceResponse | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const isDeletedView = combinedFilter === `status_${ServiceStatus.Deleted}`;
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ServiceResponse | null>(null);
   const [viewingItem, setViewingItem] = useState<ServiceResponse | null>(null);
+  const listRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     serviceTypeApi
@@ -116,10 +147,11 @@ export default function ServiceListPage() {
 
   const COMBINED_FILTER_OPTIONS = useMemo(() => {
     const options = [
-      { label: "Tất cả (Trạng thái / Loại DV)", value: "All" },
+      { label: "Tất cả", value: "All" },
       { label: "--- TRẠNG THÁI ---", value: "header_status" },
       { label: "Đang hoạt động", value: `status_${ServiceStatus.Active}` },
       { label: "Ngừng hoạt động", value: `status_${ServiceStatus.Inactive}` },
+      { label: "Đã xóa", value: `status_${ServiceStatus.Deleted}` },
     ];
 
     if (serviceTypes.length > 0) {
@@ -136,6 +168,9 @@ export default function ServiceListPage() {
   }, [serviceTypes]);
 
   const fetchServices = useCallback(async () => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
     setIsLoading(true);
     try {
       let statusParam: number | undefined = undefined;
@@ -154,22 +189,40 @@ export default function ServiceListPage() {
         ? format(dateRange.to, "yyyy-MM-dd")
         : undefined;
 
-      const res = await serviceApi.getList({
-        page: pagination.pageIndex + 1,
-        pageSize: pagination.pageSize,
-        keyword: searchTerm || undefined,
-        status: statusParam,
-        serviceTypeId: typeIdParam,
-        fromDate: fromDateParam,
-        toDate: toDateParam,
-      });
+      const res = await serviceApi.getList(
+        {
+          page: pagination.pageIndex + 1,
+          pageSize: pagination.pageSize,
+          keyword: searchTerm || undefined,
+          status: statusParam,
+          serviceTypeId: typeIdParam,
+          fromDate: fromDateParam,
+          toDate: toDateParam,
+        },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
 
       setServices(res.items || []);
       setTotalCount(res.totalCount || 0);
+      if (
+        pagination.pageIndex > 0 &&
+        pagination.pageIndex >=
+          Math.max(1, Math.ceil(res.totalCount / pagination.pageSize))
+      ) {
+        setPagination((current) => ({
+          ...current,
+          pageIndex: Math.max(
+            0,
+            Math.ceil(res.totalCount / current.pageSize) - 1,
+          ),
+        }));
+      }
     } catch (error) {
-      toast.error("Lỗi khi tải danh sách dịch vụ");
+      if (!controller.signal.aborted)
+        toast.error("Lỗi khi tải danh sách dịch vụ");
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, [
     pagination.pageIndex,
@@ -182,6 +235,7 @@ export default function ServiceListPage() {
 
   useEffect(() => {
     fetchServices();
+    return () => listRequest.current?.abort();
   }, [fetchServices]);
 
   const handleToggleStatus = async (item: ServiceResponse) => {
@@ -219,6 +273,23 @@ export default function ServiceListPage() {
       toast.error(message);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreItem || isRestoring) return;
+    setIsRestoring(true);
+    try {
+      await serviceApi.restore(restoreItem.serviceId);
+      toast.success(
+        "Đã khôi phục dịch vụ ở trạng thái ngừng hoạt động. Hãy kiểm tra trước khi kích hoạt.",
+      );
+      setRestoreItem(null);
+      await fetchServices();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể khôi phục dịch vụ."));
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -319,11 +390,20 @@ export default function ServiceListPage() {
         header: () => <div className="text-center">Trạng thái</div>,
         cell: ({ row }) => {
           const isActive = row.original.status === ServiceStatus.Active;
+          const statusStr = getServiceStatusLabel(row.original.status);
           return (
             <div className="flex justify-center min-w-[120px]">
-              <StatusBadge
-                status={getServiceStatusLabel(row.original.status)}
-              />
+              <Badge
+                variant={
+                  row.original.status === ServiceStatus.Active
+                    ? "outline"
+                    : row.original.status === ServiceStatus.Inactive
+                      ? "warning"
+                      : "destructive"
+                }
+              >
+                {statusStr}
+              </Badge>
             </div>
           );
         },
@@ -334,33 +414,47 @@ export default function ServiceListPage() {
         cell: ({ row }) => {
           const item = row.original;
           const isActive = item.status === ServiceStatus.Active;
+          const isDeleted = item.status === ServiceStatus.Deleted;
           return (
             <SplitActionMenu
               primaryLabel="Chi tiết"
               primaryIcon={<Eye className="w-4 h-4" />}
               onPrimaryClick={() => setViewingItem(item)}
               isLoading={loadingId === item.serviceId}
-              menuItems={canManage ? [
-                {
-                  label: "Chỉnh sửa",
-                  icon: <UserCog className="w-4 h-4" />,
-                  onClick: () => {
-                    setEditingItem(item);
-                    setIsFormOpen(true);
-                  },
-                },
-                {
-                  label: isActive ? "Ngừng hoạt động" : "Kích hoạt",
-                  icon: <Power className="w-4 h-4" />,
-                  onClick: () => handleToggleStatus(item),
-                },
-                {
-                  label: "Xóa dịch vụ",
-                  icon: <Trash2 className="w-4 h-4" />,
-                  isDestructive: true,
-                  onClick: () => setDeleteId(item.serviceId),
-                },
-              ] : []}
+              menuItems={
+                canManage
+                  ? isDeleted
+                    ? [
+                        {
+                          label: "Khôi phục",
+                          icon: <RotateCcw className="w-4 h-4" />,
+                          onClick: () => setRestoreItem(item),
+                        },
+                      ]
+                    : [
+                        {
+                          label: "Chỉnh sửa",
+                          icon: <UserCog className="w-4 h-4" />,
+                          onClick: () => {
+                            setEditingItem(item);
+                            setIsFormOpen(true);
+                          },
+                        },
+                        {
+                          label: isActive ? "Ngừng hoạt động" : "Kích hoạt",
+                          icon: <Power className="w-4 h-4" />,
+                          isDestructive: isActive,
+                          onClick: () => handleToggleStatus(item),
+                        },
+                        {
+                          label: "Xóa dịch vụ",
+                          icon: <Trash2 className="w-4 h-4" />,
+                          isDestructive: true,
+                          onClick: () => setDeleteId(item.serviceId),
+                        },
+                      ]
+                  : []
+              }
             />
           );
         },
@@ -436,21 +530,31 @@ export default function ServiceListPage() {
             </p>
           </div>
 
-          {canManage && <Button
-            onClick={() => {
-              setEditingItem(null);
-              setIsFormOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" /> Thêm mới
-          </Button>}
+          {canManage && (
+            <Button
+              onClick={() => {
+                setEditingItem(null);
+                setIsFormOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Thêm mới
+            </Button>
+          )}
         </div>
 
         <SummaryCards items={summaryItems} isLoading={isLoading} />
+        {isDeletedView && (
+          <p className="text-sm text-muted-foreground">
+            Dịch vụ đã xóa chỉ có thể xem hoặc khôi phục. Sau khi khôi phục, hãy
+            chọn “Ngừng hoạt động” để kiểm tra và kích hoạt khi cần. Nếu dịch vụ
+            cha đã xóa, hãy khôi phục cha trước.
+          </p>
+        )}
 
         <Card className="border-border shadow-sm bg-card min-h-[500px] flex flex-col gap-0 p-0">
           <CardContent className="p-4 flex flex-col justify-between flex-1 pb-0">
             <DataTable
+              key={isDeletedView ? "deleted" : "current"}
               columns={columns}
               data={services}
               pageCount={Math.ceil(totalCount / pagination.pageSize)}
@@ -463,12 +567,17 @@ export default function ServiceListPage() {
               onRowClick={(row) => setViewingItem(row)}
               searchValue={searchTerm}
               onSearchChange={(value) => setSearchTerm(value)}
-              bulkActions={canManage ? (selectedRows, resetSelection) => (
-                <ServiceBulkActions
-                  selectedRows={selectedRows}
-                  resetSelection={resetSelection}
-                />
-              ) : undefined}
+              bulkActions={
+                canManage && !isDeletedView
+                  ? (selectedRows, resetSelection) => (
+                      <ServiceBulkActions
+                        selectedRows={selectedRows}
+                        resetSelection={resetSelection}
+                        onChanged={() => void fetchServices()}
+                      />
+                    )
+                  : undefined
+              }
               mobileCardRenderer={(row, { isSelected, actionCell }) => {
                 const item = row.original;
                 const isActive = item.status === ServiceStatus.Active;
@@ -539,21 +648,33 @@ export default function ServiceListPage() {
           onConfirm={handleDeleteConfirm}
           isLoading={isDeleting}
           title="Xóa dịch vụ?"
-          description={`Bạn có chắc chắn muốn xóa dịch vụ "${currentDeleteItem?.serviceName}"? Thao tác này có thể không thực hiện được nếu dịch vụ đang có dữ liệu ràng buộc trong hợp đồng/đơn hàng.`}
+          description={`Dịch vụ "${currentDeleteItem?.serviceName}" sẽ bị ẩn khỏi danh mục và không thể chọn mới. Dữ liệu hợp đồng đã có vẫn được giữ nguyên. Dịch vụ có dịch vụ con chưa xóa cần được xử lý các dịch vụ con trước.`}
           confirmText="Xác nhận xóa"
           variant="destructive"
           titleClassName="text-destructive"
         />
 
-        {canManage && <ServiceFormModal
-          isOpen={isFormOpen}
-          onClose={() => {
-            setIsFormOpen(false);
-            setEditingItem(null);
-          }}
-          onSuccess={fetchServices}
-          item={editingItem}
-        />}
+        <ConfirmDialog
+          isOpen={restoreItem !== null}
+          onClose={() => !isRestoring && setRestoreItem(null)}
+          onConfirm={handleRestoreConfirm}
+          isLoading={isRestoring}
+          title="Khôi phục dịch vụ?"
+          description={`Khôi phục dịch vụ "${restoreItem?.serviceName}" về trạng thái Ngừng hoạt động. Dữ liệu cũ được giữ nguyên; hãy kiểm tra thông tin trước khi kích hoạt.`}
+          confirmText="Khôi phục"
+        />
+
+        {canManage && (
+          <ServiceFormModal
+            isOpen={isFormOpen}
+            onClose={() => {
+              setIsFormOpen(false);
+              setEditingItem(null);
+            }}
+            onSuccess={fetchServices}
+            item={editingItem}
+          />
+        )}
 
         <ServiceFormModal
           isOpen={!!viewingItem}

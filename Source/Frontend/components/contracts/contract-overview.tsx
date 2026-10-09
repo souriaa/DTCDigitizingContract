@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
 import { DateRangeFilter } from "@/components/ui/custom/date-range-filter";
 import { DecimalInput } from "@/components/ui/custom/decimal-input";
@@ -35,8 +36,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { productApi } from "@/services/catalog/products-api";
-import { serviceApi } from "@/services/catalog/services-api";
+import { productApi, ProductStatus } from "@/services/catalog/products-api";
+import { serviceApi, ServiceStatus } from "@/services/catalog/services-api";
 
 import {
   customerApi,
@@ -65,6 +66,14 @@ import {
   calculateContractItemAmounts,
   calculateContractTotals,
 } from "@/lib/contract-finance";
+
+interface CatalogItem {
+  id: string;
+  originalId: number;
+  itemName: string;
+  itemType: ContractItemType;
+  unitPrice: number;
+}
 
 export function ContractOverview({
   contract,
@@ -140,7 +149,7 @@ export function ContractOverview({
     }
   }, [isEditable]);
 
-  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
@@ -155,11 +164,22 @@ export function ContractOverview({
   }, [catalogSearchQuery]);
 
   const [itemsSearchQuery, setItemsSearchQuery] = useState("");
+  const [itemsTab, setItemsTab] = useState<"product" | "service">(() =>
+    contract.currentVersion?.items.some(
+      (item) => item.itemType === ContractItemType.Product,
+    )
+      ? "product"
+      : "service",
+  );
   const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  const filteredItems = (contract.currentVersion?.items || []).filter((item) =>
-    item.itemName.toLowerCase().includes(itemsSearchQuery.toLowerCase()),
+  const currentItemType = itemsTab === "product"
+    ? ContractItemType.Product
+    : ContractItemType.Service;
+  const filteredItems = (contract.currentVersion?.items || []).filter(
+    (item) => item.itemType === currentItemType &&
+      item.itemName.toLowerCase().includes(itemsSearchQuery.toLowerCase()),
   );
 
   const itemsTotalPages = Math.ceil(filteredItems.length / itemsPerPage);
@@ -176,6 +196,7 @@ export function ContractOverview({
   );
 
   useEffect(() => {
+    let cancelled = false;
     if (isCatalogOpen) {
       const fetchCatalog = async () => {
         setIsLoadingCatalog(true);
@@ -185,42 +206,56 @@ export function ContractOverview({
               page: 1,
               pageSize: 100,
               keyword: debouncedCatalogQuery,
+              status: ProductStatus.Active,
             }),
             serviceApi.getList({
               page: 1,
               pageSize: 100,
               keyword: debouncedCatalogQuery,
+              status: ServiceStatus.Active,
             }),
           ]);
 
-          const mappedProducts = productRes.items.map((p) => ({
-            id: `p-${p.productId}`,
-            originalId: p.productId,
-            itemName: p.productName || "Sản phẩm không tên",
-            itemType: ContractItemType.Product,
-            unitPrice: p.productPrice || 0,
-          }));
+          if (cancelled) return;
+          const mappedProducts = productRes.items
+            .filter((p) => p.status === ProductStatus.Active)
+            .map((p) => ({
+              id: `p-${p.productId}`,
+              originalId: p.productId,
+              itemName: p.productName || "Sản phẩm không tên",
+              itemType: ContractItemType.Product,
+              unitPrice: p.productPrice || 0,
+            }));
 
-          const mappedServices = serviceRes.items.map((s) => ({
-            id: `s-${s.serviceId}`,
-            originalId: s.serviceId,
-            itemName: s.serviceName || "Dịch vụ không tên",
-            itemType: ContractItemType.Service,
-            unitPrice: s.servicePrice || 0,
-          }));
+          const mappedServices = serviceRes.items
+            .filter((s) => s.status === ServiceStatus.Active)
+            .map((s) => ({
+              id: `s-${s.serviceId}`,
+              originalId: s.serviceId,
+              itemName: s.serviceName || "Dịch vụ không tên",
+              itemType: ContractItemType.Service,
+              unitPrice: s.servicePrice || 0,
+            }));
 
           setCatalogItems([...mappedProducts, ...mappedServices]);
         } catch (error) {
-          console.error(error);
+          if (!cancelled) {
+            setCatalogItems([]);
+            toast.error("Không thể tải danh sách sản phẩm và dịch vụ.");
+            console.error(error);
+          }
         } finally {
-          setIsLoadingCatalog(false);
+          if (!cancelled) setIsLoadingCatalog(false);
         }
       };
       fetchCatalog();
     }
+    return () => {
+      cancelled = true;
+    };
   }, [isCatalogOpen, debouncedCatalogQuery]);
 
-  const handleAddCatalogItem = (catalogItem: any) => {
+  const handleAddCatalogItem = (catalogItem: CatalogItem) => {
     if (!contract || !contract.currentVersion) return;
 
     const exists = contract.currentVersion.items.some(
@@ -277,6 +312,14 @@ export function ContractOverview({
     });
 
     toast.success(`Đã thêm ${catalogItem.itemName}`);
+    setItemsTab(
+      catalogItem.itemType === ContractItemType.Product ? "product" : "service",
+    );
+    setItemsSearchQuery("");
+    const nextCount = contract.currentVersion.items.filter(
+      (item) => item.itemType === catalogItem.itemType,
+    ).length + 1;
+    setItemsCurrentPage(Math.ceil(nextCount / itemsPerPage));
   };
 
   const toLocalISOString = (date?: Date | null) => {
@@ -458,7 +501,12 @@ export function ContractOverview({
           <Separator />
 
           {/* SỬA SẢN PHẨM / DỊCH VỤ (ITEMS) */}
-          <div>
+          <Tabs value={itemsTab} onValueChange={(value) => {
+            if (value !== "product" && value !== "service") return;
+            setItemsTab(value);
+            setItemsCurrentPage(1);
+            setItemsSearchQuery("");
+          }}>
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold">Sản phẩm / Dịch vụ</h4>
               {isEditable && (
@@ -526,6 +574,15 @@ export function ContractOverview({
               )}
             </div>
 
+            <TabsList className="mb-3">
+              <TabsTrigger value="product">
+                Sản phẩm ({contract.currentVersion?.items.filter((item) => item.itemType === ContractItemType.Product).length ?? 0})
+              </TabsTrigger>
+              <TabsTrigger value="service">
+                Dịch vụ ({contract.currentVersion?.items.filter((item) => item.itemType === ContractItemType.Service).length ?? 0})
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value={itemsTab}>
             {/* Thanh tìm kiếm Items */}
             {(contract.currentVersion?.items?.length || 0) > 0 && (
               <div className="relative mb-3">
@@ -543,6 +600,13 @@ export function ContractOverview({
             )}
 
             <div className="space-y-3">
+              {filteredItems.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {itemsSearchQuery
+                    ? "Không tìm thấy mục phù hợp."
+                    : itemsTab === "product" ? "Chưa có sản phẩm trong hợp đồng." : "Chưa có dịch vụ trong hợp đồng."}
+                </p>
+              )}
               {paginatedItems.map((item) => {
                 const amounts = isEditable
                   ? calculateContractItemAmounts(item, contract.currencyCode)
@@ -904,7 +968,8 @@ export function ContractOverview({
                 </div>
               )}
             </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

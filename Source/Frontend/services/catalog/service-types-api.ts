@@ -34,7 +34,15 @@ export interface PagedResult<T> {
 
 const BASE_URL = "/api/catalog/service-types";
 
+export interface ServiceTypeOptionResponse {
+  serviceTypeId: number;
+  serviceTypeName?: string | null;
+}
+
 export const serviceTypeApi = {
+  getOptions: (signal?: AbortSignal) => {
+    return axiosClient.get<unknown, ServiceTypeOptionResponse[]>(`${BASE_URL}/options`, { signal });
+  },
   getList: (params: ServiceTypeFilterParams) => {
     return axiosClient.get<any, PagedResult<ServiceTypeResponse>>(BASE_URL, {
       params,

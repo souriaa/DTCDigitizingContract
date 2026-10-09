@@ -47,6 +47,15 @@ namespace ContractManagement.Domains.Controllers.Catalog
                 "Lấy chi tiết dịch vụ thành công."));
         }
 
+        [HttpGet("options")]
+        [SessionAuthorize(RbacPermissions.CatalogRead)]
+        public async Task<IActionResult> GetOptions(CancellationToken cancellationToken)
+        {
+            var result = await _service.GetOptionsAsync(cancellationToken);
+            return Ok(ApiResponse<List<ServiceOptionResponse>>.Ok(
+                result, "Lấy danh sách chọn dịch vụ thành công."));
+        }
+
         [HttpPost]
         [SessionAuthorize(RbacPermissions.CatalogManage)]
         public async Task<IActionResult> Create(
@@ -92,6 +101,16 @@ namespace ContractManagement.Domains.Controllers.Catalog
             return Ok(ApiResponse<object>.Ok(
                 new { serviceId = id, status },
                 "Cập nhật trạng thái dịch vụ thành công."));
+        }
+
+        [HttpPost("{id:int}/restore")]
+        [SessionAuthorize(RbacPermissions.CatalogManage)]
+        public async Task<IActionResult> Restore(int id)
+        {
+            await _service.RestoreAsync(id, GetCurrentEmployeeId());
+            return Ok(ApiResponse<object>.Ok(
+                new { serviceId = id, status = (byte)0 },
+                "Đã khôi phục dịch vụ ở trạng thái ngừng hoạt động."));
         }
 
         [HttpDelete("{id:int}")]
