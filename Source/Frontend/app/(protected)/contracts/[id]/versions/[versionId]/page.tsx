@@ -14,7 +14,11 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ResourceAccessErrorState } from "@/components/auth/permission-guard";
+import {
+  getResourceAccessErrorKind,
+  type ResourceAccessErrorKind,
+} from "@/lib/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,9 +57,15 @@ export default function ContractVersionDetailPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ResourceAccessErrorKind>("not-found");
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
-    if (!Number.isInteger(contractId) || !Number.isInteger(versionId)) {
+    if (
+      !Number.isInteger(contractId) || contractId <= 0 ||
+      !Number.isInteger(versionId) || versionId <= 0
+    ) {
+      setErrorKind("not-found");
       setError("Đường dẫn hợp đồng hoặc phiên bản không hợp lệ.");
       setIsLoading(false);
       return;
@@ -77,6 +87,7 @@ export default function ContractVersionDetailPage() {
       } catch (loadError: any) {
         console.error("Lỗi tải trang snapshot:", loadError);
         if (!isCancelled) {
+          setErrorKind(getResourceAccessErrorKind(loadError));
           setError(getApiErrorMessage(loadError));
         }
       } finally {
@@ -88,7 +99,7 @@ export default function ContractVersionDetailPage() {
     return () => {
       isCancelled = true;
     };
-  }, [contractId, versionId]);
+  }, [contractId, versionId, loadAttempt]);
 
   if (isLoading) {
     return (
@@ -108,17 +119,14 @@ export default function ContractVersionDetailPage() {
     return (
       <>
         <Header />
-        <div className="grow overflow-y-auto p-3 sm:p-6 lg:p-10">
-          <Alert variant="destructive">
-            <AlertTitle>Không thể mở bản lưu phiên bản</AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{error || "Không tìm thấy dữ liệu phiên bản."}</p>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/contracts/${params.id}`}>Quay lại hợp đồng</Link>
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
+        <ResourceAccessErrorState
+          kind={errorKind}
+          title="Không thể mở bản lưu phiên bản"
+          description={error || "Không tìm thấy dữ liệu phiên bản."}
+          backHref={`/contracts/${params.id}`}
+          backLabel="Quay lại hợp đồng"
+          onRetry={() => setLoadAttempt((current) => current + 1)}
+        />
       </>
     );
   }

@@ -11,6 +11,7 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Employee
         [Required]
         [MinLength(ContractManagement.API.Common.Security.AccountPasswordPolicy.MinimumLength)]
         [MaxLength(100)]
+        [ContractManagement.API.Common.Security.NewAccountPassword]
         public string NewPassword { get; set; } = string.Empty;
 
         [Required]

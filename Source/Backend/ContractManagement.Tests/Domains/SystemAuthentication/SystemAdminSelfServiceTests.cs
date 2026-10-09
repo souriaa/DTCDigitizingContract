@@ -32,6 +32,8 @@ public sealed class SystemAdminSelfServiceTests
     {
         await using var dbContext = CreateDbContext();
         var admin = CreateAdmin();
+        admin.Email = "before@example.test";
+        admin.RecoveryEmailVerifiedAt = DateTime.UtcNow;
         dbContext.SystemAdmins.Add(admin);
         await dbContext.SaveChangesAsync();
         var service = CreateService(dbContext);
@@ -50,6 +52,7 @@ public sealed class SystemAdminSelfServiceTests
             });
 
         Assert.Equal("Root Administrator", updated.FullName);
+        Assert.Null(updated.RecoveryEmailVerifiedAt);
         Assert.Equal("root-admin", admin.Username);
         Assert.True(admin.IsActive);
         var audit = await dbContext.SecurityAudits.SingleAsync();

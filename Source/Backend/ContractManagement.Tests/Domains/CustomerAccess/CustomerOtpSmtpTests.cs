@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Net.Mime;
 using ContractManagement.API.Domains.CustomerAccess;
+using ContractManagement.API.Domains.Email;
 using Microsoft.Extensions.Options;
 
 namespace ContractManagement.Tests.Domains.CustomerAccess;
@@ -11,13 +12,11 @@ public sealed class CustomerOtpSmtpTests
     {
         Provider = "Smtp",
         HashKey = Convert.ToBase64String(new byte[32]),
-        EncryptionKey = Convert.ToBase64String(Enumerable.Repeat((byte)2, 32).ToArray()),
-        Smtp = new CustomerOtpSmtpOptions
-        {
-            Username = "sender@gmail.com",
-            FromAddress = "sender@gmail.com",
-            AppPassword = "test-only-not-a-real-password"
-        }
+        EncryptionKey = Convert.ToBase64String(Enumerable.Repeat((byte)2, 32).ToArray())
+    };
+
+    private static SmtpEmailOptions CreateSmtpOptions() => new() {
+        Username = "sender@gmail.com", FromAddress = "sender@gmail.com", AppPassword = "test-only-not-a-real-password"
     };
 
     [Fact]
@@ -36,20 +35,18 @@ public sealed class CustomerOtpSmtpTests
     [Fact]
     public void SmtpMessage_EmbedsLogoInTheHtmlViewWithoutAttachmentMetadata()
     {
-        var options = CreateOptions();
+        var options = CreateSmtpOptions();
         var expiresAt = DateTime.UtcNow.AddMinutes(5);
-        using var mail = SmtpCustomerOtpDeliveryProvider.BuildMailMessage(
-            new CustomerOtpDeliveryMessage(
-                "+84912345678",
-                "012345",
-                "customer@example.test",
-                expiresAt),
-            expiresAt,
-            options.Smtp,
+        using var mail = SmtpEmailTransport.BuildMailMessage(
+            new EmailMessage("customer@example.test", "OTP", CustomerOtpEmailTemplate.BuildPlainTextBody("012345", expiresAt),
+                CustomerOtpEmailTemplate.BuildBody("012345", expiresAt), CustomerOtpEmailTemplate.LogoContentId),
+            options,
             [1, 2, 3, 4]);
 
         Assert.False(mail.IsBodyHtml);
-        Assert.Contains("Mã xác thực (OTP) của bạn", mail.Body);
+        Assert.Equal(System.Text.Encoding.UTF8, mail.BodyEncoding);
+        Assert.Equal(System.Text.Encoding.UTF8, mail.SubjectEncoding);
+        Assert.Contains("Mã xác thực OTP của bạn", mail.Body);
         Assert.Empty(mail.Attachments);
 
         var htmlView = Assert.Single(mail.AlternateViews);
@@ -97,7 +94,7 @@ public sealed class CustomerOtpSmtpTests
     [InlineData("a@example.test\r\nBcc: b@example.test")]
     public async Task Smtp_RejectsInvalidRecipientBeforeConnecting(string? recipient)
     {
-        var provider = new SmtpCustomerOtpDeliveryProvider(Options.Create(CreateOptions()));
+        var provider = new SmtpCustomerOtpDeliveryProvider(new SmtpEmailTransport(Options.Create(CreateSmtpOptions())));
         await Assert.ThrowsAsync<InvalidOperationException>(() => provider.DeliverAsync(
             new CustomerOtpDeliveryMessage("+84912345678", "012345", recipient,
                 DateTime.UtcNow.AddMinutes(5)), CancellationToken.None));
@@ -106,7 +103,7 @@ public sealed class CustomerOtpSmtpTests
     [Fact]
     public async Task Smtp_RejectsExpiredCodeBeforeConnecting()
     {
-        var provider = new SmtpCustomerOtpDeliveryProvider(Options.Create(CreateOptions()));
+        var provider = new SmtpCustomerOtpDeliveryProvider(new SmtpEmailTransport(Options.Create(CreateSmtpOptions())));
         await Assert.ThrowsAsync<InvalidOperationException>(() => provider.DeliverAsync(
             new CustomerOtpDeliveryMessage("+84912345678", "012345", "customer@example.test",
                 DateTime.UtcNow.AddSeconds(-1)), CancellationToken.None));
@@ -115,7 +112,7 @@ public sealed class CustomerOtpSmtpTests
     [Fact]
     public void Smtp_RequiresCredentialsAndStartTlsPort()
     {
-        var smtp = CreateOptions().Smtp;
+        var smtp = CreateSmtpOptions();
         Assert.True(smtp.IsConfigured());
         smtp.Port = 465;
         Assert.False(smtp.IsConfigured());

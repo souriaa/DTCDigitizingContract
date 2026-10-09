@@ -4,19 +4,17 @@ namespace ContractManagement.API.Common.Security;
 
 public static class AccountPasswordPolicy
 {
-    public const int MinimumLength = 12;
-    public const int MaximumLength = 100;
+    public const int MinimumLength = ContractManagement.Infrastructure.Security.PasswordRules.MinimumLength;
+    public const int MaximumLength = ContractManagement.Infrastructure.Security.PasswordRules.MaximumLength;
 
     public static void EnsureValid(string? password)
     {
-        if (string.IsNullOrWhiteSpace(password)
-            || password.Length < MinimumLength
-            || password.Length > MaximumLength)
+        if (!ContractManagement.Infrastructure.Security.PasswordRules.IsValid(password))
         {
             throw new RbacOperationException(
                 StatusCodes.Status400BadRequest,
                 AuthorizationErrorCodes.PasswordPolicyViolation,
-                $"Mật khẩu phải có từ {MinimumLength} đến {MaximumLength} ký tự.");
+                ContractManagement.Infrastructure.Security.PasswordRules.ValidationMessage);
         }
     }
 

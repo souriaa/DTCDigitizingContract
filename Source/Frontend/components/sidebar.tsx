@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { APP_NAME } from "@/lib/application-branding";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BriefcaseBusiness,
@@ -236,7 +237,7 @@ export function Sidebar() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm font-bold leading-tight text-foreground truncate">
-                  eContract Hub
+                  {APP_NAME}
                 </h1>
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider truncate">
                   Quản lý
@@ -278,7 +279,7 @@ export function Sidebar() {
                 </div>
                 <div>
                   <h1 className="text-sm font-bold leading-tight text-foreground">
-                    eContract Hub
+                    {APP_NAME}
                   </h1>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                     Quản lý

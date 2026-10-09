@@ -202,7 +202,7 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                         join customer in _dbContext.TblCustomers on contract.CustomerId equals customer.CustomerId
                         where contract.ContractId == link.ContractId
                         select customer.CustomerEmail).SingleOrDefaultAsync(cancellationToken))?.Trim();
-                    if (!CustomerOtpSmtpOptions.IsEmailAddress(recipientEmail))
+                    if (!ContractManagement.API.Domains.Email.SmtpEmailOptions.IsEmailAddress(recipientEmail))
                     {
                         StageSystemAudit(link, ContractAuditActionTypes.CustomerOtpFailed, now,
                             ContractAuditResults.Failed, ContractAuditFailureCodes.OtpDeliveryFailed);

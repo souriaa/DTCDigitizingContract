@@ -165,8 +165,8 @@ export default function ChangePasswordPage() {
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
                     <span>
-                      Độ dài tối thiểu 12 ký tự để phòng chống các hình thức dò
-                      quét mật khẩu.
+                      Mật khẩu dài từ 12 đến 100 ký tự, có chữ số (0–9), chữ hoa
+                      và chữ thường.
                     </span>
                   </div>
 

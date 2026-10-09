@@ -15,6 +15,7 @@ public sealed class InitialManagerRequest
     [Required]
     [MinLength(AccountPasswordPolicy.MinimumLength)]
     [MaxLength(AccountPasswordPolicy.MaximumLength)]
+    [NewAccountPassword]
     public string EmployeePassword { get; set; } = string.Empty;
 
     [Required]

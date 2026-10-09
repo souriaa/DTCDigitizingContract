@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2,
@@ -13,6 +13,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { authApi } from "@/services/auth-api";
+import { APP_NAME } from "@/lib/application-branding";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import {
 import { useAuthStore } from "@/hooks/use-auth-store";
 
 export default function LoginPage() {
+  const recoveryLogin = useRef(false);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [tenantCode, setTenantCode] = useState("");
@@ -82,6 +84,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkAlreadyLoggedIn = async () => {
+      const query = new URLSearchParams(window.location.search);
+      if (query.get("password_reset") === "1") recoveryLogin.current = true;
+      if (recoveryLogin.current) {
+        setTenantCode(query.get("tenantCode") ?? "");
+        setIsLoading(false);
+        return;
+      }
       if (isAuthenticated && user) {
         router.push(
           user.mustChangePassword
@@ -219,7 +228,7 @@ export default function LoginPage() {
               <FileText className="w-6 h-6 text-primary-foreground" />
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              eContract Hub
+              {APP_NAME}
             </span>
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
@@ -246,7 +255,7 @@ export default function LoginPage() {
                     <FileText className="w-5 h-5 text-primary-foreground" />
                   </div>
                   <span className="text-foreground font-bold text-lg">
-                    eContract
+                    {APP_NAME}
                   </span>
                 </div>
               </div>
@@ -328,7 +337,7 @@ export default function LoginPage() {
                       Mật khẩu
                     </Label>
                     <a
-                      href="#"
+                      href={`/forgot-password?${new URLSearchParams({ accountName: email, tenantCode })}`}
                       tabIndex={-1}
                       className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
@@ -340,7 +349,7 @@ export default function LoginPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      maxLength={64}
+                      maxLength={100}
                       onChange={(e) => handlePasswordChange(e.target.value)}
                       onBlur={() => handleBlur("password")}
                       aria-invalid={!!errors.password}

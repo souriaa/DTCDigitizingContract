@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Contracts/InitialManagerRequest.cs": {
-    "mtime": 1790000689.1727097,
-    "seen": 1790050649.2765384,
-    "ast_hash": "299fd4392ba0368d156cd8ff67dfccae",
+    "mtime": 1790943252.741659,
+    "seen": 1790943843.2264752,
+    "ast_hash": "496bb77414b186cc452a3115432534d0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Contracts/TenantResponse.cs": {
@@ -264,9 +264,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Controllers/Admin/TenantsController.cs": {
-    "mtime": 1790000689.1777098,
-    "seen": 1790050649.27655,
-    "ast_hash": "06aab55dd61980c296bcce01722cbac2",
+    "mtime": 1790929433.5386257,
+    "seen": 1790931022.8535738,
+    "ast_hash": "8db793f2df13b3527ddad4daf10d6011",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Controllers/Authentication/AuthController.cs": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/CustomerAccess/CustomerOtpOptions.cs": {
-    "mtime": 1790000689.1942208,
-    "seen": 1790050649.2766013,
-    "ast_hash": "fddcd518709db318fdbf0ccc3a8b7de9",
+    "mtime": 1790928080.788859,
+    "seen": 1790931022.853619,
+    "ast_hash": "584161503eb6315f76e20359d4c3d794",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/CustomerAccess/FakeCustomerOtpDeliveryProvider.cs": {
@@ -642,15 +642,15 @@
     "semantic_hash": "8808e086cbbbbe260b4fe14ac77c0a5d"
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Employee/ChangePasswordRequest.cs": {
-    "mtime": 1790000689.226222,
-    "seen": 1790050649.2766793,
-    "ast_hash": "bb337b38ff1bd3179d49232ae22b539a",
+    "mtime": 1790943258.941956,
+    "seen": 1790943843.226753,
+    "ast_hash": "be807d8bbfc6cd2b179559564a081d49",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Employee/CreateEmployeeRequest.cs": {
-    "mtime": 1790000689.226222,
-    "seen": 1790050649.2766802,
-    "ast_hash": "ba797d3ca6d6c51272376e5a23b9a162",
+    "mtime": 1790943257.3363113,
+    "seen": 1790943843.2267554,
+    "ast_hash": "1b68b4f404fe48eca86a585b59a99913",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Employee/EmployeeDirectoryFilterRequest.cs": {
@@ -1326,9 +1326,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Contract/CustomerContractAccessService.cs": {
-    "mtime": 1790000689.3134117,
-    "seen": 1790050649.2768846,
-    "ast_hash": "d6310969405b8773d9be92abcc487da5",
+    "mtime": 1790928872.294828,
+    "seen": 1790931022.8539398,
+    "ast_hash": "5dad6c2d2883ff7f4f591da167237e8c",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/CustomerInteraction/CustomerInteractionService.cs": {
@@ -1350,9 +1350,9 @@
     "semantic_hash": "e8e69cb56f553bb16d9175e7ef051c70"
   },
   "Backend/ContractManagement.API/Domains/Services/Employee/EmployeeService.cs": {
-    "mtime": 1790000689.3254182,
-    "seen": 1790050649.27689,
-    "ast_hash": "172d71e7b5e64eadfe09d6ba3fdf8433",
+    "mtime": 1790928869.2015827,
+    "seen": 1790931022.853946,
+    "ast_hash": "71fa941eb6ae895f71a28b739e164842",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Employee/SystemAdminManagerGovernanceService.cs": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": "1433496fa70d3edcb05cbe7f92dbd1a3"
   },
   "Backend/ContractManagement.API/Program.cs": {
-    "mtime": 1790389388.1471474,
-    "seen": 1790404101.2605815,
-    "ast_hash": "92f0786685ee7cca6fe0ad9b2a1e6d60",
+    "mtime": 1790932849.6284392,
+    "seen": 1790934646.8790424,
+    "ast_hash": "68d43ca452b31d483b637c1aafd91d8d",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Properties/launchSettings.json": {
@@ -1470,9 +1470,9 @@
     "semantic_hash": "06af173b1d07dade95ff4e122e2e5ad2"
   },
   "Backend/ContractManagement.API/appsettings.json": {
-    "mtime": 1790002565.97196,
-    "seen": 1790050649.2769136,
-    "ast_hash": "9c4f9769c9ad61886c90d3ff07308cbd",
+    "mtime": 1790953767.833319,
+    "seen": 1790954113.830581,
+    "ast_hash": "6ae8bd095320c4fc54aae74b073dabc6",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/dotnet-tools.json": {
@@ -1482,15 +1482,15 @@
     "semantic_hash": "860640ddc2b5cefded41b8a2c0ae30c1"
   },
   "Backend/ContractManagement.Infrastructure/ContractManagement.Infrastructure.csproj": {
-    "mtime": 1790000689.3379252,
-    "seen": 1790050649.276916,
-    "ast_hash": "c13a4ecd2c46b1e747dfd397b1dbcd28",
+    "mtime": 1790953687.5079293,
+    "seen": 1790954113.8305895,
+    "ast_hash": "65ecda081cf2f7fd5caca1ee891fda8a",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/DatabaseScripts/SeedData/CentralSeedData.cs": {
-    "mtime": 1790000689.3390174,
-    "seen": 1790050649.276917,
-    "ast_hash": "7a9a67743add23170f39976cf0a479df",
+    "mtime": 1790943265.01099,
+    "seen": 1790943843.2273438,
+    "ast_hash": "17da28c0ed6f5bf1b809d9c11ab68005",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/DatabaseScripts/SeedData/ICentralSeedData.cs": {
@@ -1506,9 +1506,9 @@
     "semantic_hash": "21502bb96bb89c1b148d9a52af6ad678"
   },
   "Backend/ContractManagement.Infrastructure/DatabaseScripts/SeedData/SeedData.cs": {
-    "mtime": 1790000689.3401575,
-    "seen": 1790050649.2769203,
-    "ast_hash": "393ee03c7705613e8d96cbdf13be9776",
+    "mtime": 1790943262.017846,
+    "seen": 1790943843.2273521,
+    "ast_hash": "bb9716b38b2d1ac520fc620bff827cbf",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/DatabaseScripts/StoredProcedures/Quotations/sp_Quotation_Create.sql": {
@@ -1728,9 +1728,9 @@
     "semantic_hash": "f3434cc88bef9ed1bcc5695cdbe01f3c"
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Central/CentralDbContextModelSnapshot.cs": {
-    "mtime": 1790339140.9615645,
-    "seen": 1790340203.6056843,
-    "ast_hash": "2e1e1bcb0a5c4c6c916ed0e9bb52a8d6",
+    "mtime": 1790929256.7395854,
+    "seen": 1790931022.8540907,
+    "ast_hash": "2624d1068946077c02ee167bc58c18a0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/MultiTenancy/Contracts/InitialManagerProvisioningCommand.cs": {
@@ -1758,9 +1758,9 @@
     "semantic_hash": "a773c914a3a948ca66fbac1f48ce7838"
   },
   "Backend/ContractManagement.Infrastructure/MultiTenancy/DI/DependencyInjection.cs": {
-    "mtime": 1790000689.4211142,
-    "seen": 1790050649.2770052,
-    "ast_hash": "6f3777ce991b1abd66dfdc5a40529b42",
+    "mtime": 1790943266.5421932,
+    "seen": 1790943843.2275636,
+    "ast_hash": "bac9670793660a0dae6a44a68878ab23",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/MultiTenancy/Enums/TenantDatabaseMode.cs": {
@@ -1842,9 +1842,9 @@
     "semantic_hash": "c3ecc2bf5135bc22ddbcb1a161c4b721"
   },
   "Backend/ContractManagement.Infrastructure/MultiTenancy/Services/TenantProvisioningService.cs": {
-    "mtime": 1790339087.4732916,
-    "seen": 1790340203.6057093,
-    "ast_hash": "070ca04de059cac4767a5af3a99b70a9",
+    "mtime": 1790943263.5629487,
+    "seen": 1790943843.2275965,
+    "ast_hash": "459e7c134aeea74360d706b3a8d02065",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/MultiTenancy/Services/TenantResolver.cs": {
@@ -1866,9 +1866,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Application/DbDtctechContext.cs": {
-    "mtime": 1790603065.688255,
-    "seen": 1790603290.4077983,
-    "ast_hash": "10c4aec4610fd43f9eeb1e9073689c63",
+    "mtime": 1790927812.974651,
+    "seen": 1790931022.854129,
+    "ast_hash": "14a50346b760e1fdf7535f247a8845fe",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Application/Models/TblApprovalHistory.cs": {
@@ -2046,9 +2046,9 @@
     "semantic_hash": "fbca076e20c21366445d8d73af4937c4"
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Application/Models/TblEmployee.cs": {
-    "mtime": 1790000689.4521139,
-    "seen": 1790050649.2770963,
-    "ast_hash": "0a02c2d8fdda20bf5101626977c60017",
+    "mtime": 1790927809.8482988,
+    "seen": 1790931022.854193,
+    "ast_hash": "1dd36c91c32577cf64e1f8114f2bfd5d",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Application/Models/TblFileStorage.cs": {
@@ -2124,9 +2124,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Central/CentralDbContext.cs": {
-    "mtime": 1790339063.2337394,
-    "seen": 1790340203.6058114,
-    "ast_hash": "3f035b84242f81695b710d112e594678",
+    "mtime": 1790927811.9207942,
+    "seen": 1790931022.8542092,
+    "ast_hash": "0f266db5d69598beae10c2c80ee881c4",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Central/Entities/CentralSecurityAudit.cs": {
@@ -2136,9 +2136,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Central/Entities/SystemAdmin.cs": {
-    "mtime": 1790000689.4571135,
-    "seen": 1790050649.2771134,
-    "ast_hash": "66fc8ef8b427de7ff9cc0e35587c8f3a",
+    "mtime": 1790927810.8734543,
+    "seen": 1790931022.8542116,
+    "ast_hash": "fdef6b2fbb67cbb266886eb4efc83551",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Persistence/Central/Entities/Tenant.cs": {
@@ -2154,9 +2154,9 @@
     "semantic_hash": "6d4a6a47cbfec7f4635050afe618551a"
   },
   "Backend/ContractManagement.Infrastructure/Security/AuthorizationAuditRecords.cs": {
-    "mtime": 1790000689.4581132,
-    "seen": 1790050649.277117,
-    "ast_hash": "c12ebd8a2b50b5becafa5d6fc40e0cec",
+    "mtime": 1790933920.8836868,
+    "seen": 1790934646.8792727,
+    "ast_hash": "5470edb8f6a96d7f6fd055d2e1e65fc3",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/ContractManagement.Tests.csproj": {
@@ -2232,9 +2232,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Security/EmployeeGovernanceServiceTests.cs": {
-    "mtime": 1790000689.4671206,
-    "seen": 1790050649.2771382,
-    "ast_hash": "4e7af4b3d1bb6d527f4a27523e08d542",
+    "mtime": 1790931283.364634,
+    "seen": 1790931396.7809277,
+    "ast_hash": "613ee0ad6fcbcb0b6c0f0969ba025644",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Security/EmployeePermissionCatalogTests.cs": {
@@ -2376,21 +2376,21 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.slnx": {
-    "mtime": 1790000689.4926875,
-    "seen": 1790050649.2771852,
-    "ast_hash": "f37a25361a6ebeed9a4ed41126282d41",
-    "semantic_hash": "f37a25361a6ebeed9a4ed41126282d41"
+    "mtime": 1790935700.1634142,
+    "seen": 1790937441.5176246,
+    "ast_hash": "9241ad8f421cf7a783122b2fa015009e",
+    "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/page.tsx": {
-    "mtime": 1790323605.2193866,
-    "seen": 1790331621.861878,
-    "ast_hash": "a16c3949b1466f9b9107de4afe7aef14",
+    "mtime": 1790957657.7883608,
+    "seen": 1790957835.6313562,
+    "ast_hash": "b0e595dcb9528bd0fdfeed4fadaa790b",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/[templateId]/versions/[versionId]/page.tsx": {
-    "mtime": 1790323613.652114,
-    "seen": 1790331621.8618827,
-    "ast_hash": "befda71bbb41666cb72aef95a40e06ba",
+    "mtime": 1790957659.2152731,
+    "seen": 1790957835.6313605,
+    "ast_hash": "1bd725968ad4dc45216d3a65a317dfb6",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/contract-templates/page.tsx": {
@@ -2406,9 +2406,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/employees/employee-form-modal.tsx": {
-    "mtime": 1790000690.174848,
-    "seen": 1790050649.2771914,
-    "ast_hash": "2a5bdac6dab72617f3739b1cd8a285ad",
+    "mtime": 1790948550.4417434,
+    "seen": 1790949485.3319898,
+    "ast_hash": "36fe2afc7056cf8c3ff26f729027a725",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/admin/employees/page.tsx": {
@@ -2478,15 +2478,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/[id]/page.tsx": {
-    "mtime": 1790345153.537257,
-    "seen": 1790346477.9508994,
-    "ast_hash": "02ace7292cf912ddbec3b0f5c9b55d91",
+    "mtime": 1790957654.6072657,
+    "seen": 1790957835.6314,
+    "ast_hash": "760b1dbee980bdcc46f5cf87b079fa1c",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/[id]/versions/[versionId]/page.tsx": {
-    "mtime": 1790000690.1896803,
-    "seen": 1790050649.2772086,
-    "ast_hash": "78a1ec55b11e5a0755f988dc89097945",
+    "mtime": 1790957656.27018,
+    "seen": 1790957835.6314023,
+    "ast_hash": "d81d045432f0b6a0a421af8d174247dd",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/create/page.tsx": {
@@ -2538,10 +2538,10 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/security-audits/page.tsx": {
-    "mtime": 1790000690.2007513,
-    "seen": 1790050649.27722,
-    "ast_hash": "26ac662dc86f23b186127d165414de9f",
-    "semantic_hash": "26ac662dc86f23b186127d165414de9f"
+    "mtime": 1790933972.571236,
+    "seen": 1790934646.8793964,
+    "ast_hash": "d6b9721022a2b4227d646fcd54f36933",
+    "semantic_hash": ""
   },
   "Frontend/app/(public)/layout.tsx": {
     "mtime": 1790000690.2027144,
@@ -2556,15 +2556,15 @@
     "semantic_hash": ""
   },
   "Frontend/app/layout.tsx": {
-    "mtime": 1790350670.1239438,
-    "seen": 1790350753.5394132,
-    "ast_hash": "97ad68862a7361b974413296b2402a15",
+    "mtime": 1790953696.1545546,
+    "seen": 1790954113.8312604,
+    "ast_hash": "e7096c6c7f3fe99eb590a35721e3e738",
     "semantic_hash": ""
   },
   "Frontend/app/page.tsx": {
-    "mtime": 1790352138.3216348,
-    "seen": 1790352199.654158,
-    "ast_hash": "1f4b0348931a732f6b50afab8a5cca68",
+    "mtime": 1790953692.899791,
+    "seen": 1790954113.8312624,
+    "ast_hash": "97a7317f26f2f286d73b915c0cdff676",
     "semantic_hash": ""
   },
   "Frontend/components.json": {
@@ -2574,9 +2574,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/auth/permission-guard.tsx": {
-    "mtime": 1790000690.2131262,
-    "seen": 1790050649.2772336,
-    "ast_hash": "f0c8ddcb6882336e4bdf26b848978373",
+    "mtime": 1790957711.4200473,
+    "seen": 1790957835.6314747,
+    "ast_hash": "cf33c54432c991d628dda2bd4f75f223",
     "semantic_hash": ""
   },
   "Frontend/components/construction-illustration.tsx": {
@@ -2622,9 +2622,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-audit-log.tsx": {
-    "mtime": 1790050543.3963976,
-    "seen": 1790050649.2772539,
-    "ast_hash": "8e695565d8990ba6f65f6a02d67eb0bc",
+    "mtime": 1790957660.6526668,
+    "seen": 1790957835.6315124,
+    "ast_hash": "2210dfa31173e1b6671a9995fc609305",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-closing.tsx": {
@@ -2712,9 +2712,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/sidebar.tsx": {
-    "mtime": 1790408144.5019443,
-    "seen": 1790597782.830175,
-    "ast_hash": "3bd30e4b0c26195201c286d3794119b4",
+    "mtime": 1790953699.0386903,
+    "seen": 1790954113.8313982,
+    "ast_hash": "d31fad05d41221dba5eb264b6553a71e",
     "semantic_hash": ""
   },
   "Frontend/components/theme-provider.tsx": {
@@ -3216,9 +3216,9 @@
     "semantic_hash": ""
   },
   "Frontend/lib/api-error.ts": {
-    "mtime": 1790000690.302612,
-    "seen": 1790050649.2773972,
-    "ast_hash": "facd1c6bb78be5fd78652d0a9af31784",
+    "mtime": 1790957511.6901643,
+    "seen": 1790957835.631764,
+    "ast_hash": "351dafeeaeaff056fc41bf502cf86c5f",
     "semantic_hash": ""
   },
   "Frontend/lib/axios-interceptor.ts": {
@@ -3270,9 +3270,9 @@
     "semantic_hash": ""
   },
   "Frontend/next.config.mjs": {
-    "mtime": 1790000690.3106241,
-    "seen": 1790050649.2774107,
-    "ast_hash": "2db6a1c277dc4fc5344266dbbf9e97e8",
+    "mtime": 1790953690.5743062,
+    "seen": 1790954113.831635,
+    "ast_hash": "6e3e4cefe3c720fb23771fd9966c06f3",
     "semantic_hash": ""
   },
   "Frontend/package.json": {
@@ -3378,10 +3378,10 @@
     "semantic_hash": ""
   },
   "Frontend/services/security-audits-api.ts": {
-    "mtime": 1790000690.3389304,
-    "seen": 1790050649.2774405,
-    "ast_hash": "ab00c8bc4170738f4b4aac533f771d4d",
-    "semantic_hash": "ab00c8bc4170738f4b4aac533f771d4d"
+    "mtime": 1790933969.908433,
+    "seen": 1790934646.879643,
+    "ast_hash": "cefa86dfaf9b3fc8765f4200051f0048",
+    "semantic_hash": ""
   },
   "Frontend/services/tenant-legal-profile-api.ts": {
     "mtime": 1790000690.3389304,
@@ -3414,21 +3414,21 @@
     "semantic_hash": ""
   },
   "SystemAdmin/app/(protected)/tenants/page.tsx": {
-    "mtime": 1790386014.9216218,
-    "seen": 1790386339.4068425,
-    "ast_hash": "5aa4f0993e2abfcadb46c928552bc963",
+    "mtime": 1790956217.0216272,
+    "seen": 1790956303.135876,
+    "ast_hash": "0793226552e103bb9dc6f6e345eb5b77",
     "semantic_hash": ""
   },
   "SystemAdmin/app/layout.tsx": {
-    "mtime": 1790336359.0614147,
-    "seen": 1790336819.7884157,
-    "ast_hash": "0be8ea24473f3d86da31b807029046d5",
+    "mtime": 1790953697.6771164,
+    "seen": 1790954113.8317251,
+    "ast_hash": "bab08f6ba633712df65f19ab41c1d29e",
     "semantic_hash": ""
   },
   "SystemAdmin/app/page.tsx": {
-    "mtime": 1790386014.182912,
-    "seen": 1790386339.4068449,
-    "ast_hash": "c22d1e6463749f0949c2f20b5fb4e74e",
+    "mtime": 1790953694.6621976,
+    "seen": 1790954113.8317268,
+    "ast_hash": "91a7265b2c70305cfc4a987022dbfa2d",
     "semantic_hash": ""
   },
   "SystemAdmin/components.json": {
@@ -3456,9 +3456,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/components/sidebar.tsx": {
-    "mtime": 1790000690.3626754,
-    "seen": 1790050649.2774675,
-    "ast_hash": "cc276ac4d081495c9034618894ff970a",
+    "mtime": 1790953700.2893806,
+    "seen": 1790954113.831769,
+    "ast_hash": "ed8b7c8e8c3c23853980e4bc0eba536c",
     "semantic_hash": ""
   },
   "SystemAdmin/components/theme-provider.tsx": {
@@ -3936,9 +3936,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/next.config.mjs": {
-    "mtime": 1790000690.4218357,
-    "seen": 1790050649.2775629,
-    "ast_hash": "2db6a1c277dc4fc5344266dbbf9e97e8",
+    "mtime": 1790953691.6961966,
+    "seen": 1790954113.8319416,
+    "ast_hash": "6e3e4cefe3c720fb23771fd9966c06f3",
     "semantic_hash": ""
   },
   "SystemAdmin/package.json": {
@@ -3966,9 +3966,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/services/security-audits-api.ts": {
-    "mtime": 1790000690.4342375,
-    "seen": 1790050649.277571,
-    "ast_hash": "b22d4a3058b539671fc0e2a6c18e9c33",
+    "mtime": 1790933971.257137,
+    "seen": 1790934646.879961,
+    "ast_hash": "1e506cc4a400b07124694fa59f642f1b",
     "semantic_hash": ""
   },
   "SystemAdmin/tsconfig.json": {
@@ -5604,15 +5604,15 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Common/Security/AccountPasswordPolicy.cs": {
-    "mtime": 1790000689.1677063,
-    "seen": 1790050649.276527,
-    "ast_hash": "759ebf7013f7d339abb99657c2aef7cc",
+    "mtime": 1790943249.6524258,
+    "seen": 1790943843.2264392,
+    "ast_hash": "685edb0ef7568c52d80fc7efd6120b50",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Authentication/ChangeOwnPasswordRequest.cs": {
-    "mtime": 1790000689.1992207,
-    "seen": 1790050649.2766106,
-    "ast_hash": "ca51e3b230a8ac5146e6444378535d70",
+    "mtime": 1790943254.2869465,
+    "seen": 1790943843.2266157,
+    "ast_hash": "8ac108ccef459025d59e3251c9421f85",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Authentication/UpdateEmployeeSelfProfileRequest.cs": {
@@ -5622,9 +5622,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/SystemAuthentication/ChangeSystemAdminPasswordRequest.cs": {
-    "mtime": 1790000689.234221,
-    "seen": 1790050649.2766945,
-    "ast_hash": "3e6455366b39fe5404a85a08894134d4",
+    "mtime": 1790943255.8244705,
+    "seen": 1790943843.2267904,
+    "ast_hash": "48cbcb245080633a7851c2269dac00d7",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/SystemAuthentication/UpdateSystemAdminProfileRequest.cs": {
@@ -5634,15 +5634,15 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Responses/Authentication/EmployeeProfileResponse.cs": {
-    "mtime": 1790000689.2402215,
-    "seen": 1790050649.276704,
-    "ast_hash": "8572c45617acff0f0784e46a2fb14803",
+    "mtime": 1790928870.198359,
+    "seen": 1790931022.8537257,
+    "ast_hash": "fa8959b7c48a093af3132b29ec22e58a",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Responses/SystemAuthentication/SystemAdminProfileResponse.cs": {
-    "mtime": 1790000689.2622204,
-    "seen": 1790050649.2767537,
-    "ast_hash": "231e9de4345794c859227849517b536b",
+    "mtime": 1790928871.2543278,
+    "seen": 1790931022.853781,
+    "ast_hash": "0a3d8fca2b50f1177b4307085d0da1cc",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Interfaces/Authentication/IEmployeeAccountService.cs": {
@@ -5658,15 +5658,15 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Authentication/EmployeeAccountService.cs": {
-    "mtime": 1790000689.2994118,
-    "seen": 1790050649.2768443,
-    "ast_hash": "fa5a4b8d733be71c8846b725a237e1e0",
+    "mtime": 1790928867.0864334,
+    "seen": 1790931022.8538947,
+    "ast_hash": "1bca492bb9876545f29e27e3095b514a",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/SystemAuthentication/SystemAdminAccountService.cs": {
-    "mtime": 1790000689.331419,
-    "seen": 1790050649.2769022,
-    "ast_hash": "b3065983baa355179e521e564b3f077e",
+    "mtime": 1790928868.1371536,
+    "seen": 1790931022.853959,
+    "ast_hash": "00c9ce11db96b1a12c3429042e49cc65",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Infrastructure/Migrations/Application/20260902032434_AddEmployeeAccountSecurity.cs": {
@@ -5682,15 +5682,15 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Authentication/EmployeeSelfServiceTests.cs": {
-    "mtime": 1790000689.4601133,
-    "seen": 1790050649.2771208,
-    "ast_hash": "fca8b2ba0d9131f82f01fa4bb7532333",
+    "mtime": 1790930804.0358899,
+    "seen": 1790931022.854223,
+    "ast_hash": "64dd35687724e37190c599bc71cd1639",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/SystemAuthentication/SystemAdminSelfServiceTests.cs": {
-    "mtime": 1790000689.4876864,
-    "seen": 1790050649.2771747,
-    "ast_hash": "fb24a66d0adebc854bb2c7e0d93b3de1",
+    "mtime": 1790930805.1209674,
+    "seen": 1790931022.8542833,
+    "ast_hash": "15275b11eef399545b6e8bcde612912e",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Integration/Phase1AccountSecuritySqlServerMigrationTests.cs": {
@@ -5700,9 +5700,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/change-password/page.tsx": {
-    "mtime": 1790000690.1847606,
-    "seen": 1790050649.2772038,
-    "ast_hash": "f779c05661bd82b46d28a49e0fe874d5",
+    "mtime": 1790943359.9160051,
+    "seen": 1790943843.2280352,
+    "ast_hash": "5230866a012ef8488b63a80644f2fcb2",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/profile/page.tsx": {
@@ -5718,27 +5718,27 @@
     "semantic_hash": ""
   },
   "Frontend/components/account/change-password-form.tsx": {
-    "mtime": 1790336720.0338848,
-    "seen": 1790336819.788177,
-    "ast_hash": "066e5eb431041f941a174d71dbc71f37",
+    "mtime": 1790943350.4702666,
+    "seen": 1790943843.2281086,
+    "ast_hash": "f34b6fcfff9a1402f4e084f7d87fb2bd",
     "semantic_hash": ""
   },
   "Frontend/components/account/employee-profile-form.tsx": {
-    "mtime": 1790088689.5993545,
-    "seen": 1790088729.9870157,
-    "ast_hash": "264ec5de3e92b33aa92d9006e3294c45",
+    "mtime": 1790929166.8914073,
+    "seen": 1790931022.8543532,
+    "ast_hash": "7cb8d0c526c96ed48bd21fd5fcc5da2f",
     "semantic_hash": ""
   },
   "Frontend/services/profile-api.ts": {
-    "mtime": 1790000690.3363216,
-    "seen": 1790050649.2774372,
-    "ast_hash": "15f3d9f83d165e59889db7f152cdb7e4",
+    "mtime": 1790929147.223676,
+    "seen": 1790931022.8545866,
+    "ast_hash": "1f2654c5d429ebf6445a9bc5ce0ae9b3",
     "semantic_hash": ""
   },
   "SystemAdmin/app/(protected)/change-password/page.tsx": {
-    "mtime": 1790000690.3429313,
-    "seen": 1790050649.277445,
-    "ast_hash": "d5af897f3851c5852fa9aeb536647ee5",
+    "mtime": 1790943361.4577591,
+    "seen": 1790943843.228655,
+    "ast_hash": "a7f9e073de90b672bbea3a627c6c0f21",
     "semantic_hash": ""
   },
   "SystemAdmin/app/(protected)/profile/page.tsx": {
@@ -5748,21 +5748,21 @@
     "semantic_hash": ""
   },
   "SystemAdmin/components/account/change-password-form.tsx": {
-    "mtime": 1790000690.3543053,
-    "seen": 1790050649.2774575,
-    "ast_hash": "1a9cb006772825d9d1af5d77ad10096c",
+    "mtime": 1790943352.0393558,
+    "seen": 1790943843.2286906,
+    "ast_hash": "a5f6d641209a01e9ac4d8b2bfc56c1c5",
     "semantic_hash": ""
   },
   "SystemAdmin/components/account/system-admin-profile-form.tsx": {
-    "mtime": 1790000690.3559444,
-    "seen": 1790050649.2774594,
-    "ast_hash": "1df9de56db0294423aadae25854d7b51",
+    "mtime": 1790929168.4589922,
+    "seen": 1790931022.854616,
+    "ast_hash": "1596ab365bff4380a9960ee3ca11484d",
     "semantic_hash": ""
   },
   "SystemAdmin/services/profile-api.ts": {
-    "mtime": 1790000690.4342375,
-    "seen": 1790050649.2775698,
-    "ast_hash": "e735829bf5084b4bd03e4c260c41904c",
+    "mtime": 1790929148.7551177,
+    "seen": 1790931022.854741,
+    "ast_hash": "cccf6402db6445a36ba4ca097ddbe250",
     "semantic_hash": ""
   },
   "Frontend/components/account/profile-hero-banner.tsx": {
@@ -6042,27 +6042,21 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/CustomerAccess/CustomerOtpEmailTemplate.cs": {
-    "mtime": 1790000689.1942208,
-    "seen": 1790050649.2766004,
-    "ast_hash": "641b0dcf2d4a5e88dbc6ff24b7327439",
-    "semantic_hash": ""
-  },
-  "Backend/ContractManagement.API/Domains/CustomerAccess/CustomerOtpSmtpOptions.cs": {
-    "mtime": 1790000689.1952214,
-    "seen": 1790050649.276603,
-    "ast_hash": "4ef1c174409d17f307593a51e4ab5ab3",
+    "mtime": 1790953762.1921122,
+    "seen": 1790954113.8298903,
+    "ast_hash": "c2cddb142545a5bcdfb9f6f414d8b3c3",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/CustomerAccess/SmtpCustomerOtpDeliveryProvider.cs": {
-    "mtime": 1790000689.197221,
-    "seen": 1790050649.2766078,
-    "ast_hash": "2786b99c0c41b2a03919b9f2ce0b0c26",
+    "mtime": 1790928088.0268414,
+    "seen": 1790931022.853625,
+    "ast_hash": "7e703b2e1f977fc766c6710dbe827e42",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/CustomerAccess/CustomerOtpSmtpTests.cs": {
-    "mtime": 1790000689.4611118,
-    "seen": 1790050649.277122,
-    "ast_hash": "8368e85f0367160612e9ebb91f6dec94",
+    "mtime": 1790954063.1715698,
+    "seen": 1790954113.8310256,
+    "ast_hash": "87b1a0ed29f02597b3d922f63e6c4780",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Assets/Email/logo_light.png": {
@@ -6420,9 +6414,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/components/security-audits/central-security-audit-log.tsx": {
-    "mtime": 1790386015.7223544,
-    "seen": 1790386339.4068584,
-    "ast_hash": "5da060acdbfefc723b9145d2061f2678",
+    "mtime": 1790933973.7706745,
+    "seen": 1790934646.8796818,
+    "ast_hash": "148607c4ab80c655e2eb493ec218f14f",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Common/Enums/AcceptanceRecordStatus.cs": {
@@ -6771,6 +6765,372 @@
     "mtime": 1790607403.2045405,
     "seen": 1790607484.1574676,
     "ast_hash": "d8ce28d70d31281abfb8d2cab6a4bd99",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Email/SmtpEmailOptions.cs": {
+    "mtime": 1790953765.144986,
+    "seen": 1790954113.8301985,
+    "ast_hash": "bd1c4c87323f6b0b00b491abce01bca3",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Email/SmtpEmailTransport.cs": {
+    "mtime": 1790953766.4584498,
+    "seen": 1790954113.8302019,
+    "ast_hash": "e956809a684fe1862f8e4d46655825d1",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/AccountRecoveryCryptography.cs": {
+    "mtime": 1790928086.516366,
+    "seen": 1790931022.8538826,
+    "ast_hash": "eb636162d6f82f81a044fb5c81f20bda",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/AccountRecoveryOptions.cs": {
+    "mtime": 1790928085.0688744,
+    "seen": 1790931022.853884,
+    "ast_hash": "c3bc4d2d315170624559b7c01fa02a68",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/AccountRecoveryOutboxWorker.cs": {
+    "mtime": 1790934570.587386,
+    "seen": 1790934646.878947,
+    "ast_hash": "a15696ea4b00e70966d5703f1d3f3a83",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryEmailControllers.cs": {
+    "mtime": 1790931595.5961337,
+    "seen": 1790931978.540854,
+    "ast_hash": "4b95f500db1bce20a5a77a36860c0e13",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryEmailTemplate.cs": {
+    "mtime": 1790953763.6569412,
+    "seen": 1790954113.8303907,
+    "ast_hash": "80600def947b4e03325607c53088f042",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryEmailVerificationService.cs": {
+    "mtime": 1790930797.4771113,
+    "seen": 1790931022.853888,
+    "ast_hash": "0bc85878310a8271679d66838df227b7",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryStore.cs": {
+    "mtime": 1790934568.8102415,
+    "seen": 1790934646.8789597,
+    "ast_hash": "5d9ca6770ac1901a899b50f38c4cd497",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryTestMailbox.cs": {
+    "mtime": 1790928774.3146627,
+    "seen": 1790931022.8538904,
+    "ast_hash": "d224d088aade4cbb3060c389253b1fd1",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Migrations/Central/20261002082056_AccountRecoveryPhase123.cs": {
+    "mtime": 1790929256.7370658,
+    "seen": 1790931022.8540895,
+    "ast_hash": "98b264d29c2c37ba48264669d6bde85a",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Migrations/Tenant/20261002082219_AccountRecoveryPhase123.cs": {
+    "mtime": 1790929339.9371583,
+    "seen": 1790931022.8540921,
+    "ast_hash": "cb9092f011c5b3aa1819fe054c1f25a1",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Persistence/Recovery/AccountRecoveryChallenge.cs": {
+    "mtime": 1790927807.6588159,
+    "seen": 1790931022.8542156,
+    "ast_hash": "dbd80412b7fd1d31134f9d5f52e8fe87",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Persistence/Recovery/AccountRecoveryMapping.cs": {
+    "mtime": 1790927808.7679567,
+    "seen": 1790931022.8542173,
+    "ast_hash": "2eb5f3be1581536dd97f850c79094738",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Security/PasswordRules.cs": {
+    "mtime": 1790943248.0592377,
+    "seen": 1790943843.227801,
+    "ast_hash": "d72343ad0ba3faae09b403964a675325",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Recovery/RecoveryEmailTests.cs": {
+    "mtime": 1790943429.565121,
+    "seen": 1790943843.2278578,
+    "ast_hash": "4b677fe83b891d7f69fb5ecfb4134185",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Integration/AccountRecoveryMigrationTests.cs": {
+    "mtime": 1790929996.6914425,
+    "seen": 1790931022.8542843,
+    "ast_hash": "3bd004bb1d639a53c27f86791f434334",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Integration/AccountRecoverySqlServerTests.cs": {
+    "mtime": 1790933412.487289,
+    "seen": 1790934646.879342,
+    "ast_hash": "f1e674fe1c167b0f2b3dbf9e4402b914",
+    "semantic_hash": ""
+  },
+  "Frontend/app/verify-recovery-email/page.tsx": {
+    "mtime": 1790930502.9862761,
+    "seen": 1790931022.8543475,
+    "ast_hash": "13fe477983fe21c82447487223c26fd0",
+    "semantic_hash": ""
+  },
+  "Frontend/components/account/recovery-email-card.tsx": {
+    "mtime": 1790956016.7949314,
+    "seen": 1790956303.1356416,
+    "ast_hash": "63c3c47c2253f357c1457884f0975248",
+    "semantic_hash": ""
+  },
+  "Frontend/components/account/verify-recovery-email-page.tsx": {
+    "mtime": 1790955736.0311365,
+    "seen": 1790956303.1356442,
+    "ast_hash": "896b09d454b3c5d5738bd4e8693c28e8",
+    "semantic_hash": ""
+  },
+  "Frontend/components/safe-analytics.tsx": {
+    "mtime": 1790929156.8453083,
+    "seen": 1790931022.8544157,
+    "ast_hash": "30aa6964431e6fa783c5c4a15e00db27",
+    "semantic_hash": ""
+  },
+  "Frontend/lib/password-policy.ts": {
+    "mtime": 1790943267.9702861,
+    "seen": 1790943843.2285633,
+    "ast_hash": "451374445d47b1c298b90e79aa2bb402",
+    "semantic_hash": ""
+  },
+  "Frontend/services/recovery-email-api.ts": {
+    "mtime": 1790930443.4479737,
+    "seen": 1790931022.8545904,
+    "ast_hash": "00c43202257bec8757e5b35751319e5d",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/app/verify-recovery-email/page.tsx": {
+    "mtime": 1790930507.720528,
+    "seen": 1790931022.8546076,
+    "ast_hash": "13fe477983fe21c82447487223c26fd0",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/account/recovery-email-card.tsx": {
+    "mtime": 1790956082.9568157,
+    "seen": 1790956303.1358902,
+    "ast_hash": "63c3c47c2253f357c1457884f0975248",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/account/verify-recovery-email-page.tsx": {
+    "mtime": 1790956072.0286918,
+    "seen": 1790956303.135894,
+    "ast_hash": "896b09d454b3c5d5738bd4e8693c28e8",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/safe-analytics.tsx": {
+    "mtime": 1790929165.2459896,
+    "seen": 1790931022.8546233,
+    "ast_hash": "30aa6964431e6fa783c5c4a15e00db27",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/lib/password-policy.ts": {
+    "mtime": 1790943269.6939201,
+    "seen": 1790943843.2289343,
+    "ast_hash": "451374445d47b1c298b90e79aa2bb402",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/services/recovery-email-api.ts": {
+    "mtime": 1790930448.3322115,
+    "seen": 1790931022.8547423,
+    "ast_hash": "23d1430a0eb43108ff650e6f4d8635e8",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/PasswordRecoveryControllers.cs": {
+    "mtime": 1790943260.531917,
+    "seen": 1790943843.2271438,
+    "ast_hash": "665f4f056b9fee48cc03dc867ac5806e",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/PasswordRecoveryService.cs": {
+    "mtime": 1790934236.7325816,
+    "seen": 1790934646.878952,
+    "ast_hash": "5f399cf8ba2e2d401e0e3de5a8127db5",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryRequestLimiter.cs": {
+    "mtime": 1790932711.5904238,
+    "seen": 1790934646.878958,
+    "ast_hash": "c7c177f9353d3643079695705f098abf",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Recovery/RecoveryTelemetry.cs": {
+    "mtime": 1790933635.3734295,
+    "seen": 1790934646.8789606,
+    "ast_hash": "90e483661d088551edc2cd2baf4eb8c8",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Recovery/PasswordRecoveryControllerTests.cs": {
+    "mtime": 1790933794.7583308,
+    "seen": 1790934646.8792965,
+    "ast_hash": "9b059e5228df195506d65b769c9eb9cc",
+    "semantic_hash": ""
+  },
+  "Frontend/app/forgot-password/page.tsx": {
+    "mtime": 1790950044.8968832,
+    "seen": 1790952025.396408,
+    "ast_hash": "59473d7d673beac1707dfb43b56d3278",
+    "semantic_hash": ""
+  },
+  "Frontend/app/reset-password/page.tsx": {
+    "mtime": 1790933034.8151221,
+    "seen": 1790934646.8794053,
+    "ast_hash": "3e6d675e0503fb34a0c9b1e0ed53ef8d",
+    "semantic_hash": ""
+  },
+  "Frontend/components/account/forgot-password-page.tsx": {
+    "mtime": 1790955729.0875401,
+    "seen": 1790956303.135635,
+    "ast_hash": "93e42d79f1533e5efd66de3c720e5fc6",
+    "semantic_hash": ""
+  },
+  "Frontend/components/account/new-password-fields.tsx": {
+    "mtime": 1790951938.4394808,
+    "seen": 1790952025.3964243,
+    "ast_hash": "978ec160fb800afe3c5f16180ab2b3ba",
+    "semantic_hash": ""
+  },
+  "Frontend/components/account/reset-password-page.tsx": {
+    "mtime": 1790955732.9064994,
+    "seen": 1790956303.1356428,
+    "ast_hash": "dd24ce536485026a63a7cf1ef833cf30",
+    "semantic_hash": ""
+  },
+  "Frontend/services/password-recovery-api.ts": {
+    "mtime": 1790934965.5653448,
+    "seen": 1790935131.1800358,
+    "ast_hash": "1823319aed7fc326e5bdc82de282e4c5",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/app/forgot-password/page.tsx": {
+    "mtime": 1790933046.7065947,
+    "seen": 1790934646.8796558,
+    "ast_hash": "c0c543d9e8b768d861cc285d1a0a4f01",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/app/reset-password/page.tsx": {
+    "mtime": 1790933051.809373,
+    "seen": 1790934646.87966,
+    "ast_hash": "a7398323b7ee5c323e3e9bdcd20e7bb9",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/account/forgot-password-page.tsx": {
+    "mtime": 1790956058.0634253,
+    "seen": 1790956303.135887,
+    "ast_hash": "2673c5621c210d2c186ed4939e29eb7b",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/account/new-password-fields.tsx": {
+    "mtime": 1790956077.496075,
+    "seen": 1790956303.1358879,
+    "ast_hash": "978ec160fb800afe3c5f16180ab2b3ba",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/components/account/reset-password-page.tsx": {
+    "mtime": 1790956064.9259403,
+    "seen": 1790956303.1358914,
+    "ast_hash": "dd24ce536485026a63a7cf1ef833cf30",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/services/password-recovery-api.ts": {
+    "mtime": 1790934967.7126894,
+    "seen": 1790935131.1801991,
+    "ast_hash": "149b6faeb7ddc1197f3981f756103620",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.RecoveryOps/ContractManagement.RecoveryOps.csproj": {
+    "mtime": 1790935697.3690605,
+    "seen": 1790937441.5173786,
+    "ast_hash": "ab9492b230cd2f2df0b4410e0a1fe501",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.RecoveryOps/Program.cs": {
+    "mtime": 1790953769.1841547,
+    "seen": 1790954113.8310137,
+    "ast_hash": "f77293025d2be08a41a84ad13121dab6",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Integration/AccountRecoveryHttpTests.cs": {
+    "mtime": 1790943533.6984222,
+    "seen": 1790943843.2279594,
+    "ast_hash": "9144d6180650c86811078741f33d5d8c",
+    "semantic_hash": ""
+  },
+  "scripts/recovery-client-smoke.cjs": {
+    "mtime": 1790936460.4031606,
+    "seen": 1790937441.5191212,
+    "ast_hash": "5fe2d7e662633c6617bf4a32985c002e",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Common/Security/NewAccountPasswordAttribute.cs": {
+    "mtime": 1790943251.2161105,
+    "seen": 1790943843.2264547,
+    "ast_hash": "7c74b2b83ecb9f7ad9961aa97ef56337",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Security/AccountPasswordPolicyTests.cs": {
+    "mtime": 1790943430.6318083,
+    "seen": 1790943843.2278607,
+    "ast_hash": "95b9bc82895663701ff5841be8ab9a69",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Recovery/RecoveryEmailTemplateTests.cs": {
+    "mtime": 1790954064.655267,
+    "seen": 1790954113.8310573,
+    "ast_hash": "47fe77a288ef075626435d55165e2e39",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Infrastructure/Branding/ApplicationBranding.cs": {
+    "mtime": 1790953686.53817,
+    "seen": 1790954113.830587,
+    "ast_hash": "3fb555b91a09142482510839d776804b",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Branding/ApplicationBrandingTests.cs": {
+    "mtime": 1790953822.6860528,
+    "seen": 1790954113.8310163,
+    "ast_hash": "76a2c99d22ed058c17a0b8a8ebbd63fe",
+    "semantic_hash": ""
+  },
+  "Frontend/lib/application-branding.ts": {
+    "mtime": 1790953688.561213,
+    "seen": 1790954113.8316066,
+    "ast_hash": "a9b2ea6563236e2e3785b0674518660b",
+    "semantic_hash": ""
+  },
+  "Shared/application-branding.json": {
+    "mtime": 1790953682.4119463,
+    "seen": 1790954113.8317072,
+    "ast_hash": "c78ba43a52e40919fc12f7a0a71d04bc",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/lib/application-branding.ts": {
+    "mtime": 1790953689.5412886,
+    "seen": 1790954113.8319266,
+    "ast_hash": "a9b2ea6563236e2e3785b0674518660b",
+    "semantic_hash": ""
+  },
+  "Shared/README.md": {
+    "mtime": 1790953683.4569328,
+    "seen": 1790954113.8321624,
+    "ast_hash": "1721c4a32df7e29e830fbff41432e999",
+    "semantic_hash": ""
+  },
+  "scripts/resource-access-smoke.cjs": {
+    "mtime": 1790957589.8099303,
+    "seen": 1790957835.6323159,
+    "ast_hash": "dc2207c2a7ec637ea5e1dc3738b2be53",
     "semantic_hash": ""
   }
 }

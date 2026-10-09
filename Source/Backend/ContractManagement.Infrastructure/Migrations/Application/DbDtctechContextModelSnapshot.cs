@@ -975,7 +975,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("ContractFileName")
                         .HasMaxLength(300)
-                        .IsUnicode()
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("ContractFilePath")
@@ -4469,6 +4469,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<DateTime?>("PasswordChangedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("RecoveryEmailVerifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -5342,6 +5345,160 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Employees", "[CreatedByEmployeeId] > 0 AND [UpdatedByEmployeeId] > 0");
 
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Singleton", "[TenantLegalProfileId] = 1");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Recovery.AccountRecoveryChallenge", b =>
+                {
+                    b.Property<long>("RecoveryChallengeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RecoveryChallengeId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int")
+                        .HasColumnName("EmployeeId");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("EmailHash")
+                        .IsRequired()
+                        .HasColumnType("binary(32)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Purpose")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("RequestCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SessionVersionAtIssue")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("binary(32)");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("RecoveryChallengeId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "CreatedAtUtc");
+
+                    b.HasIndex("AccountId", "Purpose")
+                        .IsUnique()
+                        .HasFilter("[UsedAtUtc] IS NULL AND [RevokedAtUtc] IS NULL");
+
+                    b.ToTable("tbl_AccountRecoveryChallenge", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tbl_AccountRecoveryChallenge_Account", "[EmployeeId] > 0 AND [SessionVersionAtIssue] > 0 AND [RequestCount] > 0");
+
+                            t.HasCheckConstraint("CK_tbl_AccountRecoveryChallenge_Dates", "[ExpiresAtUtc] > [CreatedAtUtc] AND [LastRequestedAtUtc] >= [CreatedAtUtc]");
+
+                            t.HasCheckConstraint("CK_tbl_AccountRecoveryChallenge_Purpose", "[Purpose] IN (1, 2)");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Recovery.AccountRecoveryEmailOutbox", b =>
+                {
+                    b.Property<long>("OutboxId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("OutboxId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int")
+                        .HasColumnName("EmployeeId");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FailedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LeaseUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RecipientCiphertext")
+                        .HasMaxLength(1024)
+                        .HasColumnType("varbinary(1024)");
+
+                    b.Property<long?>("RecoveryChallengeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("TemplateKind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte[]>("TokenCiphertext")
+                        .HasMaxLength(512)
+                        .HasColumnType("varbinary(512)");
+
+                    b.HasKey("OutboxId");
+
+                    b.HasIndex("RecoveryChallengeId")
+                        .IsUnique()
+                        .HasFilter("[RecoveryChallengeId] IS NOT NULL AND [Status] IN (1, 2)");
+
+                    b.HasIndex("Status", "NextAttemptAtUtc");
+
+                    b.ToTable("tbl_AccountRecoveryEmailOutbox", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tbl_AccountRecoveryEmailOutbox_Lease", "([Status] = 2 AND [LeaseId] IS NOT NULL AND [LeaseUntilUtc] IS NOT NULL) OR ([Status] <> 2 AND [LeaseId] IS NULL AND [LeaseUntilUtc] IS NULL)");
+
+                            t.HasCheckConstraint("CK_tbl_AccountRecoveryEmailOutbox_Values", "[EmployeeId] > 0 AND [TemplateKind] IN (1, 2, 3) AND [Status] IN (1, 2, 3, 4) AND [AttemptCount] >= 0");
                         });
                 });
 

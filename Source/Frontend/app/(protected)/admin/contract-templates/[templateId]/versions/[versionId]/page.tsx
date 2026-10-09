@@ -18,7 +18,6 @@ import {
   RefreshCw,
   Scale,
   Send,
-  ShieldAlert,
   Upload,
   XCircle,
 } from "lucide-react";
@@ -39,6 +38,10 @@ import {
   parseValidationMessages,
 } from "@/components/contract-templates/contract-template-utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  PermissionGuard,
+  ResourceAccessErrorState,
+} from "@/components/auth/permission-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +52,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import {
+  getResourceAccessErrorKind,
+  type ResourceAccessErrorKind,
+} from "@/lib/api-error";
 import { formatDateTime } from "@/lib/format-date-time";
 import { ContractLanguageMode } from "@/services/contract-api";
 import {
@@ -159,6 +166,10 @@ export default function ContractTemplateVersionWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{
+    kind: ResourceAccessErrorKind;
+    message: string;
+  } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -186,21 +197,35 @@ export default function ContractTemplateVersionWorkspacePage() {
       if (
         !canManage ||
         !Number.isInteger(templateId) ||
-        !Number.isInteger(versionId)
+        !Number.isInteger(versionId) ||
+        templateId <= 0 ||
+        versionId <= 0
       ) {
+        if (canManage) {
+          setLoadError({
+            kind: "not-found",
+            message: "Đường dẫn phiên bản mẫu hợp đồng không hợp lệ.",
+          });
+        }
         setIsLoading(false);
         return;
       }
       try {
-        if (showLoading) setIsLoading(true);
-        else setIsRefreshing(true);
+        if (showLoading) {
+          setIsLoading(true);
+          setLoadError(null);
+        } else setIsRefreshing(true);
         const [templateResponse, versionResponse] = await Promise.all([
           contractTemplateApi.getById(templateId),
           contractTemplateApi.getVersion(versionId),
         ]);
         if (versionResponse.templateId !== templateId) {
-          throw new Error("Phiên bản không thuộc mẫu hợp đồng này.");
+          const message = "Phiên bản không thuộc mẫu hợp đồng này.";
+          if (showLoading) setLoadError({ kind: "not-found", message });
+          toast.error(message);
+          return;
         }
+        setLoadError(null);
         setTemplate(templateResponse);
         setVersion(versionResponse);
         if (!CONTRACT_DOCUMENT_TYPES.has(templateResponse.documentType)) {
@@ -217,6 +242,15 @@ export default function ContractTemplateVersionWorkspacePage() {
           });
         }
       } catch (error) {
+        if (showLoading) {
+          setLoadError({
+            kind: getResourceAccessErrorKind(error),
+            message: getContractTemplateErrorMessage(
+              error,
+              "Không thể tải khu vực biên soạn mẫu hợp đồng.",
+            ),
+          });
+        }
         toast.error(
           getContractTemplateErrorMessage(
             error,
@@ -578,22 +612,29 @@ export default function ContractTemplateVersionWorkspacePage() {
           </div>
 
           {!canManage ? (
-            <Alert variant="destructive">
-              <ShieldAlert />
-              <AlertTitle>Không có quyền truy cập</AlertTitle>
-              <AlertDescription>
-                Chỉ nhân viên quản trị được quản trị mẫu hợp đồng.
-              </AlertDescription>
-            </Alert>
+            <PermissionGuard permission={RBAC_PERMISSIONS.templateManage}>
+              {null}
+            </PermissionGuard>
           ) : isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-32 w-full" />
               <Skeleton className="h-96 w-full" />
             </div>
-          ) : !template || !version ? (
-            <Alert variant="destructive">
-              <AlertTitle>Không tìm thấy phiên bản mẫu hợp đồng</AlertTitle>
-            </Alert>
+          ) : loadError || !template || !version ? (
+            <ResourceAccessErrorState
+              kind={loadError?.kind ?? "not-found"}
+              title={
+                loadError?.kind === "error"
+                  ? "Không thể tải phiên bản mẫu hợp đồng"
+                  : "Không thể truy cập phiên bản mẫu hợp đồng"
+              }
+              description={
+                loadError?.message ?? "Phiên bản mẫu hợp đồng không tồn tại hoặc đã bị xóa."
+              }
+              backHref={`/admin/contract-templates/${templateId}`}
+              backLabel="Quay lại chi tiết mẫu"
+              onRetry={() => void fetchWorkspace()}
+            />
           ) : (
             <>
               <Card className="py-0">

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { RecoveryEmailCard } from "@/components/account/recovery-email-card";
 import {
   AtSign,
   CheckCircle2,
@@ -250,6 +251,8 @@ export function SystemAdminProfileForm({
                 </div>
               </div>
             </form>
+            <RecoveryEmailCard email={profile.email} verifiedAt={profile.recoveryEmailVerifiedAt}
+              saveRequired={isDirty || isSaving || isStale} mustChangePassword={profile.mustChangePassword} onReload={onReload} />
           </TabsContent>
 
           {/* TAB 2: ADMIN & PERMISSIONS INFO */}

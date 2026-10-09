@@ -32,10 +32,10 @@ public static class DependencyInjection
             .Validate(
                 options => !options.Enabled
                     || (!string.IsNullOrWhiteSpace(options.Username)
-                        && options.Password.Length >= 12
+                        && ContractManagement.Infrastructure.Security.PasswordRules.IsValid(options.Password)
                         && !string.IsNullOrWhiteSpace(options.FullName)
                         && !string.IsNullOrWhiteSpace(options.Email)),
-                "SystemAdminBootstrap requires username, a password of at least 12 characters, full name and email.")
+                "SystemAdminBootstrap requires username, a 12–100 character password containing a digit, uppercase and lowercase letters, full name and email.")
             .ValidateOnStart();
 
         string centralConnectionString =
