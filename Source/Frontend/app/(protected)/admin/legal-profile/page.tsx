@@ -327,7 +327,7 @@ function LegalProfilePageContent() {
       <Header title="Hồ sơ pháp lý doanh nghiệp" />
 
       <div className="grow overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="mx-auto space-y-6">
           {/* Top Hero Banner */}
           <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm backdrop-blur-sm sm:p-8">
             <div className="absolute -right-16 -top-16 size-64 rounded-full bg-primary/5 blur-3xl" />

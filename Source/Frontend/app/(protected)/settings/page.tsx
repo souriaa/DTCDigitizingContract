@@ -15,8 +15,9 @@ import {
 } from "@/services/preferences-api";
 
 export default function SettingsPage() {
-  const [preferences, setPreferences] =
-    useState<EmployeePreferences | null>(null);
+  const [preferences, setPreferences] = useState<EmployeePreferences | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -27,10 +28,7 @@ export default function SettingsPage() {
       setPreferences(await preferencesApi.get());
     } catch (requestError) {
       setError(
-        getApiErrorMessage(
-          requestError,
-          "Không thể tải tùy chọn cá nhân.",
-        ),
+        getApiErrorMessage(requestError, "Không thể tải tùy chọn cá nhân."),
       );
     } finally {
       setIsLoading(false);
@@ -53,7 +51,8 @@ export default function SettingsPage() {
               Cấu hình cá nhân
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Điều chỉnh điểm bắt đầu và cách hiển thị phù hợp với cách bạn làm việc.
+              Điều chỉnh điểm bắt đầu và cách hiển thị phù hợp với cách bạn làm
+              việc.
             </p>
           </div>
 

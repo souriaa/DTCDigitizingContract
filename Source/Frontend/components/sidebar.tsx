@@ -72,18 +72,6 @@ const navItems: NavItem[] = [
     requiredPermissions: [RBAC_PERMISSIONS.templateManage],
   },
   {
-    label: "Nhật ký hợp đồng",
-    icon: ScrollText,
-    href: "/contract-audits",
-    requiredPermissions: [RBAC_PERMISSIONS.contractAuditReadTenant],
-  },
-  {
-    label: "Nhật ký bảo mật",
-    icon: ShieldCheck,
-    href: "/security-audits",
-    requiredPermissions: [RBAC_PERMISSIONS.securityAuditReadTenant],
-  },
-  {
     label: "Báo giá",
     icon: FileSignature,
     href: "/quotations",
@@ -118,6 +106,18 @@ const navItems: NavItem[] = [
     icon: FileBadge,
     href: "/admin/legal-profile",
     requiredPermissions: [RBAC_PERMISSIONS.tenantLegalProfileManage],
+  },
+  {
+    label: "Nhật ký hợp đồng",
+    icon: ScrollText,
+    href: "/contract-audits",
+    requiredPermissions: [RBAC_PERMISSIONS.contractAuditReadTenant],
+  },
+  {
+    label: "Nhật ký bảo mật",
+    icon: ShieldCheck,
+    href: "/security-audits",
+    requiredPermissions: [RBAC_PERMISSIONS.securityAuditReadTenant],
   },
 ];
 
