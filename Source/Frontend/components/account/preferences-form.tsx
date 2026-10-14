@@ -158,8 +158,9 @@ export function PreferencesForm({
         <CardHeader>
           <CardTitle>Tùy chọn hiển thị</CardTitle>
           <CardDescription>
-            Trang mặc định được lưu theo tài khoản. Giao diện và số dòng được lưu
-            riêng trên trình duyệt này.
+            Mặc định hệ thống là danh sách hợp đồng. Trang bạn chọn được lưu
+            theo tài khoản. Giao diện và số dòng được lưu riêng trên trình duyệt
+            này.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 lg:grid-cols-3">

@@ -102,7 +102,7 @@ public sealed class EmployeeSelfServiceTests
         var service = CreateService(dbContext);
 
         var initial = await service.GetPreferencesAsync(employee.EmployeeId);
-        Assert.Equal("/dashboard", initial.DefaultPage);
+        Assert.Equal("/contracts", initial.DefaultPage);
         Assert.Contains(
             initial.AvailableLandingPages,
             option => option.Path == "/customers");

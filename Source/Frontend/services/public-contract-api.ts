@@ -124,6 +124,12 @@ export const publicContractApi = {
     );
   },
 
+  getComments: (tenantCode: string, signal?: AbortSignal) => {
+    return publicAxiosClient.get<unknown, CustomerPublicNegotiationCommentResponse[]>(
+      `${getTenantBaseUrl(tenantCode)}/comments`, { signal },
+    );
+  },
+
   createComment: (
     tenantCode: string,
     data: CreateCustomerNegotiationCommentRequest,

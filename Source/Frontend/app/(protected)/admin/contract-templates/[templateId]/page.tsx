@@ -10,7 +10,6 @@ import {
   Languages,
   Loader2,
   Pencil,
-  ShieldAlert,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
@@ -20,7 +19,10 @@ import {
   TemplateVersionStatusBadge,
 } from "@/components/contract-templates/contract-template-status";
 import { getContractTemplateErrorMessage } from "@/components/contract-templates/contract-template-utils";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  PermissionGuard,
+  ResourceAccessErrorState,
+} from "@/components/auth/permission-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +39,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
+import {
+  getResourceAccessErrorKind,
+  type ResourceAccessErrorKind,
+} from "@/lib/api-error";
 import { formatDateTime } from "@/lib/format-date-time";
 import { ContractLanguageMode } from "@/services/contract-api";
 import {
@@ -56,6 +62,10 @@ export default function ContractTemplateDetailPage() {
   const [template, setTemplate] =
     useState<ContractTemplateDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{
+    kind: ResourceAccessErrorKind;
+    message: string;
+  } | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [copySource, setCopySource] =
     useState<ContractTemplateVersionSummaryResponse | null>(null);
@@ -64,13 +74,24 @@ export default function ContractTemplateDetailPage() {
 
   const fetchTemplate = useCallback(async () => {
     if (!canManage || !Number.isInteger(templateId) || templateId <= 0) {
+      if (canManage) {
+        setLoadError({
+          kind: "not-found",
+          message: "Đường dẫn mẫu hợp đồng không hợp lệ.",
+        });
+      }
       setIsLoading(false);
       return;
     }
     try {
       setIsLoading(true);
+      setLoadError(null);
       setTemplate(await contractTemplateApi.getById(templateId));
     } catch (error) {
+      setLoadError({
+        kind: getResourceAccessErrorKind(error),
+        message: getContractTemplateErrorMessage(error),
+      });
       toast.error(getContractTemplateErrorMessage(error));
     } finally {
       setIsLoading(false);
@@ -136,22 +157,29 @@ export default function ContractTemplateDetailPage() {
           </Button>
 
           {!canManage ? (
-            <Alert variant="destructive">
-              <ShieldAlert />
-              <AlertTitle>Không có quyền truy cập</AlertTitle>
-              <AlertDescription>
-                Chỉ nhân viên quản trị được quản trị mẫu hợp đồng.
-              </AlertDescription>
-            </Alert>
+            <PermissionGuard permission={RBAC_PERMISSIONS.templateManage}>
+              {null}
+            </PermissionGuard>
           ) : isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-44 w-full" />
               <Skeleton className="h-72 w-full" />
             </div>
-          ) : !template ? (
-            <Alert variant="destructive">
-              <AlertTitle>Không tìm thấy mẫu hợp đồng</AlertTitle>
-            </Alert>
+          ) : loadError || !template ? (
+            <ResourceAccessErrorState
+              kind={loadError?.kind ?? "not-found"}
+              title={
+                loadError?.kind === "error"
+                  ? "Không thể tải mẫu hợp đồng"
+                  : "Không thể truy cập mẫu hợp đồng"
+              }
+              description={
+                loadError?.message ?? "Mẫu hợp đồng không tồn tại hoặc đã bị xóa."
+              }
+              backHref="/admin/contract-templates"
+              backLabel="Quay lại danh sách mẫu"
+              onRetry={() => void fetchTemplate()}
+            />
           ) : (
             <>
               <Card>

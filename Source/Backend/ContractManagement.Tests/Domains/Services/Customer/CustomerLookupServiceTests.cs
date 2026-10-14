@@ -3,6 +3,7 @@ using ContractManagement.API.Domains.Services.Customer;
 using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ContractManagement.Tests.Domains.Services.Customer;
 
@@ -95,6 +96,7 @@ public sealed class CustomerLookupServiceTests
     {
         var options = new DbContextOptionsBuilder<DbDtctechContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         return new DbDtctechContext(options);
     }

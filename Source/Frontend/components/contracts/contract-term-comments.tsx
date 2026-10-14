@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -151,6 +151,7 @@ export function ContractTermComments({
   triggerClassName,
   dataSource,
   includeReplyMention = true,
+  realtimeRevision = 0,
 }: {
   contractId: number;
   versionId: number;
@@ -163,6 +164,7 @@ export function ContractTermComments({
   triggerClassName?: string;
   dataSource?: ContractTermCommentsDataSource;
   includeReplyMention?: boolean;
+  realtimeRevision?: number;
 }) {
   const isGeneralDiscussion = termId == null;
   const discussionLabel = isGeneralDiscussion
@@ -203,6 +205,8 @@ export function ContractTermComments({
   const [processingCommentId, setProcessingCommentId] = useState<number | null>(
     null,
   );
+  const rootRequest = useRef(0);
+  const childRequest = useRef(0);
 
   const termRootComments = rootComments.filter(
     (comment) => comment.versionId === versionId && matchesTerm(comment),
@@ -234,10 +238,8 @@ export function ContractTermComments({
     Boolean(dataSource.resolveComment && dataSource.reopenComment);
 
   useEffect(() => {
-    if (!isOpen) {
-      setRootComments(initialRootComments);
-    }
-  }, [initialRootComments, isOpen]);
+    setRootComments(initialRootComments);
+  }, [initialRootComments]);
 
   useEffect(() => {
     setRootPage((page) => Math.min(Math.max(page, 1), rootTotalPages));
@@ -276,15 +278,17 @@ export function ContractTermComments({
     );
   };
 
-  const loadRootComments = async () => {
+  const loadRootComments = useCallback(async () => {
+    const request = ++rootRequest.current;
     setIsLoadingRoots(true);
     setRootError(null);
     try {
       const result = dataSource
         ? await dataSource.getRootComments()
         : await contractApi.getRootComments(contractId);
-      setRootComments(result);
+      if (request === rootRequest.current) setRootComments(result);
     } catch (error: any) {
+      if (request !== rootRequest.current) return;
       console.error("Lỗi tải comment cha:", error);
       setRootError(
         getApiErrorMessage(
@@ -293,33 +297,45 @@ export function ContractTermComments({
         ),
       );
     } finally {
-      setIsLoadingRoots(false);
+      if (request === rootRequest.current) setIsLoadingRoots(false);
     }
-  };
+  }, [contractId, dataSource]);
 
-  const loadChildComments = async (parentCommentId: number) => {
+  const loadChildComments = useCallback(async (parentCommentId: number) => {
+    const request = ++childRequest.current;
     setIsLoadingChildren(true);
     setChildError(null);
-    setChildComments([]);
     try {
       const result = dataSource
         ? await dataSource.getCommentReplies(parentCommentId)
         : await contractApi.getCommentReplies(contractId, parentCommentId);
       const termReplies = result.filter(
-        (comment) => comment.versionId === versionId && matchesTerm(comment),
+        (comment) => comment.versionId === versionId && (comment.termId ?? null) === termId,
       );
+      if (request !== childRequest.current) return null;
       setChildComments(termReplies);
       return termReplies;
     } catch (error: any) {
+      if (request !== childRequest.current) return null;
       console.error("Lỗi tải comment con:", error);
       setChildError(
         getApiErrorMessage(error, "Không thể tải các câu trả lời."),
       );
       return null;
     } finally {
-      setIsLoadingChildren(false);
+      if (request === childRequest.current) setIsLoadingChildren(false);
     }
-  };
+  }, [contractId, dataSource, termId, versionId]);
+
+  useEffect(() => {
+    if (isOpen) void loadRootComments();
+    return () => { rootRequest.current++; };
+  }, [isOpen, realtimeRevision, loadRootComments]);
+
+  useEffect(() => {
+    if (isOpen && selectedParentId != null) void loadChildComments(selectedParentId);
+    return () => { childRequest.current++; };
+  }, [isOpen, selectedParentId, realtimeRevision, loadChildComments]);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -329,9 +345,6 @@ export function ContractTermComments({
     setChildComments([]);
     setRootPage(1);
 
-    if (open) {
-      void loadRootComments();
-    }
   };
 
   const handleSelectParent = (
@@ -340,7 +353,7 @@ export function ContractTermComments({
     setSelectedParentId(parentComment.commentId);
     setContent("");
     setReplyTarget(null);
-    void loadChildComments(parentComment.commentId);
+    setChildComments([]);
   };
 
   const handleBackToRoots = () => {
@@ -383,10 +396,10 @@ export function ContractTermComments({
       setReplyTarget(null);
 
       if (selectedParent) {
-        setChildComments((current) => [...current, createdComment]);
+        setChildComments((current) => [...current.filter((comment) => comment.commentId !== createdComment.commentId), createdComment]);
         toast.success("Đã gửi câu trả lời.");
       } else {
-        setRootComments((current) => [...current, createdComment]);
+        setRootComments((current) => [...current.filter((comment) => comment.commentId !== createdComment.commentId), createdComment]);
         setRootPage(
           Math.max(
             1,

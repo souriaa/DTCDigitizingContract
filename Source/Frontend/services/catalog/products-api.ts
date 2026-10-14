@@ -3,6 +3,7 @@ import axiosClient from "@/lib/axios-interceptor";
 export enum ProductStatus {
   Active = 1,
   Inactive = 0,
+  Deleted = 2,
 }
 
 export const getProductStatusLabel = (status?: number) => {
@@ -11,6 +12,8 @@ export const getProductStatusLabel = (status?: number) => {
       return "Đang kinh doanh";
     case ProductStatus.Inactive:
       return "Ngừng kinh doanh";
+    case ProductStatus.Deleted:
+      return "Đã xóa";
     default:
       return "Chưa cập nhật";
   }
@@ -29,7 +32,7 @@ export interface ProductFilterParams {
 export interface CreateProductRequest {
   productCode?: string | null;
   productName: string;
-  categoryId?: number | null;
+  categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
   productFeatures?: string | null;
@@ -48,7 +51,7 @@ export interface CreateProductRequest {
 export interface UpdateProductRequest {
   productCode?: string | null;
   productName: string;
-  categoryId?: number | null;
+  categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
   productFeatures?: string | null;
@@ -98,9 +101,10 @@ export interface PagedResult<T> {
 const BASE_URL = "/api/catalog/products";
 
 export const productApi = {
-  getList: (params: ProductFilterParams) => {
+  getList: (params: ProductFilterParams, signal?: AbortSignal) => {
     return axiosClient.get<any, PagedResult<ProductResponse>>(BASE_URL, {
       params,
+      signal,
     });
   },
 
@@ -131,5 +135,8 @@ export const productApi = {
 
   delete: (id: number) => {
     return axiosClient.delete<any, { productId: number }>(`${BASE_URL}/${id}`);
+  },
+  restore: (id: number) => {
+    return axiosClient.post<unknown, { productId: number; status: number }>(`${BASE_URL}/${id}/restore`);
   },
 };

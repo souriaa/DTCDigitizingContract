@@ -95,7 +95,7 @@ export default function LoginPage() {
         router.push(
           user.mustChangePassword
             ? "/change-password?required=1"
-            : user.defaultPage || "/dashboard",
+            : user.defaultPage || "/contracts",
         );
         return;
       }
@@ -106,7 +106,7 @@ export default function LoginPage() {
         router.push(
           profile.mustChangePassword
             ? "/change-password?required=1"
-            : profile.defaultPage || "/dashboard",
+            : profile.defaultPage || "/contracts",
         );
       } catch (error) {
         setIsLoading(false);
@@ -204,7 +204,7 @@ export default function LoginPage() {
       router.push(
         profile.mustChangePassword
           ? "/change-password?required=1"
-          : profile.defaultPage || "/dashboard",
+          : profile.defaultPage || "/contracts",
       );
     } catch (error: any) {
       const message =

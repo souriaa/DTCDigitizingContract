@@ -27,6 +27,28 @@ public sealed class ContractServiceSlice04Tests
     private const int ServiceId = 72;
 
     [Theory]
+    [InlineData(ContractItemType.Product, (byte)0)]
+    [InlineData(ContractItemType.Product, (byte)2)]
+    [InlineData(ContractItemType.Service, (byte)0)]
+    [InlineData(ContractItemType.Service, (byte)2)]
+    public async Task Create_RejectsLockedOrDeletedCatalogSource(ContractItemType type, byte status)
+    {
+        await using var context = CreateContext();
+        await SeedCreateDependenciesAsync(context);
+        if (type == ContractItemType.Product)
+            (await context.TblProducts.SingleAsync()).Status = status;
+        else
+            (await context.TblServices.SingleAsync()).Status = status;
+        await context.SaveChangesAsync();
+        var item = CreateItem(type, 1m, 100m,
+            sourceProductId: type == ContractItemType.Product ? ProductId : null,
+            sourceServiceId: type == ContractItemType.Service ? ServiceId : null);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(context).CreateAsync(CreateRequest("VND", [item]), EmployeeId));
+        Assert.Empty(context.TblContracts);
+    }
+
+    [Theory]
     [InlineData("VND", "1.005", "1", "1")]
     [InlineData("USD", "1.005", "1", "1.01")]
     public async Task Create_ShouldRoundByCurrency(
@@ -376,8 +398,10 @@ public sealed class ContractServiceSlice04Tests
         Assert.Empty(context.TblContracts);
     }
 
-    [Fact]
-    public async Task NegotiationRound_ShouldCopySnapshotsAndLockSource()
+    [Theory]
+    [InlineData((byte)0)]
+    [InlineData((byte)2)]
+    public async Task NegotiationRound_ShouldCopySnapshotsAndLockSource(byte catalogStatus)
     {
         await using var context = CreateContext();
         var sourceVersionId =
@@ -437,7 +461,7 @@ public sealed class ContractServiceSlice04Tests
             ProductId = ProductId,
             ProductCode = "CAT-CHANGED",
             ProductName = "Catalog changed",
-            Status = 0
+            Status = catalogStatus
         });
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();

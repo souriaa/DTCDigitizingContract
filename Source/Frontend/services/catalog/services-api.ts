@@ -3,6 +3,7 @@ import axiosClient from "@/lib/axios-interceptor";
 export enum ServiceStatus {
   Active = 1,
   Inactive = 0,
+  Deleted = 2,
 }
 
 export const getServiceStatusLabel = (status?: number | null) => {
@@ -11,6 +12,8 @@ export const getServiceStatusLabel = (status?: number | null) => {
       return "Đang hoạt động";
     case ServiceStatus.Inactive:
       return "Ngừng hoạt động";
+    case ServiceStatus.Deleted:
+      return "Đã xóa";
     default:
       return "Chưa cập nhật";
   }
@@ -29,7 +32,7 @@ export interface ServiceFilterParams {
 
 export interface CreateServiceRequest {
   serviceName: string;
-  serviceTypeId?: number | null;
+  serviceTypeId: number;
   serviceParentId?: number | null;
   servicePrice?: number | null;
   setupPrice?: number | null;
@@ -49,7 +52,7 @@ export interface CreateServiceRequest {
 
 export interface UpdateServiceRequest {
   serviceName: string;
-  serviceTypeId?: number | null;
+  serviceTypeId: number;
   serviceParentId?: number | null;
   servicePrice?: number | null;
   setupPrice?: number | null;
@@ -104,10 +107,21 @@ export interface PagedResult<T> {
 
 const BASE_URL = "/api/catalog/services";
 
+export interface ServiceOptionResponse {
+  serviceId: number;
+  serviceName?: string | null;
+  serviceParentId?: number | null;
+  status?: number | null;
+}
+
 export const serviceApi = {
-  getList: (params: ServiceFilterParams) => {
+  getOptions: (signal?: AbortSignal) => {
+    return axiosClient.get<unknown, ServiceOptionResponse[]>(`${BASE_URL}/options`, { signal });
+  },
+  getList: (params: ServiceFilterParams, signal?: AbortSignal) => {
     return axiosClient.get<any, PagedResult<ServiceResponse>>(BASE_URL, {
       params,
+      signal,
     });
   },
   getById: (id: number) => {
@@ -129,64 +143,7 @@ export const serviceApi = {
   delete: (id: number) => {
     return axiosClient.delete<any, { serviceId: number }>(`${BASE_URL}/${id}`);
   },
-};
-
-// ==========================================
-// ServiceType API & DTOs
-// ==========================================
-export interface ServiceTypeFilterParams {
-  page?: number;
-  pageSize?: number;
-  keyword?: string | null;
-  langId?: number | null;
-}
-
-export interface CreateServiceTypeRequest {
-  serviceTypeName: string;
-  langId?: number | null;
-}
-
-export interface UpdateServiceTypeRequest {
-  serviceTypeName: string;
-  langId?: number | null;
-}
-
-export interface ServiceTypeResponse {
-  serviceTypeId: number;
-  serviceTypeName?: string | null;
-  langId?: number | null;
-  serviceCount: number;
-}
-
-const SERVICE_TYPE_BASE_URL = "/api/catalog/service-types";
-
-export const serviceTypeApi = {
-  getList: (params: ServiceTypeFilterParams) => {
-    return axiosClient.get<any, PagedResult<ServiceTypeResponse>>(
-      SERVICE_TYPE_BASE_URL,
-      { params },
-    );
-  },
-  getById: (id: number) => {
-    return axiosClient.get<any, ServiceTypeResponse>(
-      `${SERVICE_TYPE_BASE_URL}/${id}`,
-    );
-  },
-  create: (data: CreateServiceTypeRequest) => {
-    return axiosClient.post<any, ServiceTypeResponse>(
-      SERVICE_TYPE_BASE_URL,
-      data,
-    );
-  },
-  update: (id: number, data: UpdateServiceTypeRequest) => {
-    return axiosClient.put<any, { serviceTypeId: number }>(
-      `${SERVICE_TYPE_BASE_URL}/${id}`,
-      data,
-    );
-  },
-  delete: (id: number) => {
-    return axiosClient.delete<any, { serviceTypeId: number }>(
-      `${SERVICE_TYPE_BASE_URL}/${id}`,
-    );
+  restore: (id: number) => {
+    return axiosClient.post<unknown, { serviceId: number; status: number }>(`${BASE_URL}/${id}/restore`);
   },
 };

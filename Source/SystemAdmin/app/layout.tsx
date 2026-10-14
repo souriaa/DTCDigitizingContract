@@ -16,20 +16,25 @@ export const metadata: Metadata = {
   generator: "Next.js",
   icons: {
     icon: [
+      { url: "/dtc-32x32.png?v=2", type: "image/png", sizes: "32x32" },
+      { url: "/dtc-192x192.png?v=2", type: "image/png", sizes: "192x192" },
       {
-        url: "/dtc-light-32x32.ico",
+        url: "/dtc-light-32x32.png?v=2",
+        type: "image/png",
+        sizes: "32x32",
         media: "(prefers-color-scheme: light)",
       },
       {
-        url: "/dtc-dark-32x32.ico",
+        url: "/dtc-dark-32x32.png?v=2",
+        type: "image/png",
+        sizes: "32x32",
         media: "(prefers-color-scheme: dark)",
       },
-      {
-        url: "/dtc-32x32.ico",
-        type: "image/x-icon",
-      },
     ],
-    apple: "/apple-icon.png",
+    shortcut: "/dtc-32x32.ico?v=2",
+    apple: [
+      { url: "/dtc-apple-touch-icon.png?v=2", type: "image/png", sizes: "180x180" },
+    ],
   },
 };
 

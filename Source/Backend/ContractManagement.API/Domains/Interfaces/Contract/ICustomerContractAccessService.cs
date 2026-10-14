@@ -9,6 +9,12 @@ namespace ContractManagement.Domains.Interfaces.Contract;
 /// </summary>
 public interface ICustomerContractAccessService
 {
+    Task<IReadOnlyList<CustomerPublicNegotiationCommentResponse>> GetCommentsAsync(
+        string sessionSecret, CancellationToken cancellationToken = default);
+
+    Task<CustomerDiscussionAccess> GetDiscussionAccessAsync(
+        string sessionSecret, CancellationToken cancellationToken = default);
+
     Task<CustomerAccessLinkAvailabilityResponse> GetLinkAvailabilityAsync(
         string linkToken,
         CancellationToken cancellationToken = default);
@@ -37,3 +43,5 @@ public interface ICustomerContractAccessService
 public sealed record CustomerAccessSessionIssue(
     string SessionSecret,
     DateTime ExpiresAt);
+
+public sealed record CustomerDiscussionAccess(int ContractId, int VersionId, DateTime ExpiresAt);

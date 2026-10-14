@@ -11,7 +11,7 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
     {
         Task<PagedResult<ProductResponse>> GetListAsync(ProductFilterRequest filter);
 
-        Task<ProductResponse> GetByIdAsync(int id);
+        Task<ProductResponse> GetByIdAsync(int id, bool includeDeleted = false);
 
         Task<ProductResponse> CreateAsync(CreateProductRequest request);
 
@@ -20,5 +20,6 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
         Task SetStatusAsync(int id, byte status);
 
         Task DeleteAsync(int id);
+        Task RestoreAsync(int id);
     }
 }

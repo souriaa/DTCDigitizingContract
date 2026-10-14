@@ -1,5 +1,6 @@
 ﻿using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
 using ContractManagement.Domains.DTOs.Responses.Catalog;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -21,6 +22,20 @@ namespace ContractManagement.API.Domains.Services.Catalog
         public ServiceTypeService(DbDtctechContext dbContext)
         {
             _dbContext = dbContext;
+        }
+
+        public Task<List<ServiceTypeOptionResponse>> GetOptionsAsync(CancellationToken cancellationToken = default)
+        {
+            return _dbContext.TblServiceTypes
+                .AsNoTracking()
+                .OrderBy(x => x.ServiceTypeName)
+                .ThenBy(x => x.ServiceTypeId)
+                .Select(x => new ServiceTypeOptionResponse
+                {
+                    ServiceTypeId = x.ServiceTypeId,
+                    ServiceTypeName = x.ServiceTypeName
+                })
+                .ToListAsync(cancellationToken);
         }
 
         public async Task<PagedResult<ServiceTypeResponse>> GetListAsync(

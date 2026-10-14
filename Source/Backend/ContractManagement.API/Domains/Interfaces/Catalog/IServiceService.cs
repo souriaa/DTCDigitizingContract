@@ -9,9 +9,11 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
     /// </summary>
     public interface IServiceService
     {
+        Task<List<ServiceOptionResponse>> GetOptionsAsync(CancellationToken cancellationToken = default);
+
         Task<PagedResult<ServiceResponse>> GetListAsync(ServiceFilterRequest filter);
 
-        Task<ServiceResponse> GetByIdAsync(int id);
+        Task<ServiceResponse> GetByIdAsync(int id, bool includeDeleted = false);
 
         Task<ServiceResponse> CreateAsync(CreateServiceRequest request, int createdBy);
 
@@ -20,5 +22,6 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
         Task SetStatusAsync(int id, byte status, int updatedBy);
 
         Task DeleteAsync(int id, int updatedBy);
+        Task RestoreAsync(int id, int updatedBy);
     }
 }

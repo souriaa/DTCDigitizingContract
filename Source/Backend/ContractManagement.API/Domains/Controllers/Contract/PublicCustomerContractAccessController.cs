@@ -124,6 +124,25 @@ public sealed class PublicCustomerContractAccessController : ControllerBase
     }
 
     /// <summary>
+    /// Đồng bộ trao đổi sau sự kiện realtime, chỉ trong version được OTP cấp quyền.
+    /// Đọc thụ động không kéo dài thời gian không hoạt động của session.
+    /// </summary>
+    [HttpGet("comments")]
+    public async Task<IActionResult> GetComments(string tenantCode)
+    {
+        SetNoStore();
+        try
+        {
+            var comments = await _customerAccessService.GetCommentsAsync(ReadCustomerAccessCookie(), HttpContext.RequestAborted);
+            return Ok(ApiResponse<IReadOnlyList<CustomerPublicNegotiationCommentResponse>>.Ok(comments));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(ApiResponse<object>.Fail("Customer access is invalid or expired."));
+        }
+    }
+
+    /// <summary>
     /// Tạo comment chung, comment Term có thể thương lượng hoặc reply trong Current Version được chia sẻ.
     /// FE không dùng API này để comment Item, sửa, xóa, resolve hoặc reopen comment. API cần
     /// customer-session cookie và làm mới thời gian không hoạt động của session khi thành công.

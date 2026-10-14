@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useContractDiscussionRealtime } from "@/hooks/use-contract-discussion-realtime";
 import { format } from "date-fns";
 import {
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
 
 import {
   ContractDetailResponse,
+  contractApi,
   ContractLanguageMode,
   ContractNegotiationCommentResponse,
   ContractStatus,
@@ -63,6 +65,24 @@ export function ContractTerms({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const totalPages = Math.ceil(terms.length / itemsPerPage);
+  const versionId = contract.currentVersion?.versionId;
+  const [discussionRevision, setDiscussionRevision] = useState(0);
+  const refreshDiscussions = useCallback(async (signal: AbortSignal) => {
+    const roots = await contractApi.getRootComments(contract.contractId, signal);
+    if (signal.aborted) return;
+    setContract((current) => {
+      if (!current?.currentVersion || current.currentVersion.versionId !== versionId) return current;
+      return { ...current, currentVersion: { ...current.currentVersion,
+        comments: [
+          ...current.currentVersion.comments.filter((comment) => comment.parentCommentId),
+          ...roots.filter((comment) => comment.versionId === versionId),
+        ],
+      } };
+    });
+    setDiscussionRevision((revision) => revision + 1);
+  }, [contract.contractId, setContract, versionId]);
+  useContractDiscussionRealtime(versionId
+    ? `/api/contracts/${contract.contractId}/versions/${versionId}/discussion-hub` : null, refreshDiscussions);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -264,6 +284,7 @@ export function ContractTerms({
               comments={contract.currentVersion.comments || []}
               canWrite={canComment}
               onCommentChanged={handleCommentChanged}
+              realtimeRevision={discussionRevision}
               triggerClassName="mt-0"
             />
           </div>
@@ -328,6 +349,7 @@ export function ContractTerms({
                       comments={contract.currentVersion.comments || []}
                       canWrite={canComment}
                       onCommentChanged={handleCommentChanged}
+                      realtimeRevision={discussionRevision}
                     />
                   )}
               </ContractTermCard>

@@ -982,14 +982,16 @@ export const contractApi = {
       `${BASE_URL}/${contractId}/versions/${versionId}/appendices/${appendixId}/terms/order`,
       data,
     ),
-  getRootComments: (id: number) => {
+  getRootComments: (id: number, signal?: AbortSignal) => {
     return axiosClient.get<any, ContractNegotiationCommentResponse[]>(
       `${BASE_URL}/${id}/comments`,
+      { signal },
     );
   },
-  getCommentReplies: (id: number, parentCommentId: number) => {
+  getCommentReplies: (id: number, parentCommentId: number, signal?: AbortSignal) => {
     return axiosClient.get<any, ContractNegotiationCommentResponse[]>(
       `${BASE_URL}/${id}/comments/${parentCommentId}/replies`,
+      { signal },
     );
   },
   createExternalFeedback: (

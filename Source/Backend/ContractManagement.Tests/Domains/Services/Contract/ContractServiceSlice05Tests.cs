@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Domains.Discussions;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.Models.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
@@ -30,7 +31,8 @@ public sealed class ContractServiceSlice05Tests
     {
         await using var context = CreateContext();
         await SeedContractAsync(context);
-        var service = CreateService(context);
+        var realtime = new RecordingDiscussionPublisher(context);
+        var service = CreateService(context, realtime);
 
         var root = await service.CreateExternalFeedbackAsync(
             ContractId,
@@ -146,6 +148,8 @@ public sealed class ContractServiceSlice05Tests
                 ContractAuditActionTypes.NegotiationCommentResolved
                 && audit.Result == ContractAuditResults.ConcurrencyConflict
                 && audit.FailureCode == ContractAuditFailureCodes.StaleRowVersion);
+        Assert.Equal(5, realtime.Publications.Count);
+        Assert.All(realtime.Publications, item => Assert.Equal((ContractId, VersionId), item));
     }
 
     [Fact]
@@ -704,7 +708,7 @@ public sealed class ContractServiceSlice05Tests
     }
 
     private static ContractService CreateService(
-        DbDtctechContext context)
+        DbDtctechContext context, IContractDiscussionRealtimePublisher? realtime = null)
     {
         var tenant = new CurrentTenant();
         tenant.Set(new ResolvedTenant(
@@ -724,7 +728,7 @@ public sealed class ContractServiceSlice05Tests
 
         return new ContractService(
             context,
-            new ContractAuditWriter(context, tenant, accessor));
+            new ContractAuditWriter(context, tenant, accessor), realtime);
     }
 
     private static async Task SeedContractAsync(

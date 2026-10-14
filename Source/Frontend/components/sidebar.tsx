@@ -5,14 +5,12 @@ import Link from "next/link";
 import { APP_NAME } from "@/lib/application-branding";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BriefcaseBusiness,
   Building2,
   ChevronLeft,
   ClipboardCheck,
   FileBadge,
   FileSignature,
   FileText,
-  FolderTree,
   LayoutDashboard,
   LibraryBig,
   LogOut,
@@ -21,7 +19,6 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
-  Tags,
   User,
   Users,
   X,
@@ -75,18 +72,6 @@ const navItems: NavItem[] = [
     requiredPermissions: [RBAC_PERMISSIONS.templateManage],
   },
   {
-    label: "Nhật ký hợp đồng",
-    icon: ScrollText,
-    href: "/contract-audits",
-    requiredPermissions: [RBAC_PERMISSIONS.contractAuditReadTenant],
-  },
-  {
-    label: "Nhật ký bảo mật",
-    icon: ShieldCheck,
-    href: "/security-audits",
-    requiredPermissions: [RBAC_PERMISSIONS.securityAuditReadTenant],
-  },
-  {
     label: "Báo giá",
     icon: FileSignature,
     href: "/quotations",
@@ -99,27 +84,9 @@ const navItems: NavItem[] = [
     requiredPermissions: [RBAC_PERMISSIONS.customerManage],
   },
   {
-    label: "Danh mục",
-    icon: FolderTree,
-    href: "/catalog/categories",
-    requiredPermissions: [RBAC_PERMISSIONS.catalogRead],
-  },
-  {
-    label: "Sản phẩm",
+    label: "Sản phẩm và dịch vụ",
     icon: Package,
     href: "/catalog/products",
-    requiredPermissions: [RBAC_PERMISSIONS.catalogRead],
-  },
-  {
-    label: "Dịch vụ",
-    icon: BriefcaseBusiness,
-    href: "/catalog/services",
-    requiredPermissions: [RBAC_PERMISSIONS.catalogRead],
-  },
-  {
-    label: "Loại dịch vụ",
-    icon: Tags,
-    href: "/catalog/service-types",
     requiredPermissions: [RBAC_PERMISSIONS.catalogRead],
   },
   {
@@ -139,6 +106,18 @@ const navItems: NavItem[] = [
     icon: FileBadge,
     href: "/admin/legal-profile",
     requiredPermissions: [RBAC_PERMISSIONS.tenantLegalProfileManage],
+  },
+  {
+    label: "Nhật ký hợp đồng",
+    icon: ScrollText,
+    href: "/contract-audits",
+    requiredPermissions: [RBAC_PERMISSIONS.contractAuditReadTenant],
+  },
+  {
+    label: "Nhật ký bảo mật",
+    icon: ShieldCheck,
+    href: "/security-audits",
+    requiredPermissions: [RBAC_PERMISSIONS.securityAuditReadTenant],
   },
 ];
 

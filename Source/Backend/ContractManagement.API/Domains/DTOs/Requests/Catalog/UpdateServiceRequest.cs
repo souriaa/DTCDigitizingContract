@@ -12,6 +12,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Catalog
         [MaxLength(2000)]
         public string ServiceName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Vui lòng chọn loại dịch vụ.")]
+        [Range(1, 255, ErrorMessage = "Loại dịch vụ không hợp lệ.")]
         public byte? ServiceTypeId { get; set; }
 
         public int? ServiceParentId { get; set; }

@@ -18,6 +18,11 @@ import {
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ResourceAccessErrorState } from "@/components/auth/permission-guard";
+import {
+  getResourceAccessErrorKind,
+  type ResourceAccessErrorKind,
+} from "@/lib/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -636,6 +641,7 @@ export function ContractAuditLog({
   const [isExporting, setIsExporting] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ResourceAccessErrorKind>("error");
   const [filterError, setFilterError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const currentCursor = cursorHistory[cursorIndex];
@@ -675,6 +681,7 @@ export function ContractAuditLog({
       setTotalCount(0);
       setHasMore(false);
       setNextCursor(null);
+      setErrorKind(getResourceAccessErrorKind(loadError));
       setError(getErrorMessage(loadError));
     } finally {
       setIsLoading(false);
@@ -1113,7 +1120,16 @@ export function ContractAuditLog({
       </Collapsible>
 
       <CardContent className="py-5">
-        {error ? (
+        {error && errorKind !== "error" ? (
+          <ResourceAccessErrorState
+            kind={errorKind}
+            variant="card"
+            title="Không thể truy cập lịch sử hoạt động"
+            description={error}
+            showBackButton={false}
+            showHomeButton={false}
+          />
+        ) : error ? (
           <Alert variant="destructive">
             <AlertCircle />
             <AlertTitle>Không tải được lịch sử</AlertTitle>

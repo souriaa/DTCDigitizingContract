@@ -1,6 +1,7 @@
 ﻿using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
 using ContractManagement.Domains.DTOs.Responses.Catalog;
 using ContractManagement.Filter;
@@ -34,6 +35,15 @@ namespace ContractManagement.Domains.Controllers.Catalog
             return Ok(ApiResponse<PagedResult<ServiceTypeResponse>>.Ok(
                 result,
                 "Lấy danh sách loại dịch vụ thành công."));
+        }
+
+        [HttpGet("options")]
+        [SessionAuthorize(RbacPermissions.CatalogRead)]
+        public async Task<IActionResult> GetOptions(CancellationToken cancellationToken)
+        {
+            var result = await _service.GetOptionsAsync(cancellationToken);
+            return Ok(ApiResponse<List<ServiceTypeOptionResponse>>.Ok(
+                result, "Lấy danh sách chọn loại dịch vụ thành công."));
         }
 
         [HttpGet("{id:int}")]

@@ -20,6 +20,7 @@ interface SelectFilterProps {
   options: FilterOption[];
   placeholder?: string;
   className?: string;
+  ariaLabel?: string;
 }
 
 export function SelectFilter({
@@ -28,11 +29,13 @@ export function SelectFilter({
   options,
   placeholder = "Chọn giá trị",
   className = "w-[160px]",
+  ariaLabel,
 }: SelectFilterProps) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
+        aria-label={ariaLabel}
         className={`bg-background border-border shadow-sm h-9 cursor-pointer ${className} ${isMobile ? "w-full" : ""}`}
       >
         <SelectValue placeholder={placeholder} />

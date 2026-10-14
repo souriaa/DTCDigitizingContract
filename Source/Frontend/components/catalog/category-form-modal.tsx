@@ -32,7 +32,7 @@ import {
 interface CategoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (saved?: CategoryResponse) => void;
   item?: CategoryResponse | null;
   viewOnly?: boolean;
   initialParentId?: number | null;
@@ -67,9 +67,17 @@ export function CategoryFormModal({
         try {
           const res = await categoryApi.getList({ page: 1, pageSize: 1000 });
 
-          const validParents = (res.items || []).filter(
-            (c) => !item || c.categoryId !== item.categoryId,
-          );
+          const excluded = new Set<number>(item ? [item.categoryId] : []);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const node of res.items) {
+              if (node.categoryParentId != null && excluded.has(node.categoryParentId) && !excluded.has(node.categoryId)) {
+                excluded.add(node.categoryId); changed = true;
+              }
+            }
+          }
+          const validParents = res.items.filter((node) => !excluded.has(node.categoryId));
           setParentOptions(validParents);
         } catch (error) {
           console.error("Lỗi khi tải danh sách danh mục cha", error);
@@ -144,6 +152,7 @@ export function CategoryFormModal({
           : null;
       const langIdVal = langId ? Number(langId) : null;
 
+      let saved: CategoryResponse | undefined;
       if (isEditMode && item) {
         const payload: UpdateCategoryRequest = {
           categoryName: categoryName.trim(),
@@ -154,6 +163,7 @@ export function CategoryFormModal({
           image: image.trim() || null,
         };
         await categoryApi.update(item.categoryId, payload);
+        saved = { ...item, categoryParentId: parentIdVal };
         toast.success("Cập nhật danh mục thành công");
       } else {
         const payload: CreateCategoryRequest = {
@@ -164,10 +174,10 @@ export function CategoryFormModal({
           langId: langIdVal,
           image: image.trim() || null,
         };
-        await categoryApi.create(payload);
+        saved = await categoryApi.create(payload);
         toast.success("Thêm danh mục mới thành công");
       }
-      onSuccess();
+      onSuccess(saved);
       onClose();
     } catch (error: any) {
       const message =

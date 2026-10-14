@@ -41,6 +41,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using ContractManagement.API.Helpers;
 using ContractManagement.API.Domains.CustomerAccess;
 using ContractManagement.API.Domains.Notifications;
+using ContractManagement.API.Domains.Discussions;
 using System.Net;
 using ContractManagement.API.Domains.Email;
 using ContractManagement.API.Domains.Recovery;
@@ -82,7 +83,10 @@ if (builder.Environment.IsDevelopment() && allowedCorsOrigins.Length == 0)
  * Đăng ký Controller cho Web API.
  */
 builder.Services.AddControllers();
+builder.Services.AddScoped<ContractManagement.Domains.Services.Catalog.CatalogWorkspaceService>();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<ContractDiscussionAccessService>();
+builder.Services.AddScoped<IContractDiscussionRealtimePublisher, ContractDiscussionRealtimePublisher>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services
@@ -571,6 +575,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/api/hubs/notifications")
     .WithMetadata(new ContractManagement.Filter.SessionAuthorizeAttribute());
+app.MapHub<EmployeeContractDiscussionHub>("/api/contracts/{contractId:int}/versions/{versionId:int}/discussion-hub")
+    .WithMetadata(new ContractManagement.Filter.SessionAuthorizeAttribute());
+// Kept under the existing HttpOnly customer cookie path. No link/session secrets in the URL.
+app.MapHub<CustomerContractDiscussionHub>("/public/contracts/{tenantCode}/discussion-hub")
+    .WithMetadata(new ContractManagement.Attributes.PublicCustomerAccessAttribute());
 
 /*
  * Chuyển các request không khớp Controller

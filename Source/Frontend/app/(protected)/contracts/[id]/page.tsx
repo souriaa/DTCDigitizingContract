@@ -30,6 +30,7 @@ import {
 import { Header } from "@/components/ui/custom/header";
 import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
 import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
+import { ResourceAccessErrorState } from "@/components/auth/permission-guard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +55,8 @@ import { hasPermission, RBAC_PERMISSIONS } from "@/lib/rbac";
 import {
   getApiErrorMessage,
   getBlobApiErrorMessage,
+  getResourceAccessErrorKind,
+  type ResourceAccessErrorKind,
   isResourceNotFound,
   isStaleRowVersion,
 } from "@/lib/api-error";
@@ -149,6 +152,7 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState<ContractDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ResourceAccessErrorKind>("not-found");
   const [isUpdating, setIsUpdating] = useState(false);
   const saveInFlightRef = useRef(false);
   const [isStartingNegotiation, setIsStartingNegotiation] = useState(false);
@@ -277,6 +281,7 @@ export default function ContractDetailPage() {
       } catch (err: any) {
         console.error("Lỗi lấy chi tiết hợp đồng:", err);
         if (showLoading) {
+          setErrorKind(getResourceAccessErrorKind(err));
           setError(
             isResourceNotFound(err)
               ? "Không tìm thấy hợp đồng hoặc bạn không có quyền truy cập."
@@ -332,17 +337,18 @@ export default function ContractDetailPage() {
     return (
       <>
         <Header />
-        <div className="grow overflow-y-auto p-2 lg:p-10">
-          <Alert variant="destructive">
-            <AlertTitle>Không tìm thấy hợp đồng</AlertTitle>
-            <AlertDescription>
-              {error || "Hợp đồng này không tồn tại hoặc đã bị xóa."}{" "}
-              <Link href="/contracts" className="underline font-semibold">
-                Quay lại danh sách
-              </Link>
-            </AlertDescription>
-          </Alert>
-        </div>
+        <ResourceAccessErrorState
+          kind={errorKind}
+          title={
+            errorKind === "error"
+              ? "Không thể tải hợp đồng"
+              : "Không thể truy cập hợp đồng"
+          }
+          description={error || "Hợp đồng này không tồn tại hoặc đã bị xóa."}
+          backHref="/contracts"
+          backLabel="Quay lại danh sách"
+          onRetry={() => void fetchContractDetail().catch(() => undefined)}
+        />
       </>
     );
   }

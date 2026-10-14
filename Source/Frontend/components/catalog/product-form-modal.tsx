@@ -24,16 +24,14 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Package, FileText, Globe } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { getApiErrorCode, getApiErrorMessage } from "@/lib/api-error";
 import {
   productApi,
   ProductResponse,
   CreateProductRequest,
   UpdateProductRequest,
 } from "@/services/catalog/products-api";
-import {
-  categoryApi,
-  CategoryResponse,
-} from "@/services/catalog/category-api";
+import { categoryApi, CategoryResponse } from "@/services/catalog/category-api";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -41,6 +39,8 @@ interface ProductFormModalProps {
   onSuccess: (createdProduct?: ProductResponse) => void;
   item?: ProductResponse | null;
   viewOnly?: boolean;
+  onViewDeleted?: (code: string) => void;
+  initialCategoryId?: number | null;
 }
 
 export function ProductFormModal({
@@ -49,6 +49,8 @@ export function ProductFormModal({
   onSuccess,
   item,
   viewOnly = false,
+  onViewDeleted,
+  initialCategoryId,
 }: ProductFormModalProps) {
   const isEditMode = !!item && !viewOnly;
 
@@ -56,6 +58,9 @@ export function ProductFormModal({
 
   // Basic Info
   const [productCode, setProductCode] = useState("");
+  const [deletedConflictCode, setDeletedConflictCode] = useState<string | null>(
+    null,
+  );
   const [productName, setProductName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productPrice, setProductPrice] = useState("");
@@ -81,24 +86,38 @@ export function ProductFormModal({
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoriesError, setCategoriesError] = useState(false);
+  const [categoriesAttempt, setCategoriesAttempt] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
+      let cancelled = false;
+      const controller = new AbortController();
       const fetchCategories = async () => {
         setIsLoadingCategories(true);
+        setCategoriesError(false);
+        setCategories([]);
         try {
-          const res = await categoryApi.getList({ page: 1, pageSize: 1000 });
+          const res = await categoryApi.getList(
+            { page: 1, pageSize: 1000 },
+            controller.signal,
+          );
+          if (cancelled) return;
           setCategories(res.items || []);
-        } catch (error) {
-          console.error("Lỗi khi tải danh sách danh mục", error);
+        } catch {
+          if (!cancelled) setCategoriesError(true);
         } finally {
-          setIsLoadingCategories(false);
+          if (!cancelled) setIsLoadingCategories(false);
         }
       };
 
       fetchCategories();
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
     }
-  }, [isOpen]);
+  }, [isOpen, categoriesAttempt]);
 
   const categoryOptions = useMemo(() => {
     if (!categories.length) return [];
@@ -145,6 +164,7 @@ export function ProductFormModal({
   useEffect(() => {
     if (isOpen) {
       setErrors({});
+      setDeletedConflictCode(null);
       setActiveTab("basic");
       if (item) {
         setProductCode(item.productCode || "");
@@ -182,7 +202,7 @@ export function ProductFormModal({
       } else {
         setProductCode("");
         setProductName("");
-        setCategoryId("");
+        setCategoryId(initialCategoryId ? String(initialCategoryId) : "");
         setProductPrice("");
         setProductOrder("1");
         setLangId("");
@@ -198,7 +218,7 @@ export function ProductFormModal({
         setMetaDescription("");
       }
     }
-  }, [isOpen, item]);
+  }, [isOpen, item, initialCategoryId]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -211,8 +231,13 @@ export function ProductFormModal({
     if (productPrice && isNaN(Number(productPrice))) {
       newErrors.productPrice = "Đơn giá phải là số hợp lệ";
     }
-    if (categoryId && isNaN(Number(categoryId))) {
-      newErrors.categoryId = "ID Danh mục phải là số";
+    if (!categoryId) {
+      newErrors.categoryId = "Vui lòng chọn danh mục sản phẩm";
+    } else if (isLoadingCategories || categoriesError) {
+      newErrors.categoryId =
+        "Vui lòng tải lại danh sách danh mục trước khi lưu";
+    } else if (!selectedCategoryExists) {
+      newErrors.categoryId = "Danh mục không còn khả dụng. Vui lòng chọn lại";
     }
     if (langId && isNaN(Number(langId))) {
       newErrors.langId = "ID Ngôn ngữ phải là số";
@@ -235,13 +260,14 @@ export function ProductFormModal({
 
   const handleSubmit = async () => {
     if (viewOnly || !validate()) return;
+    setDeletedConflictCode(null);
     setIsSaving(true);
     try {
       let createdProduct: ProductResponse | undefined;
 
       const priceVal = productPrice ? Number(productPrice) : null;
       const orderVal = productOrder ? Number(productOrder) : 1;
-      const categoryIdVal = categoryId ? Number(categoryId) : null;
+      const categoryIdVal = Number(categoryId);
       const langIdVal = langId ? Number(langId) : null;
 
       const commonPayload = {
@@ -270,15 +296,21 @@ export function ProductFormModal({
         createdProduct = await productApi.create(commonPayload);
         toast.success("Thêm sản phẩm mới thành công");
       }
-      onSuccess(createdProduct);
+      onSuccess(
+        createdProduct ??
+          (item ? { ...item, categoryId: categoryIdVal } : undefined),
+      );
       onClose();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        (isEditMode
-          ? "Không thể cập nhật sản phẩm"
-          : "Không thể thêm sản phẩm");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(
+        error,
+        isEditMode ? "Không thể cập nhật sản phẩm" : "Không thể thêm sản phẩm",
+      );
+      if (getApiErrorCode(error) === "ProductCodeDeleted") {
+        setDeletedConflictCode(productCode.trim());
+        setErrors((current) => ({ ...current, productCode: message }));
+        setActiveTab("basic");
+      }
       toast.error(message);
     } finally {
       setIsSaving(false);
@@ -346,7 +378,11 @@ export function ProductFormModal({
                   id="productCode"
                   placeholder="PROD-001"
                   value={productCode}
-                  onValueChange={setProductCode}
+                  onValueChange={(value) => {
+                    setProductCode(value);
+                    setDeletedConflictCode(null);
+                    setErrors((current) => ({ ...current, productCode: "" }));
+                  }}
                   disabled={viewOnly}
                   aria-invalid={!!errors.productCode}
                   maxLength={50}
@@ -356,6 +392,19 @@ export function ProductFormModal({
                     {errors.productCode}
                   </p>
                 )}
+                {!viewOnly &&
+                  deletedConflictCode !== null &&
+                  deletedConflictCode === productCode.trim() &&
+                  onViewDeleted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onViewDeleted(deletedConflictCode)}
+                    >
+                      Xem sản phẩm đã xóa
+                    </Button>
+                  )}
               </div>
 
               <div className="grid gap-2">
@@ -410,18 +459,27 @@ export function ProductFormModal({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="categoryId">Danh mục</Label>
+                <Label htmlFor="categoryId">
+                  Danh mục{" "}
+                  {!viewOnly && <span className="text-destructive">*</span>}
+                </Label>
                 <Select
                   value={categoryId || "none"}
                   onValueChange={(val) =>
                     setCategoryId(val === "none" ? "" : val)
                   }
-                  disabled={viewOnly || isLoadingCategories}
+                  disabled={
+                    viewOnly ||
+                    isSaving ||
+                    isLoadingCategories ||
+                    categoriesError
+                  }
                 >
                   <SelectTrigger
                     id="categoryId"
                     className="w-full"
                     aria-invalid={!!errors.categoryId}
+                    aria-required={!viewOnly}
                   >
                     <SelectValue
                       placeholder={
@@ -434,25 +492,56 @@ export function ProductFormModal({
                   <SelectContent>
                     <SelectItem
                       value="none"
+                      disabled
                       className="font-semibold text-primary"
                     >
-                      -- Không chọn danh mục --
+                      -- Chọn danh mục --
                     </SelectItem>
                     {categoryOptions.map((cat) => (
-                      <SelectItem
-                        key={cat.id}
-                        value={String(cat.id)}
-                      >
+                      <SelectItem key={cat.id} value={String(cat.id)}>
                         {cat.name}
                       </SelectItem>
                     ))}
-                    {!selectedCategoryExists && item?.categoryName && categoryId && (
-                      <SelectItem value={String(categoryId)}>
-                        {item.categoryName}
-                      </SelectItem>
-                    )}
+                    {!selectedCategoryExists &&
+                      item?.categoryName &&
+                      categoryId && (
+                        <SelectItem value={String(categoryId)} disabled>
+                          {item.categoryName}
+                        </SelectItem>
+                      )}
                   </SelectContent>
                 </Select>
+                {!viewOnly &&
+                  !isLoadingCategories &&
+                  (categoriesError || categories.length === 0) && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>
+                        {categoriesError
+                          ? "Không thể tải danh mục."
+                          : "Chưa có danh mục. Hãy tạo danh mục trước khi lưu sản phẩm."}
+                      </p>
+                      <Button asChild variant="link" className="h-auto p-0 text-xs">
+                      <a
+                        href="/catalog/products?tab=products"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        Mở quản lý danh mục
+                      </a>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setCategoriesAttempt((attempt) => attempt + 1)
+                        }
+                      >
+                        Tải lại danh mục
+                      </Button>
+                    </div>
+                  )}
                 {errors.categoryId && (
                   <p className="text-xs text-destructive">
                     {errors.categoryId}

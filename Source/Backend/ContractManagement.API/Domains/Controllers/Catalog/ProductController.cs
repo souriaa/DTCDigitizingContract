@@ -88,6 +88,16 @@ namespace ContractManagement.Domains.Controllers.Catalog
                 "Cập nhật trạng thái sản phẩm thành công."));
         }
 
+        [HttpPost("{id:int}/restore")]
+        [SessionAuthorize(RbacPermissions.CatalogManage)]
+        public async Task<IActionResult> Restore(int id)
+        {
+            await _service.RestoreAsync(id);
+            return Ok(ApiResponse<object>.Ok(
+                new { productId = id, status = (byte)0 },
+                "Đã khôi phục sản phẩm ở trạng thái ngừng kinh doanh."));
+        }
+
         [HttpDelete("{id:int}")]
         [SessionAuthorize(RbacPermissions.CatalogManage)]
         public async Task<IActionResult> Delete(int id)

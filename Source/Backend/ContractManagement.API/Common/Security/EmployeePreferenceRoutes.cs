@@ -4,6 +4,8 @@ public sealed record EmployeeLandingPageOption(string Path, string Label);
 
 public static class EmployeePreferenceRoutes
 {
+    public const string DefaultPage = "/contracts";
+
     private sealed record RouteDefinition(
         string Path,
         string Label,
@@ -11,11 +13,11 @@ public static class EmployeePreferenceRoutes
 
     private static readonly RouteDefinition[] Definitions =
     [
+        new(DefaultPage, "Danh sách hợp đồng", RbacPermissions.ContractReadOwn, RbacPermissions.ContractReadTenant),
         new("/dashboard", "Tổng quan"),
-        new("/contracts", "Hợp đồng", RbacPermissions.ContractReadOwn, RbacPermissions.ContractReadTenant),
         new("/quotations", "Báo giá", RbacPermissions.QuotationManage),
         new("/customers", "Khách hàng", RbacPermissions.CustomerManage),
-        new("/catalog/products", "Sản phẩm", RbacPermissions.CatalogRead),
+        new("/catalog/products", "Sản phẩm và dịch vụ", RbacPermissions.CatalogRead),
         new("/contract-approvals", "Duyệt hợp đồng", RbacPermissions.ContractApprovalDecide),
         new("/contract-audits", "Nhật ký hợp đồng", RbacPermissions.ContractAuditReadOwn, RbacPermissions.ContractAuditReadTenant),
         new("/security-audits", "Nhật ký bảo mật", RbacPermissions.SecurityAuditReadTenant),
@@ -42,8 +44,11 @@ public static class EmployeePreferenceRoutes
 
     public static string ResolveDefault(
         string? path,
-        IReadOnlyCollection<string> permissions) =>
-        IsAvailable(path, permissions) ? path! : "/dashboard";
+        IReadOnlyCollection<string> permissions)
+    {
+        if (IsAvailable(path, permissions)) return path!;
+        return IsAvailable(DefaultPage, permissions) ? DefaultPage : "/dashboard";
+    }
 
     private static bool IsAvailable(
         RouteDefinition definition,

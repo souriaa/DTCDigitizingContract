@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/custom/summary-cards";
 import { CustomerFormModal } from "./customer-form-modal";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 function CustomerBulkActions({
   selectedRows,
@@ -326,9 +327,19 @@ function CustomerListPageContent() {
         header: () => <div className="text-center">Trạng thái</div>,
         cell: ({ row }) => {
           const statusVal = row.original.status;
+          const isActive = row.original.status === CustomerStatus.Active;
+          const statusStr = getCustomerStatusLabel(row.original.status);
           return (
             <div className="flex justify-center min-w-[130px]">
-              <StatusBadge status={getCustomerStatusLabel(statusVal)} />
+              <Badge
+                variant={
+                  row.original.status === CustomerStatus.Active
+                    ? "outline"
+                    : "destructive"
+                }
+              >
+                {statusStr}
+              </Badge>
             </div>
           );
         },
