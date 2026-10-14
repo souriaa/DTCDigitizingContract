@@ -2,7 +2,7 @@
 
 Ngày lập: 2026-10-14. Phạm vi: Frontend tenant và API đọc dữ liệu catalog cần thiết cho UI mới.
 
-**Hiện trạng triển khai: đã bổ sung bước chuẩn bị bắt buộc phân nhóm khi tạo/sửa. Trang UI gộp và API đọc phục vụ cây của Phase 1–6 chưa triển khai.**
+**Hiện trạng 2026-10-14: đã triển khai Phase 1–5; Phase 6 đã kiểm tra backend và bàn giao code. Theo yêu cầu mới của người dùng, không tiếp tục kiểm thử FE hoặc UAT trình duyệt. Các luồng UAT ở mục 8 là checklist để người dùng tự kiểm tra, không phải kết quả đã đạt. Không có migration, thay đổi schema/FK hoặc cập nhật dữ liệu thật.**
 
 ## 1. Mục tiêu và giới hạn
 
@@ -42,11 +42,11 @@ Các màn hình nguồn:
 - `Frontend/app/(protected)/catalog/products/page.tsx`.
 - `Frontend/app/(protected)/catalog/service-types/page.tsx`.
 - `Frontend/app/(protected)/catalog/services/page.tsx`.
-- Form tương ứng nằm cạnh từng trang; API client nằm trong `Frontend/services/catalog/`.
+- Khi rà soát ban đầu, form nằm cạnh từng trang. Sau Phase 1, bốn form đã chuyển sang `Frontend/components/catalog/`; API client vẫn nằm trong `Frontend/services/catalog/`.
 - Sidebar: `Frontend/components/sidebar.tsx`.
 - Component cây hiện có: `Frontend/components/ui/custom/data-tree-table.tsx`; cần đánh giá trước khi dùng vì phân trang cây và phân trang mặt hàng không phải một loại phân trang.
 
-Thiếu sót đã xác định:
+Thiếu sót xác định trước triển khai (đã xử lý bằng API workspace và bảo vệ cây):
 
 1. `CategoryService.GetParentsAsync` hiện chỉ gắn danh mục con trực tiếp vào `Items`. Không thể giả định API này trả đầy đủ cây nhiều cấp.
 2. `ValidateParentCategoryAsync` hiện kiểm tra cha tồn tại; cập nhật chặn chọn chính nó nhưng chưa kiểm tra đầy đủ việc chọn hậu duệ làm cha.
@@ -65,7 +65,7 @@ Thiếu sót đã xác định:
 - `/catalog/products?tab=products`: danh mục và sản phẩm.
 - `/catalog/products?tab=services`: loại dịch vụ và dịch vụ.
 - Sidebar chỉ còn một mục **Sản phẩm và dịch vụ**.
-- Các URL danh mục/dịch vụ/loại dịch vụ hiện tại chuyển hướng tới tab phù hợp của trang chính, không giữ bốn bản UI riêng biệt. Đây chỉ là điều hướng URL, không phải fallback hoặc converter dữ liệu.
+- Theo yêu cầu dọn code mới nhất, đã xóa ba route `/catalog/categories`, `/catalog/services`, `/catalog/service-types` và helper chuyển hướng. Liên kết nội bộ đi thẳng `/catalog/products?tab=products` hoặc `?tab=services`. URL/bookmark cũ không còn được hỗ trợ và trả 404.
 - Rà mọi liên kết nội bộ và tùy chọn trang sau đăng nhập để đổi nhãn, không ép ghi lại tùy chọn đã lưu của tài khoản.
 
 Thanh công cụ theo tab: tìm kiếm, trạng thái, khoảng ngày, **Thêm danh mục/loại dịch vụ**, **Thêm sản phẩm/dịch vụ**, **Thu gọn tất cả**. Nhãn và bộ lọc ngày phải nói rõ chúng áp dụng cho mặt hàng, không tự suy ra ngày tạo danh mục.
@@ -152,10 +152,10 @@ Quy tắc bắt buộc:
 
 ### 5.1. Metadata nhóm tối giản
 
-Đề xuất endpoint đọc mới, tên cuối cùng xác nhận ở Phase 1:
+Endpoint đã chốt và triển khai; tất cả yêu cầu quyền `catalogRead` và dùng DbContext của tenant hiện tại:
 
-- `GET /api/catalog/categories/tree`: trả danh sách node tối giản gồm ID, tên, cha, thứ tự, số sản phẩm trực tiếp và toàn nhánh theo bộ lọc trạng thái/ngày.
-- `GET /api/catalog/service-types/groups`: trả ID, tên và số dịch vụ theo cùng phạm vi lọc.
+- `GET /api/catalog/workspace/categories/tree`: trả danh sách node tối giản gồm ID, tên, cha, thứ tự, số sản phẩm trực tiếp và toàn nhánh theo bộ lọc trạng thái/ngày.
+- `GET /api/catalog/workspace/service-types/groups`: trả ID, tên và số dịch vụ theo cùng phạm vi lọc.
 
 Với schema hiện tại, ID danh mục và loại dịch vụ là `byte`, nên có thể tải đầy đủ metadata nhóm nhỏ để dựng cây chính xác. Không đồng nghĩa với tải toàn bộ mặt hàng; không giả lập lấy hết bằng `pageSize=100000`. Nếu sau này tăng phạm vi ID/số nhóm, đánh giá API cây phân trang riêng trong một thay đổi khác.
 
@@ -167,10 +167,10 @@ Với schema hiện tại, ID danh mục và loại dịch vụ là `byte`, nên
 
 ### 5.2. Danh sách mặt hàng
 
-- Tái sử dụng API phân trang hiện có với `categoryId`/`serviceTypeId` để lấy mặt hàng trực tiếp.
-- Bổ sung `unassignedOnly` mặc định `false` để đọc nhóm chưa phân danh mục/loại. Khi `true`, lọc cột quan hệ bằng `null`; không đồng thời nhận ID nhóm cụ thể. Request mâu thuẫn trả lỗi rõ ràng.
+- Đã thêm `GET /api/catalog/workspace/products` và `/services` trả summary phân trang; dùng `groupId` để lọc nhóm trực tiếp. Các endpoint CRUD/options và ý nghĩa filter cũ được giữ nguyên.
+- Bổ sung `unassignedOnly` trên `CatalogWorkspaceFilter` của API đọc mới, mặc định `false` để đọc nhóm chưa phân danh mục/loại. Khi `true`, lọc cột quan hệ bằng `null`; không đồng thời nhận ID nhóm cụ thể. Request mâu thuẫn trả lỗi rõ ràng.
 - Không đổi ý nghĩa filter cũ thành “gồm toàn bộ nhánh con”; tránh làm đổi danh sách ở picker/màn hình khác.
-- Nếu payload danh sách hiện tại quá lớn, thêm endpoint list-summary với tên/mã/giá/trạng thái/ngày/nhóm cần hiển thị. Form xem/sửa lấy chi tiết bằng `getById`, không coi DTO tối giản là dữ liệu đầy đủ để lưu lại.
+- Summary chỉ gồm ID/tên/mã/giá/trạng thái/ngày/nhóm/đường dẫn và tên dịch vụ cha. Form xem/sửa lấy dữ liệu đầy đủ qua `GET /api/catalog/workspace/products/{id}` hoặc `/services/{id}`. Hai endpoint này cho phép đọc bản đã xóa để xem/khôi phục; API đọc chi tiết cũ vẫn loại bản đã xóa, API sửa không mở thêm quyền sửa bản đã xóa.
 - API tìm kiếm toàn cục trả kết quả phân trang và đường dẫn danh mục; không tìm bằng cách tải toàn bộ nhóm rồi gọi mọi trang của từng nhóm.
 - Dùng thứ tự ổn định có ID làm tiêu chí cuối, đếm trước phân trang; nhóm không bị mất dòng khi đổi trang.
 - Giữ các API CRUD và options đang được contract/báo giá/form khác dùng; không xóa endpoint chỉ vì bốn màn quản lý cũ được gộp.
@@ -180,16 +180,15 @@ Với schema hiện tại, ID danh mục và loại dịch vụ là `byte`, nên
 Tách khỏi các file page lớn trước khi gộp, không copy toàn bộ bốn page vào một file:
 
 - `CatalogWorkspace`: tab, toolbar và điều phối modal.
-- `ProductCategoryTree`: node danh mục và tổ tiên, không sở hữu toàn bộ dữ liệu sản phẩm.
-- `ServiceTypeGroups`: nhóm loại dịch vụ, không giả lập quan hệ cha của loại dịch vụ.
+- `CatalogGroupTree`: dùng chung nhưng sản phẩm dựng cây nhiều cấp, dịch vụ dựng nhóm phẳng; không sở hữu toàn bộ dữ liệu mặt hàng.
 - `CatalogGroupPanel`: phần mở/đóng, trạng thái tải/lỗi/empty dùng chung.
-- `ProductGroupList` và `ServiceGroupList`: cột và thao tác riêng từng nghiệp vụ, dùng table/card hiện có.
-- `CatalogSearchResults`: kết quả toàn cục và breadcrumb.
+- `CatalogItemList`: bảng/card dùng chung, cột giá dịch vụ/phí/cha riêng theo nghiệp vụ, phân trang mỗi nhóm.
+- Kết quả tìm kiếm dùng `CatalogItemList` ở phạm vi toàn cục, kèm danh sách nhóm phù hợp và breadcrumb.
 - Tái sử dụng `ProductFormModal`, `ServiceFormModal`, `CategoryFormModal`, `ServiceTypeFormModal`; thêm props chọn sẵn nhóm và callback trả nhóm cũ/mới khi cần, không đổi quyền của form.
 
 Quy tắc state:
 
-- Key node có loại và ID, ví dụ `category:12`, `service-type:12`; không dùng index hoặc ID trần dùng chung giữa hai tab.
+- Key node có loại và ID, ví dụ `products:12`, `services:12`; không dùng index hoặc ID trần dùng chung giữa hai tab.
 - Giữ `expandedIds`, pagination/filter/cache theo tab và theo nhóm. Đổi tab rồi quay lại không mất nhánh đã mở.
 - Cache key chứa tab, nhóm, trang, pageSize, trạng thái, ngày, keyword và tenant/account. Không giữ cache dùng chung giữa tenant hoặc sau logout.
 - Dùng AbortController/request identity chống phản hồi cũ ghi đè bộ lọc mới; hủy khi unmount/đổi phạm vi. Giới hạn request đồng thời khi mở nhiều nhóm.
@@ -201,59 +200,59 @@ Quy tắc state:
 | Phase | Công việc | Trạng thái | Điều kiện hoàn tất |
 | --- | --- | --- | --- |
 | Chuẩn bị | Bắt buộc danh mục sản phẩm/loại dịch vụ khi tạo/sửa | Đã triển khai, xác minh tự động đạt | 36 test catalog đạt; FE typecheck/lint/build đạt. Chưa UAT trình duyệt; không phải triển khai UI gộp. |
-| 0 | Rà soát cấu trúc và chốt thiết kế | Đã rà soát, đã viết plan | Các điểm khác nhau giữa cây danh mục và loại/dịch vụ cha đã được ghi rõ. Chưa viết code triển khai. |
-| 1 | Chốt contract API và tách component tái sử dụng | Chưa bắt đầu | Ghi DTO/query, các liên kết cần đổi; tách modal/table mà không làm đổi hành vi hiện tại. |
-| 2 | API cây/nhóm, đếm và lọc chưa phân nhóm | Chưa bắt đầu | Test đọc đa cấp, phân trang, trạng thái, tenant/quyền; không đổi schema/FK. |
-| 3 | UI tab Sản phẩm | Chưa bắt đầu | Danh mục nhiều cấp, sản phẩm trực tiếp, nhóm chưa phân loại, lazy load và CRUD dùng được. |
-| 4 | UI tab Dịch vụ | Chưa bắt đầu | Nhóm loại dịch vụ và dịch vụ cha được xử lý tách biệt; CRUD/xóa/khôi phục không đổi nghiệp vụ. |
-| 5 | Tìm kiếm, sidebar, URL và hoàn thiện trạng thái | Chưa bắt đầu | Một mục sidebar; route cũ mở tab đúng; tìm toàn cục, trạng thái mở/pagination và mobile đạt. |
-| 6 | Kiểm thử hồi quy và bàn giao | Chưa bắt đầu | Ma trận bên dưới đạt, ghi rõ test tự động/UAT nào đã chạy hoặc còn thiếu. |
+| 0 | Rà soát cấu trúc và chốt thiết kế | Đã hoàn tất | Đã chốt cây sản phẩm đa cấp và nhóm loại dịch vụ phẳng; không đồng nhất dịch vụ cha với loại. |
+| 1 | Chốt contract API và tách component tái sử dụng | Đã triển khai | Modal chuyển sang components/catalog; cập nhật quick-create hợp đồng; DTO/API đọc được chốt. |
+| 2 | API cây/nhóm, đếm và lọc chưa phân nhóm | Đã triển khai, BE test đạt | Count/list cùng filter; kiểm tra cây, null-group, phân trang và đọc archived; không đổi schema/FK. |
+| 3 | UI tab Sản phẩm | Đã triển khai; chưa UAT | Cây đa cấp, lazy load sản phẩm trực tiếp, CRUD/xóa/khôi phục và nhóm chưa phân loại. |
+| 4 | UI tab Dịch vụ | Đã triển khai; chưa UAT | Nhóm loại riêng với dịch vụ cha; tên cha được lấy kể cả khác nhóm/trang. |
+| 5 | Tìm kiếm, sidebar, URL và hoàn thiện trạng thái | Đã triển khai; chưa UAT | Sidebar đơn; chỉ giữ route trang gộp, liên kết modal đi thẳng tab đúng; search toàn cục, cache/state theo nhóm/tab và giới hạn request. |
+| 6 | Kiểm thử hồi quy và bàn giao | BE đạt; dừng kiểm thử FE theo yêu cầu | 89 test backend đạt, 0 lỗi. Không chạy thêm FE typecheck/lint/build hoặc UAT sau yêu cầu của người dùng. |
 
 ### Phase 1 — Chuẩn bị component và hợp đồng API
 
-- [ ] Lập checklist chức năng hiện tại của cả bốn màn, cả xem chi tiết/bulk/khôi phục.
-- [ ] Chốt URL chính và tham số tab/nhóm; rà sidebar, landing-page options và liên kết nội bộ.
-- [ ] Tách modal/table khỏi route page để các route chuyển hướng không làm mất component đang được contract dùng.
-- [ ] Chốt response metadata, phạm vi count, null-group và tìm kiếm; không dùng `items` lẫn cho sản phẩm và danh mục con.
-- [ ] Ghi rõ `ServiceParentId` không kế thừa loại dịch vụ và không quyết định vị trí nhóm.
+- [x] Lập checklist chức năng hiện tại của cả bốn màn, cả xem chi tiết/bulk/khôi phục.
+- [x] Chốt URL chính và tham số tab/nhóm; rà sidebar, landing-page options và liên kết nội bộ.
+- [x] Tách modal/table khỏi route page để xóa các route cũ mà không làm mất component đang được contract dùng.
+- [x] Chốt response metadata, phạm vi count, null-group và tìm kiếm; không dùng `items` lẫn cho sản phẩm và danh mục con.
+- [x] Ghi rõ `ServiceParentId` không kế thừa loại dịch vụ và không quyết định vị trí nhóm.
 
 ### Phase 2 — API đọc và bảo vệ cây
 
-- [ ] Triển khai API metadata và aggregate, cancellation và kiểm tra quyền.
-- [ ] Thêm lọc chưa phân nhóm mà giữ nguyên default query của client hiện có.
-- [ ] API cây thể hiện đủ các cấp; có lỗi ổn định nếu vòng lặp/cha không tồn tại, không sửa dữ liệu tự động.
-- [ ] Bổ sung kiểm tra tổ tiên khi đổi cha để không tạo vòng lặp; vẫn giữ các lựa chọn cha hợp lệ hiện có, không áp giới hạn hai cấp mới.
-- [ ] Test count trực tiếp/toàn nhánh, count theo trạng thái và tránh N+1.
+- [x] Triển khai API metadata và aggregate, cancellation và kiểm tra quyền.
+- [x] Thêm lọc chưa phân nhóm mà giữ nguyên default query của client hiện có.
+- [x] API cây thể hiện đủ các cấp; có lỗi ổn định nếu vòng lặp/cha không tồn tại, không sửa dữ liệu tự động.
+- [x] Bổ sung kiểm tra tổ tiên khi đổi cha để không tạo vòng lặp; vẫn giữ các lựa chọn cha hợp lệ hiện có, không áp giới hạn hai cấp mới.
+- [x] Test count trực tiếp/toàn nhánh, count theo trạng thái và tránh N+1.
 
 ### Phase 3 — Sản phẩm
 
-- [ ] Dựng cây bằng ID ổn định; mở cha có cả danh mục con và sản phẩm trực tiếp.
-- [ ] Tải sản phẩm khi mở nhóm; phân trang, lỗi tải và thử lại riêng từng nhóm.
-- [ ] CRUD nhóm/mặt hàng, chọn sẵn danh mục, invalidate nhánh cũ/mới.
-- [ ] Giữ khóa/mở, xóa mềm, khôi phục và xác nhận xóa cả cây danh mục.
+- [x] Dựng cây bằng ID ổn định; mở cha có cả danh mục con và sản phẩm trực tiếp.
+- [x] Tải sản phẩm khi mở nhóm; phân trang, lỗi tải và thử lại riêng từng nhóm.
+- [x] CRUD nhóm/mặt hàng, chọn sẵn danh mục, invalidate nhánh cũ/mới.
+- [x] Giữ khóa/mở, xóa mềm, khôi phục và xác nhận xóa cả cây danh mục.
 
 ### Phase 4 — Dịch vụ
 
-- [ ] Dựng nhóm loại dịch vụ và nhóm chưa phân loại.
-- [ ] Hiển thị dịch vụ cha bằng tên; dịch vụ con vẫn hiện khi cha nằm ở nhóm khác.
-- [ ] Chọn sẵn loại khi tạo, giữ picker cha hiện có và restore-parent rule.
-- [ ] Giá dịch vụ/phí thiết lập/phí duy trì và thao tác hàng loạt không mất sau gộp.
+- [x] Dựng nhóm loại dịch vụ và nhóm chưa phân loại.
+- [x] Hiển thị dịch vụ cha bằng tên; dịch vụ con vẫn hiện khi cha nằm ở nhóm khác.
+- [x] Chọn sẵn loại khi tạo, giữ picker cha hiện có và restore-parent rule.
+- [x] Giá dịch vụ/phí thiết lập/phí duy trì và thao tác hàng loạt không mất sau gộp.
 
 ### Phase 5 — Điều hướng và trải nghiệm hoàn chỉnh
 
-- [ ] Tìm toàn bộ có phân trang và breadcrumb; mở nhóm kết quả chính xác.
-- [ ] Trạng thái mở không reset sau lưu, đổi tab, đổi trang con hoặc tải lại dữ liệu nhóm.
-- [ ] Đổi sidebar và nhãn tùy chọn landing page; chuyển hướng ba route không còn là trang quản lý độc lập.
-- [ ] Duy trì query filter hợp lệ khi điều hướng; không thêm lớp schema legacy.
-- [ ] Mobile, keyboard, loading/empty/error và chống response cũ đạt.
+- [x] Tìm toàn bộ có phân trang và breadcrumb; mở nhóm kết quả chính xác.
+- [x] Trạng thái mở không reset sau lưu, đổi tab, đổi trang con hoặc tải lại dữ liệu nhóm.
+- [x] Đổi sidebar và nhãn tùy chọn landing page; xóa ba route cũ cùng helper chuyển hướng, đổi liên kết trong modal sang hai tab trang gộp theo yêu cầu dọn code.
+- [x] Duy trì query filter hợp lệ khi điều hướng; không thêm lớp schema legacy.
+- [x] Đã viết UI mobile/keyboard, loading/empty/error và bảo vệ phản hồi cũ; chưa xác minh trình duyệt.
 
 ### Phase 6 — Kiểm thử và kết thúc
 
-- [ ] Backend test các API đọc/filter/quyền và kiểm tra cây.
-- [ ] FE typecheck/lint/build; test state mở, request race và phân trang.
-- [ ] UAT theo ma trận dưới; chưa UAT thì đánh dấu rõ, không ghi hoàn tất toàn phase.
-- [ ] Hồi quy tạo/sửa hợp đồng, báo giá và khôi phục catalog.
-- [ ] Chạy `graphify update .` sau khi sửa code; không cần cập nhật đồ thị chỉ vì viết plan.
+- [x] Backend test service đọc/filter, attribute quyền, context tenant riêng biệt và kiểm tra cây; test này không thay thế UAT/kiểm thử HTTP với đăng nhập thật.
+- [ ] Không tiếp tục FE typecheck/lint/build hoặc test state/UI theo yêu cầu người dùng. Trước yêu cầu dừng, typecheck và lint đã đạt; các sửa hoàn thiện sau đó chưa kiểm thử FE.
+- [ ] UAT mục 8 dành cho người dùng tự test; không thực hiện kiểm thử trình duyệt theo yêu cầu. Không tuyên bố các luồng này đã đạt.
+- [x] Test backend hồi quy catalog deletion/restoration/options/group requirements và ContractServiceSlice04 đạt. Đã cập nhật import quick-create; chưa chạy UAT FE hợp đồng/báo giá.
+- [x] Đã chạy `graphify update .` sau khi sửa code, exit 0; không cần cập nhật đồ thị chỉ vì viết plan.
 
 ## 8. Ma trận luồng cần test và kết quả mong đợi
 
@@ -283,9 +282,13 @@ Quy tắc state:
 | 22 | API một nhóm lỗi/mạng chậm, đổi filter liên tục | Nhóm khác giữ dữ liệu; request cũ không ghi đè query mới; retry chỉ tải nhóm lỗi. |
 | 23 | Read-only và manage | Read-only không có thao tác thay đổi; gọi API trái quyền/khác tenant bị từ chối. |
 | 24 | Đổi tab rồi quay lại, bỏ tìm kiếm | Khôi phục expanded state và pagination; không xóa nội dung form đang mở vì refresh nền. |
-| 25 | Truy cập các URL cũ và trang mặc định sản phẩm đã lưu | Đi đúng trang gộp/tab; không 404, không đổi default cá nhân sang hợp đồng ngoài ý muốn. |
+| 25 | Mở quản lý nhóm trong modal và trang mặc định sản phẩm đã lưu | Liên kết đi thẳng trang gộp/tab đúng; `/catalog/products` đã lưu vẫn dùng được. Ba URL cũ đã xóa trả 404 theo chủ ý, không giữ redirect. |
 | 26 | Mobile và keyboard | Mở/đóng, menu và phân trang dùng được; cây sâu không tràn ngang vô hạn. |
 | 27 | Tạo/sửa hợp đồng và báo giá | Picker/quick-create còn dùng được, chỉ mặt hàng được phép mới chọn được; payload giá/thuế không đổi. |
+| 28 | Phân trang cây có hơn 5 danh mục gốc/loại dịch vụ | Chỉ hiện nhóm gốc của trang đã chọn; con đi cùng cha, không bị tách sang trang khác. Phân trang mặt hàng độc lập. |
+| 29 | Mở danh mục cấp sâu từ tìm kiếm hoặc URL groupId | Tự chuyển tới trang chứa danh mục gốc, mở đúng chuỗi tổ tiên và cuộn tới nhóm. |
+| 30 | Đổi trang cây/đổi tab rồi quay lại | Giữ trạng thái mở và trang mặt hàng của các nhóm; nhóm ngoài trang không tiếp tục tải và không giữ selection ẩn để bulk-delete. |
+| 31 | Thêm/đổi tên/đổi cha/xóa nhóm ở trang cuối cây | Nhóm vừa lưu được mở ở trang đúng sau khi metadata mới về; xóa làm hết trang cuối thì lùi trang hợp lệ, không hiển thị trang rỗng ngoài phạm vi. |
 
 ## 9. Nhật ký tiếp tục sau gián đoạn
 
@@ -307,7 +310,49 @@ Bước tiếp theo chính xác:
 Nhật ký ban đầu:
 
 - 2026-10-14: Đã rà bốn màn hình, API/filter, quan hệ danh mục con, dịch vụ cha và quyền/sidebar. Đã viết plan này.
-- Chưa thay đổi UI/API/DB cho tính năng gộp; Phase 1–6 chưa bắt đầu.
+- Tại thời điểm lập plan, Phase 1–6 chưa bắt đầu. Nhật ký triển khai mới nhất ở bên dưới.
 - 2026-10-14: Bổ sung ràng buộc phân nhóm ở bốn DTO create/update, hai service và hai modal sản phẩm/dịch vụ; thêm test. Không chạy migration hoặc cập nhật dữ liệu thật. Kết quả xác minh sẽ ghi sau khi chạy xong.
 - Xác minh bước chuẩn bị: `dotnet test` lọc `CatalogGroupRequirementTests`, `CatalogDeletionTests`, `CatalogRestorationTests`, `CatalogOptionsTests`: 36 đạt, 0 lỗi. `npm run typecheck`, lint các file sửa và `npm run build`: đạt. Test bao gồm thiếu/null/0/ngoài phạm vi, nhóm không tồn tại, tạo/sửa nhóm hợp lệ, xóa/khôi phục/options giữ nguyên nghiệp vụ. Chưa UAT trình duyệt. Bước tiếp theo của UI gộp vẫn là Phase 1.
 - Trước khi triển khai, workspace có thay đổi khác về mã khách hàng và trang mặc định; giữ nguyên, không reset hoặc gộp chúng vào kết quả của kế hoạch này.
+
+### Nhật ký triển khai 2026-10-14 — Phase 1–6
+
+- **Phase 1:** chuyển ProductFormModal, ServiceFormModal, CategoryFormModal, ServiceTypeFormModal sang `Frontend/components/catalog/`; cập nhật import tạo nhanh hợp đồng; thêm props nhóm chọn sẵn và callback nhóm thực tế sau lưu. Xóa phần UI quản lý trùng lặp ở ba route chuyển hướng. Dọn API loại dịch vụ trùng trong services-api; dùng service-types-api chung.
+- **Phase 2:** thêm CatalogWorkspaceFilter, CatalogGroupNode/CatalogItemSummaryResponse, CatalogWorkspaceService và controller `/api/catalog/workspace`. Aggregate/projection đọc, AsNoTracking/cancellation; direct/subtree counts, ngày cuối bao gồm toàn ngày, null-only, stable paging, orphan/cycle errors. CategoryService kiểm tra toàn chuỗi tổ tiên khi đổi cha và phát hiện vòng lặp khi xóa; không áp giới hạn hai cấp.
+- **Phase 3–4:** CatalogWorkspace + CatalogGroupTree/Panel + CatalogItemList và workspace-api. Cây sản phẩm hỗ trợ nhiều cấp; dịch vụ nhóm theo loại riêng, cha hiển thị bằng tên. Xem/sửa, khóa/mở, soft-delete/restore, bulk trên trang đang tải và thông báo thành công một phần vẫn gọi API nghiệp vụ hiện có.
+- **Phase 5:** sidebar chỉ còn Sản phẩm và dịch vụ; nhãn landing page được đổi nhưng path/tùy chọn cá nhân giữ nguyên. /catalog/categories chuyển tab products; /catalog/services và /catalog/service-types chuyển tab services, giữ query hợp lệ. URL nhóm dùng `groupId={id}` hoặc `unassigned`; mở đúng tổ tiên. Tìm toàn cục có breadcrumb; mở nhóm cuộn/focus container sau khi DOM có sẵn, không hứa định vị từng dòng. Back/forward đồng bộ filter URL.
+- Cache phân biệt tenant/account/tab/group/page/filter, tối đa 200 trang; queue tối đa 3 request, AbortController và identity chống dữ liệu cũ. Giữ cây trong lần refresh cùng query; giữ mở/đóng và trang từng nhóm khi lưu/đổi tab/bỏ search. Thay đổi tên dịch vụ làm mới cả các nhóm có thể hiển thị tên cha đó.
+- **Phase 6 backend:** build API đạt; `dotnet test Backend/ContractManagement.Tests/ContractManagement.Tests.csproj --no-restore -p:BaseOutputPath=E:\DTC-DigitizingContract\Source\.test-output\catalog\bin\ -p:UseAppHost=false --filter "FullyQualifiedName~CatalogWorkspaceTests|FullyQualifiedName~CatalogGroupRequirementTests|FullyQualifiedName~CatalogDeletionTests|FullyQualifiedName~CatalogRestorationTests|FullyQualifiedName~CatalogOptionsTests|FullyQualifiedName~EmployeePreferenceRoutesTests|FullyQualifiedName~ContractServiceSlice04Tests" --verbosity minimal`: **89 đạt, 0 lỗi**. Chỉ cảnh báo NU1900 vì không truy cập được dữ liệu advisory NuGet; test vẫn chạy xong.
+- Trước yêu cầu ngừng FE: typecheck đạt, lint file mới đạt; lint phạm vi rộng chỉ có cảnh báo trong code form/trang cũ. Build FE đã bắt đầu trước yêu cầu dừng và đã kết thúc thành công khi yêu cầu hủy được gửi; không chạy build mới. Các thay đổi hoàn thiện URL/race/scroll sau đó **không chạy kiểm thử FE**, nên kết quả build trước đó không xác minh bản code cuối.
+- Người dùng yêu cầu “không cần bạn kiểm thử fe”; đã dừng kiểm thử FE và trình duyệt. Chưa UAT ma trận mục 8; trạng thái này không bị che bằng dấu hoàn tất code.
+- Không chạy migration, không cập nhật DB thật, không thêm bảng/cột/FK/JSON storage; không sửa snapshot/giá/thuế/luồng duyệt hợp đồng. Chỉ bổ sung kiểm tra chu kỳ danh mục và API đọc workspace bên cạnh API cũ.
+- `git diff --check` đạt. `graphify update .` exit 0, cập nhật graph.json/graph.html/GRAPH_REPORT.md. Graphify báo lỗi parse ở employee-profile-form.tsx và flutter/linux/runner/my_application.h ngoài phạm vi thay đổi; không sửa hoặc coi đây là kết quả kiểm thử FE. Không gọi LLM để đặt lại nhãn cộng đồng.
+- Bước tiếp theo của người dùng: khởi động lại API/FE, mở /catalog/products và tự kiểm tra mục 8. Khi tiếp tục sau gián đoạn, đọc nhật ký này và diff; không xây lại component/API đã triển khai.
+
+### Dọn code theo yêu cầu tiếp theo ngày 2026-10-14
+
+- Thay liên kết quản lý danh mục trong ProductFormModal bằng `/catalog/products?tab=products`; liên kết quản lý loại dịch vụ trong ServiceFormModal bằng `/catalog/products?tab=services`.
+- Xóa ba file page.tsx của categories/service-types/services và `Frontend/components/catalog/catalog-redirect.ts`. Thay đổi này thay thế quyết định giữ redirect trong nhật ký Phase 5 ở trên. Không xóa API category/service-type/service, modal hoặc dữ liệu.
+- Xóa script dùng một lần `scripts/export-web-icons.ps1`; giữ nguyên các PNG đã sinh trong public của Frontend/SystemAdmin và metadata icon. Script chưa commit nên nếu cần lại phải tạo lại; các page cũ tracked có thể khôi phục từ Git.
+- Không chạy build, typecheck hoặc kiểm thử FE/trình duyệt theo yêu cầu. Chỉ rà tham chiếu tĩnh và cập nhật graphify.
+
+### Đồng bộ component UI ngày 2026-10-14
+
+- CatalogWorkspace dùng Tabs/TabsList/TabsTrigger/TabsContent thay tab HTML tự dựng; vẫn điều hướng tab qua URL. TabsContent forceMount và ẩn tab không hoạt động để giữ state, không tải thêm nhóm ẩn.
+- CatalogGroupPanel dùng Collapsible/CollapsibleTrigger/CollapsibleContent kết hợp Card/Header/Content và Button. Nội dung forceMount được ẩn khi đóng, giữ lazy-loading và trạng thái nhóm; menu thao tác nằm ngoài trigger.
+- CatalogItemList dùng Select cho số dòng, Button cho xem chi tiết/breadcrumb, Card cho mobile, Pagination/Content/Item bọc nút Trước/Sau tiếng Việt. Giữ nguyên disabled, phân trang và callbacks hiện tại.
+- Dùng Alert, Empty và Spinner sẵn có cho lỗi, dữ liệu trống và tải; kết quả tìm kiếm dùng Card. Liên kết quản lý nhóm trong hai modal được bọc Button asChild, vẫn mở đúng tab mới.
+- Giữ các thẻ HTML bố cục/semantic (main/div/span/h1/p/a bên trong asChild); không tạo wrapper giả hoặc thay form bằng một luồng mới. Không sửa backend, API, quyền, CRUD, bộ lọc hoặc schema.
+- Không chạy kiểm thử FE, build hoặc UAT trình duyệt theo yêu cầu. Chỉ rà code/tham chiếu tĩnh, git diff --check và graphify update.
+- Yêu cầu bố cục tiếp theo: bọc từ thanh tìm kiếm, bộ lọc, thao tác đến toàn bộ kết quả/cây catalog trong một Card/CardContent chung; tiêu đề và TabsList giữ ở ngoài Card. Chỉ thay bố cục, không đổi callbacks/state/API.
+- Sau rà soát tái sử dụng, chỉ thay bộ lọc trạng thái bằng SelectFilter. Giữ bốn giá trị all/1/0/2 và callback hiện tại; thêm prop ariaLabel tùy chọn để giữ nhãn hỗ trợ truy cập, không đổi mặc định các màn khác. Chưa thay bảng, skeleton hoặc bộ lọc ngày; không kiểm thử FE.
+- Yêu cầu tiếp theo: thay nút xóa các mục đã chọn bằng SplitActionMenu, variant destructive và icon Trash2 h-4 w-4. Giữ callback xóa/phạm vi selection/xác nhận; menuItems rỗng vì hiện chỉ có hành động xóa, không bổ sung nghiệp vụ hàng loạt khác. Không kiểm thử FE.
+
+### Bổ sung phân trang cây ngày 2026-10-14
+
+- CatalogGroupTree phân trang danh mục gốc sản phẩm và nhóm loại dịch vụ; mặc định 5 nhóm/trang, chọn 5/10/20/50 và Trước/Sau. Nhánh con không bị chia cắt. Nhóm chưa phân loại nằm riêng ngoài phân trang cây.
+- CatalogWorkspace lưu page/pageSize cây riêng theo hai tab, độc lập với pages của mặt hàng. Đổi trang cây chỉ render nhánh thuộc trang mới; giữ expanded/page mặt hàng/cache ở workspace, hủy tải nhóm đã unmount và không giữ selection của trang cây cũ.
+- catalogRootGroups/catalogTreePageForGroup xác định nhóm gốc và trang của một danh mục sâu. OpenGroup và URL groupId chuyển đúng trang trước cuộn; callback lưu nhóm chờ đúng revision metadata mới rồi mở nhánh/trang thích hợp. Refresh metadata clamp trang cây nếu số nhóm giảm.
+- Chỉ phân trang hiển thị FE. API vẫn trả metadata nhóm tối giản đầy đủ (ID byte, tối đa 255 nhóm), để dựng đúng cây/đếm/tìm tổ tiên; không tải tất cả mặt hàng, không thêm endpoint/schema/migration.
+- Chưa kiểm thử FE/typecheck/build/UAT theo yêu cầu; các dòng 28–31 là checklist để người dùng tự test, không phải kết quả đã đạt.
+- Bổ sung phần đầu Card phía trên tìm kiếm: icon, tiêu đề và hướng dẫn theo tab, badge tổng danh mục/loại dịch vụ và mặt hàng phù hợp với bộ lọc. Dùng CardHeader/CardTitle/CardDescription/Badge/Skeleton có sẵn; chuyển bộ đếm từ hàng thao tác lên đây, không lặp thông tin hoặc gọi thêm API. Không kiểm thử FE.

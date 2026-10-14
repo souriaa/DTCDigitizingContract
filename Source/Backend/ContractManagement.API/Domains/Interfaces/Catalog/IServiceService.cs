@@ -13,7 +13,7 @@ namespace ContractManagement.API.Domains.Interfaces.Catalog
 
         Task<PagedResult<ServiceResponse>> GetListAsync(ServiceFilterRequest filter);
 
-        Task<ServiceResponse> GetByIdAsync(int id);
+        Task<ServiceResponse> GetByIdAsync(int id, bool includeDeleted = false);
 
         Task<ServiceResponse> CreateAsync(CreateServiceRequest request, int createdBy);
 

@@ -1,5 +1,6 @@
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
 using ContractManagement.Infrastructure.Persistence.Application;
@@ -216,7 +217,7 @@ namespace ContractManagement.API.Domains.Services.Catalog
                 throw new InvalidOperationException("Danh mục cha không hợp lệ.");
             }
 
-            await ValidateParentCategoryAsync(request.CategoryParentId);
+            await ValidateParentCategoryAsync(request.CategoryParentId, id);
 
             category.CategoryName = request.CategoryName.Trim();
             category.CategoryShortDesc = request.CategoryShortDesc?.Trim();
@@ -251,6 +252,9 @@ namespace ContractManagement.API.Domains.Services.Catalog
                 if (!nextLevelIds.Any())
                     break;
 
+                if (nextLevelIds.Any(idsToDelete.Contains))
+                    throw new BusinessRuleException(409, "CategoryHierarchyInvalid", "Cây danh mục có vòng lặp. Không thể xóa danh mục.");
+
                 idsToDelete.AddRange(nextLevelIds);
                 currentLevelIds = nextLevelIds;
             }
@@ -273,19 +277,28 @@ namespace ContractManagement.API.Domains.Services.Catalog
             await _dbContext.SaveChangesAsync();
         }
 
-        private async Task ValidateParentCategoryAsync(byte? parentId)
+        private async Task ValidateParentCategoryAsync(byte? parentId, byte? currentId = null)
         {
             if (!parentId.HasValue)
             {
                 return;
             }
 
-            var exists = await _dbContext.TblCategories
-                .AnyAsync(x => x.CategoryId == parentId.Value);
-
-            if (!exists)
+            var nodes = await _dbContext.TblCategories.AsNoTracking()
+                .Select(x => new { x.CategoryId, x.CategoryParentId }).ToDictionaryAsync(x => x.CategoryId);
+            if (!nodes.ContainsKey(parentId.Value))
             {
                 throw new KeyNotFoundException("Danh mục cha không tồn tại.");
+            }
+            var visited = new HashSet<byte>();
+            if (currentId.HasValue) visited.Add(currentId.Value);
+            while (parentId.HasValue)
+            {
+                if (!visited.Add(parentId.Value))
+                    throw new BusinessRuleException(400, "CategoryCycle", "Không thể chọn chính danh mục hoặc danh mục con làm danh mục cha.");
+                if (!nodes.TryGetValue(parentId.Value, out var node))
+                    throw new BusinessRuleException(409, "CategoryHierarchyInvalid", "Cây danh mục thiếu danh mục cha.");
+                parentId = node.CategoryParentId;
             }
         }
 

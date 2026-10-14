@@ -14,9 +14,6 @@ export default function ContractAuditsPage() {
       <div className="grow overflow-y-auto p-3 sm:p-6 lg:p-10">
         <div className="mx-auto space-y-6">
           <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ScrollText className="size-5" />
-            </span>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">
                 Nhật ký hợp đồng
@@ -28,7 +25,9 @@ export default function ContractAuditsPage() {
             </div>
           </div>
 
-          <PermissionGuard permission={RBAC_PERMISSIONS.contractAuditReadTenant}>
+          <PermissionGuard
+            permission={RBAC_PERMISSIONS.contractAuditReadTenant}
+          >
             <ContractAuditLog mode="tenant" />
           </PermissionGuard>
         </div>

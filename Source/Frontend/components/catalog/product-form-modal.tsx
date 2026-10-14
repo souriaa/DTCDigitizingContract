@@ -31,10 +31,7 @@ import {
   CreateProductRequest,
   UpdateProductRequest,
 } from "@/services/catalog/products-api";
-import {
-  categoryApi,
-  CategoryResponse,
-} from "@/services/catalog/category-api";
+import { categoryApi, CategoryResponse } from "@/services/catalog/category-api";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -43,6 +40,7 @@ interface ProductFormModalProps {
   item?: ProductResponse | null;
   viewOnly?: boolean;
   onViewDeleted?: (code: string) => void;
+  initialCategoryId?: number | null;
 }
 
 export function ProductFormModal({
@@ -52,6 +50,7 @@ export function ProductFormModal({
   item,
   viewOnly = false,
   onViewDeleted,
+  initialCategoryId,
 }: ProductFormModalProps) {
   const isEditMode = !!item && !viewOnly;
 
@@ -59,7 +58,9 @@ export function ProductFormModal({
 
   // Basic Info
   const [productCode, setProductCode] = useState("");
-  const [deletedConflictCode, setDeletedConflictCode] = useState<string | null>(null);
+  const [deletedConflictCode, setDeletedConflictCode] = useState<string | null>(
+    null,
+  );
   const [productName, setProductName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productPrice, setProductPrice] = useState("");
@@ -97,7 +98,10 @@ export function ProductFormModal({
         setCategoriesError(false);
         setCategories([]);
         try {
-          const res = await categoryApi.getList({ page: 1, pageSize: 1000 }, controller.signal);
+          const res = await categoryApi.getList(
+            { page: 1, pageSize: 1000 },
+            controller.signal,
+          );
           if (cancelled) return;
           setCategories(res.items || []);
         } catch {
@@ -108,7 +112,10 @@ export function ProductFormModal({
       };
 
       fetchCategories();
-      return () => { cancelled = true; controller.abort(); };
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
     }
   }, [isOpen, categoriesAttempt]);
 
@@ -195,7 +202,7 @@ export function ProductFormModal({
       } else {
         setProductCode("");
         setProductName("");
-        setCategoryId("");
+        setCategoryId(initialCategoryId ? String(initialCategoryId) : "");
         setProductPrice("");
         setProductOrder("1");
         setLangId("");
@@ -211,7 +218,7 @@ export function ProductFormModal({
         setMetaDescription("");
       }
     }
-  }, [isOpen, item]);
+  }, [isOpen, item, initialCategoryId]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -227,7 +234,8 @@ export function ProductFormModal({
     if (!categoryId) {
       newErrors.categoryId = "Vui lòng chọn danh mục sản phẩm";
     } else if (isLoadingCategories || categoriesError) {
-      newErrors.categoryId = "Vui lòng tải lại danh sách danh mục trước khi lưu";
+      newErrors.categoryId =
+        "Vui lòng tải lại danh sách danh mục trước khi lưu";
     } else if (!selectedCategoryExists) {
       newErrors.categoryId = "Danh mục không còn khả dụng. Vui lòng chọn lại";
     }
@@ -288,11 +296,16 @@ export function ProductFormModal({
         createdProduct = await productApi.create(commonPayload);
         toast.success("Thêm sản phẩm mới thành công");
       }
-      onSuccess(createdProduct);
+      onSuccess(
+        createdProduct ??
+          (item ? { ...item, categoryId: categoryIdVal } : undefined),
+      );
       onClose();
     } catch (error: unknown) {
-      const message = getApiErrorMessage(error,
-        isEditMode ? "Không thể cập nhật sản phẩm" : "Không thể thêm sản phẩm");
+      const message = getApiErrorMessage(
+        error,
+        isEditMode ? "Không thể cập nhật sản phẩm" : "Không thể thêm sản phẩm",
+      );
       if (getApiErrorCode(error) === "ProductCodeDeleted") {
         setDeletedConflictCode(productCode.trim());
         setErrors((current) => ({ ...current, productCode: message }));
@@ -379,12 +392,19 @@ export function ProductFormModal({
                     {errors.productCode}
                   </p>
                 )}
-                {!viewOnly && deletedConflictCode !== null && deletedConflictCode === productCode.trim() && onViewDeleted && (
-                  <Button type="button" variant="outline" size="sm"
-                    onClick={() => onViewDeleted(deletedConflictCode)}>
-                    Xem sản phẩm đã xóa
-                  </Button>
-                )}
+                {!viewOnly &&
+                  deletedConflictCode !== null &&
+                  deletedConflictCode === productCode.trim() &&
+                  onViewDeleted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onViewDeleted(deletedConflictCode)}
+                    >
+                      Xem sản phẩm đã xóa
+                    </Button>
+                  )}
               </div>
 
               <div className="grid gap-2">
@@ -440,14 +460,20 @@ export function ProductFormModal({
 
               <div className="grid gap-2">
                 <Label htmlFor="categoryId">
-                  Danh mục {!viewOnly && <span className="text-destructive">*</span>}
+                  Danh mục{" "}
+                  {!viewOnly && <span className="text-destructive">*</span>}
                 </Label>
                 <Select
                   value={categoryId || "none"}
                   onValueChange={(val) =>
                     setCategoryId(val === "none" ? "" : val)
                   }
-                  disabled={viewOnly || isSaving || isLoadingCategories || categoriesError}
+                  disabled={
+                    viewOnly ||
+                    isSaving ||
+                    isLoadingCategories ||
+                    categoriesError
+                  }
                 >
                   <SelectTrigger
                     id="categoryId"
@@ -472,29 +498,50 @@ export function ProductFormModal({
                       -- Chọn danh mục --
                     </SelectItem>
                     {categoryOptions.map((cat) => (
-                      <SelectItem
-                        key={cat.id}
-                        value={String(cat.id)}
-                      >
+                      <SelectItem key={cat.id} value={String(cat.id)}>
                         {cat.name}
                       </SelectItem>
                     ))}
-                    {!selectedCategoryExists && item?.categoryName && categoryId && (
-                      <SelectItem value={String(categoryId)} disabled>
-                        {item.categoryName}
-                      </SelectItem>
-                    )}
+                    {!selectedCategoryExists &&
+                      item?.categoryName &&
+                      categoryId && (
+                        <SelectItem value={String(categoryId)} disabled>
+                          {item.categoryName}
+                        </SelectItem>
+                      )}
                   </SelectContent>
                 </Select>
-                {!viewOnly && !isLoadingCategories && (categoriesError || categories.length === 0) && (
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>{categoriesError ? "Không thể tải danh mục." : "Chưa có danh mục. Hãy tạo danh mục trước khi lưu sản phẩm."}</p>
-                    <a href="/catalog/categories" target="_blank" rel="noopener noreferrer" className="underline">Mở quản lý danh mục</a>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setCategoriesAttempt((attempt) => attempt + 1)}>
-                      Tải lại danh mục
-                    </Button>
-                  </div>
-                )}
+                {!viewOnly &&
+                  !isLoadingCategories &&
+                  (categoriesError || categories.length === 0) && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>
+                        {categoriesError
+                          ? "Không thể tải danh mục."
+                          : "Chưa có danh mục. Hãy tạo danh mục trước khi lưu sản phẩm."}
+                      </p>
+                      <Button asChild variant="link" className="h-auto p-0 text-xs">
+                      <a
+                        href="/catalog/products?tab=products"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        Mở quản lý danh mục
+                      </a>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setCategoriesAttempt((attempt) => attempt + 1)
+                        }
+                      >
+                        Tải lại danh mục
+                      </Button>
+                    </div>
+                  )}
                 {errors.categoryId && (
                   <p className="text-xs text-destructive">
                     {errors.categoryId}

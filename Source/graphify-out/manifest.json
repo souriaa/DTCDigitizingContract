@@ -954,15 +954,15 @@
     "semantic_hash": "ecf6e2317886d21d0275d8600216ba0d"
   },
   "Backend/ContractManagement.API/Domains/Interfaces/Catalog/IProductService.cs": {
-    "mtime": 1791535522.716128,
-    "seen": 1791535924.8823872,
-    "ast_hash": "b64f0edfbf340daed698247c76be6083",
+    "mtime": 1791965025.4891748,
+    "seen": 1791966863.1191225,
+    "ast_hash": "ab7ac80872bd972a19e795f569bd8a72",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Interfaces/Catalog/IServiceService.cs": {
-    "mtime": 1791535523.117594,
-    "seen": 1791535924.882388,
-    "ast_hash": "04a272b614d1a1836cf4047aa6765805",
+    "mtime": 1791965025.8389335,
+    "seen": 1791966863.1191235,
+    "ast_hash": "ad5a41effd77985fd16b39e194e3367a",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Interfaces/Catalog/IServiceTypeService.cs": {
@@ -1224,21 +1224,21 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Catalog/CategoryService.cs": {
-    "mtime": 1790000689.2994118,
-    "seen": 1790050649.276846,
-    "ast_hash": "1b9ba37e857d1528b15fea0aa2e30d5d",
-    "semantic_hash": "1b9ba37e857d1528b15fea0aa2e30d5d"
+    "mtime": 1791965068.3646264,
+    "seen": 1791966863.1192422,
+    "ast_hash": "70bad0ce6eaf925d9643a24646723399",
+    "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Catalog/ProductService.cs": {
-    "mtime": 1791963765.8235607,
-    "seen": 1791964215.5646062,
-    "ast_hash": "8b5a1f8ccebc46816a6583a6aa0f05e1",
+    "mtime": 1791965026.1793566,
+    "seen": 1791966863.1192436,
+    "ast_hash": "3002367860fb342988b31343d9896032",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Catalog/ServiceService.cs": {
-    "mtime": 1791963766.1679752,
-    "seen": 1791964215.5646079,
-    "ast_hash": "6377139d0c25bc54a905ce85dc6c7ce4",
+    "mtime": 1791965026.4854813,
+    "seen": 1791966863.1192448,
+    "ast_hash": "b76130f4c6877b9e223af57d24c353b5",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Catalog/ServiceTypeService.cs": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": "1433496fa70d3edcb05cbe7f92dbd1a3"
   },
   "Backend/ContractManagement.API/Program.cs": {
-    "mtime": 1791539155.2046237,
-    "seen": 1791540328.8428836,
-    "ast_hash": "7553daa7d845c46334ce1da1e411537b",
+    "mtime": 1791965026.7966673,
+    "seen": 1791966863.1193202,
+    "ast_hash": "210c22094d4ceb16ce41d26a1b77354b",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Properties/launchSettings.json": {
@@ -2423,52 +2423,10 @@
     "ast_hash": "e01a7d16fc4aafaa610db130e06d62a2",
     "semantic_hash": ""
   },
-  "Frontend/app/(protected)/catalog/categories/category-form-modal.tsx": {
-    "mtime": 1790000690.1774867,
-    "seen": 1790050649.277195,
-    "ast_hash": "94c3b2b3e66ef4a5b4609fb5c41de0ca",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/categories/page.tsx": {
-    "mtime": 1790000690.1786883,
-    "seen": 1790050649.2771962,
-    "ast_hash": "f080683348f4d4346f28d79a56cfbc4c",
-    "semantic_hash": ""
-  },
   "Frontend/app/(protected)/catalog/products/page.tsx": {
-    "mtime": 1791536549.025579,
-    "seen": 1791540328.84325,
-    "ast_hash": "e6393b3e2ff46d8ad41d98f1a8f5f9cd",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/products/product-form-modal.tsx": {
-    "mtime": 1791963825.186377,
-    "seen": 1791964215.5650735,
-    "ast_hash": "dede4156ae66d09544298eb28e4d0922",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/service-types/page.tsx": {
-    "mtime": 1790000690.180964,
-    "seen": 1790050649.2771995,
-    "ast_hash": "4a6199f6fecdec0d5f5bfbc2b17fd3e4",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/service-types/service-type-form-modal.tsx": {
-    "mtime": 1790000690.1815286,
-    "seen": 1790050649.2772005,
-    "ast_hash": "1de42e578245cd15c7e52dbb00d73375",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/services/page.tsx": {
-    "mtime": 1791536751.167168,
-    "seen": 1791540328.8432548,
-    "ast_hash": "2f04efc424bd62c68e6c990f7eb7428b",
-    "semantic_hash": ""
-  },
-  "Frontend/app/(protected)/catalog/services/service-form-modal.tsx": {
-    "mtime": 1791963825.577391,
-    "seen": 1791964215.5650785,
-    "ast_hash": "bca059c656b6ff94c8fb4ac00a282f7d",
+    "mtime": 1791967493.1764193,
+    "seen": 1791967640.8949137,
+    "ast_hash": "09922147de3c60194a7c4ac4029ece1b",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contract-audits/page.tsx": {
@@ -2490,9 +2448,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/create/page.tsx": {
-    "mtime": 1791532704.7166667,
-    "seen": 1791533478.6988862,
-    "ast_hash": "53d2141a333c96473e11904c5c7a621d",
+    "mtime": 1791965091.9586954,
+    "seen": 1791966863.119712,
+    "ast_hash": "7bf7af8160342fb061278fc033a24f85",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/page.tsx": {
@@ -2556,9 +2514,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/layout.tsx": {
-    "mtime": 1790953696.1545546,
-    "seen": 1790954113.8312604,
-    "ast_hash": "e7096c6c7f3fe99eb590a35721e3e738",
+    "mtime": 1791967554.024276,
+    "seen": 1791967640.894963,
+    "ast_hash": "6a56123672ff05d3b6893afe2d18509d",
     "semantic_hash": ""
   },
   "Frontend/app/page.tsx": {
@@ -2712,9 +2670,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/sidebar.tsx": {
-    "mtime": 1790953699.0386903,
-    "seen": 1790954113.8313982,
-    "ast_hash": "d31fad05d41221dba5eb264b6553a71e",
+    "mtime": 1791965753.9088929,
+    "seen": 1791966863.119828,
+    "ast_hash": "5bbfbfa99e96bf1e38d93b9ecac96298",
     "semantic_hash": ""
   },
   "Frontend/components/theme-provider.tsx": {
@@ -2850,9 +2808,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/custom/data-table-server.tsx": {
-    "mtime": 1790000690.2620628,
-    "seen": 1790050649.2773235,
-    "ast_hash": "f6eb2cb532e7aa1a8290a556f40f990e",
+    "mtime": 1791970417.0366862,
+    "seen": 1791970733.075152,
+    "ast_hash": "79017faea3c930f22d3deb0aaaf8389a",
     "semantic_hash": ""
   },
   "Frontend/components/ui/custom/data-table.tsx": {
@@ -2904,10 +2862,10 @@
     "semantic_hash": "54a9f5adbb76d773103cf347e5304868"
   },
   "Frontend/components/ui/custom/select-filter.tsx": {
-    "mtime": 1790000690.2674954,
-    "seen": 1790050649.277336,
-    "ast_hash": "9e97a5682eff94860f1e6842cbdf5245",
-    "semantic_hash": "9e97a5682eff94860f1e6842cbdf5245"
+    "mtime": 1791970107.1358106,
+    "seen": 1791970166.2283814,
+    "ast_hash": "f71dc85d55483540dba74a759ffecb63",
+    "semantic_hash": ""
   },
   "Frontend/components/ui/custom/split-action-menu.tsx": {
     "mtime": 1790000690.2680366,
@@ -3312,9 +3270,9 @@
     "semantic_hash": ""
   },
   "Frontend/services/catalog/services-api.ts": {
-    "mtime": 1791963824.321466,
-    "seen": 1791964215.5653384,
-    "ast_hash": "cbf680a5b41e900bbea0ece5b9067ea1",
+    "mtime": 1791966671.6452098,
+    "seen": 1791966863.119974,
+    "ast_hash": "65a134228ea01473fabbafe94c39301a",
     "semantic_hash": ""
   },
   "Frontend/services/contract-api.ts": {
@@ -3420,9 +3378,9 @@
     "semantic_hash": ""
   },
   "SystemAdmin/app/layout.tsx": {
-    "mtime": 1790953697.6771164,
-    "seen": 1790954113.8317251,
-    "ast_hash": "bab08f6ba633712df65f19ab41c1d29e",
+    "mtime": 1791967554.4936404,
+    "seen": 1791967640.895356,
+    "ast_hash": "8d10ce2d75ed72a0e72b760ac8b54267",
     "semantic_hash": ""
   },
   "SystemAdmin/app/page.tsx": {
@@ -5988,9 +5946,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Common/Security/EmployeePreferenceRoutes.cs": {
-    "mtime": 1791962093.404201,
-    "seen": 1791962225.8265417,
-    "ast_hash": "047884cbaac70f2a5287f7c4be2e7700",
+    "mtime": 1791965753.4739864,
+    "seen": 1791966863.1188264,
+    "ast_hash": "558e968762ddc72d943274d8ad4041a5",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Authentication/UpdateEmployeePreferencesRequest.cs": {
@@ -7224,9 +7182,159 @@
     "semantic_hash": ""
   },
   "Documentation/CATALOG_UNIFIED_WORKSPACE_PLAN.md": {
-    "mtime": 1791963987.697481,
-    "seen": 1791964215.5656507,
-    "ast_hash": "0beeabff0d7c7701c55445d5b635b16a",
+    "mtime": 1791972137.712191,
+    "seen": 1791972194.4241188,
+    "ast_hash": "53a2b58dc6e34917939b0da76c9311b2",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Controllers/Catalog/CatalogWorkspaceController.cs": {
+    "mtime": 1791965025.1030252,
+    "seen": 1791966863.118868,
+    "ast_hash": "9bedb73f579717bd55ea25069da9a7f0",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/DTOs/Requests/Catalog/CatalogWorkspaceFilter.cs": {
+    "mtime": 1791965023.9224555,
+    "seen": 1791966863.118934,
+    "ast_hash": "6c39788b637d555b6e9101420d1174d6",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/DTOs/Responses/Catalog/CatalogWorkspaceResponses.cs": {
+    "mtime": 1791965024.3174143,
+    "seen": 1791966863.119039,
+    "ast_hash": "267caeb62db6a3fbddafd1838498a5be",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Services/Catalog/CatalogWorkspaceService.cs": {
+    "mtime": 1791965024.7076235,
+    "seen": 1791966863.1192408,
+    "ast_hash": "f8374c75294f08ec2c5b2bf55fe38bea",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Services/Catalog/CatalogWorkspaceTests.cs": {
+    "mtime": 1791965926.6110485,
+    "seen": 1791966863.1196346,
+    "ast_hash": "1778d8d29819a902288fbdd0e3727a97",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/catalog-group-panel.tsx": {
+    "mtime": 1791969288.9543574,
+    "seen": 1791969392.2455115,
+    "ast_hash": "1839aba756c821739a966a293387251b",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/catalog-group-tree.tsx": {
+    "mtime": 1791971741.5925715,
+    "seen": 1791971947.1394808,
+    "ast_hash": "96ccb701f1dab0c3869e6e04c7388054",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/catalog-item-list.tsx": {
+    "mtime": 1791970800.6518269,
+    "seen": 1791971947.1394877,
+    "ast_hash": "84f72612be3a98ce0d574fbb89d64a5f",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/catalog-state.ts": {
+    "mtime": 1791971741.1139455,
+    "seen": 1791971947.139492,
+    "ast_hash": "99cd1661d9b9f3027eac6c0728580b6a",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/catalog-workspace.tsx": {
+    "mtime": 1791972136.9119031,
+    "seen": 1791972194.4236243,
+    "ast_hash": "d59f6d0a7032f044f5886a7ce4af15d5",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/category-form-modal.tsx": {
+    "mtime": 1791965089.2002666,
+    "seen": 1791966863.119763,
+    "ast_hash": "11c416607bbef578c068326cde30c161",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/product-form-modal.tsx": {
+    "mtime": 1791969228.5523152,
+    "seen": 1791969392.2455213,
+    "ast_hash": "6c0f6e4cec8e2c0b4ef7a3303b6e0498",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/service-form-modal.tsx": {
+    "mtime": 1791969228.9977057,
+    "seen": 1791969392.2455235,
+    "ast_hash": "b389def5cffd27743bf92d7961767401",
+    "semantic_hash": ""
+  },
+  "Frontend/components/catalog/service-type-form-modal.tsx": {
+    "mtime": 1791965090.9529274,
+    "seen": 1791966863.119767,
+    "ast_hash": "31008467dba7c328d6a5d8fbf6802b68",
+    "semantic_hash": ""
+  },
+  "Frontend/services/catalog/workspace-api.ts": {
+    "mtime": 1791965249.423165,
+    "seen": 1791966863.119975,
+    "ast_hash": "9d1e721ecae79b8e8b15034bb05ffa5f",
+    "semantic_hash": ""
+  },
+  "Frontend/public/dtc-192x192.png": {
+    "mtime": 1791967520.3718271,
+    "seen": 1791967640.895648,
+    "ast_hash": "f161e5739762822e9a4bf30c4bc70799",
+    "semantic_hash": ""
+  },
+  "Frontend/public/dtc-32x32.png": {
+    "mtime": 1791967520.3453252,
+    "seen": 1791967640.8956501,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
+    "semantic_hash": ""
+  },
+  "Frontend/public/dtc-apple-touch-icon.png": {
+    "mtime": 1791967520.3808236,
+    "seen": 1791967640.8956513,
+    "ast_hash": "b68f150b4b2a90e6f15b087543e4b190",
+    "semantic_hash": ""
+  },
+  "Frontend/public/dtc-dark-32x32.png": {
+    "mtime": 1791967520.3598297,
+    "seen": 1791967640.8956528,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
+    "semantic_hash": ""
+  },
+  "Frontend/public/dtc-light-32x32.png": {
+    "mtime": 1791967520.3533287,
+    "seen": 1791967640.8956542,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/public/dtc-192x192.png": {
+    "mtime": 1791967520.4344096,
+    "seen": 1791967640.8956683,
+    "ast_hash": "f161e5739762822e9a4bf30c4bc70799",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/public/dtc-32x32.png": {
+    "mtime": 1791967520.417325,
+    "seen": 1791967640.8956692,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/public/dtc-apple-touch-icon.png": {
+    "mtime": 1791967520.4395766,
+    "seen": 1791967640.8956702,
+    "ast_hash": "b68f150b4b2a90e6f15b087543e4b190",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/public/dtc-dark-32x32.png": {
+    "mtime": 1791967520.4283237,
+    "seen": 1791967640.8956716,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
+    "semantic_hash": ""
+  },
+  "SystemAdmin/public/dtc-light-32x32.png": {
+    "mtime": 1791967520.4233246,
+    "seen": 1791967640.8956728,
+    "ast_hash": "8fdb659fc078f99073f5f3605fd5477a",
     "semantic_hash": ""
   }
 }

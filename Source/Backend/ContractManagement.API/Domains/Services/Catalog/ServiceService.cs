@@ -119,12 +119,12 @@ namespace ContractManagement.Domains.Services.Catalog
             };
         }
 
-        public async Task<ServiceResponse> GetByIdAsync(int id)
+        public async Task<ServiceResponse> GetByIdAsync(int id, bool includeDeleted = false)
         {
             var service = await _dbContext.TblServices
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ServiceId == id
-                    && x.Status != CatalogItemStatuses.Deleted);
+                    && (includeDeleted || x.Status != CatalogItemStatuses.Deleted));
 
             if (service == null)
             {

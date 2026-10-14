@@ -42,6 +42,7 @@ interface ServiceFormModalProps {
   onSuccess: (createdService?: ServiceResponse) => void;
   item?: ServiceResponse | null;
   viewOnly?: boolean;
+  initialServiceTypeId?: number | null;
 }
 
 export function ServiceFormModal({
@@ -50,6 +51,7 @@ export function ServiceFormModal({
   onSuccess,
   item,
   viewOnly = false,
+  initialServiceTypeId,
 }: ServiceFormModalProps) {
   const isEditMode = !!item && !viewOnly;
   const currentServiceId = item?.serviceId;
@@ -199,7 +201,7 @@ export function ServiceFormModal({
         setMetaDescription(item.metaDescription || "");
       } else {
         setServiceName("");
-        setServiceTypeId("");
+        setServiceTypeId(initialServiceTypeId ? String(initialServiceTypeId) : "");
         setServiceParentId("");
         setServiceOrder("1");
         setServiceRegion("");
@@ -217,7 +219,7 @@ export function ServiceFormModal({
         setMetaDescription("");
       }
     }
-  }, [isOpen, item]);
+  }, [isOpen, item, initialServiceTypeId]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -292,7 +294,7 @@ export function ServiceFormModal({
       if (isEditMode && item) {
         await serviceApi.update(item.serviceId, commonPayload);
         toast.success("Cập nhật dịch vụ thành công");
-        onSuccess();
+        onSuccess({ ...item, serviceName: commonPayload.serviceName, serviceTypeId: typeIdVal });
       } else {
         const createdService = await serviceApi.create(commonPayload);
         toast.success("Thêm dịch vụ mới thành công");
@@ -430,7 +432,9 @@ export function ServiceFormModal({
                 {!viewOnly && !isLoadingOptions && !optionsError && serviceTypes.length === 0 && (
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <p>Chưa có loại dịch vụ. Hãy tạo loại dịch vụ trước khi lưu.</p>
-                    <a href="/catalog/service-types" target="_blank" rel="noopener noreferrer" className="underline">Mở quản lý loại dịch vụ</a>
+                    <Button asChild variant="link" className="h-auto p-0 text-xs">
+                      <a href="/catalog/products?tab=services" target="_blank" rel="noopener noreferrer">Mở quản lý loại dịch vụ</a>
+                    </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setOptionsAttempt((attempt) => attempt + 1)}>
                       Tải lại loại dịch vụ
                     </Button>

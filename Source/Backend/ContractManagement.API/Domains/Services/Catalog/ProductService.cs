@@ -87,12 +87,12 @@ namespace ContractManagement.Domains.Services.Catalog
             };
         }
 
-        public async Task<ProductResponse> GetByIdAsync(int id)
+        public async Task<ProductResponse> GetByIdAsync(int id, bool includeDeleted = false)
         {
             var product = await _dbContext.TblProducts
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ProductId == id
-                    && x.Status != CatalogItemStatuses.Deleted);
+                    && (includeDeleted || x.Status != CatalogItemStatuses.Deleted));
 
             if (product == null)
             {

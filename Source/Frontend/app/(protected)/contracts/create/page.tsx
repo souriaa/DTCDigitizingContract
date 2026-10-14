@@ -49,8 +49,8 @@ import { IntegerInput } from "@/components/ui/custom/integer-input";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 import { format } from "date-fns";
 import { CustomerFormModal } from "@/app/(protected)/customers/customer-form-modal";
-import { ProductFormModal } from "@/app/(protected)/catalog/products/product-form-modal";
-import { ServiceFormModal } from "@/app/(protected)/catalog/services/service-form-modal";
+import { ProductFormModal } from "@/components/catalog/product-form-modal";
+import { ServiceFormModal } from "@/components/catalog/service-form-modal";
 import {
   CreateContractTermsEditor,
   type CreateContractTermDraft,

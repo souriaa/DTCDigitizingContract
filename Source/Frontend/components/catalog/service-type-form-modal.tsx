@@ -24,7 +24,7 @@ import {
 interface ServiceTypeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (saved?: ServiceTypeResponse) => void;
   item?: ServiceTypeResponse | null;
   viewOnly?: boolean;
 }
@@ -78,22 +78,24 @@ export function ServiceTypeFormModal({
     try {
       const langIdVal = langId ? Number(langId) : null;
 
+      let saved: ServiceTypeResponse | undefined;
       if (isEditMode && item) {
         const payload: UpdateServiceTypeRequest = {
           serviceTypeName: serviceTypeName.trim(),
           langId: langIdVal,
         };
         await serviceTypeApi.update(item.serviceTypeId, payload);
+        saved = { ...item, serviceTypeName: payload.serviceTypeName };
         toast.success("Cập nhật loại dịch vụ thành công");
       } else {
         const payload: CreateServiceTypeRequest = {
           serviceTypeName: serviceTypeName.trim(),
           langId: langIdVal,
         };
-        await serviceTypeApi.create(payload);
+        saved = await serviceTypeApi.create(payload);
         toast.success("Thêm loại dịch vụ mới thành công");
       }
-      onSuccess();
+      onSuccess(saved);
       onClose();
     } catch (error: any) {
       const message =

@@ -588,7 +588,7 @@ export function DataTable<TData, TValue>({
                 }}
                 disabled={isLoading || rowCount <= 0}
               >
-                <SelectTrigger className="h-8 w-[75px] bg-background border-border">
+                <SelectTrigger className="h-8 w-18.75 bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent

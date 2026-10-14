@@ -17,7 +17,7 @@ public static class EmployeePreferenceRoutes
         new("/dashboard", "Tổng quan"),
         new("/quotations", "Báo giá", RbacPermissions.QuotationManage),
         new("/customers", "Khách hàng", RbacPermissions.CustomerManage),
-        new("/catalog/products", "Sản phẩm", RbacPermissions.CatalogRead),
+        new("/catalog/products", "Sản phẩm và dịch vụ", RbacPermissions.CatalogRead),
         new("/contract-approvals", "Duyệt hợp đồng", RbacPermissions.ContractApprovalDecide),
         new("/contract-audits", "Nhật ký hợp đồng", RbacPermissions.ContractAuditReadOwn, RbacPermissions.ContractAuditReadTenant),
         new("/security-audits", "Nhật ký bảo mật", RbacPermissions.SecurityAuditReadTenant),

@@ -83,6 +83,7 @@ if (builder.Environment.IsDevelopment() && allowedCorsOrigins.Length == 0)
  * Đăng ký Controller cho Web API.
  */
 builder.Services.AddControllers();
+builder.Services.AddScoped<ContractManagement.Domains.Services.Catalog.CatalogWorkspaceService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ContractDiscussionAccessService>();
 builder.Services.AddScoped<IContractDiscussionRealtimePublisher, ContractDiscussionRealtimePublisher>();
