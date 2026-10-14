@@ -23,7 +23,6 @@ import {
   CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CodeInput } from "@/components/ui/custom/code-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -376,9 +375,26 @@ function CustomerDetailPageContent() {
     setIsSavingCustomer(true);
     try {
       await customerApi.update(customerId, {
-        ...formData,
-        customerFullName: formData.customerFullName?.trim(),
-      } as UpdateCustomerRequest);
+        customerFullName: formData.customerFullName.trim(),
+        customerCompany: formData.customerCompany,
+        customerEmail: formData.customerEmail,
+        customerMobile: formData.customerMobile,
+        customerPhone: formData.customerPhone,
+        customerFaxNumber: formData.customerFaxNumber,
+        customerTaxCode: formData.customerTaxCode,
+        customerRepresentativeName: formData.customerRepresentativeName,
+        customerRepresentativeTitle: formData.customerRepresentativeTitle,
+        customerContactPersonName: formData.customerContactPersonName,
+        customerContactPersonPhone: formData.customerContactPersonPhone,
+        customerContactPersonTitle: formData.customerContactPersonTitle,
+        customerBankAccountNumber: formData.customerBankAccountNumber,
+        customerBankName: formData.customerBankName,
+        customerAddress: formData.customerAddress,
+        customerCity: formData.customerCity,
+        customerCountry: formData.customerCountry,
+        customerWebsite: formData.customerWebsite,
+        customerNotes: formData.customerNotes,
+      } satisfies UpdateCustomerRequest);
 
       toast.success("Đã cập nhật thông tin khách hàng");
       setIsEditingProfile(false);
@@ -502,19 +518,19 @@ function CustomerDetailPageContent() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Mã KH
+                      Mã khách hàng
                     </Label>
-                    <CodeInput
-                      readOnly={!isEditingProfile}
-                      className={`h-9 ${!isEditingProfile ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground focus-visible:ring-0" : ""}`}
+                    <Input
+                      disabled
+                      className="h-9 bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground disabled:opacity-100"
                       value={formData.customerCode ?? ""}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          customerCode: value,
-                        })
-                      }
+                      placeholder="Hệ thống tự cấp khi lưu"
                     />
+                    {isEditingProfile && (
+                      <p className="text-xs text-muted-foreground">
+                        Mã do hệ thống cấp tự động và được giữ nguyên khi chỉnh sửa.
+                      </p>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label className="text-xs font-semibold uppercase text-muted-foreground">

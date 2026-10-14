@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Responses;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Domains.DTOs.Requests.Customer;
 using ContractManagement.API.Domains.DTOs.Responses.Customer;
 using ContractManagement.API.Domains.Interfaces.Customer;
@@ -47,6 +48,7 @@ namespace ContractManagement.API.Domains.Services.Customer
 
                 query = query.Where(x =>
                     (x.CustomerFullName != null && x.CustomerFullName.Contains(keyword)) ||
+                    (x.CustomerCode != null && x.CustomerCode.Contains(keyword)) ||
                     (x.CustomerCompany != null && x.CustomerCompany.Contains(keyword)) ||
                     (x.CustomerEmail != null && x.CustomerEmail.Contains(keyword)) ||
                     (x.CustomerMobile != null && x.CustomerMobile.Contains(keyword)) ||
@@ -147,27 +149,21 @@ namespace ContractManagement.API.Domains.Services.Customer
             return MapToResponse(customer, totalContracts);
         }
 
-        public async Task<CustomerResponse> CreateAsync(
+        public Task<CustomerResponse> CreateAsync(
             CreateCustomerRequest request,
             int createdBy)
         {
-            // Check trùng mã khách hàng nếu có nhập CustomerCode
-            if (!string.IsNullOrWhiteSpace(request.CustomerCode))
-            {
-                var code = request.CustomerCode.Trim();
+            return _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(
+                () => CreateWithGeneratedCodeAsync(request, createdBy));
+        }
 
-                var codeExists = await _dbContext.TblCustomers
-                    .AnyAsync(x => x.CustomerCode == code);
-
-                if (codeExists)
-                {
-                    throw new InvalidOperationException("Mã khách hàng đã tồn tại.");
-                }
-            }
-
+        private async Task<CustomerResponse> CreateWithGeneratedCodeAsync(
+            CreateCustomerRequest request, int createdBy)
+        {
+            // Both saves are atomic: never expose a successfully created customer without a code.
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
             var customer = new TblCustomer
             {
-                CustomerCode = request.CustomerCode?.Trim(),
                 CustomerFullName = request.CustomerFullName.Trim(),
                 CustomerCompany = request.CustomerCompany?.Trim(),
                 CustomerEmail = request.CustomerEmail?.Trim(),
@@ -195,10 +191,21 @@ namespace ContractManagement.API.Domains.Services.Customer
                 Status = 1
             };
 
-            _dbContext.TblCustomers.Add(customer);
-            await _dbContext.SaveChangesAsync();
-
-            return MapToResponse(customer, 0);
+            try
+            {
+                _dbContext.TblCustomers.Add(customer);
+                await _dbContext.SaveChangesAsync();
+                customer.CustomerCode = await GenerateCodeAsync(customer.CustomerId);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return MapToResponse(customer, 0);
+            }
+            catch
+            {
+                // A transient SQL failure can retry with a fresh identity inside a new transaction.
+                _dbContext.Entry(customer).State = EntityState.Detached;
+                throw;
+            }
         }
 
         public async Task UpdateAsync(
@@ -214,23 +221,9 @@ namespace ContractManagement.API.Domains.Services.Customer
                 throw new KeyNotFoundException("Không tìm thấy khách hàng.");
             }
 
-            // Nếu đổi CustomerCode thì check trùng với khách khác
-            if (!string.IsNullOrWhiteSpace(request.CustomerCode))
-            {
-                var code = request.CustomerCode.Trim();
-
-                var codeExists = await _dbContext.TblCustomers
-                    .AnyAsync(x =>
-                        x.CustomerId != id &&
-                        x.CustomerCode == code);
-
-                if (codeExists)
-                {
-                    throw new InvalidOperationException("Mã khách hàng đã tồn tại.");
-                }
-            }
-
-            customer.CustomerCode = request.CustomerCode?.Trim();
+            // The code is system-owned and stable across profile edits.
+            if (string.IsNullOrWhiteSpace(customer.CustomerCode))
+                customer.CustomerCode = await GenerateCodeAsync(customer.CustomerId);
             customer.CustomerFullName = request.CustomerFullName.Trim();
             customer.CustomerCompany = request.CustomerCompany?.Trim();
             customer.CustomerEmail = request.CustomerEmail?.Trim();
@@ -255,6 +248,17 @@ namespace ContractManagement.API.Domains.Services.Customer
             customer.DateModified = DateTime.Now;
 
             await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task<string> GenerateCodeAsync(int customerId)
+        {
+            // Identity allocation is concurrency-safe; do not use MAX(code) + 1.
+            var code = $"CUST-{customerId:D6}";
+            if (await _dbContext.TblCustomers.AsNoTracking().AnyAsync(x =>
+                    x.CustomerId != customerId && x.CustomerCode == code))
+                throw new BusinessRuleException(409, "CustomerCodeConflict",
+                    "Không thể cấp mã khách hàng tự động vì mã đã thuộc về khách hàng khác. Vui lòng liên hệ quản trị viên.");
+            return code;
         }
 
         public async Task SetStatusAsync(int id, byte status)
@@ -299,9 +303,10 @@ namespace ContractManagement.API.Domains.Services.Customer
                  */
                 .Where(x => customerIds.Contains(x.CustomerId))
                 .GroupBy(x => x.CustomerId)
+                .Select(group => new { CustomerId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(
-                    x => x.Key,
-                    x => x.Count());
+                    x => x.CustomerId,
+                    x => x.Count);
         }
 
         private static CustomerResponse MapToResponse(

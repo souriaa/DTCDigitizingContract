@@ -110,10 +110,11 @@ public sealed class CatalogDeletionTests
     public async Task DeletedService_CannotBeSelectedAsParent()
     {
         await using var db = Context();
+        db.TblServiceTypes.Add(new TblServiceType { ServiceTypeId = 1, ServiceTypeName = "Loại dịch vụ" });
         db.TblServices.Add(new TblService { ServiceId = 1, ServiceName = "Đã xóa", Status = 2 });
         await db.SaveChangesAsync();
         await Assert.ThrowsAsync<KeyNotFoundException>(() => new ServiceService(db).CreateAsync(
-            new CreateServiceRequest { ServiceName = "Con", ServiceParentId = 1 }, 9));
+            new CreateServiceRequest { ServiceName = "Con", ServiceTypeId = 1, ServiceParentId = 1 }, 9));
         Assert.Single(db.TblServices);
     }
 }

@@ -7,9 +7,6 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Customer
     /// </summary>
     public class UpdateCustomerRequest
     {
-        [MaxLength(30)]
-        public string? CustomerCode { get; set; }
-
         [Required]
         [MaxLength(100)]
         public string CustomerFullName { get; set; } = string.Empty;

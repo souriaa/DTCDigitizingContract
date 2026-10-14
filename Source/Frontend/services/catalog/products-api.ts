@@ -32,7 +32,7 @@ export interface ProductFilterParams {
 export interface CreateProductRequest {
   productCode?: string | null;
   productName: string;
-  categoryId?: number | null;
+  categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
   productFeatures?: string | null;
@@ -51,7 +51,7 @@ export interface CreateProductRequest {
 export interface UpdateProductRequest {
   productCode?: string | null;
   productName: string;
-  categoryId?: number | null;
+  categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
   productFeatures?: string | null;

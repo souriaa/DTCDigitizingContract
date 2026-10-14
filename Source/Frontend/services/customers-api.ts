@@ -26,7 +26,6 @@ export interface CustomerFilterParams {
 }
 
 export interface CreateCustomerRequest {
-  customerCode?: string | null;
   customerFullName: string;
   customerCompany?: string | null;
   customerEmail?: string | null;
@@ -49,7 +48,6 @@ export interface CreateCustomerRequest {
 }
 
 export interface UpdateCustomerRequest {
-  customerCode?: string | null;
   customerFullName: string;
   customerCompany?: string | null;
   customerEmail?: string | null;

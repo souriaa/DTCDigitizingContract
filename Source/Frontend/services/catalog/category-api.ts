@@ -47,9 +47,10 @@ export interface PagedResult<T> {
 const BASE_URL = "/api/catalog/categories";
 
 export const categoryApi = {
-  getList: (params?: CategoryFilterParams) => {
+  getList: (params?: CategoryFilterParams, signal?: AbortSignal) => {
     return axiosClient.get<any, PagedResult<CategoryResponse>>(BASE_URL, {
       params,
+      signal,
     });
   },
   getParents: (params?: CategoryFilterParams) => {

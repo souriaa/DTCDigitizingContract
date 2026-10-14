@@ -116,24 +116,25 @@ public sealed class CatalogRestorationTests
     public async Task DuplicateDeletedProductCode_HasActionableError_ForCreateAndUpdate()
     {
         await using var db = Context();
+        db.TblCategories.Add(new TblCategory { CategoryId = 1, CategoryName = "Danh mục" });
         db.TblProducts.AddRange(
             new TblProduct { ProductId = 1, ProductCode = "SP001", ProductName = "Sản phẩm đã xóa", Status = 2 },
             new TblProduct { ProductId = 2, ProductCode = "SP002", ProductName = "Sản phẩm khác", Status = 1 });
         await db.SaveChangesAsync();
         var catalog = new ProductService(db);
         var createError = await Assert.ThrowsAsync<BusinessRuleException>(() => catalog.CreateAsync(
-            new CreateProductRequest { ProductCode = " SP001 ", ProductName = "Không được tạo trùng" }));
+            new CreateProductRequest { CategoryId = 1, ProductCode = " SP001 ", ProductName = "Không được tạo trùng" }));
         Assert.Equal("ProductCodeDeleted", createError.Code);
         Assert.Equal(409, createError.StatusCode);
         Assert.Contains("Sản phẩm đã xóa", createError.Message);
         Assert.Contains("khôi phục", createError.Message);
         await Assert.ThrowsAsync<BusinessRuleException>(() => catalog.UpdateAsync(2,
-            new UpdateProductRequest { ProductCode = "SP001", ProductName = "Không được ghi đè" }));
+            new UpdateProductRequest { CategoryId = 1, ProductCode = "SP001", ProductName = "Không được ghi đè" }));
         Assert.Equal(2, await db.TblProducts.CountAsync());
         Assert.Equal("SP002", (await db.TblProducts.FindAsync(2))!.ProductCode);
         await catalog.RestoreAsync(1);
         await Assert.ThrowsAsync<InvalidOperationException>(() => catalog.CreateAsync(
-            new CreateProductRequest { ProductCode = "SP001", ProductName = "Vẫn không được tạo trùng" }));
+            new CreateProductRequest { CategoryId = 1, ProductCode = "SP001", ProductName = "Vẫn không được tạo trùng" }));
     }
 
     [Fact]

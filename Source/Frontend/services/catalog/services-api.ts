@@ -32,7 +32,7 @@ export interface ServiceFilterParams {
 
 export interface CreateServiceRequest {
   serviceName: string;
-  serviceTypeId?: number | null;
+  serviceTypeId: number;
   serviceParentId?: number | null;
   servicePrice?: number | null;
   setupPrice?: number | null;
@@ -52,7 +52,7 @@ export interface CreateServiceRequest {
 
 export interface UpdateServiceRequest {
   serviceName: string;
-  serviceTypeId?: number | null;
+  serviceTypeId: number;
   serviceParentId?: number | null;
   servicePrice?: number | null;
   setupPrice?: number | null;

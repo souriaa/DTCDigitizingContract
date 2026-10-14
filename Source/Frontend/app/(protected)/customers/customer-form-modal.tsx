@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CodeInput } from "@/components/ui/custom/code-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +47,6 @@ export function CustomerFormModal({
 }: CustomerFormModalProps) {
   const isEditMode = !!item && !viewOnly;
 
-  const [customerCode, setCustomerCode] = useState("");
   const [customerFullName, setCustomerFullName] = useState("");
   const [customerCompany, setCustomerCompany] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -84,7 +82,6 @@ export function CustomerFormModal({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setErrors({});
       if (item) {
-        setCustomerCode(item.customerCode || "");
         setCustomerFullName(item.customerFullName || "");
         setCustomerCompany(item.customerCompany || "");
         setCustomerEmail(item.customerEmail || "");
@@ -105,7 +102,6 @@ export function CustomerFormModal({
         setCustomerWebsite(item.customerWebsite || "");
         setCustomerNotes(item.customerNotes || "");
       } else {
-        setCustomerCode("");
         setCustomerFullName("");
         setCustomerCompany("");
         setCustomerEmail("");
@@ -156,7 +152,6 @@ export function CustomerFormModal({
 
       if (isEditMode && item) {
         const payload: UpdateCustomerRequest = {
-          customerCode: customerCode.trim() || null,
           customerFullName: customerFullName.trim(),
           customerCompany: customerCompany.trim() || null,
           customerEmail: customerEmail.trim() || null,
@@ -182,7 +177,6 @@ export function CustomerFormModal({
         toast.success("Cập nhật thông tin khách hàng thành công");
       } else {
         const payload: CreateCustomerRequest = {
-          customerCode: customerCode.trim() || null,
           customerFullName: customerFullName.trim(),
           customerCompany: customerCompany.trim() || null,
           customerEmail: customerEmail.trim() || null,
@@ -285,17 +279,21 @@ export function CustomerFormModal({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="customerCode">Mã KH</Label>
-              <CodeInput
+            {/* <div className="grid gap-2">
+              <Label htmlFor="customerCode">Mã khách hàng</Label>
+              <Input
                 id="customerCode"
-                placeholder="CUST-001 (Tùy chọn)"
-                value={customerCode}
-                onValueChange={setCustomerCode}
-                disabled={viewOnly}
+                placeholder={viewOnly ? "Chưa có mã" : "Hệ thống tự cấp khi lưu"}
+                value={item?.customerCode || ""}
+                disabled
                 maxLength={30}
               />
-            </div>
+              {!viewOnly && (
+                <p className="text-xs text-muted-foreground">
+                  Mã do hệ thống cấp tự động và được giữ nguyên khi chỉnh sửa.
+                </p>
+              )}
+            </div> */}
             <div className="grid gap-2">
               <Label htmlFor="customerTaxCode">Mã số thuế</Label>
               <Input
@@ -307,9 +305,6 @@ export function CustomerFormModal({
                 maxLength={30}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="customerBankAccountNumber">
                 Số tài khoản ngân hàng
@@ -325,6 +320,9 @@ export function CustomerFormModal({
                 maxLength={100}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-1">
             <div className="grid gap-2">
               <Label htmlFor="customerBankName">Tên ngân hàng</Label>
               <Input

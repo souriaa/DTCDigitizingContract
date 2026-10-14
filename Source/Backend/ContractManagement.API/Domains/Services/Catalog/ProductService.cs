@@ -111,7 +111,7 @@ namespace ContractManagement.Domains.Services.Catalog
 
         public async Task<ProductResponse> CreateAsync(CreateProductRequest request)
         {
-            await ValidateCategoryAsync(request.CategoryId);
+            await ValidateCategoryAsync(request.CategoryId, required: true);
 
             await ValidateProductCodeAsync(request.ProductCode);
 
@@ -157,7 +157,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
             }
 
-            await ValidateCategoryAsync(request.CategoryId);
+            await ValidateCategoryAsync(request.CategoryId, required: true);
 
             await ValidateProductCodeAsync(request.ProductCode, id);
 
@@ -253,14 +253,17 @@ namespace ContractManagement.Domains.Services.Catalog
             throw new InvalidOperationException("Mã sản phẩm đã tồn tại.");
         }
 
-        private async Task ValidateCategoryAsync(int? categoryId)
+        private async Task ValidateCategoryAsync(int? categoryId, bool required = false)
         {
             if (!categoryId.HasValue)
             {
+                if (required)
+                    throw new BusinessRuleException(StatusCodes.Status400BadRequest, "ProductCategoryRequired",
+                        "Vui lòng chọn danh mục sản phẩm.");
                 return;
             }
 
-            if (categoryId.Value < byte.MinValue || categoryId.Value > byte.MaxValue)
+            if ((required && categoryId.Value <= 0) || categoryId.Value < byte.MinValue || categoryId.Value > byte.MaxValue)
             {
                 throw new ArgumentException("CategoryId không hợp lệ.");
             }

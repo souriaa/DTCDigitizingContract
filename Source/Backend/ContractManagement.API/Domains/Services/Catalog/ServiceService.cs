@@ -1,5 +1,6 @@
 ﻿using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Catalog;
+using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Domains.DTOs.Responses.Catalog;
 using ContractManagement.API.Domains.Interfaces.Catalog;
@@ -148,7 +149,7 @@ namespace ContractManagement.Domains.Services.Catalog
             CreateServiceRequest request,
             int createdBy)
         {
-            await ValidateServiceTypeAsync(request.ServiceTypeId);
+            await ValidateServiceTypeAsync(request.ServiceTypeId, required: true);
             await ValidateParentServiceAsync(request.ServiceParentId, currentServiceId: null);
 
             var service = new TblService
@@ -203,7 +204,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
             }
 
-            await ValidateServiceTypeAsync(request.ServiceTypeId);
+            await ValidateServiceTypeAsync(request.ServiceTypeId, required: true);
             await ValidateParentServiceAsync(request.ServiceParentId, currentServiceId: id);
 
             var oldParentId = service.ServiceParentId;
@@ -315,12 +316,17 @@ namespace ContractManagement.Domains.Services.Catalog
             await _dbContext.SaveChangesAsync();
         }
 
-        private async Task ValidateServiceTypeAsync(byte? serviceTypeId)
+        private async Task ValidateServiceTypeAsync(byte? serviceTypeId, bool required = false)
         {
             if (!serviceTypeId.HasValue)
             {
+                if (required)
+                    throw new BusinessRuleException(StatusCodes.Status400BadRequest, "ServiceTypeRequired",
+                        "Vui lòng chọn loại dịch vụ.");
                 return;
             }
+            if (required && serviceTypeId.Value == 0)
+                throw new ArgumentException("Loại dịch vụ không hợp lệ.");
 
             var exists = await _dbContext.TblServiceTypes
                 .AnyAsync(x => x.ServiceTypeId == serviceTypeId.Value);

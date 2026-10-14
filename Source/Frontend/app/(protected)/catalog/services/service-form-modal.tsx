@@ -224,6 +224,13 @@ export function ServiceFormModal({
     if (!serviceName.trim()) {
       newErrors.serviceName = "Vui lòng nhập tên dịch vụ";
     }
+    if (!serviceTypeId) {
+      newErrors.serviceTypeId = "Vui lòng chọn loại dịch vụ";
+    } else if (isLoadingOptions || optionsError) {
+      newErrors.serviceTypeId = "Vui lòng tải lại danh sách loại dịch vụ trước khi lưu";
+    } else if (!serviceTypes.some((type) => String(type.serviceTypeId) === serviceTypeId)) {
+      newErrors.serviceTypeId = "Loại dịch vụ không còn khả dụng. Vui lòng chọn lại";
+    }
     if (servicePrice && isNaN(Number(servicePrice))) {
       newErrors.servicePrice = "Đơn giá phải là số hợp lệ";
     }
@@ -236,7 +243,7 @@ export function ServiceFormModal({
 
     setErrors(newErrors);
 
-    if (newErrors.serviceName) {
+    if (newErrors.serviceName || newErrors.serviceTypeId) {
       setActiveTab("basic");
     } else if (
       newErrors.servicePrice ||
@@ -257,7 +264,7 @@ export function ServiceFormModal({
       const setupVal = setupPrice ? Number(setupPrice) : null;
       const maintainVal = maintainPrice ? Number(maintainPrice) : null;
       const orderVal = serviceOrder ? Number(serviceOrder) : 1;
-      const typeIdVal = serviceTypeId ? Number(serviceTypeId) : null;
+      const typeIdVal = Number(serviceTypeId);
       const parentIdVal = serviceParentId ? Number(serviceParentId) : null;
       const regionVal = serviceRegion ? Number(serviceRegion) : null;
       const langIdVal = langId ? Number(langId) : null;
@@ -375,7 +382,9 @@ export function ServiceFormModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="serviceTypeId">Loại dịch vụ</Label>
+                <Label htmlFor="serviceTypeId">
+                  Loại dịch vụ {!viewOnly && <span className="text-destructive">*</span>}
+                </Label>
                 <Select
                   value={serviceTypeId || NO_SELECTION}
                   onValueChange={(value) =>
@@ -385,7 +394,7 @@ export function ServiceFormModal({
                     viewOnly || isSaving || isLoadingOptions || optionsError
                   }
                 >
-                  <SelectTrigger id="serviceTypeId" className="w-full">
+                  <SelectTrigger id="serviceTypeId" className="w-full" aria-invalid={!!errors.serviceTypeId} aria-required={!viewOnly}>
                     <SelectValue
                       placeholder={
                         isLoadingOptions ? "Đang tải..." : "Chọn loại dịch vụ"
@@ -393,8 +402,8 @@ export function ServiceFormModal({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SELECTION}>
-                      Không chọn loại dịch vụ
+                    <SelectItem value={NO_SELECTION} disabled>
+                      Chọn loại dịch vụ
                     </SelectItem>
                     {serviceTypeId &&
                       !serviceTypes.some(
@@ -417,6 +426,16 @@ export function ServiceFormModal({
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.serviceTypeId && <p className="text-xs text-destructive">{errors.serviceTypeId}</p>}
+                {!viewOnly && !isLoadingOptions && !optionsError && serviceTypes.length === 0 && (
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p>Chưa có loại dịch vụ. Hãy tạo loại dịch vụ trước khi lưu.</p>
+                    <a href="/catalog/service-types" target="_blank" rel="noopener noreferrer" className="underline">Mở quản lý loại dịch vụ</a>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setOptionsAttempt((attempt) => attempt + 1)}>
+                      Tải lại loại dịch vụ
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-2">
