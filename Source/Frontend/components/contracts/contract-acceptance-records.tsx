@@ -59,6 +59,7 @@ import {
 } from "@/components/contracts/contract-term-card";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
+  ContractLanguageMode,
   ContractStatus,
   type ContractDetailResponse,
 } from "@/services/contract-api";
@@ -105,6 +106,23 @@ const emptyCreate = () => ({
   paymentMilestoneIds: [] as number[],
 });
 
+function getAcceptanceMetadataError(
+  value: {
+    acceptanceCode: string;
+    acceptanceDate: string;
+    location: string;
+    locationEn?: string | null;
+  },
+  isBilingual: boolean,
+): string | null {
+  if (!value.acceptanceCode.trim()) return "Vui lòng nhập mã biên bản.";
+  if (!value.acceptanceDate.trim()) return "Vui lòng chọn ngày nghiệm thu.";
+  if (!value.location.trim()) return "Vui lòng nhập địa điểm nghiệm thu.";
+  if (isBilingual && !value.locationEn?.trim())
+    return "Vui lòng nhập địa điểm tiếng Anh cho hợp đồng song ngữ.";
+  return null;
+}
+
 const parseDateString = (str?: string) => {
   if (!str) return undefined;
   const [y, m, d] = str.slice(0, 10).split("-").map(Number);
@@ -132,6 +150,7 @@ export function ContractAcceptanceRecords({
   canManage,
   onChanged,
 }: Props) {
+  const isBilingual = contract.languageMode === ContractLanguageMode.Bilingual;
   const [records, setRecords] = useState<ContractAcceptanceRecordSummary[]>([]);
   const [templates, setTemplates] = useState<
     ContractAcceptanceTemplateOption[]
@@ -247,6 +266,12 @@ export function ContractAcceptanceRecords({
   };
 
   const createRecord = async () => {
+    const validationError = getAcceptanceMetadataError(createForm, isBilingual);
+    if (validationError) {
+      toast.error(validationError);
+      setCreateStep(1);
+      return;
+    }
     const result = await commit(
       () =>
         contractAcceptanceApi.create(contract.contractId, {
@@ -293,6 +318,11 @@ export function ContractAcceptanceRecords({
     if (!selected || selected.status !== AcceptanceRecordStatus.Draft)
       return null;
     const draft = selected;
+    const validationError = getAcceptanceMetadataError(draft, isBilingual);
+    if (validationError) {
+      toast.error(validationError);
+      return null;
+    }
     const customer = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Customer,
     );
@@ -917,6 +947,7 @@ export function ContractAcceptanceRecords({
                     <div className="grid gap-3.5 sm:grid-cols-2 p-3.5 rounded-lg border border-border/60">
                       <Field
                         label="Mã biên bản"
+                        required
                         value={selected.acceptanceCode}
                         onChange={(value) =>
                           setSelected({ ...selected, acceptanceCode: value })
@@ -924,7 +955,7 @@ export function ContractAcceptanceRecords({
                       />
                       <div className="space-y-2">
                         <Label htmlFor="acceptance-date-edit">
-                          Ngày nghiệm thu
+                          Ngày nghiệm thu <span className="text-red-500">*</span>
                         </Label>
                         <DateFilter
                           id="acceptance-date-edit"
@@ -944,6 +975,7 @@ export function ContractAcceptanceRecords({
                       <div className="col-span-2">
                         <Field
                           label="Địa điểm"
+                          required
                           value={selected.location}
                           onChange={(value) =>
                             setSelected({ ...selected, location: value })
@@ -951,7 +983,7 @@ export function ContractAcceptanceRecords({
                         />
                       </div>
                       <div className="col-span-2">
-                        <Field label="Địa điểm tiếng Anh" value={selected.locationEn ?? ""}
+                        <Field label="Địa điểm tiếng Anh" required={isBilingual} value={selected.locationEn ?? ""}
                           onChange={(value) => setSelected({ ...selected, locationEn: value })} />
                       </div>
                     </div>
@@ -1100,7 +1132,7 @@ export function ContractAcceptanceRecords({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-lg border border-border/60">
                       <div>
                         <span className="text-sm font-medium text-foreground block">
-                          Chế độ nghiệm thu
+                          Chế độ nghiệm thu <span className="text-red-500">*</span>
                         </span>
                         <span className="text-xs text-muted-foreground">
                           Chọn phạm vi hoàn thành của hợp đồng
@@ -1150,7 +1182,7 @@ export function ContractAcceptanceRecords({
                     ) : (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Chọn các đợt thanh toán nghiệm thu
+                          Chọn các đợt thanh toán nghiệm thu <span className="text-red-500">*</span>
                         </p>
                         {paymentMilestones.length === 0 ? (
                           <p className="text-sm text-muted-foreground italic py-2">
@@ -1471,9 +1503,12 @@ export function ContractAcceptanceRecords({
               canManage && (
                 <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
                   <b>Biên bản đã chốt và đang chờ bản ký</b>
+                  <Label htmlFor="acceptance-signed-file">Tệp bản ký <span className="text-red-500">*</span></Label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
+                      id="acceptance-signed-file"
                       type="file"
+                      required
                       accept=".pdf,.jpg,.jpeg,.png"
                       disabled={busy}
                       onChange={(event) =>
@@ -1539,7 +1574,7 @@ export function ContractAcceptanceRecords({
           {createStep === 1 && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label>Mẫu biên bản nghiệm thu</Label>
+                <Label>Mẫu biên bản nghiệm thu <span className="text-red-500">*</span></Label>
                 <Select
                   value={
                     createForm.templateVersionId
@@ -1570,13 +1605,14 @@ export function ContractAcceptanceRecords({
               </div>
               <Field
                 label="Mã biên bản"
+                required
                 value={createForm.acceptanceCode}
                 onChange={(value) =>
                   setCreateForm({ ...createForm, acceptanceCode: value })
                 }
               />
               <div className="space-y-2">
-                <Label htmlFor="acceptance-date">Ngày nghiệm thu</Label>
+                <Label htmlFor="acceptance-date">Ngày nghiệm thu <span className="text-red-500">*</span></Label>
                 <DateFilter
                   id="acceptance-date"
                   date={parseDateString(createForm.acceptanceDate)}
@@ -1593,6 +1629,7 @@ export function ContractAcceptanceRecords({
               <div className="md:col-span-2">
                 <Field
                   label="Địa điểm"
+                  required
                   value={createForm.location}
                   onChange={(value) =>
                     setCreateForm({ ...createForm, location: value })
@@ -1600,7 +1637,7 @@ export function ContractAcceptanceRecords({
                 />
               </div>
               <div className="md:col-span-2">
-                <Field label="Địa điểm tiếng Anh (không bắt buộc)" value={createForm.locationEn}
+                <Field label="Địa điểm tiếng Anh" required={isBilingual} value={createForm.locationEn}
                   onChange={(value) => setCreateForm({ ...createForm, locationEn: value })} />
               </div>
             </div>
@@ -1640,7 +1677,7 @@ export function ContractAcceptanceRecords({
           {createStep === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Loại nghiệm thu</Label>
+                <Label>Loại nghiệm thu <span className="text-red-500">*</span></Label>
                 <Select
                   value={String(createForm.acceptanceKind)}
                   onValueChange={(value) =>
@@ -1672,6 +1709,9 @@ export function ContractAcceptanceRecords({
                   </p>
                 )}
               </div>
+              {createForm.acceptanceKind === AcceptanceKind.Partial && (
+                <Label>Đợt thanh toán nghiệm thu <span className="text-red-500">*</span></Label>
+              )}
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.map((milestone) => (
                   <label
@@ -1733,8 +1773,7 @@ export function ContractAcceptanceRecords({
                 disabled={
                   createStep === 1 &&
                   (!createForm.templateVersionId ||
-                    !createForm.acceptanceCode.trim() ||
-                    !createForm.location.trim())
+                    Boolean(getAcceptanceMetadataError(createForm, isBilingual)))
                 }
                 onClick={() => setCreateStep((step) => step + 1)}
               >
@@ -1806,7 +1845,10 @@ export function ContractAcceptanceRecords({
               đồng.
             </DialogDescription>
           </DialogHeader>
+          <Label htmlFor="acceptance-cancel-reason">Lý do hủy <span className="text-red-500">*</span></Label>
           <Textarea
+            id="acceptance-cancel-reason"
+            required
             value={cancelReason}
             onChange={(event) => setCancelReason(event.target.value)}
             placeholder="Lý do hủy bắt buộc"
@@ -1853,20 +1895,23 @@ function Field({
   onChange,
   type = "text",
   disabled = false,
+  required = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   disabled?: boolean;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
       <Input
         type={type}
         value={value}
         disabled={disabled}
+        required={required}
         onChange={(event) => onChange(event.target.value)}
         className="bg-background"
       />
@@ -1893,6 +1938,7 @@ function PartyEditor({
       </div>
       <Field
         label="Tên pháp nhân"
+        required
         value={party.legalName}
         disabled
         onChange={(value) => onChange("legalName", value)}
@@ -1903,6 +1949,7 @@ function PartyEditor({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label={representativeLabel}
+          required
           value={party.representativeName}
           onChange={(value) => onChange("representativeName", value)}
         />

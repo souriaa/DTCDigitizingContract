@@ -125,10 +125,7 @@ public sealed class ContractDocumentPreviewServiceTests
             .Single(paragraph => paragraph.InnerText.StartsWith(
                 "CUSTOMER REPRESENTATIVE / ĐẠI DIỆN BÊN KHÁCH HÀNG",
                 StringComparison.Ordinal));
-        Assert.Contains("Lê Đầu mối", customerSignature.InnerText);
-        Assert.Contains("Quản lý dự án", customerSignature.InnerText);
-        Assert.DoesNotContain("Trần Customer", customerSignature.InnerText);
-        Assert.DoesNotContain("Giám đốc", customerSignature.InnerText);
+        Assert.Equal("CUSTOMER REPRESENTATIVE / ĐẠI DIỆN BÊN KHÁCH HÀNG", customerSignature.InnerText);
         Assert.Contains("02473000003", text);
         Assert.Contains("02473000004", text);
         Assert.Contains("012345678901", text);

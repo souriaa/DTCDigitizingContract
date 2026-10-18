@@ -554,7 +554,8 @@ export default function ContractTemplateVersionWorkspacePage() {
           term.termKind === ContractTermKind.General &&
           (template?.languageMode !== ContractLanguageMode.Bilingual ||
             (Boolean(term.termTitleEn?.trim()) &&
-              (!term.termContent?.trim() ||
+              (term.bilingualContentMode === 2 ||
+                !term.termContent?.trim() ||
                 Boolean(term.termContentEn?.trim())))),
       )),
   );

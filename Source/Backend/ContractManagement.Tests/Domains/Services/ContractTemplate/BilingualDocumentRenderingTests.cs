@@ -225,6 +225,47 @@ public sealed class BilingualDocumentRenderingTests
         Assert.Equal("EN[]", doc.MainDocumentPart!.Document!.Body!.InnerText);
     }
 
+    [Theory]
+    [InlineData(ContractLanguageMode.Vietnamese,
+        "ĐẠI DIỆN BÊN KHÁCH HÀNG", "ĐẠI DIỆN BÊN CUNG CẤP")]
+    [InlineData(ContractLanguageMode.Bilingual,
+        "CUSTOMER REPRESENTATIVE / ĐẠI DIỆN BÊN KHÁCH HÀNG",
+        "PROVIDER REPRESENTATIVE / ĐẠI DIỆN BÊN CUNG CẤP")]
+    public void SignatureMarkers_RenderOnlyHeadings_InBothRenderers(
+        ContractLanguageMode language, string customerHeading, string providerHeading)
+    {
+        const string authoredText = "(Chữ ký) do người dùng soạn";
+        var source = Docx("{{SIGNATURE_CUSTOMER}}", "{{SIGNATURE_PROVIDER}}", authoredText);
+        var contractData = new ContractTemplateRenderData(new Dictionary<string, string>(), [], [],
+            new("Tên bên cung cấp", "Người ký bên cung cấp"),
+            new("Tên bên khách hàng", "Người ký bên khách hàng"), "Lời nhắc ký tự động")
+        { Definitions = ContractPlaceholderCatalog.SystemDefinitions };
+        var acceptanceData = new ContractAcceptanceDocumentRenderData("AC-1", new(2026, 10, 18), "Hà Nội", language,
+            [], [new() { PartyRole = AcceptancePartyRole.Customer, LegalName = "Tên bên khách hàng", RepresentativeName = "Người ký bên khách hàng" },
+                new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Tên bên cung cấp", RepresentativeName = "Người ký bên cung cấp" }], []);
+
+        foreach (var bytes in new[]
+                 {
+                     new ContractTemplatePreviewRenderer().Render(source, language, contractData),
+                     new ContractAcceptanceDocumentRenderer().Render(source, acceptanceData)
+                 })
+        {
+            using var doc = WordprocessingDocument.Open(new MemoryStream(bytes), false);
+            var paragraphs = doc.MainDocumentPart!.Document!.Body!.Elements<W.Paragraph>().ToList();
+            Assert.Equal(new[] { customerHeading, providerHeading, authoredText }, paragraphs.Select(p => p.InnerText));
+            foreach (var paragraph in paragraphs.Take(2))
+            {
+                Assert.Equal(W.JustificationValues.Center, paragraph.ParagraphProperties!.Justification!.Val!.Value);
+                Assert.All(paragraph.Descendants<W.Run>(), run =>
+                {
+                    var bold = Assert.IsType<W.Bold>(run.RunProperties?.Bold);
+                    Assert.True(bold.Val?.Value ?? true);
+                });
+                Assert.Empty(paragraph.Descendants<W.Break>());
+            }
+        }
+    }
+
     [Fact]
     public void AcceptanceRenderer_EnglishFirst_UsesDraftTranslationsAndMarkerAlignment()
     {

@@ -56,12 +56,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
     {
         await using var db = CreateContext();
         var storage = new TrackingStorage();
-        await SeedAsync(db, storage);
-        var legal = await db.TblContractVersionLegalSnapshots.SingleAsync();
-        legal.ContractNameEn = "Software supply contract";
-        var tenant = await db.TblContractVersionPartySnapshots.SingleAsync(x => x.PartyRole == 1);
-        tenant.LegalNameEn = "Provider company";
-        await db.SaveChangesAsync();
+        await SeedAsync(db, storage, contractNameEn: "Software supply contract", tenantLegalNameEn: "Provider company");
         var draft = await CreateService(db, storage).CreateAsync(ContractId, CreateRequest(), EmployeeId);
         var reference = Assert.Single(draft.References, x => x.ReferenceType == AcceptanceReferenceType.Contract);
         Assert.NotNull(reference.TextEn);
@@ -268,12 +263,11 @@ public sealed class ContractAcceptanceServicePhase7Tests
             new MemoryStream(preview.Content), false);
         var text = document.MainDocumentPart!.Document!.InnerText;
         Assert.Contains("Người liên hệ nghiệm thu", text);
-        Assert.Contains("ĐẠI DIỆN BÊN A", text);
-        Assert.Contains("Người liên hệ nghiệm thu", text);
+        Assert.Contains("ĐẠI DIỆN BÊN KHÁCH HÀNG", text);
         var customerSignature = document.MainDocumentPart.Document.Body!
             .Elements<W.Paragraph>()
             .Single(paragraph => paragraph.InnerText ==
-                "Người liên hệ nghiệm thu");
+                "ĐẠI DIỆN BÊN KHÁCH HÀNG");
         Assert.Equal(W.JustificationValues.Center,
             customerSignature.ParagraphProperties?
                 .GetFirstChild<W.Justification>()?.Val?.Value);
@@ -286,8 +280,9 @@ public sealed class ContractAcceptanceServicePhase7Tests
                 "Liên hệ: Người liên hệ nghiệm thu");
         Assert.Equal("Arial", contactLine.Descendants<W.Run>().First()
             .RunProperties?.GetFirstChild<W.RunFonts>()?.Ascii?.Value);
-        Assert.Contains("ĐẠI DIỆN BÊN B", text);
-        Assert.Contains("Nguyễn Văn B", text);
+        Assert.Contains("ĐẠI DIỆN BÊN CUNG CẤP", text);
+        Assert.DoesNotContain("Nguyễn Văn B", text);
+        Assert.DoesNotContain("(Chữ ký)", text);
         Assert.DoesNotContain("{{", text);
     }
 
@@ -866,7 +861,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
     };
 
     private static async Task SeedAsync(
-        DbDtctechContext db, TrackingStorage storage, string? customerBankNameEn = null)
+        DbDtctechContext db, TrackingStorage storage, string? customerBankNameEn = null,
+        string? contractNameEn = null, string? tenantLegalNameEn = null)
     {
         var now = new DateTime(2026, 9, 18, 8, 0, 0, DateTimeKind.Utc);
         var templateDocx = CreateTemplateDocx();
@@ -1005,6 +1001,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             TemplateVersionId = 1,
             ContractCode = "HD-001",
             ContractName = "Cung cấp phần mềm",
+            ContractNameEn = contractNameEn,
             ContractType = (byte)ContractType.SoftwareSupply,
             ContractCreatedDate = now,
             SignDate = new DateTime(2026, 9, 12),
@@ -1019,6 +1016,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
                     ContractVersionPartySnapshotId = 1,
                     PartyRole = 1,
                     LegalName = "Công ty DTC",
+                    LegalNameEn = tenantLegalNameEn,
                     Address = "Hà Nội",
                     RepresentativeName = "Nguyễn Văn B",
                     RepresentativeTitle = "Giám đốc"

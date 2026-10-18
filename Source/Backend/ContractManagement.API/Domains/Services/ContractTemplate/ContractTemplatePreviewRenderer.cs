@@ -14,7 +14,7 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 /// </summary>
 public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRenderer
 {
-    public const string FormatVersion = "V17";
+    public const string FormatVersion = "V18";
 
     private const string GeneratedContentFont = "Times New Roman";
     private const string GeneratedContentFontSize = "24";
@@ -223,15 +223,13 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     languageMode, renderData.Terms, availableWidthDxa),
                 "SIGNATURE_PROVIDER" =>
                 [
-                    (OpenXmlElement)CreateSignatureBlock(
-                        renderData.ProviderSignature,
-                        renderData.Notice, languageMode, "PROVIDER REPRESENTATIVE")
+                    (OpenXmlElement)CreateStyledParagraph(
+                        DocumentEnglishPolicy.SignatureHeading(languageMode, customer: false), bold: true)
                 ],
                 "SIGNATURE_CUSTOMER" =>
                 [
-                    (OpenXmlElement)CreateSignatureBlock(
-                        renderData.CustomerSignature,
-                        renderData.Notice, languageMode, "CUSTOMER REPRESENTATIVE")
+                    (OpenXmlElement)CreateStyledParagraph(
+                        DocumentEnglishPolicy.SignatureHeading(languageMode, customer: true), bold: true)
                 ],
                 _ => throw LayoutUnsupported(key)
             };
@@ -518,11 +516,11 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         table.Append(new W.TableRow(
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, 0, 1),
-                CreateStyledParagraph(DocumentEnglishPolicy.Label(languageMode, "CUSTOMER REPRESENTATIVE", "ĐẠI DIỆN BÊN KHÁCH HÀNG"),
+                CreateStyledParagraph(DocumentEnglishPolicy.SignatureHeading(languageMode, customer: true),
                     bold: true, justification: W.JustificationValues.Center)),
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, 1, 1),
-                CreateStyledParagraph(DocumentEnglishPolicy.Label(languageMode, "PROVIDER REPRESENTATIVE", "ĐẠI DIỆN BÊN CUNG CẤP"),
+                CreateStyledParagraph(DocumentEnglishPolicy.SignatureHeading(languageMode, customer: false),
                     bold: true, justification: W.JustificationValues.Center))));
         return table;
     }
@@ -787,26 +785,6 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             "left" => W.JustificationValues.Left,
             _ => null
         };
-
-    private static W.Paragraph CreateSignatureBlock(
-        ContractTemplateRenderSignature signature,
-        string notice, ContractLanguageMode languageMode, string english)
-    {
-        var paragraph = new W.Paragraph(
-            CreateRun(DocumentEnglishPolicy.Label(languageMode, english, signature.PartyTitle), bold: true),
-            CreateBreakRun());
-        if (!string.IsNullOrWhiteSpace(notice))
-        {
-            paragraph.Append(
-                CreateRun(notice),
-                CreateBreakRun());
-        }
-
-        paragraph.Append(
-            CreateBreakRun(),
-            CreateRun(signature.SignerName));
-        return paragraph;
-    }
 
     private static W.Table CreateItemTable(
         ContractLanguageMode languageMode,

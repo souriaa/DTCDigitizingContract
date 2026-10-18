@@ -281,12 +281,12 @@ public sealed class ContractTemplatePreviewTests
         var termContent = Assert.Single(runs, run =>
             run.InnerText.StartsWith("Bên Cung Cấp cung cấp phần mềm",
                 StringComparison.Ordinal));
-        var signer = Assert.Single(runs, run =>
-            run.InnerText == SoftwareSupplyPreviewDatasetV1.ProviderSignature.SignerName);
+        var signatureHeading = Assert.Single(runs, run =>
+            run.InnerText == "ĐẠI DIỆN BÊN CUNG CẤP");
 
         foreach (var run in new[]
                  {
-                     tableHeader, itemDescription, termTitle, termContent, signer
+                     tableHeader, itemDescription, termTitle, termContent, signatureHeading
                  })
         {
             Assert.Equal("Times New Roman", run.RunProperties!.RunFonts!.Ascii!.Value);
@@ -298,7 +298,7 @@ public sealed class ContractTemplatePreviewTests
         Assert.True(termTitle.RunProperties!.Bold!.Val!.Value);
         Assert.False(itemDescription.RunProperties!.Bold!.Val!.Value);
         Assert.False(termContent.RunProperties!.Bold!.Val!.Value);
-        Assert.False(signer.RunProperties!.Bold!.Val!.Value);
+        Assert.True(signatureHeading.RunProperties!.Bold!.Val!.Value);
     }
 
     [Fact]
@@ -413,7 +413,8 @@ public sealed class ContractTemplatePreviewTests
         Assert.Equal("BilingualItemDataRequired",
             Assert.Throws<ContractTemplatePreviewException>(() => new ContractTemplatePreviewRenderer().Render(
                 CreateSourceDocument(), ContractLanguageMode.Bilingual, missingEnglish)).FailureCode);
-        Assert.Contains("Nhân viên Thật", text);
+        Assert.Contains("PROVIDER REPRESENTATIVE / ĐẠI DIỆN BÊN CUNG CẤP", text);
+        Assert.DoesNotContain("Nhân viên Thật", text);
         Assert.DoesNotContain("Trần Thị Mẫu", text);
         Assert.Contains("Căn cứ dữ liệu hợp đồng thật", text);
         Assert.DoesNotContain("CUS-DEMO-2026", text);

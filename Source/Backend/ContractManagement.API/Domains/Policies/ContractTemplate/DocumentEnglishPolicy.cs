@@ -41,6 +41,11 @@ public static class DocumentEnglishPolicy
     public static string Label(ContractLanguageMode mode, string english, string vietnamese) =>
         mode == ContractLanguageMode.Bilingual ? $"{english} / {vietnamese}" : vietnamese;
 
+    public static string SignatureHeading(ContractLanguageMode mode, bool customer) =>
+        customer
+            ? Label(mode, "CUSTOMER REPRESENTATIVE", "ĐẠI DIỆN BÊN KHÁCH HÀNG")
+            : Label(mode, "PROVIDER REPRESENTATIVE", "ĐẠI DIỆN BÊN CUNG CẤP");
+
     public static IEnumerable<string?> Bodies(ContractLanguageMode language, byte mode, string? vietnamese, string? english)
     {
         if (language == ContractLanguageMode.Bilingual && mode == (byte)BilingualContentMode.Separate)

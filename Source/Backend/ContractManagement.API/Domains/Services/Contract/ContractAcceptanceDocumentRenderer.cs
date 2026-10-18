@@ -83,9 +83,9 @@ public sealed class ContractAcceptanceDocumentRenderer
                 values[key] = value;
 
             ReplaceOptionalMarker(body, "{{SIGNATURE_CUSTOMER}}",
-                (_, _) => CreateSignatureParagraphs(customer, DocumentEnglishPolicy.Label(data.LanguageMode, "CUSTOMER REPRESENTATIVE", "ĐẠI DIỆN BÊN A"), data.LanguageMode));
+                (_, _) => [Paragraph(DocumentEnglishPolicy.SignatureHeading(data.LanguageMode, customer: true), bold: true)]);
             ReplaceOptionalMarker(body, "{{SIGNATURE_PROVIDER}}",
-                (_, _) => CreateSignatureParagraphs(tenant, DocumentEnglishPolicy.Label(data.LanguageMode, "PROVIDER REPRESENTATIVE", "ĐẠI DIỆN BÊN B"), data.LanguageMode));
+                (_, _) => [Paragraph(DocumentEnglishPolicy.SignatureHeading(data.LanguageMode, customer: false), bold: true)]);
             var roots = new List<OpenXmlElement> { body };
             roots.AddRange(document.MainDocumentPart!.HeaderParts.Select(x => x.Header).OfType<OpenXmlElement>());
             roots.AddRange(document.MainDocumentPart.FooterParts.Select(x => x.Footer).OfType<OpenXmlElement>());
@@ -198,17 +198,6 @@ public sealed class ContractAcceptanceDocumentRenderer
         }
         return result.Cast<OpenXmlElement>().ToList();
     }
-
-    private static IReadOnlyList<OpenXmlElement> CreateSignatureParagraphs(
-        ContractAcceptancePartyResponse party,
-        string partyTitle, ContractLanguageMode languageMode) =>
-    [
-        Paragraph(partyTitle, bold: true),
-        Paragraph(DocumentEnglishPolicy.Label(languageMode, "(Signature)", "(Chữ ký)"), italic: true),
-        Paragraph(string.Empty),
-        Paragraph(string.Empty),
-        Paragraph(party.RepresentativeName, bold: true)
-    ];
 
     private static IReadOnlyList<OpenXmlElement> CreateSectionElements(
         ContractAcceptanceDocumentRenderData data,
