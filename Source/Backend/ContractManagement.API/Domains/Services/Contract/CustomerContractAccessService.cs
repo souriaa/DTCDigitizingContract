@@ -599,6 +599,7 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                 TermTitleEn = term.TermTitleEn,
                 TermContent = term.TermContent,
                 TermContentEn = term.TermContentEn,
+                BilingualContentMode = term.BilingualContentMode,
                 IsNegotiable = term.IsNegotiable,
                 DisplayOrder = term.DisplayOrder
             }).ToList(),

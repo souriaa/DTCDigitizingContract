@@ -9,6 +9,8 @@
 
         public string? ServiceName { get; set; }
 
+        public string? ServiceNameEn { get; set; }
+
         public byte? ServiceTypeId { get; set; }
 
         public string? ServiceTypeName { get; set; }

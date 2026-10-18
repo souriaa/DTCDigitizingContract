@@ -225,6 +225,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 TermTitleEn = term.TermTitleEn,
                 TermContent = term.TermContent,
                 TermContentEn = term.TermContentEn,
+                BilingualContentMode = term.BilingualContentMode,
                 IsNegotiable = term.IsNegotiable,
                 DisplayOrder = term.DisplayOrder,
                 TermKind = (ContractTermKind)term.TermKind
@@ -718,6 +719,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     TermTitleEn = sourceTerm.TermTitleEn,
                     TermContent = sourceTerm.TermContent,
                     TermContentEn = sourceTerm.TermContentEn,
+                    BilingualContentMode = sourceTerm.BilingualContentMode,
                     TermKind = sourceTerm.TermKind,
                     IsNegotiable = sourceTerm.IsNegotiable,
                     DisplayOrder = sourceTerm.DisplayOrder,
@@ -832,6 +834,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     TermTitleEn = sourceAppendixTerm.TermTitleEn,
                     TermContent = sourceAppendixTerm.TermContent,
                     TermContentEn = sourceAppendixTerm.TermContentEn,
+                    BilingualContentMode = sourceAppendixTerm.BilingualContentMode,
                     DisplayOrder = sourceAppendixTerm.DisplayOrder,
                     CreatedEmployeeId = employeeId,
                     CreatedDate = now
@@ -1593,6 +1596,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var values = NormalizeTerm(request.TermCode, request.TermTitle,
             request.TermTitleEn, request.TermContent, request.TermContentEn,
             request.DisplayOrder);
+        await ValidateTemplateTermLanguageAsync(versionId, request.BilingualContentMode,
+            request.TermTitleEn, request.TermContent, request.TermContentEn, cancellationToken);
         var expectedVersionRowVersion = DecodeRowVersion(
             request.VersionRowVersion,
             nameof(request.VersionRowVersion));
@@ -1628,6 +1633,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 TermTitleEn = values.TermTitleEn,
                 TermContent = values.TermContent,
                 TermContentEn = values.TermContentEn,
+                BilingualContentMode = request.BilingualContentMode,
                 TermKind = (byte)request.TermKind,
                 IsNegotiable = request.IsNegotiable,
                 DisplayOrder = values.DisplayOrder,
@@ -1656,6 +1662,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var values = NormalizeTerm(request.TermCode, request.TermTitle,
             request.TermTitleEn, request.TermContent, request.TermContentEn,
             request.DisplayOrder);
+        await ValidateTemplateTermLanguageAsync(versionId, request.BilingualContentMode,
+            request.TermTitleEn, request.TermContent, request.TermContentEn, cancellationToken);
         var expectedVersionRowVersion = DecodeRowVersion(
             request.VersionRowVersion,
             nameof(request.VersionRowVersion));
@@ -1714,6 +1722,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             term.TermTitleEn = values.TermTitleEn;
             term.TermContent = values.TermContent;
             term.TermContentEn = values.TermContentEn;
+            term.BilingualContentMode = request.BilingualContentMode;
             term.TermKind = (byte)request.TermKind;
             term.IsNegotiable = request.IsNegotiable;
             term.DisplayOrder = values.DisplayOrder;
@@ -3010,6 +3019,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             && sections.Any(section => string.IsNullOrWhiteSpace(
                     section.TermTitleEn)
                 || (!string.IsNullOrWhiteSpace(section.TermContent)
+                    && section.BilingualContentMode == (byte)BilingualContentMode.Separate
                     && string.IsNullOrWhiteSpace(section.TermContentEn))))
         {
             throw new ContractTemplatePreviewException(
@@ -3134,7 +3144,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             return string.Join('|', EscapeCanonical(term.TermCode),
                 term.TermKind.ToString(invariant), EscapeCanonical(term.TermTitle),
                 EscapeCanonical(term.TermTitleEn), EscapeCanonical(term.TermContent),
-                EscapeCanonical(term.TermContentEn), term.DisplayOrder.ToString(invariant),
+                EscapeCanonical(term.TermContentEn), term.BilingualContentMode.ToString(invariant), term.DisplayOrder.ToString(invariant),
                 milestoneCanonical);
         }));
         var itemLayoutCanonical = string.Join(',', itemTableLayout.Select(item =>
@@ -3151,7 +3161,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     .Where(term => term.TemplateAppendixId == appendix.TemplateAppendixId)
                     .Select(term => string.Join(',', EscapeCanonical(term.TermCode),
                         EscapeCanonical(term.TermTitle), EscapeCanonical(term.TermTitleEn),
-                        EscapeCanonical(term.TermContent), EscapeCanonical(term.TermContentEn),
+                        EscapeCanonical(term.TermContent), EscapeCanonical(term.TermContentEn), term.BilingualContentMode.ToString(invariant),
                         term.DisplayOrder.ToString(invariant)))))));
         var canonical = string.Join("\n", new[]
         {
@@ -3201,6 +3211,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                         term.TermContent ?? string.Empty, term.TermContentEn ?? string.Empty)
                     {
                         Kind = (ContractTermKind)term.TermKind,
+                        BilingualContentMode = term.BilingualContentMode,
                         PaymentMilestones = renderMilestones
                     };
                 }).ToList(),
@@ -3222,7 +3233,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                                     term.TermTitle,
                                     term.TermTitleEn,
                                     term.TermContent,
-                                    term.TermContentEn))
+                                    term.TermContentEn) { BilingualContentMode = term.BilingualContentMode })
                             .ToArray())).ToList()
             },
             hash);
@@ -4062,6 +4073,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             TermTitleEn = term.TermTitleEn,
             TermContent = term.TermContent,
             TermContentEn = term.TermContentEn,
+            BilingualContentMode = term.BilingualContentMode,
             IsNegotiable = term.IsNegotiable,
             DisplayOrder = term.DisplayOrder,
             TermKind = (ContractTermKind)term.TermKind,

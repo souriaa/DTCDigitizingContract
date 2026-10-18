@@ -51,6 +51,7 @@ public sealed class AvailableContractTemplateTermResponse
     public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
     public bool IsNegotiable { get; set; }
     public int DisplayOrder { get; set; }
     public ContractTermKind TermKind { get; set; }
@@ -195,6 +196,7 @@ public sealed class ContractTemplateAppendixTermResponse
     public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
     public int DisplayOrder { get; set; }
     public int CreatedEmployeeId { get; set; }
     public DateTime CreatedDate { get; set; }
@@ -244,6 +246,7 @@ public sealed class ContractTemplateTermResponse
     public string? TermContent { get; set; }
 
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
 
     public bool IsNegotiable { get; set; }
 

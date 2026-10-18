@@ -11,6 +11,8 @@ public sealed class SoftwareSupplyContractSnapshotTests
     {
         var tenant = new TblTenantLegalProfile
         {
+            LegalEntityNameEn = "DTC Company", AddressEn = "Hanoi",
+            RepresentativeTitleEn = "Director", BankNameEn = "DTC Bank",
             LegalEntityName = "DTC",
             TaxCode = "0101",
             Address = "Hà Nội",
@@ -23,6 +25,7 @@ public sealed class SoftwareSupplyContractSnapshotTests
         };
         var customer = new TblCustomer
         {
+            CustomerCompanyEn = "ABC Company", CustomerContactPersonTitleEn = "Contact Manager",
             CustomerId = 2,
             CustomerCompany = "Khách hàng ABC",
             CustomerTaxCode = "0202",
@@ -92,6 +95,7 @@ public sealed class SoftwareSupplyContractSnapshotTests
             snapshot, 10, DateTime.UtcNow);
 
         tenant.LegalEntityName = "Tenant master đã đổi";
+        tenant.BankNameEn = "Changed Bank";
         customer.CustomerRepresentativeName = "Customer master đã đổi";
         contract.ContractName = "Contract master đã đổi";
 
@@ -107,6 +111,18 @@ public sealed class SoftwareSupplyContractSnapshotTests
         Assert.Equal("02473000002", snapshot.Tenant.FaxNumber);
         Assert.Equal("098765432109", snapshot.Tenant.BankAccountNumber);
         Assert.Equal("Ngân hàng DTC", snapshot.Tenant.BankName);
+        Assert.Equal("DTC Bank", snapshot.Tenant.BankNameEn);
+        Assert.Equal("ABC Company", snapshot.Customer.LegalNameEn);
+        Assert.Equal("Contact Manager", snapshot.Customer.ContactTitleEn);
+        Assert.Equal("DTC Bank", persisted.Parties.Single(x => x.PartyRole == 1).BankNameEn);
+        Assert.NotEqual(hash, SoftwareSupplyContractSnapshotFactory.CalculateHash(snapshot with
+        {
+            Tenant = snapshot.Tenant with { BankNameEn = "Another bank" }
+        }));
+        Assert.NotEqual(hash, SoftwareSupplyContractSnapshotFactory.CalculateHash(snapshot with
+        {
+            Terms = snapshot.Terms.Select(term => term with { BilingualContentMode = 2 }).ToArray()
+        }));
         Assert.Single(snapshot.Items);
         Assert.Single(snapshot.Terms);
         Assert.Equal(64, hash.Length);

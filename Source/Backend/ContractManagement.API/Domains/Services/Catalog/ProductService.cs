@@ -8,6 +8,8 @@ using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
 
+using ContractManagement.Domains.Policies.Catalog;
+
 namespace ContractManagement.Domains.Services.Catalog
 {
     /// <summary>
@@ -44,6 +46,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 query = query.Where(x =>
                     (x.ProductCode != null && x.ProductCode.Contains(keyword)) ||
                     (x.ProductName != null && x.ProductName.Contains(keyword)) ||
+                    (x.ProductNameEn != null && x.ProductNameEn.Contains(keyword)) ||
                     (x.ProductShortDesc != null && x.ProductShortDesc.Contains(keyword)));
             }
 
@@ -115,10 +118,13 @@ namespace ContractManagement.Domains.Services.Catalog
 
             await ValidateProductCodeAsync(request.ProductCode);
 
+            var englishName = CatalogEnglishNamePolicy.Require(request.ProductNameEn, "Tên sản phẩm tiếng Anh");
+
             var product = new TblProduct
             {
                 ProductCode = request.ProductCode?.Trim(),
                 ProductName = request.ProductName.Trim(),
+                ProductNameEn = englishName,
                 CategoryId = request.CategoryId,
                 ProductShortDesc = request.ProductShortDesc?.Trim(),
                 ProductDetails = request.ProductDetails?.Trim(),
@@ -161,8 +167,11 @@ namespace ContractManagement.Domains.Services.Catalog
 
             await ValidateProductCodeAsync(request.ProductCode, id);
 
+            var englishName = CatalogEnglishNamePolicy.Require(request.ProductNameEn, "Tên sản phẩm tiếng Anh");
+
             product.ProductCode = request.ProductCode?.Trim();
             product.ProductName = request.ProductName.Trim();
+            product.ProductNameEn = englishName;
             product.CategoryId = request.CategoryId;
             product.ProductShortDesc = request.ProductShortDesc?.Trim();
             product.ProductDetails = request.ProductDetails?.Trim();
@@ -339,6 +348,7 @@ namespace ContractManagement.Domains.Services.Catalog
                 ProductId = product.ProductId,
                 ProductCode = product.ProductCode,
                 ProductName = product.ProductName,
+                ProductNameEn = product.ProductNameEn,
                 CategoryId = product.CategoryId,
                 CategoryName = categoryName,
                 ProductShortDesc = product.ProductShortDesc,

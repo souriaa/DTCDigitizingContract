@@ -20,7 +20,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 import { PublicContractDiscussionModal } from "@/components/contracts/public-contract-comments";
-import { ContractTermCard } from "@/components/contracts/contract-term-card";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -594,29 +594,12 @@ export default function PublicContractPage() {
           </p>
         </div>
 
-        {sortedTerms.length === 0 ? (
-          <p className="rounded-xl border border-dashed bg-background p-8 text-center text-muted-foreground">
-            Hợp đồng chưa có điều khoản.
-          </p>
-        ) : (
-          sortedTerms.map((term) => (
-            <ContractTermCard
-              key={term.termId}
-              term={term}
-              inputId={`public-${term.termId}`}
-              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
-            >
-                <PublicContractDiscussionModal
-                  termId={term.termId}
-                  termCode={term.termCode}
-                  termTitle={term.termTitle}
-                  comments={contract.comments}
-                  canWrite={term.isNegotiable}
-                  onCreate={handleCreateComment}
-                />
-            </ContractTermCard>
-          ))
-        )}
+        <TermsListEditor terms={sortedTerms} getKey={(term) => term.termId} emptyText="Hợp đồng chưa có điều khoản."
+          getCardProps={(term) => ({
+            inputId: `public-${term.termId}`, isBilingual: Boolean(term.termTitleEn || term.termContentEn),
+            children: <PublicContractDiscussionModal termId={term.termId} termCode={term.termCode} termTitle={term.termTitle}
+              comments={contract.comments} canWrite={term.isNegotiable} onCreate={handleCreateComment} />,
+          })} />
       </section>
 
       <Alert>

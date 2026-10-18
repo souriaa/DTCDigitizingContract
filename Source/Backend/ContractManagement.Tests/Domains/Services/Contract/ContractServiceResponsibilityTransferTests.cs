@@ -23,7 +23,7 @@ using static ContractManagement.Tests.AuditValueTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public class ContractServiceResponsibilityTransferTests
+public partial class ContractServiceResponsibilityTransferTests
 {
     private const int ContractId = 11;
     private const int VersionId = 12;

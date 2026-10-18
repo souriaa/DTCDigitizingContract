@@ -73,16 +73,23 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
 
         /// <summary>
         /// Danh sách điều khoản đã chỉnh trong wizard tạo hợp đồng.
-        /// Null giữ tương thích với client cũ và sao chép nguyên template;
+        /// Null nghĩa là sao chép trọn bộ điều khoản và kế hoạch thanh toán của mẫu;
         /// danh sách rỗng không hợp lệ.
         /// </summary>
         public List<CreateContractTermRequest>? Terms { get; set; }
 
         /// <summary>
         /// Các Appendix tùy chọn được người dùng chọn từ đúng template version.
-        /// Backend luôn tự thêm Appendix bắt buộc; không nhận dữ liệu Appendix tự do.
+        /// Dùng khi chỉ chọn phụ lục từ mẫu, không chỉnh nội dung.
         /// </summary>
         public List<int> SelectedOptionalTemplateAppendixIds { get; set; } = [];
+
+        /// <summary>
+        /// Toàn bộ phụ lục đã soạn trong màn tạo, theo thứ tự hiển thị.
+        /// Khi có danh sách này, phải bao gồm các phụ lục bắt buộc của mẫu.
+        /// Null nghĩa là chỉ sao chép phụ lục được chọn từ mẫu.
+        /// </summary>
+        public List<CreateContractAppendixDraftRequest>? Appendices { get; set; }
 
         public List<ContractPaymentMilestoneDateRequest> PaymentMilestoneDates { get; set; } = [];
 
@@ -117,7 +124,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
             {
                 for (var index = 0; index < Items.Count; index++)
                 {
-                    if (string.IsNullOrWhiteSpace(Items[index].ItemNameEn))
+                    if (!Items[index].SourceProductId.HasValue && !Items[index].SourceServiceId.HasValue
+                        && string.IsNullOrWhiteSpace(Items[index].ItemNameEn))
                     {
                         yield return new ValidationResult(
                             $"Item thứ {index + 1} phải có tên tiếng Anh.",
@@ -159,7 +167,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
                                 new[] { nameof(Terms) });
                         }
 
-                        if (!string.IsNullOrWhiteSpace(term.TermContent)
+                        if (term.BilingualContentMode == (byte)BilingualContentMode.Separate
+                            && !string.IsNullOrWhiteSpace(term.TermContent)
                             && string.IsNullOrWhiteSpace(term.TermContentEn))
                         {
                             yield return new ValidationResult(

@@ -38,7 +38,10 @@ public sealed record ContractTemplateRenderAppendixTerm(
     string TitleVi,
     string? TitleEn,
     string? ContentVi,
-    string? ContentEn);
+    string? ContentEn)
+{
+    public byte BilingualContentMode { get; init; } = 1;
+}
 
 public sealed record ContractTemplateRenderItem(
     int No,
@@ -48,7 +51,11 @@ public sealed record ContractTemplateRenderItem(
     decimal UnitPrice,
     string Discount,
     string Vat,
-    decimal TotalAmount);
+    decimal TotalAmount)
+{
+    public string? TypeEn { get; init; }
+    public string? DescriptionEn { get; init; }
+}
 
 public sealed record ContractTemplateRenderTerm(
     int No,
@@ -58,6 +65,7 @@ public sealed record ContractTemplateRenderTerm(
     string ContentEn)
 {
     public ContractTermKind Kind { get; init; } = ContractTermKind.General;
+    public byte BilingualContentMode { get; init; } = 1;
     public IReadOnlyList<ContractTemplateRenderPaymentMilestone> PaymentMilestones { get; init; } = [];
 }
 

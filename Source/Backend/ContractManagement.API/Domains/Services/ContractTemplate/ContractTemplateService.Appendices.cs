@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Responses.ContractTemplate;
 using ContractManagement.Common.Enums;
@@ -23,6 +24,7 @@ public sealed partial class ContractTemplateService
         {
             var version = await GetVersionForMutationAsync(versionId, cancellationToken);
             EnsureDraft(version);
+            await EnsureAppendixEnglishNameAsync(version, values.NameEn, cancellationToken);
             MatchAndTrack(version, versionRv);
             await EnsureAppendixUniqueAsync(versionId, values.Code, values.Order,
                 null, cancellationToken);
@@ -66,6 +68,7 @@ public sealed partial class ContractTemplateService
         {
             var version = await GetVersionForMutationAsync(versionId, cancellationToken);
             EnsureDraft(version); MatchAndTrack(version, versionRv);
+            await EnsureAppendixEnglishNameAsync(version, values.NameEn, cancellationToken);
             var row = await GetAppendixForMutationAsync(versionId, appendixId,
                 cancellationToken);
             MatchAndTrack(row, appendixRv);
@@ -189,6 +192,8 @@ public sealed partial class ContractTemplateService
         var values = NormalizeAppendixTerm(request.TermCode, request.TermTitle,
             request.TermTitleEn, request.TermContent, request.TermContentEn,
             request.DisplayOrder);
+        await ValidateTemplateTermLanguageAsync(versionId, request.BilingualContentMode,
+            request.TermTitleEn, request.TermContent, request.TermContentEn, cancellationToken);
         var versionRv = DecodeRowVersion(request.VersionRowVersion,
             nameof(request.VersionRowVersion));
         var appendixRv = DecodeRowVersion(request.AppendixRowVersion,
@@ -207,6 +212,7 @@ public sealed partial class ContractTemplateService
                 TemplateAppendixId = appendixId, TermCode = values.Code,
                 TermTitle = values.Title, TermTitleEn = values.TitleEn,
                 TermContent = values.Content, TermContentEn = values.ContentEn,
+                BilingualContentMode = request.BilingualContentMode,
                 DisplayOrder = values.Order, CreatedEmployeeId = employeeId,
                 CreatedDate = now
             };
@@ -234,6 +240,8 @@ public sealed partial class ContractTemplateService
         var values = NormalizeAppendixTerm(request.TermCode, request.TermTitle,
             request.TermTitleEn, request.TermContent, request.TermContentEn,
             request.DisplayOrder);
+        await ValidateTemplateTermLanguageAsync(versionId, request.BilingualContentMode,
+            request.TermTitleEn, request.TermContent, request.TermContentEn, cancellationToken);
         var versionRv = DecodeRowVersion(request.VersionRowVersion, nameof(request.VersionRowVersion));
         var appendixRv = DecodeRowVersion(request.AppendixRowVersion, nameof(request.AppendixRowVersion));
         var termRv = DecodeRowVersion(request.RowVersion, nameof(request.RowVersion));
@@ -250,6 +258,7 @@ public sealed partial class ContractTemplateService
             row.TermCode = values.Code; row.TermTitle = values.Title;
             row.TermTitleEn = values.TitleEn; row.TermContent = values.Content;
             row.TermContentEn = values.ContentEn; row.DisplayOrder = values.Order;
+            row.BilingualContentMode = request.BilingualContentMode;
             row.UpdatedEmployeeId = employeeId; row.UpdatedDate = DateTime.UtcNow;
             RotateRowVersionIfNeeded(row);
             appendix.UpdatedEmployeeId = employeeId; appendix.UpdatedDate = row.UpdatedDate;
@@ -346,6 +355,13 @@ public sealed partial class ContractTemplateService
             await _dbContext.SaveChangesAsync(cancellationToken);
             return await LoadAppendixAsync(versionId, appendixId, cancellationToken);
         }, cancellationToken);
+    }
+
+    private async Task EnsureAppendixEnglishNameAsync(TblContractTemplateVersion version, string? nameEn, CancellationToken ct)
+    {
+        var template = await GetTemplateAsync(version.TemplateId, ct);
+        if (template.LanguageMode == (byte)ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(nameEn))
+            throw new ArgumentException("Mẫu song ngữ bắt buộc có tên phụ lục tiếng Anh.");
     }
 
     private static (string Code, string Name, string? NameEn,
@@ -447,7 +463,7 @@ public sealed partial class ContractTemplateService
             TemplateAppendixTermId = row.TemplateAppendixTermId,
             TemplateAppendixId = row.TemplateAppendixId, TermCode = row.TermCode,
             TermTitle = row.TermTitle, TermTitleEn = row.TermTitleEn,
-            TermContent = row.TermContent, TermContentEn = row.TermContentEn,
+            TermContent = row.TermContent, TermContentEn = row.TermContentEn, BilingualContentMode = row.BilingualContentMode,
             DisplayOrder = row.DisplayOrder,
             CreatedEmployeeId = row.CreatedEmployeeId, CreatedDate = row.CreatedDate,
             UpdatedEmployeeId = row.UpdatedEmployeeId, UpdatedDate = row.UpdatedDate,
@@ -545,6 +561,7 @@ public sealed partial class ContractTemplateService
     private async Task ValidateAppendicesForPublishAsync(int versionId,
         ContractLanguageMode languageMode, CancellationToken ct)
     {
+        await ValidateTemplateBilingualContentsAsync(versionId, languageMode, ct);
         var appendices = await _dbContext.TblContractTemplateAppendices
             .AsNoTracking().Where(x => x.TemplateVersionId == versionId)
             .OrderBy(x => x.DisplayOrder).ToListAsync(ct);
@@ -563,12 +580,23 @@ public sealed partial class ContractTemplateService
             .Where(x => ids.Contains(x.TemplateAppendixId)).ToListAsync(ct);
         foreach (var appendix in appendices)
         {
+            if (languageMode == ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(appendix.AppendixNameEn))
+                throw new ContractTemplatePreviewException("AppendixNameEnRequired",
+                    $"Phụ lục '{appendix.AppendixCode}' của mẫu song ngữ bắt buộc có tên tiếng Anh.");
             var owned = terms.Where(x => x.TemplateAppendixId == appendix.TemplateAppendixId)
                 .ToList();
+            foreach (var term in owned)
+            {
+                try { BilingualContentPolicy.Validate(term.BilingualContentMode, languageMode,
+                    term.TermTitleEn, term.TermContent, term.TermContentEn,
+                    $"Phụ lục '{appendix.AppendixCode}' — điều khoản '{term.TermTitle}' (mã {term.TermCode})", requireBody: true); }
+                catch (ArgumentException ex) { throw new ContractTemplatePreviewException("AppendixTermsInvalid", ex.Message); }
+            }
             if (owned.Count == 0 || owned.Any(x => string.IsNullOrWhiteSpace(x.TermContent))
                 || (languageMode == ContractLanguageMode.Bilingual
                     && owned.Any(x => string.IsNullOrWhiteSpace(x.TermTitleEn)
-                        || string.IsNullOrWhiteSpace(x.TermContentEn))))
+                        || (x.BilingualContentMode == (byte)BilingualContentMode.Separate
+                            && !BilingualContentPolicy.HasContent(x.TermContentEn)))))
                 throw new ContractTemplatePreviewException("AppendixTermsInvalid",
                     $"Appendix {appendix.AppendixCode} phải có ít nhất một điều khoản đầy đủ.");
         }

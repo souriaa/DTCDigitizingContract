@@ -1,4 +1,5 @@
 "use client";
+import { CUSTOMER_ENGLISH_FIELDS } from "@/lib/document-english-fields";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -277,6 +278,13 @@ function CustomerDetailPageContent() {
     customerContactPersonTitle: "",
     customerBankAccountNumber: "",
     customerBankName: "",
+    customerCompanyEn: "",
+    customerAddressEn: "",
+    customerBankNameEn: "",
+    customerCityEn: "",
+    customerCountryEn: "",
+    customerContactPersonTitleEn: "",
+    customerRepresentativeTitleEn: "",
     customerAddress: "",
     customerCity: "",
     customerCountry: "",
@@ -310,6 +318,13 @@ function CustomerDetailPageContent() {
         customerContactPersonTitle: res.customerContactPersonTitle,
         customerBankAccountNumber: res.customerBankAccountNumber,
         customerBankName: res.customerBankName,
+        customerCompanyEn: res.customerCompanyEn,
+        customerAddressEn: res.customerAddressEn,
+        customerBankNameEn: res.customerBankNameEn,
+        customerCityEn: res.customerCityEn,
+        customerCountryEn: res.customerCountryEn,
+        customerContactPersonTitleEn: res.customerContactPersonTitleEn,
+        customerRepresentativeTitleEn: res.customerRepresentativeTitleEn,
         customerAddress: res.customerAddress,
         customerCity: res.customerCity,
         customerCountry: res.customerCountry,
@@ -389,6 +404,15 @@ function CustomerDetailPageContent() {
         customerContactPersonTitle: formData.customerContactPersonTitle,
         customerBankAccountNumber: formData.customerBankAccountNumber,
         customerBankName: formData.customerBankName,
+        customerCompanyEn: formData.customerCompanyEn?.trim() || null,
+        customerAddressEn: formData.customerAddressEn?.trim() || null,
+        customerBankNameEn: formData.customerBankNameEn?.trim() || null,
+        customerCityEn: formData.customerCityEn?.trim() || null,
+        customerCountryEn: formData.customerCountryEn?.trim() || null,
+        customerContactPersonTitleEn:
+          formData.customerContactPersonTitleEn?.trim() || null,
+        customerRepresentativeTitleEn:
+          formData.customerRepresentativeTitleEn?.trim() || null,
         customerAddress: formData.customerAddress,
         customerCity: formData.customerCity,
         customerCountry: formData.customerCountry,
@@ -528,7 +552,8 @@ function CustomerDetailPageContent() {
                     />
                     {isEditingProfile && (
                       <p className="text-xs text-muted-foreground">
-                        Mã do hệ thống cấp tự động và được giữ nguyên khi chỉnh sửa.
+                        Mã do hệ thống cấp tự động và được giữ nguyên khi chỉnh
+                        sửa.
                       </p>
                     )}
                   </div>
@@ -866,6 +891,39 @@ function CustomerDetailPageContent() {
                   />
                 </div>
 
+                <div className="space-y-3 rounded-xl border p-3">
+                  <p className="text-md font-medium">Thông tin tiếng Anh</p>
+                  {CUSTOMER_ENGLISH_FIELDS.map(({ key, label, maxLength }) => (
+                    <div key={key} className="space-y-1">
+                      <Label
+                        className="text-xs font-semibold uppercase text-muted-foreground"
+                        htmlFor={`detail-${key}`}
+                      >
+                        {label}
+                      </Label>
+                      <Input
+                        id={`detail-${key}`}
+                        readOnly={!isEditingProfile}
+                        disabled={!isEditingProfile || isSavingCustomer}
+                        className={
+                          !isEditingProfile
+                            ? "bg-muted/40 border-transparent shadow-none cursor-default font-medium text-foreground disabled:opacity-100"
+                            : ""
+                        }
+                        value={formData[key] ?? ""}
+                        maxLength={maxLength}
+                        onChange={(event) => {
+                          if (!isEditingProfile || isSavingCustomer) return;
+                          setFormData((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 {isEditingProfile ? (
                   <div className="flex items-center gap-2 pt-2">
                     <Button
@@ -896,6 +954,15 @@ function CustomerDetailPageContent() {
                             customerBankAccountNumber:
                               customer.customerBankAccountNumber,
                             customerBankName: customer.customerBankName,
+                            customerCompanyEn: customer.customerCompanyEn,
+                            customerAddressEn: customer.customerAddressEn,
+                            customerBankNameEn: customer.customerBankNameEn,
+                            customerCityEn: customer.customerCityEn,
+                            customerCountryEn: customer.customerCountryEn,
+                            customerContactPersonTitleEn:
+                              customer.customerContactPersonTitleEn,
+                            customerRepresentativeTitleEn:
+                              customer.customerRepresentativeTitleEn,
                             customerAddress: customer.customerAddress,
                             customerCity: customer.customerCity,
                             customerCountry: customer.customerCountry,

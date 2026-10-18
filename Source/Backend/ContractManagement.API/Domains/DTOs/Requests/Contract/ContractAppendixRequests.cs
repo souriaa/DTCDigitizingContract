@@ -15,6 +15,9 @@ public class CreateContractAppendixTermRequest
     [MaxLength(1000)] public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        [System.Text.Json.Serialization.JsonRequired]
+        [System.ComponentModel.DataAnnotations.Range(1, 2)]
+        public byte BilingualContentMode { get; set; } = 1;
     [Range(0, int.MaxValue)] public int DisplayOrder { get; set; }
     [Required] public string VersionRowVersion { get; set; } = string.Empty;
     [Required] public string AppendixRowVersion { get; set; } = string.Empty;

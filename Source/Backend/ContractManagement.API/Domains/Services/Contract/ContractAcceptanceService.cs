@@ -218,6 +218,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 AcceptanceCode = acceptanceCode,
                 AcceptanceDate = request.AcceptanceDate.Date,
                 Location = Required(request.Location, 500, "Địa điểm"),
+                LocationEn = Optional(request.LocationEn, 500),
                 AcceptanceKind = (byte)request.AcceptanceKind,
                 Status = (byte)AcceptanceRecordStatus.Draft,
                 CreatedEmployeeId = employeeId,
@@ -254,6 +255,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         AcceptanceRecordId = row.AcceptanceRecordId,
                         PartyRole = partyRole,
                         LegalName = party.LegalName,
+                        LegalNameEn = party.LegalNameEn, AddressEn = party.AddressEn,
+                        RepresentativeTitleEn = isCustomer ? party.ContactTitleEn : party.RepresentativeTitleEn,
                         Address = party.Address,
                         Phone = party.PhoneNumber,
                         Fax = party.FaxNumber,
@@ -275,6 +278,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         TitleEn = section.TermTitleEn,
                         ContentVi = section.TermContent,
                         ContentEn = section.TermContentEn,
+                        BilingualContentMode = section.BilingualContentMode,
                         DisplayOrder = section.DisplayOrder
                     }).ToList();
             sections.ForEach(EnsureSyntheticRowVersion);
@@ -320,6 +324,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             row.AcceptanceCode = acceptanceCode;
             row.AcceptanceDate = request.AcceptanceDate.Date;
             row.Location = Required(request.Location, 500, "Địa điểm");
+            row.LocationEn = Optional(request.LocationEn, 500);
             row.AcceptanceKind = (byte)request.AcceptanceKind;
             var parties = await _db.TblContractAcceptanceParties
                 .Where(x => x.AcceptanceRecordId == acceptanceRecordId)
@@ -418,6 +423,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     TitleEn = Optional(section.TitleEn, 1000),
                     ContentVi = NormalizeRichText(section.ContentVi),
                     ContentEn = NormalizeRichText(section.ContentEn),
+                    BilingualContentMode = section.BilingualContentMode,
                     DisplayOrder = section.DisplayOrder
                 }).ToList();
             sections.ForEach(EnsureSyntheticRowVersion);
@@ -841,6 +847,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 TitleEn = x.TitleEn,
                 ContentVi = x.ContentVi,
                 ContentEn = x.ContentEn,
+                BilingualContentMode = x.BilingualContentMode,
                 DisplayOrder = x.DisplayOrder,
                 RowVersion = Convert.ToBase64String(x.RowVersion)
             }).ToListAsync(ct);
@@ -886,6 +893,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             AcceptanceCode = header.record.AcceptanceCode,
             AcceptanceDate = header.record.AcceptanceDate,
             Location = header.record.Location,
+            LocationEn = header.record.LocationEn,
             AcceptanceKind = (AcceptanceKind)header.record.AcceptanceKind,
             Status = (AcceptanceRecordStatus)header.record.Status,
             SnapshotHash = header.record.SnapshotHash,
@@ -930,6 +938,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             template.file.TenantCode, template.file.StorageKey, ct);
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, ct);
+        foreach (var section in detail.Sections)
+            BilingualContentPolicy.Validate(section.BilingualContentMode, (ContractLanguageMode)template.LanguageMode,
+                section.TitleEn, section.ContentVi, section.ContentEn, section.SectionCode);
         var customValues = await ResolveCustomPlaceholderValuesAsync(
             contractId,
             detail.ContractVersionId,
@@ -944,6 +955,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             detail.Parties,
             detail.Sections)
         {
+            LocationEn = detail.LocationEn,
             CustomValues = customValues
         });
     }
@@ -993,6 +1005,32 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             }
         }
 
+        // English sources for acceptance always come from the signed version, not mutable master data.
+        if (fields.Any(x => x.SourceFieldKey.EndsWith("-en", StringComparison.Ordinal)))
+        {
+            var parties = await (from party in _db.TblContractVersionPartySnapshots.AsNoTracking()
+                join legal in _db.TblContractVersionLegalSnapshots.AsNoTracking()
+                    on party.ContractVersionLegalSnapshotId equals legal.ContractVersionLegalSnapshotId
+                where legal.ContractId == contractId && legal.VersionId == contractVersionId
+                select party).ToListAsync(ct);
+            var frozenCustomer = parties.Single(x => x.PartyRole == 2);
+            var frozenTenant = parties.Single(x => x.PartyRole == 1);
+            customer.CustomerCompanyEn = frozenCustomer.LegalNameEn;
+            customer.CustomerAddressEn = frozenCustomer.AddressEn;
+            customer.CustomerBankNameEn = frozenCustomer.BankNameEn;
+            customer.CustomerContactPersonTitleEn = frozenCustomer.ContactTitleEn;
+            customer.CustomerRepresentativeTitleEn = frozenCustomer.RepresentativeTitleEn;
+            customer.CustomerCityEn = frozenCustomer.CityEn;
+            customer.CustomerCountryEn = frozenCustomer.CountryEn;
+            if (tenant is not null || fields.Any(x => x.SourceFieldKey.StartsWith("provider.") && x.SourceFieldKey.EndsWith("-en")))
+            {
+                tenant ??= new TblTenantLegalProfile();
+                tenant.LegalEntityNameEn = frozenTenant.LegalNameEn!;
+                tenant.AddressEn = frozenTenant.AddressEn!;
+                tenant.BankNameEn = frozenTenant.BankNameEn!;
+                tenant.RepresentativeTitleEn = frozenTenant.RepresentativeTitleEn!;
+            }
+        }
         var context = new ContractPlaceholderResolveContext(
             contract, version, customer, tenant, owner, department);
         return fields.ToDictionary(
@@ -1001,11 +1039,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             {
                 var sourceFieldKey = field.SourceFieldKey;
                 var raw = _placeholderSources.Resolve(sourceFieldKey, context);
-                return _placeholderSources.Format(
-                    sourceFieldKey,
-                    raw,
-                    field.FormatString,
-                    field.DefaultValue);
+                var value = _placeholderSources.Format(sourceFieldKey, raw, field.FormatString, field.DefaultValue);
+                return sourceFieldKey.EndsWith("-en", StringComparison.Ordinal)
+                    && !DocumentEnglishPolicy.IsOptionalCustomerEnglishSource(sourceFieldKey)
+                    ? DocumentEnglishPolicy.Require(value, field.FieldLabel) : value;
             },
             StringComparer.Ordinal);
     }
@@ -1232,6 +1269,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         AcceptancePartyId = party.AcceptancePartyId,
         PartyRole = (AcceptancePartyRole)party.PartyRole,
         LegalName = party.LegalName,
+        LegalNameEn = party.LegalNameEn, AddressEn = party.AddressEn,
+        RepresentativeTitleEn = party.RepresentativeTitleEn,
         Address = party.Address,
         Phone = party.Phone,
         Fax = party.Fax,
@@ -1264,7 +1303,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ReferenceType = AcceptanceReferenceType.Contract,
                 DisplayOrder = reference.DisplayOrder,
                 TextVi = $"Căn cứ Hợp đồng số {legal.ContractCode} ký ngày {signDate.Value:dd/MM/yyyy} giữa {tenant.LegalName} và {customer.LegalName} về việc {legal.ContractName}.",
-                TextEn = $"Pursuant to Contract No. {legal.ContractCode} signed on {signDate.Value:dd/MM/yyyy} between {tenant.LegalName} and {customer.LegalName} regarding {legal.ContractNameEn ?? legal.ContractName}."
+                TextEn = !string.IsNullOrWhiteSpace(legal.ContractNameEn) && !string.IsNullOrWhiteSpace(tenant.LegalNameEn)
+                    ? $"Pursuant to Contract No. {legal.ContractCode} signed on {DocumentEnglishPolicy.Date(signDate.Value)} between {tenant.LegalNameEn} and {DocumentEnglishPolicy.OptionalCustomerEnglish(customer.LegalNameEn)} regarding {legal.ContractNameEn}."
+                    : null
             };
         }
         var appendix = appendices[reference.AppendixId!.Value];
@@ -1275,7 +1316,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             AppendixId = appendix.AppendixId,
             DisplayOrder = reference.DisplayOrder,
             TextVi = $"Căn cứ Phụ lục {appendix.AppendixCode} - {appendix.AppendixName} thuộc Hợp đồng số {legal.ContractCode}.",
-            TextEn = $"Pursuant to Appendix {appendix.AppendixCode} - {appendix.AppendixNameEn ?? appendix.AppendixName} to Contract No. {legal.ContractCode}."
+            TextEn = string.IsNullOrWhiteSpace(appendix.AppendixNameEn) ? null
+                : $"Pursuant to Appendix {appendix.AppendixCode} - {appendix.AppendixNameEn} to Contract No. {legal.ContractCode}."
         };
     }
 
@@ -1283,6 +1325,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         TblContractAcceptanceParty target, ContractAcceptancePartyInput input)
     {
         target.LegalName = Required(input.LegalName, 500, "Tên pháp nhân");
+        target.LegalNameEn = Optional(input.LegalNameEn, 500);
+        target.AddressEn = Optional(input.AddressEn, 2000);
+        target.RepresentativeTitleEn = Optional(input.RepresentativeTitleEn, 300);
         target.Address = Optional(input.Address, 1000);
         target.Phone = Optional(input.Phone, 50);
         target.Fax = Optional(input.Fax, 50);
@@ -1325,12 +1370,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         IReadOnlyCollection<ContractAcceptanceSectionInput> sections,
         ContractLanguageMode languageMode)
     {
-        if (languageMode != ContractLanguageMode.Bilingual) return;
-        if (sections.Any(section => string.IsNullOrWhiteSpace(section.TitleEn)
-            || (!string.IsNullOrWhiteSpace(section.ContentVi)
-                && string.IsNullOrWhiteSpace(section.ContentEn))))
-            throw Rule("AcceptanceSectionsBilingualInvalid",
-                "Section song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+        foreach (var section in sections)
+            BilingualContentPolicy.Validate(section.BilingualContentMode, languageMode,
+                section.TitleEn, section.ContentVi, section.ContentEn, section.SectionCode);
     }
 
     private async Task<ContractLanguageMode> LoadTemplateLanguageModeAsync(
@@ -1376,14 +1418,14 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         }
         Add(record.ContractId); Add(record.ContractVersionId);
         Add(record.TemplateVersionId); Add(record.AcceptanceCode);
-        Add(record.AcceptanceDate.ToString("O")); Add(record.Location);
+        Add(record.AcceptanceDate.ToString("O")); Add(record.Location); Add(record.LocationEn);
         Add((byte)record.AcceptanceKind);
         foreach (var reference in record.References.OrderBy(x => x.DisplayOrder))
         { Add((byte)reference.ReferenceType); Add(reference.AppendixId); Add(reference.TextVi); Add(reference.TextEn); }
         foreach (var party in record.Parties.OrderBy(x => x.PartyRole))
-        { Add((byte)party.PartyRole); Add(party.LegalName); Add(party.Address); Add(party.Phone); Add(party.Fax); Add(party.TaxCode); Add(party.RepresentativeName); Add(party.RepresentativeTitle); }
+        { Add((byte)party.PartyRole); Add(party.LegalName); Add(party.Address); Add(party.Phone); Add(party.Fax); Add(party.TaxCode); Add(party.RepresentativeName); Add(party.RepresentativeTitle); Add(party.LegalNameEn); Add(party.AddressEn); Add(party.RepresentativeTitleEn); }
         foreach (var section in record.Sections.OrderBy(x => x.DisplayOrder))
-        { Add(section.SectionCode); Add(section.TitleVi); Add(section.TitleEn); Add(section.ContentVi); Add(section.ContentEn); Add(section.DisplayOrder); }
+        { Add(section.SectionCode); Add(section.TitleVi); Add(section.TitleEn); Add(section.ContentVi); Add(section.ContentEn); Add(section.BilingualContentMode); Add(section.DisplayOrder); }
         foreach (var milestone in record.Milestones.OrderBy(x => x.PaymentMilestoneId))
             Add(milestone.PaymentMilestoneId);
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();

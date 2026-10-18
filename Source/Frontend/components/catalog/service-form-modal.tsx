@@ -60,6 +60,7 @@ export function ServiceFormModal({
 
   // Basic Info
   const [serviceName, setServiceName] = useState("");
+  const [serviceNameEn, setServiceNameEn] = useState("");
   const [serviceTypeId, setServiceTypeId] = useState("");
   const [serviceParentId, setServiceParentId] = useState("");
   const [serviceOrder, setServiceOrder] = useState("1");
@@ -151,6 +152,7 @@ export function ServiceFormModal({
       setActiveTab("basic");
       if (item) {
         setServiceName(item.serviceName || "");
+        setServiceNameEn(item.serviceNameEn || "");
         setServiceTypeId(
           item.serviceTypeId !== undefined && item.serviceTypeId !== null
             ? String(item.serviceTypeId)
@@ -201,6 +203,7 @@ export function ServiceFormModal({
         setMetaDescription(item.metaDescription || "");
       } else {
         setServiceName("");
+        setServiceNameEn("");
         setServiceTypeId(initialServiceTypeId ? String(initialServiceTypeId) : "");
         setServiceParentId("");
         setServiceOrder("1");
@@ -226,6 +229,11 @@ export function ServiceFormModal({
     if (!serviceName.trim()) {
       newErrors.serviceName = "Vui lòng nhập tên dịch vụ";
     }
+    if (!serviceNameEn.trim()) {
+      newErrors.serviceNameEn = "Vui lòng nhập tên dịch vụ tiếng Anh";
+    } else if (serviceNameEn.trim().length > 500) {
+      newErrors.serviceNameEn = "Tên dịch vụ tiếng Anh không được vượt quá 500 ký tự";
+    }
     if (!serviceTypeId) {
       newErrors.serviceTypeId = "Vui lòng chọn loại dịch vụ";
     } else if (isLoadingOptions || optionsError) {
@@ -245,7 +253,7 @@ export function ServiceFormModal({
 
     setErrors(newErrors);
 
-    if (newErrors.serviceName || newErrors.serviceTypeId) {
+    if (newErrors.serviceName || newErrors.serviceNameEn || newErrors.serviceTypeId) {
       setActiveTab("basic");
     } else if (
       newErrors.servicePrice ||
@@ -273,6 +281,7 @@ export function ServiceFormModal({
 
       const commonPayload = {
         serviceName: serviceName.trim(),
+        serviceNameEn: serviceNameEn.trim(),
         serviceTypeId: typeIdVal,
         serviceParentId: parentIdVal,
         servicePrice: priceVal,
@@ -294,7 +303,7 @@ export function ServiceFormModal({
       if (isEditMode && item) {
         await serviceApi.update(item.serviceId, commonPayload);
         toast.success("Cập nhật dịch vụ thành công");
-        onSuccess({ ...item, serviceName: commonPayload.serviceName, serviceTypeId: typeIdVal });
+        onSuccess({ ...item, serviceName: commonPayload.serviceName, serviceNameEn: commonPayload.serviceNameEn, serviceTypeId: typeIdVal });
       } else {
         const createdService = await serviceApi.create(commonPayload);
         toast.success("Thêm dịch vụ mới thành công");
@@ -380,6 +389,13 @@ export function ServiceFormModal({
               {errors.serviceName && (
                 <p className="text-xs text-destructive">{errors.serviceName}</p>
               )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="serviceNameEn">Tên dịch vụ tiếng Anh {!viewOnly && <span className="text-destructive">*</span>}</Label>
+              <Input id="serviceNameEn" value={serviceNameEn} onChange={(event) => setServiceNameEn(event.target.value)}
+                disabled={viewOnly} maxLength={500} aria-invalid={!!errors.serviceNameEn} placeholder="Nhập tên dịch vụ tiếng Anh..." />
+              {errors.serviceNameEn && <p className="text-xs text-destructive">{errors.serviceNameEn}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

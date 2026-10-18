@@ -4,6 +4,18 @@ namespace ContractManagement.API.Domains.DTOs.Requests.LegalProfiles;
 
 public sealed class UpsertTenantLegalProfileRequest
 {
+    [Required, MaxLength(500)]
+    public string LegalEntityNameEn { get; set; } = string.Empty;
+
+    [Required, MaxLength(2000)]
+    public string AddressEn { get; set; } = string.Empty;
+
+    [Required, MaxLength(200)]
+    public string RepresentativeTitleEn { get; set; } = string.Empty;
+
+    [Required, MaxLength(500)]
+    public string BankNameEn { get; set; } = string.Empty;
+
     [Required]
     [MaxLength(500)]
     public string LegalEntityName { get; set; } = string.Empty;

@@ -17,6 +17,7 @@ public sealed record ContractAcceptanceDocumentRenderData(
     IReadOnlyList<ContractAcceptancePartyResponse> Parties,
     IReadOnlyList<ContractAcceptanceSectionResponse> Sections)
 {
+    public string? LocationEn { get; init; }
     public IReadOnlyDictionary<string, string> CustomValues { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 }
@@ -50,6 +51,14 @@ public sealed class ContractAcceptanceDocumentRenderer
                 x.PartyRole == AcceptancePartyRole.Tenant);
             var values = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["ACCEPTANCE_DATE_EN"] = DocumentEnglishPolicy.Date(data.AcceptanceDate),
+                ["ACCEPTANCE_LOCATION_EN"] = data.LocationEn ?? string.Empty,
+                ["CUSTOMER_LEGAL_NAME_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.LegalNameEn),
+                ["CUSTOMER_ADDRESS_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.AddressEn),
+                ["CUSTOMER_REPRESENTATIVE_TITLE_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.RepresentativeTitleEn),
+                ["TENANT_LEGAL_NAME_EN"] = tenant.LegalNameEn ?? string.Empty,
+                ["TENANT_ADDRESS_EN"] = tenant.AddressEn ?? string.Empty,
+                ["TENANT_REPRESENTATIVE_TITLE_EN"] = tenant.RepresentativeTitleEn ?? string.Empty,
                 ["ACCEPTANCE_CODE"] = data.AcceptanceCode,
                 ["ACCEPTANCE_DATE"] = data.AcceptanceDate.ToString("dd/MM/yyyy"),
                 ["ACCEPTANCE_LOCATION"] = data.Location,
@@ -74,11 +83,26 @@ public sealed class ContractAcceptanceDocumentRenderer
                 values[key] = value;
 
             ReplaceOptionalMarker(body, "{{SIGNATURE_CUSTOMER}}",
-                (_, _) => CreateSignatureParagraphs(customer, "ĐẠI DIỆN BÊN A"));
+                (_, _) => CreateSignatureParagraphs(customer, DocumentEnglishPolicy.Label(data.LanguageMode, "CUSTOMER REPRESENTATIVE", "ĐẠI DIỆN BÊN A"), data.LanguageMode));
             ReplaceOptionalMarker(body, "{{SIGNATURE_PROVIDER}}",
-                (_, _) => CreateSignatureParagraphs(tenant, "ĐẠI DIỆN BÊN B"));
-            foreach (var paragraph in body.Descendants<W.Paragraph>())
+                (_, _) => CreateSignatureParagraphs(tenant, DocumentEnglishPolicy.Label(data.LanguageMode, "PROVIDER REPRESENTATIVE", "ĐẠI DIỆN BÊN B"), data.LanguageMode));
+            var roots = new List<OpenXmlElement> { body };
+            roots.AddRange(document.MainDocumentPart!.HeaderParts.Select(x => x.Header).OfType<OpenXmlElement>());
+            roots.AddRange(document.MainDocumentPart.FooterParts.Select(x => x.Footer).OfType<OpenXmlElement>());
+            if (document.MainDocumentPart.FootnotesPart?.Footnotes is { } footnotes) roots.Add(footnotes);
+            if (document.MainDocumentPart.EndnotesPart?.Endnotes is { } endnotes) roots.Add(endnotes);
+            foreach (var paragraph in roots.SelectMany(x => x.Descendants<W.Paragraph>()))
+            {
+                foreach (var field in AcceptanceRecordPlaceholderCatalog.All.Where(x => x.Key.EndsWith("_EN", StringComparison.Ordinal)
+                             && !DocumentEnglishPolicy.IsOptionalCustomerEnglish(x)))
+                    if (paragraph.InnerText.Contains($"{{{{{field.Key}}}}}", StringComparison.Ordinal))
+                        DocumentEnglishPolicy.Require(values.GetValueOrDefault(field.Key), field.Label);
                 ReplaceScalarTokens(paragraph, values);
+            }
+            foreach (var header in document.MainDocumentPart.HeaderParts) header.Header?.Save();
+            foreach (var footer in document.MainDocumentPart.FooterParts) footer.Footer?.Save();
+            document.MainDocumentPart.FootnotesPart?.Footnotes?.Save();
+            document.MainDocumentPart.EndnotesPart?.Endnotes?.Save();
             document.MainDocumentPart!.Document.Save();
         }
         return output.ToArray();
@@ -122,7 +146,7 @@ public sealed class ContractAcceptanceDocumentRenderer
         if (sourceJustification is not null || sourceStyle is not null)
         {
             paragraph.ParagraphProperties ??= new W.ParagraphProperties();
-            if (sourceJustification is not null)
+            if (sourceJustification is not null && paragraph.ParagraphProperties.GetFirstChild<W.Justification>() is null)
             {
                 paragraph.ParagraphProperties
                     .RemoveAllChildren<W.Justification>();
@@ -168,20 +192,19 @@ public sealed class ContractAcceptanceDocumentRenderer
         var result = new List<W.Paragraph>();
         foreach (var reference in data.References.OrderBy(x => x.DisplayOrder))
         {
+            if (data.LanguageMode == ContractLanguageMode.Bilingual)
+                result.Add(Paragraph(DocumentEnglishPolicy.Require(reference.TextEn, "căn cứ nghiệm thu tiếng Anh"), italic: true));
             result.Add(Paragraph(reference.TextVi, italic: true));
-            if (data.LanguageMode == ContractLanguageMode.Bilingual
-                && !string.IsNullOrWhiteSpace(reference.TextEn))
-                result.Add(Paragraph(reference.TextEn!, italic: true));
         }
         return result.Cast<OpenXmlElement>().ToList();
     }
 
     private static IReadOnlyList<OpenXmlElement> CreateSignatureParagraphs(
         ContractAcceptancePartyResponse party,
-        string partyTitle) =>
+        string partyTitle, ContractLanguageMode languageMode) =>
     [
         Paragraph(partyTitle, bold: true),
-        Paragraph("(Chữ ký)", italic: true),
+        Paragraph(DocumentEnglishPolicy.Label(languageMode, "(Signature)", "(Chữ ký)"), italic: true),
         Paragraph(string.Empty),
         Paragraph(string.Empty),
         Paragraph(party.RepresentativeName, bold: true)
@@ -194,13 +217,13 @@ public sealed class ContractAcceptanceDocumentRenderer
         var result = new List<OpenXmlElement>();
         foreach (var section in data.Sections.OrderBy(x => x.DisplayOrder))
         {
-            result.Add(Paragraph(section.TitleVi, bold: true));
-            result.AddRange(ContentElements(section.ContentVi, availableWidthDxa));
-            if (data.LanguageMode == ContractLanguageMode.Bilingual)
-            {
-                result.Add(Paragraph(section.TitleEn ?? string.Empty, bold: true));
-                result.AddRange(ContentElements(section.ContentEn, availableWidthDxa));
-            }
+            BilingualContentPolicy.Validate(section.BilingualContentMode, data.LanguageMode,
+                section.TitleEn, section.ContentVi, section.ContentEn, section.SectionCode);
+            result.Add(Paragraph(DocumentEnglishPolicy.Label(data.LanguageMode,
+                section.TitleEn ?? string.Empty, section.TitleVi), bold: true));
+            foreach (var body in DocumentEnglishPolicy.Bodies(data.LanguageMode, section.BilingualContentMode,
+                         section.ContentVi, section.ContentEn))
+                result.AddRange(ContentElements(body, availableWidthDxa));
         }
         return result;
     }

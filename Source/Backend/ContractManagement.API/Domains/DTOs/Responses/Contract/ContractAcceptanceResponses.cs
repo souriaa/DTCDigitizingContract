@@ -32,6 +32,7 @@ public sealed class ContractAcceptanceRecordResponse
     public int TemplateVersionId { get; set; }
     public string TemplateName { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
+    public string? LocationEn { get; set; }
     public string? SnapshotHash { get; set; }
     public DateTime? FinalizedAt { get; set; }
     public int? FinalizedByEmployeeId { get; set; }
@@ -59,6 +60,9 @@ public sealed class ContractAcceptanceReferenceResponse
 
 public sealed class ContractAcceptancePartyResponse
 {
+    public string? LegalNameEn { get; set; }
+    public string? AddressEn { get; set; }
+    public string? RepresentativeTitleEn { get; set; }
     public int AcceptancePartyId { get; set; }
     public AcceptancePartyRole PartyRole { get; set; }
     public string LegalName { get; set; } = string.Empty;
@@ -78,6 +82,7 @@ public sealed class ContractAcceptanceSectionResponse
     public string? TitleEn { get; set; }
     public string? ContentVi { get; set; }
     public string? ContentEn { get; set; }
+    public byte BilingualContentMode { get; set; } = 1;
     public int DisplayOrder { get; set; }
     public string RowVersion { get; set; } = string.Empty;
 }

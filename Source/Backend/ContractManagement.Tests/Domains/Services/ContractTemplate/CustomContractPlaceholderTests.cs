@@ -17,6 +17,27 @@ namespace ContractManagement.Tests.Domains.Services.ContractTemplate;
 
 public sealed class CustomContractPlaceholderTests
 {
+    [Fact]
+    public async Task Capture_MissingOptionalCustomerEnglish_StoresBlankWithoutDefaultsOrVietnamese()
+    {
+        await using var db = Context();
+        await SeedActor(db);
+        db.TblCustomers.Add(new() { CustomerId = 10, CustomerCompany = "Tên công ty tiếng Việt" });
+        db.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
+            SourceFieldKey = "customer.company-en", IsSystem = false, IsRequired = true,
+            DefaultValue = "Do not substitute this default", DataKind = 1, Multiplicity = 2
+        });
+        await db.SaveChangesAsync();
+        var values = await new ContractPlaceholderValueService(db, Registry).CaptureAsync(
+            new() { ContractId = 30, CustomerId = 10, TemplateVersionId = 20 },
+            new() { VersionId = 40, ContractId = 30, TemplateVersionId = 20 });
+        Assert.Equal(string.Empty, values["EN_COMPANY"]);
+        await db.SaveChangesAsync();
+        Assert.Equal(string.Empty, (await db.TblContractVersionPlaceholderValues.SingleAsync()).RenderedValue);
+    }
+
     private static DbDtctechContext Context() => new(new DbContextOptionsBuilder<DbDtctechContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
     private static readonly ContractPlaceholderSourceRegistry Registry = new();
@@ -30,6 +51,69 @@ public sealed class CustomContractPlaceholderTests
     {
         db.TblEmployees.Add(new() { EmployeeId = 1, EmployeeType = (byte)EmployeeType.AdminOfficer, Status = 1 });
         await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task NewEnglishSystemKeys_CannotSilentlyOverrideCustomDefinitions()
+    {
+        await using var db = Context();
+        await SeedActor(db);
+        db.TblContractPlaceholderDefinitions.Add(new()
+        {
+            PlaceholderKey = "PROVIDER_BANK_NAME_EN", FieldLabel = "Conflicting custom",
+            SourceFieldKey = "customer.phone", IsActive = true, CreatedEmployeeId = 1, CreatedDate = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        Assert.Equal("PlaceholderKeyCollision", (await Assert.ThrowsAsync<PlaceholderOperationException>(
+            () => Catalog(db).GetAsync())).Code);
+    }
+
+    [Fact]
+    public async Task EnglishValueSnapshot_RefreshesDraftButNeverLockedVersion()
+    {
+        await using var db = Context();
+        await SeedActor(db);
+        db.TblCustomers.Add(new() { CustomerId = 10, CustomerCompanyEn = "First English name" });
+        db.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
+            SourceFieldKey = "customer.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
+        });
+        await db.SaveChangesAsync();
+        var contract = new TblContract { ContractId = 30, CustomerId = 10, EmployeeId = 1, TemplateVersionId = 20 };
+        var version = new TblContractVersion { VersionId = 40, ContractId = 30, TemplateVersionId = 20 };
+        var values = new ContractPlaceholderValueService(db, Registry);
+        Assert.Equal("First English name", (await values.CaptureAsync(contract, version))["EN_COMPANY"]);
+        await db.SaveChangesAsync();
+        var customer = await db.TblCustomers.SingleAsync();
+        customer.CustomerCompanyEn = "Second English name";
+        await db.SaveChangesAsync();
+        Assert.Equal("Second English name", (await values.CaptureAsync(contract, version))["EN_COMPANY"]);
+        await db.SaveChangesAsync();
+        version.IsLocked = true;
+        customer.CustomerCompanyEn = "Later English name";
+        await db.SaveChangesAsync();
+        Assert.Equal("Second English name", (await values.CaptureAsync(contract, version, refresh: true))["EN_COMPANY"]);
+    }
+
+    [Fact]
+    public async Task Capture_UsesSamePreloadedEnglishSourcesAsDocumentSnapshot()
+    {
+        await using var db = Context();
+        await SeedActor(db);
+        db.TblCustomers.Add(new() { CustomerId = 10, CustomerCompanyEn = "Changed during render" });
+        db.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
+            SourceFieldKey = "customer.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
+        });
+        await db.SaveChangesAsync();
+        var contract = new TblContract { ContractId = 30, CustomerId = 10, TemplateVersionId = 20 };
+        var version = new TblContractVersion { VersionId = 40, ContractId = 30, TemplateVersionId = 20 };
+        var preloaded = new ContractPlaceholderResolveContext(contract, version,
+            new() { CustomerId = 10, CustomerCompanyEn = "English source captured for snapshot" }, null, null, null);
+        var values = await new ContractPlaceholderValueService(db, Registry).CaptureAsync(contract, version, preloadedContext: preloaded);
+        Assert.Equal("English source captured for snapshot", values["EN_COMPANY"]);
     }
 
     [Fact]

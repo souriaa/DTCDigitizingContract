@@ -32,6 +32,13 @@ public sealed class TblContractVersionLegalSnapshot
 
 public sealed class TblContractVersionPartySnapshot
 {
+    public string? LegalNameEn { get; set; }
+    public string? AddressEn { get; set; }
+    public string? RepresentativeTitleEn { get; set; }
+    public string? ContactTitleEn { get; set; }
+    public string? BankNameEn { get; set; }
+    public string? CityEn { get; set; }
+    public string? CountryEn { get; set; }
     public long ContractVersionPartySnapshotId { get; set; }
     public long ContractVersionLegalSnapshotId { get; set; }
     public byte PartyRole { get; set; }

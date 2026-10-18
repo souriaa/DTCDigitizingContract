@@ -99,6 +99,7 @@ const emptyCreate = () => ({
   acceptanceCode: "",
   acceptanceDate: format(new Date(), "yyyy-MM-dd"),
   location: "",
+  locationEn: "",
   acceptanceKind: AcceptanceKind.Final,
   appendixIds: [] as number[],
   paymentMilestoneIds: [] as number[],
@@ -113,6 +114,8 @@ const parseDateString = (str?: string) => {
 
 const partyInput = (party: ContractAcceptanceParty) => ({
   legalName: party.legalName,
+  legalNameEn: party.legalNameEn, addressEn: party.addressEn,
+  representativeTitleEn: party.representativeTitleEn,
   address: party.address,
   phone: party.phone,
   fax: party.fax,
@@ -252,6 +255,7 @@ export function ContractAcceptanceRecords({
           acceptanceCode: createForm.acceptanceCode.trim(),
           acceptanceDate: createForm.acceptanceDate,
           location: createForm.location.trim(),
+          locationEn: createForm.locationEn.trim() || null,
           acceptanceKind: createForm.acceptanceKind,
           appendixIds: createForm.appendixIds,
           paymentMilestoneIds:
@@ -306,6 +310,7 @@ export function ContractAcceptanceRecords({
           acceptanceCode: draft.acceptanceCode,
           acceptanceDate: draft.acceptanceDate.slice(0, 10),
           location: draft.location,
+          locationEn: draft.locationEn,
           acceptanceKind: draft.acceptanceKind,
           customerParty: partyInput(customer),
           tenantParty: partyInput(tenant),
@@ -339,6 +344,7 @@ export function ContractAcceptanceRecords({
           titleEn: section.titleEn,
           contentVi: section.contentVi,
           contentEn: section.contentEn,
+          bilingualContentMode: section.bilingualContentMode,
           displayOrder: section.displayOrder,
         })),
         latest.rowVersion,
@@ -944,6 +950,10 @@ export function ContractAcceptanceRecords({
                           }
                         />
                       </div>
+                      <div className="col-span-2">
+                        <Field label="Địa điểm tiếng Anh" value={selected.locationEn ?? ""}
+                          onChange={(value) => setSelected({ ...selected, locationEn: value })} />
+                      </div>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 pt-1">
@@ -1256,9 +1266,9 @@ export function ContractAcceptanceRecords({
                     {selected.sections.map((section, index) => {
                       const updateSection = (
                         field: ContractTermEditableField,
-                        value: string | boolean,
+                        value: string | boolean | number,
                       ) => {
-                        if (typeof value !== "string") return;
+                        if (typeof value === "boolean") return;
                         const sectionField =
                           field === "termTitle"
                             ? "titleVi"
@@ -1268,16 +1278,13 @@ export function ContractAcceptanceRecords({
                                 ? "contentVi"
                                 : field === "termContentEn"
                                   ? "contentEn"
-                                  : null;
+                                  : field === "bilingualContentMode" ? "bilingualContentMode" : null;
                         if (!sectionField) return;
-                        setSelected({
-                          ...selected,
-                          sections: selected.sections.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, [sectionField]: value }
-                              : item,
-                          ),
-                        });
+                        setSelected((current) => current ? {
+                          ...current,
+                          sections: current.sections.map((item, itemIndex) =>
+                            itemIndex === index ? { ...item, [sectionField]: value } : item),
+                        } : current);
                       };
 
                       return (
@@ -1289,13 +1296,14 @@ export function ContractAcceptanceRecords({
                             termTitleEn: section.titleEn,
                             termContent: section.contentVi,
                             termContentEn: section.contentEn,
+                            bilingualContentMode: section.bilingualContentMode,
                             displayOrder: section.displayOrder,
                             isNegotiable: false,
                           }}
                           inputId={`acceptance-${selected.acceptanceRecordId}-${section.acceptanceSectionId}`}
                           editable
                           isBilingual={
-                            section.titleEn != null || section.contentEn != null
+                            section.titleEn != null || section.contentEn != null || section.bilingualContentMode === 2
                           }
                           orderLabel="Mục nghiệm thu"
                           titleLabel="Tiêu đề mục"
@@ -1441,6 +1449,7 @@ export function ContractAcceptanceRecords({
                             termTitleEn: section.titleEn,
                             termContent: section.contentVi,
                             termContentEn: section.contentEn,
+                            bilingualContentMode: section.bilingualContentMode,
                             displayOrder: section.displayOrder,
                             isNegotiable: false,
                           }}
@@ -1589,6 +1598,10 @@ export function ContractAcceptanceRecords({
                     setCreateForm({ ...createForm, location: value })
                   }
                 />
+              </div>
+              <div className="md:col-span-2">
+                <Field label="Địa điểm tiếng Anh (không bắt buộc)" value={createForm.locationEn}
+                  onChange={(value) => setCreateForm({ ...createForm, locationEn: value })} />
               </div>
             </div>
           )}
@@ -1884,6 +1897,9 @@ function PartyEditor({
         disabled
         onChange={(value) => onChange("legalName", value)}
       />
+      <Field label="Tên pháp nhân tiếng Anh" value={party.legalNameEn ?? ""} disabled onChange={() => {}} />
+      <Field label="Địa chỉ tiếng Anh" value={party.addressEn ?? ""} onChange={(value) => onChange("addressEn", value)} />
+      <Field label="Chức vụ tiếng Anh" value={party.representativeTitleEn ?? ""} onChange={(value) => onChange("representativeTitleEn", value)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label={representativeLabel}

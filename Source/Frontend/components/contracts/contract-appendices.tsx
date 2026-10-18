@@ -1,45 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  FileStack,
-  Loader2,
-  Minus,
-  Plus,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, FileStack, Loader2, Minus, Plus } from "lucide-react";
 
-import { ContractTermCard } from "@/components/contracts/contract-term-card";
+import { AppendixCard } from "@/components/contract-documents/appendix-card";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
+import { TermFields } from "@/components/contract-documents/term-fields";
 import { showConfirmToast } from "@/components/ui/custom/confirm-toast";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { getApiErrorMessage, isStaleRowVersion } from "@/lib/api-error";
-import {
-  contractApi,
-  type ContractAppendixResponse,
-  type ContractAppendixTermResponse,
-  type ContractDetailResponse,
-} from "@/services/contract-api";
+import { contractApi, type ContractAppendixResponse, type ContractAppendixTermResponse, type ContractDetailResponse } from "@/services/contract-api";
 
 const isTermDirty = (
   draft: ContractAppendixTermResponse,
@@ -49,7 +27,8 @@ const isTermDirty = (
   draft.termTitle.trim() !== saved.termTitle.trim() ||
   (draft.termTitleEn?.trim() || "") !== (saved.termTitleEn?.trim() || "") ||
   (draft.termContent?.trim() || "") !== (saved.termContent?.trim() || "") ||
-  (draft.termContentEn?.trim() || "") !== (saved.termContentEn?.trim() || "");
+  (draft.termContentEn?.trim() || "") !== (saved.termContentEn?.trim() || "") ||
+  draft.bilingualContentMode !== saved.bilingualContentMode;
 
 const nextTermCode = (terms: ContractAppendixTermResponse[]) => {
   const largestNumber = terms.reduce((largest, term) => {
@@ -93,7 +72,7 @@ export function ContractAppendices({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const operationInFlightRef = useRef(false);
   const [addingTo, setAddingTo] = useState<number | null>(null);
-  const [newTerm, setNewTerm] = useState({ code: "", title: "", titleEn: "" });
+  const [newTerm, setNewTerm] = useState({ code: "", title: "", titleEn: "", content: "", contentEn: "", bilingualContentMode: 1 });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newAppendix, setNewAppendix] = useState({
     code: "",
@@ -148,7 +127,7 @@ export function ContractAppendices({
       toast.error("Nhập mã và tiêu đề điều khoản mới.");
       return;
     }
-    if (contract.languageMode === 2 && !newTerm.titleEn.trim()) {
+    if (contract.languageMode === 2 && (!newTerm.titleEn.trim() || newTerm.bilingualContentMode === 1 && newTerm.content.trim() && !newTerm.contentEn.trim())) {
       toast.error("Hợp đồng song ngữ cần tiêu đề điều khoản tiếng Anh.");
       return;
     }
@@ -161,13 +140,16 @@ export function ContractAppendices({
           termCode: newTerm.code.trim(),
           termTitle: newTerm.title.trim(),
           termTitleEn: newTerm.titleEn.trim() || null,
+          termContent: newTerm.content || null,
+          termContentEn: newTerm.contentEn || null,
+          bilingualContentMode: newTerm.bilingualContentMode,
           displayOrder: appendix.terms.length + 1,
           versionRowVersion: contract.currentVersion.rowVersion,
           appendixRowVersion: appendix.rowVersion,
         },
       );
       setAddingTo(null);
-      setNewTerm({ code: "", title: "", titleEn: "" });
+      setNewTerm({ code: "", title: "", titleEn: "", content: "", contentEn: "", bilingualContentMode: 1 });
       toast.success("Đã thêm điều khoản phụ lục.");
     });
   };
@@ -413,173 +395,33 @@ export function ContractAppendices({
           return draft && isTermDirty(draft, term);
         });
         return (
-          <Collapsible
-            key={appendix.appendixId}
-            defaultOpen={appendixIndex === 0}
-          >
-            <Card
-              className={
-                hasDirtyTerms
-                  ? "border-destructive ring-1 ring-destructive/40"
-                  : undefined
-              }
-            >
-              <CardHeader className="flex flex-row items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <CardTitle className="text-base">
-                    {appendix.appendixCode} — {appendix.appendixName}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={appendix.isRequired ? "default" : "outline"}
-                    >
-                      {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
-                    </Badge>
-                    {hasDirtyTerms && (
-                      <Badge variant="destructive">Chưa lưu</Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {appendix.terms.length} điều khoản
-                    </span>
-                  </div>
-                </div>
-                {canEdit && (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={busyKey !== null || appendixIndex === 0}
-                      aria-label={`Đưa phụ lục ${appendix.appendixName} lên`}
-                      onClick={() => moveAppendix(appendixIndex, -1)}
-                    >
-                      <ArrowUp className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={
-                        busyKey !== null ||
-                        appendixIndex === appendices.length - 1
-                      }
-                      aria-label={`Đưa phụ lục ${appendix.appendixName} xuống`}
-                      onClick={() => moveAppendix(appendixIndex, 1)}
-                    >
-                      <ArrowDown className="size-4" />
-                    </Button>
-                    {!appendix.isRequired && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={busyKey !== null || isSaving}
-                        onClick={() => removeAppendix(appendix)}
-                      >
-                        <Minus className="size-4" />
-                        {appendix.sourceTemplateAppendixId != null
-                          ? "Rút phụ lục"
-                          : "Xóa phụ lục"}
-                      </Button>
-                    )}
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
-                        className="group"
-                      >
-                        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                )}
-                {!canEdit && (
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
-                      className="group"
-                    >
-                      <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                    </Button>
-                  </CollapsibleTrigger>
-                )}
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  {appendix.appendixDescription && (
-                    <p className="text-sm text-muted-foreground">
-                      {appendix.appendixDescription}
-                    </p>
-                  )}
-                  {appendix.terms.map((sourceTerm, index) => {
-                    const term =
-                      drafts[sourceTerm.appendixTermId] ?? sourceTerm;
-                    const isDirty = isTermDirty(term, sourceTerm);
-                    return (
-                      <ContractTermCard
-                        key={term.appendixTermId}
-                        term={{ ...term, isNegotiable: false }}
-                        inputId={`appendix-${appendix.appendixId}-${term.appendixTermId}`}
-                        className={
-                          isDirty
-                            ? "border-destructive ring-1 ring-destructive/40"
-                            : undefined
-                        }
-                        editable={canEdit && !isSaving && busyKey === null}
-                        isBilingual={Boolean(contract.languageMode === 2)}
-                        canMoveUp={index > 0}
-                        canMoveDown={index < appendix.terms.length - 1}
-                        onChange={(field, value) =>
-                          onTermDraftChange({ ...term, [field]: value })
-                        }
-                        onMove={(direction) =>
-                          moveTerm(appendix, index, direction)
-                        }
-                        onRemove={() => removeTerm(appendix, sourceTerm)}
-                      />
-                    );
-                  })}
+          <AppendixCard key={appendix.appendixId} index={appendixIndex}
+            code={appendix.appendixCode} name={appendix.appendixName}
+            nameEn={contract.languageMode === 2 ? appendix.appendixNameEn : undefined}
+            description={appendix.appendixDescription} required={appendix.isRequired}
+            dirty={hasDirtyTerms} termCount={appendix.terms.length} defaultOpen={appendixIndex === 0}
+            className={hasDirtyTerms ? "border-destructive ring-1 ring-destructive/40" : undefined}
+            actions={canEdit && <>
+              <Button type="button" variant="ghost" size="icon" disabled={busyKey !== null || isSaving || appendixIndex === 0} aria-label="Chuyển phụ lục lên" onClick={() => moveAppendix(appendixIndex, -1)}><ArrowUp className="size-4" /></Button>
+              <Button type="button" variant="ghost" size="icon" disabled={busyKey !== null || isSaving || appendixIndex === appendices.length - 1} aria-label="Chuyển phụ lục xuống" onClick={() => moveAppendix(appendixIndex, 1)}><ArrowDown className="size-4" /></Button>
+              {!appendix.isRequired && <Button type="button" variant="outline" size="sm" disabled={busyKey !== null || isSaving} onClick={() => removeAppendix(appendix)}><Minus className="size-4" />{appendix.sourceTemplateAppendixId != null ? "Rút phụ lục" : "Xóa phụ lục"}</Button>}
+            </>}>
+                  <TermsListEditor terms={appendix.terms.map((source) => ({ ...(drafts[source.appendixTermId] ?? source), isNegotiable: false }))}
+                    getKey={(term) => term.appendixTermId}
+                    getCardProps={(term, index) => ({
+                      inputId: `appendix-${appendix.appendixId}-${term.appendixTermId}`,
+                      className: isTermDirty(term, appendix.terms.find((source) => source.appendixTermId === term.appendixTermId)!) ? "border-destructive ring-1 ring-destructive/40" : undefined,
+                      editable: canEdit && !isSaving && busyKey === null, isBilingual: contract.languageMode === 2, showNegotiation: false,
+                      onChange: (field, value) => onTermDraftChange({ ...term, [field]: value }),
+                      onValueChange: (patch) => onTermDraftChange({ ...term, ...patch }),
+                      onMove: (direction) => moveTerm(appendix, index, direction),
+                      onRemove: () => removeTerm(appendix, term),
+                    })} />
 
                   {canEdit && addingTo === appendix.appendixId ? (
-                    <div className="grid gap-3 rounded-xl border border-dashed p-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Mã điều khoản</Label>
-                        <Input
-                          value={newTerm.code}
-                          onChange={(event) =>
-                            setNewTerm((current) => ({
-                              ...current,
-                              code: event.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tiêu đề</Label>
-                        <Input
-                          value={newTerm.title}
-                          onChange={(event) =>
-                            setNewTerm((current) => ({
-                              ...current,
-                              title: event.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      {contract.languageMode === 2 && (
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Tiêu đề tiếng Anh</Label>
-                          <Input
-                            value={newTerm.titleEn}
-                            onChange={(event) =>
-                              setNewTerm((current) => ({
-                                ...current,
-                                titleEn: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      )}
+                    <div className="space-y-3 rounded-xl border border-dashed p-4">
+                      <TermFields id={`contract-appendix-new-${appendix.appendixId}`} value={newTerm}
+                        onChange={setNewTerm} isBilingual={contract.languageMode === 2} disabled={busyKey !== null || isSaving} />
                       <div className="flex gap-2 sm:col-span-2">
                         <Button size="sm" onClick={() => addTerm(appendix)}>
                           <Plus className="size-4" /> Thêm
@@ -605,7 +447,7 @@ export function ContractAppendices({
                           setNewTerm({
                             code: nextTermCode(appendix.terms),
                             title: "",
-                            titleEn: "",
+                            titleEn: "", content: "", contentEn: "", bilingualContentMode: 1,
                           });
                           setAddingTo(appendix.appendixId);
                         }
@@ -614,10 +456,7 @@ export function ContractAppendices({
                       <Plus className="size-4" /> Thêm điều khoản
                     </Button>
                   ) : null}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          </AppendixCard>
         );
       })}
 

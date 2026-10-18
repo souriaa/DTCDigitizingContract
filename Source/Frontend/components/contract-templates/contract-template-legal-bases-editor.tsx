@@ -15,10 +15,8 @@ import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { CodeInput } from "@/components/ui/custom/code-input";
+import { LegalBasisFields } from "@/components/contract-documents/legal-basis-fields";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
-import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
-import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   contractTemplateApi,
   TemplateVersionStatus,
@@ -290,15 +287,13 @@ export function ContractTemplateLegalBasesEditor({
               </div>
             )}
           </div>
-          <ContractRichTextContent value={basis.contentVi} />
-          {isBilingual && (
-            <div className="mt-4 rounded-xl border border-dashed p-3">
-              <ContractRichTextContent
-                value={basis.contentEn}
-                emptyText="Chưa có nội dung tiếng Anh"
-              />
-            </div>
-          )}
+          <LegalBasisFields
+            id={`template-basis-${basis.templateLegalBasisId}`}
+            value={basis}
+            isBilingual={isBilingual}
+            disabled
+            showCode={false}
+          />
         </Card>
       ))}
 
@@ -316,36 +311,13 @@ export function ContractTemplateLegalBasesEditor({
               Mỗi căn cứ là một đoạn độc lập trong block căn cứ của hợp đồng.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="legal-basis-code">Mã căn cứ</Label>
-              <CodeInput
-                id="legal-basis-code"
-                value={basisCode}
-                onValueChange={setBasisCode}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="legal-basis-vi">Nội dung tiếng Việt</Label>
-              <ContractRichTextEditor
-                id="legal-basis-vi"
-                value={contentVi}
-                onChange={setContentVi}
-                ariaLabel="Nội dung căn cứ tiếng Việt"
-              />
-            </div>
-            {isBilingual && (
-              <div className="space-y-2">
-                <Label htmlFor="legal-basis-en">Nội dung tiếng Anh</Label>
-                <ContractRichTextEditor
-                  id="legal-basis-en"
-                  value={contentEn}
-                  onChange={setContentEn}
-                  ariaLabel="Nội dung căn cứ tiếng Anh"
-                />
-              </div>
-            )}
-          </div>
+          <LegalBasisFields id="legal-basis" value={{ basisCode, contentVi, contentEn }}
+            isBilingual={isBilingual} disabled={isSaving}
+            onChange={(field, next) => {
+              if (field === "basisCode") setBasisCode(next);
+              else if (field === "contentVi") setContentVi(next);
+              else setContentEn(next);
+            }} />
           <DialogFooter>
             <Button
               variant="outline"

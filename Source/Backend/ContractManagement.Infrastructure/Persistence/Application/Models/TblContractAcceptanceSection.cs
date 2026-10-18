@@ -8,6 +8,8 @@ public sealed class TblContractAcceptanceSection
     public string? TitleEn { get; set; }
     public string? ContentVi { get; set; }
     public string? ContentEn { get; set; }
+
+    public byte BilingualContentMode { get; set; } = 1;
     public int DisplayOrder { get; set; }
     public byte[] RowVersion { get; set; } = null!;
 }

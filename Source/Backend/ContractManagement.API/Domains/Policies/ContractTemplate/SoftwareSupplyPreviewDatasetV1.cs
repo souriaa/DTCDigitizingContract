@@ -8,7 +8,7 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 /// </summary>
 public static class SoftwareSupplyPreviewDatasetV1
 {
-    public const string Version = "V4";
+    public const string Version = "V5";
 
     public const string LegalDisclaimer =
         "DỮ LIỆU MẪU — KHÔNG CÓ GIÁ TRỊ PHÁP LÝ";
@@ -16,6 +16,20 @@ public static class SoftwareSupplyPreviewDatasetV1
     private static readonly IReadOnlySet<string> Keys = new HashSet<string>(
         StringComparer.Ordinal)
     {
+        "CONTRACT_DATE_EN",
+        "EFFECTIVE_DATE_EN",
+        "EXPIRE_DATE_EN",
+        "CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN",
+        "CUSTOMER_COMPANY_EN",
+        "CUSTOMER_ADDRESS_EN",
+        "CUSTOMER_BANK_NAME_EN",
+        "CUSTOMER_CITY_EN",
+        "CUSTOMER_COUNTRY_EN",
+        "CUSTOMER_CONTACT_TITLE_EN",
+        "PROVIDER_LEGAL_NAME_EN",
+        "PROVIDER_ADDRESS_EN",
+        "PROVIDER_REPRESENTATIVE_TITLE_EN",
+        "PROVIDER_BANK_NAME_EN",
         "CONTRACT_CODE",
         "CONTRACT_NAME",
         "CONTRACT_DATE",
@@ -60,13 +74,25 @@ public static class SoftwareSupplyPreviewDatasetV1
     public static IReadOnlyDictionary<string, string> GetScalarValues(
         ContractLanguageMode languageMode)
     {
-        var contractName = languageMode == ContractLanguageMode.Bilingual
-            ? "HỢP ĐỒNG CUNG CẤP PHẦN MỀM / SOFTWARE SUPPLY AGREEMENT — " +
-              LegalDisclaimer
-            : "HỢP ĐỒNG CUNG CẤP PHẦN MỀM — " + LegalDisclaimer;
+        // Scalar VI and EN markers have independent values, just like real contract data.
+        var contractName = "HỢP ĐỒNG CUNG CẤP PHẦN MỀM — " + LegalDisclaimer;
 
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["CONTRACT_DATE_EN"] = "15 August 2026",
+            ["EFFECTIVE_DATE_EN"] = "01 September 2026",
+            ["EXPIRE_DATE_EN"] = "31 August 2027",
+            ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = "Seventy-two million one hundred and eighty-seven thousand five hundred Vietnamese dong only",
+            ["CUSTOMER_COMPANY_EN"] = "MINH AN SAMPLE ENTERPRISE SOLUTIONS JOINT STOCK COMPANY",
+            ["CUSTOMER_ADDRESS_EN"] = "18th Floor, Sample Building, Ho Chi Minh City, Vietnam",
+            ["CUSTOMER_BANK_NAME_EN"] = "Sample Customer Commercial Bank",
+            ["CUSTOMER_CITY_EN"] = "Ho Chi Minh City",
+            ["CUSTOMER_COUNTRY_EN"] = "Vietnam",
+            ["CUSTOMER_CONTACT_TITLE_EN"] = "Project Manager",
+            ["PROVIDER_LEGAL_NAME_EN"] = "DTC SAMPLE JOINT STOCK COMPANY",
+            ["PROVIDER_ADDRESS_EN"] = "10th Floor, DTC Sample Building, Hanoi, Vietnam",
+            ["PROVIDER_REPRESENTATIVE_TITLE_EN"] = "Director",
+            ["PROVIDER_BANK_NAME_EN"] = "Sample Provider Commercial Bank",
             ["CONTRACT_CODE"] = "PREVIEW-SS-V1-2026-0001",
             ["CONTRACT_NAME"] = contractName,
             ["CONTRACT_DATE"] = "Ngày 15 tháng 08 năm 2026",

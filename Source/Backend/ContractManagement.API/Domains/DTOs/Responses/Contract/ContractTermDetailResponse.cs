@@ -18,6 +18,7 @@
         public string? TermContent { get; set; }
 
         public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
 
         public global::ContractManagement.API.Common.Enums.ContractTermKind TermKind { get; set; }
 

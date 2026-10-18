@@ -25,6 +25,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
             var key = f.Keyword.Trim();
             q = q.Where(x => (x.ProductCode != null && x.ProductCode.Contains(key))
                 || (x.ProductName != null && x.ProductName.Contains(key))
+                || (x.ProductNameEn != null && x.ProductNameEn.Contains(key))
                 || (x.ProductShortDesc != null && x.ProductShortDesc.Contains(key)));
         }
         return q;
@@ -42,6 +43,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
         {
             var key = f.Keyword.Trim();
             q = q.Where(x => (x.ServiceName != null && x.ServiceName.Contains(key))
+                || (x.ServiceNameEn != null && x.ServiceNameEn.Contains(key))
                 || (x.ServiceShortDesc != null && x.ServiceShortDesc.Contains(key)));
         }
         return q;

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
-  ChevronDown,
   FileStack,
   Loader2,
   Pencil,
@@ -13,19 +12,16 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
+import { AppendixCard } from "@/components/contract-documents/appendix-card";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
+import { TermFields } from "@/components/contract-documents/term-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+
 import { CodeInput } from "@/components/ui/custom/code-input";
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
-import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
-import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
+
 import {
   Dialog,
   DialogContent,
@@ -71,6 +67,7 @@ type TermForm = {
   titleEn: string;
   content: string;
   contentEn: string;
+  bilingualContentMode: number;
 };
 
 const emptyAppendixForm: AppendixForm = {
@@ -88,6 +85,7 @@ const emptyTermForm: TermForm = {
   titleEn: "",
   content: "",
   contentEn: "",
+  bilingualContentMode: 1,
 };
 
 const nextOrder = (items: Array<{ displayOrder: number }>) =>
@@ -185,6 +183,10 @@ export function ContractTemplateAppendicesEditor({
       toast.error("Vui lòng nhập mã và tên phụ lục.");
       return;
     }
+    if (isBilingual && !appendixForm.nameEn.trim()) {
+      toast.error("Mẫu song ngữ bắt buộc có tên phụ lục tiếng Anh.");
+      return;
+    }
     await runAction("save-appendix", async () => {
       const common = {
         appendixCode: appendixForm.code.trim(),
@@ -278,6 +280,7 @@ export function ContractTemplateAppendicesEditor({
       titleEn: term.termTitleEn ?? "",
       content: term.termContent ?? "",
       contentEn: term.termContentEn ?? "",
+      bilingualContentMode: term.bilingualContentMode,
     });
     setIsTermDialogOpen(true);
   };
@@ -298,6 +301,7 @@ export function ContractTemplateAppendicesEditor({
         termTitleEn: termForm.titleEn.trim() || null,
         termContent: termForm.content.trim() || null,
         termContentEn: termForm.contentEn.trim() || null,
+        bilingualContentMode: termForm.bilingualContentMode,
         displayOrder:
           editingTerm?.displayOrder ?? nextOrder(termAppendix.terms),
         versionRowVersion: version.rowVersion,
@@ -441,13 +445,17 @@ export function ContractTemplateAppendicesEditor({
           (left, right) => left.displayOrder - right.displayOrder,
         );
         return (
-          <Collapsible
+          <AppendixCard
             key={appendix.templateAppendixId}
-            open={
-              openAppendixIds
-                ? openAppendixIds.has(appendix.templateAppendixId)
-                : undefined
-            }
+            index={appendixIndex}
+            code={appendix.appendixCode}
+            name={appendix.appendixName}
+            nameEn={isBilingual ? appendix.appendixNameEn : undefined}
+            description={appendix.appendixDescription}
+            required={appendix.isRequired}
+            selectedByDefault={appendix.isSelectedByDefault}
+            termCount={terms.length}
+            open={openAppendixIds?.has(appendix.templateAppendixId)}
             onOpenChange={
               onAppendixOpenChange
                 ? (open) =>
@@ -455,235 +463,82 @@ export function ContractTemplateAppendicesEditor({
                 : undefined
             }
             defaultOpen={openAppendixIds ? undefined : appendixIndex === 0}
+            actions={
+              isDraft && (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isBusy || appendixIndex === 0}
+                    aria-label="Chuyển phụ lục lên"
+                    onClick={() => moveAppendix(appendixIndex, -1)}
+                  >
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isBusy || appendixIndex === appendices.length - 1}
+                    aria-label="Chuyển phụ lục xuống"
+                    onClick={() => moveAppendix(appendixIndex, 1)}
+                  >
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isBusy}
+                    aria-label="Sửa phụ lục"
+                    onClick={() => openEditAppendix(appendix)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isBusy}
+                    aria-label="Xóa phụ lục"
+                    onClick={() => setDeletingAppendix(appendix)}
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </>
+              )
+            }
           >
-            <Card>
-              <CardHeader className="gap-3">
-                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">
-                        Phụ lục {appendixIndex + 1}
-                      </Badge>
-                      <Badge
-                        variant={appendix.isRequired ? "default" : "secondary"}
-                      >
-                        {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
-                      </Badge>
-                      {!appendix.isRequired && appendix.isSelectedByDefault && (
-                        <Badge variant="secondary">Chọn mặc định</Badge>
-                      )}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {appendix.appendixCode}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{appendix.appendixName}</h3>
-                      {isBilingual && appendix.appendixNameEn && (
-                        <p className="text-sm text-muted-foreground">
-                          {appendix.appendixNameEn}
-                        </p>
-                      )}
-                      {appendix.appendixDescription && (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {appendix.appendixDescription}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {isDraft && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={isBusy || appendixIndex === 0}
-                        onClick={() => moveAppendix(appendixIndex, -1)}
-                        aria-label="Chuyển phụ lục lên"
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={
-                          isBusy || appendixIndex === appendices.length - 1
-                        }
-                        onClick={() => moveAppendix(appendixIndex, 1)}
-                        aria-label="Chuyển phụ lục xuống"
-                      >
-                        <ArrowDown className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={isBusy}
-                        onClick={() => openEditAppendix(appendix)}
-                        aria-label="Sửa phụ lục"
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        disabled={isBusy}
-                        onClick={() => setDeletingAppendix(appendix)}
-                        aria-label="Xóa phụ lục"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
-                          className="group"
-                        >
-                          <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
-                  )}
-                  {!isDraft && (
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Thu gọn hoặc mở rộng phụ lục ${appendix.appendixName}`}
-                        className="group"
-                      >
-                        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  )}
-                </div>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between gap-3 border-t pt-4">
-                    <p className="text-sm font-medium">
-                      Điều khoản ({terms.length})
-                    </p>
-                    {isDraft && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() => openCreateTerm(appendix)}
-                      >
-                        <Plus className="size-4" /> Thêm điều khoản
-                      </Button>
-                    )}
-                  </div>
-                  {terms.map((term, termIndex) => (
-                    <Collapsible key={term.templateAppendixTermId}>
-                      <div className="rounded-xl border p-4">
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">
-                                Điều {termIndex + 1}
-                              </Badge>
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {term.termCode}
-                              </span>
-                            </div>
-                            <p className="mt-2 font-medium">{term.termTitle}</p>
-                            {isBilingual && term.termTitleEn && (
-                              <p className="text-sm text-muted-foreground">
-                                {term.termTitleEn}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {isDraft && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={isBusy || termIndex === 0}
-                                  onClick={() =>
-                                    moveTerm(appendix, termIndex, -1)
-                                  }
-                                  aria-label="Chuyển điều khoản lên"
-                                >
-                                  <ArrowUp className="size-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={
-                                    isBusy || termIndex === terms.length - 1
-                                  }
-                                  onClick={() =>
-                                    moveTerm(appendix, termIndex, 1)
-                                  }
-                                  aria-label="Chuyển điều khoản xuống"
-                                >
-                                  <ArrowDown className="size-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={isBusy}
-                                  onClick={() => openEditTerm(appendix, term)}
-                                  aria-label="Sửa điều khoản"
-                                >
-                                  <Pencil className="size-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:text-destructive"
-                                  disabled={isBusy}
-                                  onClick={() =>
-                                    setDeletingTerm({ appendix, term })
-                                  }
-                                  aria-label="Xóa điều khoản"
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                              </>
-                            )}
-                            <CollapsibleTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="group"
-                                aria-label={`Thu gọn hoặc mở rộng điều khoản ${term.termTitle}`}
-                              >
-                                <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                              </Button>
-                            </CollapsibleTrigger>
-                          </div>
-                        </div>
-                        <CollapsibleContent>
-                          <ContractRichTextContent
-                            value={term.termContent}
-                            emptyText="Chưa có nội dung"
-                          />
-                          {isBilingual && (
-                            <div className="mt-3 rounded-xl border border-dashed p-3">
-                              <ContractRichTextContent
-                                value={term.termContentEn}
-                                emptyText="Chưa có nội dung tiếng Anh"
-                              />
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  ))}
-                  {terms.length === 0 && (
-                    <div className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
-                      Phụ lục chưa có điều khoản. Cần ít nhất một điều khoản
-                      trước khi phát hành.
-                    </div>
-                  )}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+            <div className="flex items-center justify-between gap-3 border-t pt-4">
+              <p className="text-sm font-medium">Điều khoản ({terms.length})</p>
+              {isDraft && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBusy}
+                  onClick={() => openCreateTerm(appendix)}
+                >
+                  <Plus className="size-4" /> Thêm điều khoản
+                </Button>
+              )}
+            </div>
+            <TermsListEditor
+              terms={terms.map((term) => ({ ...term, isNegotiable: false }))}
+              emptyText="Phụ lục chưa có điều khoản. Cần ít nhất một điều khoản trước khi phát hành."
+              getKey={(term) => term.templateAppendixTermId}
+              getCardProps={(term, index) => ({
+                inputId: `template-appendix-${term.templateAppendixTermId}`,
+                isBilingual,
+                showNegotiation: false,
+                actionsEnabled: isDraft && !isBusy,
+                onEdit: () => openEditTerm(appendix, term),
+                notifyMoveSuccess: false,
+                onMove: (direction) => moveTerm(appendix, index, direction),
+                onRemove: () => setDeletingTerm({ appendix, term }),
+              })}
+            />
+          </AppendixCard>
         );
       })}
 
@@ -708,7 +563,9 @@ export function ContractTemplateAppendicesEditor({
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="appendix-code">Mã phụ lục *</Label>
+              <Label htmlFor="appendix-code">
+                Mã phụ lục <span className="text-red-500">*</span>
+              </Label>
               <CodeInput
                 id="appendix-code"
                 value={appendixForm.code}
@@ -718,7 +575,9 @@ export function ContractTemplateAppendicesEditor({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="appendix-name">Tên phụ lục *</Label>
+              <Label htmlFor="appendix-name">
+                Tên phụ lục <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="appendix-name"
                 value={appendixForm.name}
@@ -732,9 +591,13 @@ export function ContractTemplateAppendicesEditor({
             </div>
             {isBilingual && (
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="appendix-name-en">Tên tiếng Anh</Label>
+                <Label htmlFor="appendix-name-en">
+                  Tên tiếng Anh <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="appendix-name-en"
+                  required
+                  maxLength={500}
                   value={appendixForm.nameEn}
                   onChange={(event) =>
                     setAppendixForm((form) => ({
@@ -828,80 +691,13 @@ export function ContractTemplateAppendicesEditor({
             </DialogTitle>
             <DialogDescription>{termAppendix?.appendixName}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="appendix-term-code">
-                Mã điều khoản <span className="text-red-500">*</span>
-              </Label>
-              <CodeInput
-                id="appendix-term-code"
-                value={termForm.code}
-                onValueChange={(code) =>
-                  setTermForm((form) => ({ ...form, code }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="appendix-term-title">
-                Tiêu đề <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="appendix-term-title"
-                value={termForm.title}
-                onChange={(event) =>
-                  setTermForm((form) => ({
-                    ...form,
-                    title: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="appendix-term-content">
-                Nội dung <span className="text-red-500">*</span>
-              </Label>
-              <ContractRichTextEditor
-                id="appendix-term-content"
-                value={termForm.content}
-                onChange={(content) =>
-                  setTermForm((form) => ({ ...form, content }))
-                }
-                ariaLabel="Nội dung điều khoản phụ lục"
-              />
-            </div>
-            {isBilingual && (
-              <>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="appendix-term-title-en">
-                    Tiêu đề tiếng Anh
-                  </Label>
-                  <Input
-                    id="appendix-term-title-en"
-                    value={termForm.titleEn}
-                    onChange={(event) =>
-                      setTermForm((form) => ({
-                        ...form,
-                        titleEn: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="appendix-term-content-en">
-                    Nội dung tiếng Anh
-                  </Label>
-                  <ContractRichTextEditor
-                    id="appendix-term-content-en"
-                    value={termForm.contentEn}
-                    onChange={(contentEn) =>
-                      setTermForm((form) => ({ ...form, contentEn }))
-                    }
-                    ariaLabel="Nội dung điều khoản phụ lục tiếng Anh"
-                  />
-                </div>
-              </>
-            )}
-          </div>
+          <TermFields
+            id="appendix-term"
+            value={termForm}
+            onChange={setTermForm}
+            isBilingual={isBilingual}
+            disabled={busyAction === "save-term"}
+          />
           <DialogFooter>
             <Button
               variant="outline"

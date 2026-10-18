@@ -53,6 +53,7 @@ export interface CustomerPublicContractTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
 }

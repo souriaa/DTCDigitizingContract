@@ -14,7 +14,7 @@ public abstract class ContractPlaceholderSourceProviderBase : IContractPlacehold
         string[] formats = type switch
         {
             PlaceholderValueType.Number => ["N0", "N2", "0.##"],
-            PlaceholderValueType.Date => ["dd/MM/yyyy", "yyyy-MM-dd"],
+            PlaceholderValueType.Date => ["dd/MM/yyyy", "yyyy-MM-dd", "dd MMMM yyyy"],
             PlaceholderValueType.DateTime => ["dd/MM/yyyy HH:mm", "yyyy-MM-dd HH:mm"],
             PlaceholderValueType.Boolean => ["Có/Không", "Yes/No"],
             _ => []
@@ -24,7 +24,7 @@ public abstract class ContractPlaceholderSourceProviderBase : IContractPlacehold
             PlaceholderValueType.Number => 1250000.5m,
             PlaceholderValueType.Date or PlaceholderValueType.DateTime => new DateTime(2026, 9, 10, 14, 30, 0),
             PlaceholderValueType.Boolean => true,
-            _ => $"{label} mẫu"
+            _ => key.EndsWith("-en", StringComparison.Ordinal) ? "Sample English value" : $"{label} mẫu"
         };
         var samples = formats.ToDictionary(f => f, f => ContractPlaceholderSourceRegistry.FormatValue(sample, f), StringComparer.Ordinal);
         _bindings.Add(new(new(key, module, moduleLabel, label, type, true, formats,
@@ -40,6 +40,9 @@ public sealed class ContractPlaceholderSourceProvider : ContractPlaceholderSourc
         Add("contract.code", "contract", "Hợp đồng", "Mã hợp đồng", PlaceholderValueType.Text, c => c.Contract.ContractCode);
         Add("contract.name", "contract", "Hợp đồng", "Tên hợp đồng", PlaceholderValueType.Text, c => c.Contract.ContractName);
         Add("contract.name-en", "contract", "Hợp đồng", "Tên tiếng Anh", PlaceholderValueType.Text, c => c.Contract.ContractNameEn);
+        Add("contract.created-date-en", "contract", "Hợp đồng", "Ngày hợp đồng tiếng Anh", PlaceholderValueType.Text, c => DocumentEnglishPolicy.Date(c.Contract.CreatedDate));
+        Add("contract.effective-date-en", "contract", "Hợp đồng", "Ngày hiệu lực tiếng Anh", PlaceholderValueType.Text, c => c.Contract.EffectiveDate is { } date ? DocumentEnglishPolicy.Date(date) : null);
+        Add("contract.expire-date-en", "contract", "Hợp đồng", "Ngày hết hạn tiếng Anh", PlaceholderValueType.Text, c => c.Contract.ExpireDate is { } date ? DocumentEnglishPolicy.Date(date) : null);
         Add("contract.created-date", "contract", "Hợp đồng", "Ngày hợp đồng", PlaceholderValueType.Date, c => c.Contract.CreatedDate);
         Add("contract.effective-date", "contract", "Hợp đồng", "Ngày hiệu lực", PlaceholderValueType.Date, c => c.Contract.EffectiveDate);
         Add("contract.expire-date", "contract", "Hợp đồng", "Ngày hết hạn", PlaceholderValueType.Date, c => c.Contract.ExpireDate);
@@ -51,6 +54,7 @@ public sealed class ContractVersionPlaceholderSourceProvider : ContractPlacehold
 {
     public ContractVersionPlaceholderSourceProvider()
     {
+        Add("version.total-amount-in-words-en", "version", "Phiên bản hợp đồng", "Tổng giá trị bằng chữ tiếng Anh", PlaceholderValueType.Text, c => EnglishMoneyTextFormatter.Format(c.Version.TotalAmount, c.Version.CurrencyCode));
         Add("version.currency", "version", "Phiên bản hợp đồng", "Tiền tệ", PlaceholderValueType.Text, c => c.Version.CurrencyCode);
         Add("version.total-amount", "version", "Phiên bản hợp đồng", "Tổng giá trị", PlaceholderValueType.Number, c => c.Version.TotalAmount);
         Add("version.subtotal", "version", "Phiên bản hợp đồng", "Thành tiền", PlaceholderValueType.Number, c => c.Version.Subtotal);
@@ -64,6 +68,13 @@ public sealed class CustomerPlaceholderSourceProvider : ContractPlaceholderSourc
 {
     public CustomerPlaceholderSourceProvider()
     {
+        Add("customer.company-en", "customer", "Khách hàng", "Tên công ty tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerCompanyEn);
+        Add("customer.address-en", "customer", "Khách hàng", "Địa chỉ tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerAddressEn);
+        Add("customer.bank-name-en", "customer", "Khách hàng", "Tên ngân hàng tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerBankNameEn);
+        Add("customer.city-en", "customer", "Khách hàng", "Tỉnh/thành tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerCityEn);
+        Add("customer.country-en", "customer", "Khách hàng", "Quốc gia tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerCountryEn);
+        Add("customer.contact-title-en", "customer", "Khách hàng", "Chức danh người liên lạc tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerContactPersonTitleEn);
+        Add("customer.representative-title-en", "customer", "Khách hàng", "Chức danh đại diện pháp luật tiếng Anh", PlaceholderValueType.Text, c => c.Customer.CustomerRepresentativeTitleEn);
         Add("customer.code", "customer", "Khách hàng", "Mã khách hàng", PlaceholderValueType.Text, c => c.Customer.CustomerCode);
         Add("customer.name", "customer", "Khách hàng", "Họ tên", PlaceholderValueType.Text, c => c.Customer.CustomerFullName);
         Add("customer.company", "customer", "Khách hàng", "Công ty", PlaceholderValueType.Text, c => c.Customer.CustomerCompany);
@@ -91,6 +102,10 @@ public sealed class TenantLegalProfilePlaceholderSourceProvider : ContractPlaceh
 {
     public TenantLegalProfilePlaceholderSourceProvider()
     {
+        Add("provider.legal-name-en", "provider", "Pháp nhân doanh nghiệp", "Tên pháp nhân tiếng Anh", PlaceholderValueType.Text, c => c.Tenant?.LegalEntityNameEn);
+        Add("provider.address-en", "provider", "Pháp nhân doanh nghiệp", "Địa chỉ tiếng Anh", PlaceholderValueType.Text, c => c.Tenant?.AddressEn);
+        Add("provider.representative-title-en", "provider", "Pháp nhân doanh nghiệp", "Chức danh đại diện tiếng Anh", PlaceholderValueType.Text, c => c.Tenant?.RepresentativeTitleEn);
+        Add("provider.bank-name-en", "provider", "Pháp nhân doanh nghiệp", "Tên ngân hàng tiếng Anh", PlaceholderValueType.Text, c => c.Tenant?.BankNameEn);
         Add("provider.legal-name", "provider", "Pháp nhân doanh nghiệp", "Tên pháp nhân", PlaceholderValueType.Text, c => c.Tenant?.LegalEntityName);
         Add("provider.tax-code", "provider", "Pháp nhân doanh nghiệp", "Mã số thuế", PlaceholderValueType.Text, c => c.Tenant?.TaxCode);
         Add("provider.address", "provider", "Pháp nhân doanh nghiệp", "Địa chỉ", PlaceholderValueType.Text, c => c.Tenant?.Address);

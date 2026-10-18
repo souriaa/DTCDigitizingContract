@@ -41,14 +41,18 @@ public sealed class ContractPlaceholderSourceRegistry : IContractPlaceholderSour
         if (format is not null && !field.AllowedFormats.Contains(format, StringComparer.Ordinal))
             throw new PlaceholderOperationException("PlaceholderFormatInvalid", "Định dạng không phù hợp với trường dữ liệu.");
         if (value is null || value is string text && string.IsNullOrWhiteSpace(text))
+        {
+            if (key.EndsWith("-en", StringComparison.Ordinal))
+                return string.Empty; // Missing translations remain empty until the document gate; never use a default translation.
             return defaultValue ?? string.Empty;
+        }
         return FormatValue(value, format ?? field.AllowedFormats.FirstOrDefault());
     }
 
     internal static string FormatValue(object value, string? format) => value switch
     {
         bool flag => format == "Yes/No" ? (flag ? "Yes" : "No") : (flag ? "Có" : "Không"),
-        IFormattable formatted => formatted.ToString(format, CultureInfo.InvariantCulture),
+        IFormattable formatted => formatted.ToString(format, format == "dd MMMM yyyy" ? CultureInfo.GetCultureInfo("en-GB") : CultureInfo.InvariantCulture),
         _ => value.ToString() ?? string.Empty
     };
 }

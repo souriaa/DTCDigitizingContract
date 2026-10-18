@@ -50,11 +50,25 @@ public sealed record SoftwareSupplyPlaceholderDefinition(
 /// </summary>
 public static class SoftwareSupplyPlaceholderCatalog
 {
-    public const string Version = "V4";
+    public const string Version = "V5";
 
     private static readonly IReadOnlyList<SoftwareSupplyPlaceholderDefinition>
         Items =
         [
+            new("CONTRACT_DATE_EN", "Ngày hợp đồng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.CreatedDate"),
+            new("EFFECTIVE_DATE_EN", "Ngày hiệu lực tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.EffectiveDate"),
+            new("EXPIRE_DATE_EN", "Ngày hết hạn tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.ExpireDate"),
+            new("CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN", "Tổng giá trị bằng chữ tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.TotalAmount"),
+            new("CUSTOMER_COMPANY_EN", "Công ty khách hàng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerCompanyEn"),
+            new("CUSTOMER_ADDRESS_EN", "Địa chỉ khách hàng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerAddressEn"),
+            new("CUSTOMER_BANK_NAME_EN", "Tên ngân hàng khách hàng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerBankNameEn"),
+            new("CUSTOMER_CITY_EN", "Tỉnh/thành khách hàng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerCityEn"),
+            new("CUSTOMER_COUNTRY_EN", "Quốc gia khách hàng tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerCountryEn"),
+            new("CUSTOMER_CONTACT_TITLE_EN", "Chức danh người liên lạc tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Customer.CustomerContactPersonTitleEn"),
+            new("PROVIDER_LEGAL_NAME_EN", "Tên pháp nhân bên cung cấp tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "TenantLegalProfile.LegalEntityNameEn"),
+            new("PROVIDER_ADDRESS_EN", "Địa chỉ bên cung cấp tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "TenantLegalProfile.AddressEn"),
+            new("PROVIDER_REPRESENTATIVE_TITLE_EN", "Chức danh bên cung cấp tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "TenantLegalProfile.RepresentativeTitleEn"),
+            new("PROVIDER_BANK_NAME_EN", "Tên ngân hàng bên cung cấp tiếng Anh", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "TenantLegalProfile.BankNameEn"),
             new("CONTRACT_CODE", "Mã hợp đồng", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.ContractCode"),
             new("CONTRACT_NAME", "Tên hợp đồng", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.ContractName"),
             new("CONTRACT_DATE", "Ngày hợp đồng", false, TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrOne, "Contract.CreatedDate"),

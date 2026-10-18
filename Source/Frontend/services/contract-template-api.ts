@@ -155,6 +155,7 @@ export interface CreateContractTemplateTermRequest {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
   versionRowVersion: string;
@@ -203,6 +204,7 @@ export interface CreateContractTemplateAppendixTermRequest {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   versionRowVersion: string;
   appendixRowVersion: string;
@@ -324,6 +326,7 @@ export interface AvailableContractTemplateTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
   termKind: ContractTermKind;
@@ -370,6 +373,7 @@ export interface ContractTemplateTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
   termKind: ContractTermKind;
@@ -403,6 +407,7 @@ export interface ContractTemplateAppendixTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   createdEmployeeId: number;
   createdDate: string;

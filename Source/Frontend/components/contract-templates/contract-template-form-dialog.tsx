@@ -147,7 +147,7 @@ export function ContractTemplateFormDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="space-y-2">
+          <div className="space-y-2 col-span-2">
             <Label htmlFor="template-code">
               Mã mẫu <span className="text-destructive">*</span>
             </Label>

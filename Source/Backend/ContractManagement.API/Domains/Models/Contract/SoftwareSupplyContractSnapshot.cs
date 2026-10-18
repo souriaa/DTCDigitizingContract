@@ -44,7 +44,10 @@ public sealed record ContractAppendixTermLegalSnapshot(
     string? TermTitleEn,
     string? TermContent,
     string? TermContentEn,
-    int DisplayOrder);
+    int DisplayOrder)
+{
+    public byte BilingualContentMode { get; init; } = 1;
+}
 
 public sealed record TenantLegalSnapshot(
     string LegalEntityName,
@@ -55,7 +58,16 @@ public sealed record TenantLegalSnapshot(
     string? PhoneNumber,
     string? FaxNumber,
     string? BankAccountNumber,
-    string? BankName);
+    string? BankName)
+{
+    public string? LegalNameEn { get; init; }
+    public string? AddressEn { get; init; }
+    public string? RepresentativeTitleEn { get; init; }
+    public string? ContactTitleEn { get; init; }
+    public string? BankNameEn { get; init; }
+    public string? CityEn { get; init; }
+    public string? CountryEn { get; init; }
+}
 
 public sealed record CustomerLegalSnapshot(
     int CustomerId,
@@ -67,7 +79,16 @@ public sealed record CustomerLegalSnapshot(
     string? PhoneNumber,
     string? FaxNumber,
     string? BankAccountNumber,
-    string? BankName);
+    string? BankName)
+{
+    public string? LegalNameEn { get; init; }
+    public string? AddressEn { get; init; }
+    public string? RepresentativeTitleEn { get; init; }
+    public string? ContactTitleEn { get; init; }
+    public string? BankNameEn { get; init; }
+    public string? CityEn { get; init; }
+    public string? CountryEn { get; init; }
+}
 
 public sealed record ContractLegalSnapshot(
     int ContractId,
@@ -132,6 +153,7 @@ public sealed record ContractTermLegalSnapshot(
     int DisplayOrder)
 {
     public byte TermKind { get; init; }
+    public byte BilingualContentMode { get; init; } = 1;
 }
 
 public sealed record ContractPaymentMilestoneSnapshot(
@@ -200,7 +222,11 @@ public static class SoftwareSupplyContractSnapshotFactory
                 Optional(tenant.PhoneNumber),
                 Optional(tenant.FaxNumber),
                 Optional(tenant.BankAccountNumber),
-                Optional(tenant.BankName)),
+                Optional(tenant.BankName))
+            {
+                LegalNameEn = tenant.LegalEntityNameEn, AddressEn = tenant.AddressEn,
+                RepresentativeTitleEn = tenant.RepresentativeTitleEn, BankNameEn = tenant.BankNameEn
+            },
             new CustomerLegalSnapshot(
                 customer.CustomerId,
                 customerLegalName,
@@ -213,7 +239,13 @@ public static class SoftwareSupplyContractSnapshotFactory
                 FirstOptional(customer.CustomerPhone, customer.CustomerMobile),
                 Optional(customer.CustomerFaxNumber),
                 Optional(customer.CustomerBankAccountNumber),
-                Optional(customer.CustomerBankName)),
+                Optional(customer.CustomerBankName))
+            {
+                LegalNameEn = customer.CustomerCompanyEn, AddressEn = customer.CustomerAddressEn,
+                RepresentativeTitleEn = customer.CustomerRepresentativeTitleEn,
+                ContactTitleEn = customer.CustomerContactPersonTitleEn, BankNameEn = customer.CustomerBankNameEn,
+                CityEn = customer.CustomerCityEn, CountryEn = customer.CustomerCountryEn
+            },
             new ContractLegalSnapshot(
                 contract.ContractId,
                 Required(contract.ContractCode, "Mã hợp đồng"),
@@ -278,7 +310,8 @@ public static class SoftwareSupplyContractSnapshotFactory
                     x.IsNegotiable,
                     x.DisplayOrder)
                 {
-                    TermKind = x.TermKind
+                    TermKind = x.TermKind,
+                    BilingualContentMode = x.BilingualContentMode
                 })
                 .ToArray())
         {
@@ -307,7 +340,7 @@ public static class SoftwareSupplyContractSnapshotFactory
                             term.SourceTemplateAppendixTermId,
                             term.TermCode, term.TermTitle, term.TermTitleEn,
                             term.TermContent, term.TermContentEn,
-                            term.DisplayOrder)).ToArray())).ToArray()
+                            term.DisplayOrder) { BilingualContentMode = term.BilingualContentMode }).ToArray())).ToArray()
         };
     }
 
@@ -355,7 +388,14 @@ public static class SoftwareSupplyContractSnapshotFactory
             PhoneNumber = snapshot.Tenant.PhoneNumber,
             FaxNumber = snapshot.Tenant.FaxNumber,
             BankAccountNumber = snapshot.Tenant.BankAccountNumber,
-            BankName = snapshot.Tenant.BankName
+            BankName = snapshot.Tenant.BankName,
+            LegalNameEn = snapshot.Tenant.LegalNameEn,
+            AddressEn = snapshot.Tenant.AddressEn,
+            RepresentativeTitleEn = snapshot.Tenant.RepresentativeTitleEn,
+            ContactTitleEn = snapshot.Tenant.ContactTitleEn,
+            BankNameEn = snapshot.Tenant.BankNameEn,
+            CityEn = snapshot.Tenant.CityEn,
+            CountryEn = snapshot.Tenant.CountryEn
         });
         legal.Parties.Add(new TblContractVersionPartySnapshot
         {
@@ -369,7 +409,14 @@ public static class SoftwareSupplyContractSnapshotFactory
             PhoneNumber = snapshot.Customer.PhoneNumber,
             FaxNumber = snapshot.Customer.FaxNumber,
             BankAccountNumber = snapshot.Customer.BankAccountNumber,
-            BankName = snapshot.Customer.BankName
+            BankName = snapshot.Customer.BankName,
+            LegalNameEn = snapshot.Customer.LegalNameEn,
+            AddressEn = snapshot.Customer.AddressEn,
+            RepresentativeTitleEn = snapshot.Customer.RepresentativeTitleEn,
+            ContactTitleEn = snapshot.Customer.ContactTitleEn,
+            BankNameEn = snapshot.Customer.BankNameEn,
+            CityEn = snapshot.Customer.CityEn,
+            CountryEn = snapshot.Customer.CountryEn
         });
         foreach (var milestone in snapshot.PaymentMilestones ?? [])
         {
@@ -408,6 +455,20 @@ public static class SoftwareSupplyContractSnapshotFactory
 
         WriteTenant(writer, snapshot.Tenant);
         WriteCustomer(writer, snapshot.Customer);
+        WriteString(writer, snapshot.Tenant.LegalNameEn);
+        WriteString(writer, snapshot.Tenant.AddressEn);
+        WriteString(writer, snapshot.Tenant.RepresentativeTitleEn);
+        WriteString(writer, snapshot.Tenant.ContactTitleEn);
+        WriteString(writer, snapshot.Tenant.BankNameEn);
+        WriteString(writer, snapshot.Tenant.CityEn);
+        WriteString(writer, snapshot.Tenant.CountryEn);
+        WriteString(writer, snapshot.Customer.LegalNameEn);
+        WriteString(writer, snapshot.Customer.AddressEn);
+        WriteString(writer, snapshot.Customer.RepresentativeTitleEn);
+        WriteString(writer, snapshot.Customer.ContactTitleEn);
+        WriteString(writer, snapshot.Customer.BankNameEn);
+        WriteString(writer, snapshot.Customer.CityEn);
+        WriteString(writer, snapshot.Customer.CountryEn);
         WriteContract(writer, snapshot.Contract);
         WriteVersion(writer, snapshot.Version);
 
@@ -433,7 +494,7 @@ public static class SoftwareSupplyContractSnapshotFactory
         {
             writer.Write(x.TermId); WriteString(writer, x.TermCode); WriteString(writer, x.TermTitle);
             WriteString(writer, x.TermTitleEn); WriteString(writer, x.TermContent);
-            WriteString(writer, x.TermContentEn); writer.Write(x.IsNegotiable);
+            WriteString(writer, x.TermContentEn); writer.Write(x.BilingualContentMode); writer.Write(x.IsNegotiable);
             writer.Write(x.DisplayOrder); writer.Write(x.TermKind);
         }
 
@@ -488,7 +549,7 @@ public static class SoftwareSupplyContractSnapshotFactory
                 WriteString(writer, term.TermTitle);
                 WriteString(writer, term.TermTitleEn);
                 WriteString(writer, term.TermContent);
-                WriteString(writer, term.TermContentEn);
+                WriteString(writer, term.TermContentEn); writer.Write(term.BilingualContentMode);
                 writer.Write(term.DisplayOrder);
             }
         }

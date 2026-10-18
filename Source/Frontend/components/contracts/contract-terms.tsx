@@ -1,423 +1,94 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { MessageSquareText } from "lucide-react";
 import { useContractDiscussionRealtime } from "@/hooks/use-contract-discussion-realtime";
-import { format } from "date-fns";
-import {
-  ChevronLeft,
-  ChevronRight,
-  MessageSquareText,
-  Plus,
-  ShieldCheck,
-} from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DateFilter } from "@/components/ui/custom/date-filter";
+import { Card, CardContent } from "@/components/ui/card";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
+import { PaymentPlanEditor } from "@/components/contract-documents/payment-plan-editor";
 import { ContractTermComments } from "./contract-term-comments";
-import {
-  ContractTermCard,
-  type ContractTermEditableField,
-} from "./contract-term-card";
+import { CreateContractTermsEditor, type CreateContractTermDraft } from "./create-contract-terms-editor";
+import { contractApi, ContractLanguageMode, ContractStatus, ContractTermKind,
+  type ContractDetailResponse, type ContractNegotiationCommentResponse } from "@/services/contract-api";
+import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
+import { allocateContractPaymentAmounts } from "@/lib/contract-finance";
 
-import {
-  ContractDetailResponse,
-  contractApi,
-  ContractLanguageMode,
-  ContractNegotiationCommentResponse,
-  ContractStatus,
-  ContractTermKind,
-  ContractTermDetailResponse,
-} from "@/services/contract-api";
-import { ContractPaymentDueAnchor } from "@/services/contract-completion-api";
-
-const parseDateString = (str?: string | null) => {
-  if (!str) return undefined;
-  const [y, m, d] = str.slice(0, 10).split("-").map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-};
-
-export function ContractTerms({
-  contract,
-  setContract,
-  canEdit,
-  canComment,
-  onDraftChange,
-}: {
+export function ContractTerms({ contract, setContract, canEdit, canComment, onDraftChange }: {
   contract: ContractDetailResponse;
-  setContract: React.Dispatch<
-    React.SetStateAction<ContractDetailResponse | null>
-  >;
-  canEdit: boolean;
-  canComment: boolean;
-  onDraftChange?: () => void;
+  setContract: React.Dispatch<React.SetStateAction<ContractDetailResponse | null>>;
+  canEdit: boolean; canComment: boolean; onDraftChange?: () => void;
 }) {
-  const isEditable = canEdit;
-  const terms = contract.currentVersion?.terms || [];
-  const manualPaymentMilestones = (
-    contract.currentVersion?.paymentMilestones ?? []
-  ).filter((item) => item.dueAnchor === ContractPaymentDueAnchor.ManualDate);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-  const totalPages = Math.ceil(terms.length / itemsPerPage);
-  const versionId = contract.currentVersion?.versionId;
+  const terms = contract.currentVersion.terms;
+  const versionId = contract.currentVersion.versionId;
   const [discussionRevision, setDiscussionRevision] = useState(0);
+  const nextLocalId = useRef(-Date.now());
   const refreshDiscussions = useCallback(async (signal: AbortSignal) => {
     const roots = await contractApi.getRootComments(contract.contractId, signal);
     if (signal.aborted) return;
     setContract((current) => {
       if (!current?.currentVersion || current.currentVersion.versionId !== versionId) return current;
       return { ...current, currentVersion: { ...current.currentVersion,
-        comments: [
-          ...current.currentVersion.comments.filter((comment) => comment.parentCommentId),
-          ...roots.filter((comment) => comment.versionId === versionId),
-        ],
-      } };
+        comments: [...current.currentVersion.comments.filter((comment) => comment.parentCommentId),
+          ...roots.filter((comment) => comment.versionId === versionId)] } };
     });
     setDiscussionRevision((revision) => revision + 1);
   }, [contract.contractId, setContract, versionId]);
-  useContractDiscussionRealtime(versionId
-    ? `/api/contracts/${contract.contractId}/versions/${versionId}/discussion-hub` : null, refreshDiscussions);
+  useContractDiscussionRealtime(`/api/contracts/${contract.contractId}/versions/${versionId}/discussion-hub`, refreshDiscussions);
 
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages, currentPage]);
-
-  const paginatedTerms = terms.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
-
-  const handleTermChange = (
-    termId: number,
-    field: ContractTermEditableField,
-    value: string | boolean,
-  ) => {
+  const handleCommentChanged = (changed: ContractNegotiationCommentResponse) => setContract((current) => {
+    if (!current?.currentVersion || current.currentVersion.versionId !== versionId) return current;
+    const comments = current.currentVersion.comments;
+    return { ...current, currentVersion: { ...current.currentVersion,
+      comments: comments.some((comment) => comment.commentId === changed.commentId)
+        ? comments.map((comment) => comment.commentId === changed.commentId ? changed : comment) : [...comments, changed] } };
+  });
+  const comments = (termId: number, termCode?: string, termTitle?: string) => <ContractTermComments
+    contractId={contract.contractId} versionId={versionId} termId={termId} termCode={termCode} termTitle={termTitle}
+    comments={contract.currentVersion.comments} canWrite={canComment}
+    onCommentChanged={handleCommentChanged} realtimeRevision={discussionRevision} />;
+  const drafts: CreateContractTermDraft[] = terms.map((term) => ({ ...term, clientId: String(term.termId),
+    paymentMilestones: term.termKind === ContractTermKind.Payment ? contract.currentVersion.paymentMilestones : [] }));
+  const updateDrafts = (next: CreateContractTermDraft[]) => {
+    const updatedTerms = next.map((draft) => {
+      const existing = terms.find((term) => String(term.termId) === draft.clientId);
+      return { ...existing, ...draft, termId: existing?.termId ?? --nextLocalId.current, rowVersion: existing?.rowVersion ?? "" };
+    });
+    const rows = next.flatMap((term) => term.termKind === ContractTermKind.Payment ? term.paymentMilestones : []);
+    const amounts = allocateContractPaymentAmounts(contract.totalAmount, rows, contract.currencyCode);
+    const paymentMilestones: ContractPaymentMilestoneResponse[] = rows.map((row, index) => ({
+      paidAmount: 0, paymentStatus: 0, isOverdue: false,
+      ...row, paymentMilestoneId: row.paymentMilestoneId ?? --nextLocalId.current,
+      versionId, displayOrder: index + 1, rowVersion: row.rowVersion ?? "", amount: amounts[index], remainingAmount: amounts[index],
+    }));
     onDraftChange?.();
-    setContract((prev) => {
-      if (!prev || !prev.currentVersion) return prev;
-      const updatedTerms = prev.currentVersion.terms.map((t) =>
-        t.termId === termId ? { ...t, [field]: value } : t,
-      );
-      return {
-        ...prev,
-        currentVersion: { ...prev.currentVersion, terms: updatedTerms },
-      };
-    });
+    setContract((current) => !current?.currentVersion || current.currentVersion.versionId !== versionId ? current : ({
+      ...current, currentVersion: { ...current.currentVersion, terms: updatedTerms, paymentMilestones },
+    }));
   };
+  const renderComments = (term: { termId: number; termCode: string; termTitle: string; isNegotiable: boolean }) =>
+    term.isNegotiable && term.termId > 0 && (contract.status === ContractStatus.Negotiating ||
+      contract.currentVersion.comments.some((comment) => comment.termId === term.termId))
+      ? comments(term.termId, term.termCode, term.termTitle) : undefined;
 
-  const handleManualPaymentDateChange = (
-    milestoneId: number,
-    value: string,
-  ) => {
-    onDraftChange?.();
-    setContract((prev) => {
-      if (!prev?.currentVersion) return prev;
-      return {
-        ...prev,
-        currentVersion: {
-          ...prev.currentVersion,
-          paymentMilestones: prev.currentVersion.paymentMilestones.map(
-            (item) =>
-              item.paymentMilestoneId === milestoneId
-                ? { ...item, anchorDate: value || null, dueDate: null }
-                : item,
-          ),
-        },
-      };
-    });
-  };
-
-  const handleAddTerm = () => {
-    onDraftChange?.();
-    setContract((prev) => {
-      if (!prev || !prev.currentVersion) return prev;
-      const newDisplayOrder = prev.currentVersion.terms.length + 1;
-      const existingCodes = new Set(
-        prev.currentVersion.terms.map((term) =>
-          term.termCode.toLocaleUpperCase(),
-        ),
-      );
-      let termCodeIndex = 1;
-
-      while (existingCodes.has(`TERM_${termCodeIndex}`)) {
-        termCodeIndex += 1;
-      }
-
-      const newTerm: ContractTermDetailResponse = {
-        termId: -(Math.floor(Math.random() * 100000) + 1),
-        sourceTemplateTermId: null,
-        termCode: `TERM_${termCodeIndex}`,
-        termTitle: "Điều khoản mới",
-        termTitleEn: null,
-        termContent: "",
-        termContentEn: null,
-        termKind: ContractTermKind.General,
-        isNegotiable: true,
-        displayOrder: newDisplayOrder,
-        rowVersion: "",
-      };
-      return {
-        ...prev,
-        currentVersion: {
-          ...prev.currentVersion,
-          terms: [...prev.currentVersion.terms, newTerm],
-        },
-      };
-    });
-    const newTotalPages = Math.ceil((terms.length + 1) / itemsPerPage);
-    setCurrentPage(newTotalPages);
-  };
-
-  const handleRemoveTerm = (termId: number) => {
-    onDraftChange?.();
-    setContract((prev) => {
-      if (!prev || !prev.currentVersion) return prev;
-      const updatedTerms = prev.currentVersion.terms.filter(
-        (t) => t.termId !== termId,
-      );
-      const reorderedTerms = updatedTerms.map((t, i) => ({
-        ...t,
-        displayOrder: i + 1,
-      }));
-      return {
-        ...prev,
-        currentVersion: { ...prev.currentVersion, terms: reorderedTerms },
-      };
-    });
-  };
-
-  const handleMoveTerm = (termId: number, direction: -1 | 1) => {
-    onDraftChange?.();
-    setContract((prev) => {
-      if (!prev?.currentVersion) return prev;
-
-      const currentIndex = prev.currentVersion.terms.findIndex(
-        (term) => term.termId === termId,
-      );
-      const targetIndex = currentIndex + direction;
-
-      if (
-        currentIndex < 0 ||
-        targetIndex < 0 ||
-        targetIndex >= prev.currentVersion.terms.length
-      ) {
-        return prev;
-      }
-
-      const updatedTerms = [...prev.currentVersion.terms];
-      [updatedTerms[currentIndex], updatedTerms[targetIndex]] = [
-        updatedTerms[targetIndex],
-        updatedTerms[currentIndex],
-      ];
-
-      return {
-        ...prev,
-        currentVersion: {
-          ...prev.currentVersion,
-          terms: updatedTerms.map((term, index) => ({
-            ...term,
-            displayOrder: index + 1,
-          })),
-        },
-      };
-    });
-  };
-
-  const handleCommentChanged = (
-    changedComment: ContractNegotiationCommentResponse,
-  ) => {
-    setContract((prev) => {
-      if (!prev?.currentVersion) return prev;
-      const currentComments = prev.currentVersion.comments || [];
-      const commentExists = currentComments.some(
-        (comment) => comment.commentId === changedComment.commentId,
-      );
-      const updatedComments = commentExists
-        ? currentComments.map((comment) =>
-            comment.commentId === changedComment.commentId
-              ? changedComment
-              : comment,
-          )
-        : [...currentComments, changedComment];
-
-      return {
-        ...prev,
-        currentVersion: {
-          ...prev.currentVersion,
-          comments: updatedComments,
-        },
-      };
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <Card className="gap-0 p-0">
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-              <MessageSquareText className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-semibold">Trao đổi chung</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Thảo luận các nội dung áp dụng cho toàn bộ hợp đồng, không gắn
-                với một điều khoản cụ thể.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-            {!canComment && <Badge variant="secondary">Chỉ xem</Badge>}
-            <ContractTermComments
-              contractId={contract.contractId}
-              versionId={contract.currentVersion.versionId}
-              termId={null}
-              comments={contract.currentVersion.comments || []}
-              canWrite={canComment}
-              onCommentChanged={handleCommentChanged}
-              realtimeRevision={discussionRevision}
-              triggerClassName="mt-0"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-3 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-primary" />
-            Chi tiết các Điều khoản
-          </CardTitle>
-          {isEditable && (
-            <Button
-              className="w-full sm:w-auto"
-              variant="outline"
-              size="sm"
-              onClick={handleAddTerm}
-            >
-              <Plus className="size-4 mr-2" />
-              Thêm Điều khoản
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {paginatedTerms.map((term, pageIndex) => {
-            const termIndex = (currentPage - 1) * itemsPerPage + pageIndex;
-
-            return (
-              <ContractTermCard
-                key={term.termId}
-                term={term}
-                inputId={String(term.termId)}
-                editable={isEditable}
-                isBilingual={
-                  contract.languageMode === ContractLanguageMode.Bilingual
-                }
-                canMoveUp={termIndex > 0}
-                canMoveDown={termIndex < terms.length - 1}
-                onChange={(field, value) =>
-                  handleTermChange(term.termId, field, value)
-                }
-                onMove={(direction) => handleMoveTerm(term.termId, direction)}
-                onRemove={
-                  term.termKind === ContractTermKind.Payment
-                    ? undefined
-                    : () => handleRemoveTerm(term.termId)
-                }
-              >
-                {term.isNegotiable &&
-                  term.termId > 0 &&
-                  (contract.status === ContractStatus.Negotiating ||
-                    (contract.currentVersion.comments || []).some(
-                      (comment) => comment.termId === term.termId,
-                    )) && (
-                    <ContractTermComments
-                      contractId={contract.contractId}
-                      versionId={contract.currentVersion.versionId}
-                      termId={term.termId}
-                      termCode={term.termCode}
-                      termTitle={term.termTitle}
-                      comments={contract.currentVersion.comments || []}
-                      canWrite={canComment}
-                      onCommentChanged={handleCommentChanged}
-                      realtimeRevision={discussionRevision}
-                    />
-                  )}
-              </ContractTermCard>
-            );
-          })}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="size-4 mr-1" /> Trước
-              </Button>
-              <span className="text-sm font-medium">
-                Trang {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={currentPage === totalPages}
-              >
-                Sau <ChevronRight className="size-4 ml-1" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {manualPaymentMilestones.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Mốc ngày thanh toán thủ công</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            {manualPaymentMilestones.map((milestone) => (
-              <div key={milestone.paymentMilestoneId} className="space-y-1.5">
-                <Label
-                  htmlFor={`contract-payment-date-${milestone.paymentMilestoneId}`}
-                >
-                  {milestone.titleVi} — Ngày bắt đầu tính hạn
-                </Label>
-                <DateFilter
-                  id={`contract-payment-date-${milestone.paymentMilestoneId}`}
-                  date={parseDateString(milestone.anchorDate)}
-                  disabled={!isEditable}
-                  onChange={(date) =>
-                    handleManualPaymentDateChange(
-                      milestone.paymentMilestoneId,
-                      date ? format(date, "yyyy-MM-dd") : "",
-                    )
-                  }
-                  placeholder="Chọn ngày bắt đầu tính hạn"
-                  className="w-full flex-1"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Hệ thống cộng thêm {milestone.dueOffsetDays} ngày để tính hạn.
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+  return <div className="space-y-4">
+    <Card className="gap-0 p-0"><CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="flex items-start gap-3"><div className="rounded-xl bg-primary/10 p-2.5 text-primary"><MessageSquareText className="size-5" /></div>
+        <div><h2 className="font-semibold">Trao đổi chung</h2><p className="mt-1 text-sm text-muted-foreground">Thảo luận các nội dung áp dụng cho toàn bộ hợp đồng.</p></div>
+      </div>
+      <div className="flex items-center gap-2">{!canComment && <Badge variant="secondary">Chỉ xem</Badge>}
+        <ContractTermComments contractId={contract.contractId} versionId={versionId} termId={null}
+          comments={contract.currentVersion.comments} canWrite={canComment} onCommentChanged={handleCommentChanged}
+          realtimeRevision={discussionRevision} triggerClassName="mt-0" />
+      </div>
+    </CardContent></Card>
+    {canEdit ? <CreateContractTermsEditor key={versionId} terms={drafts} templateName="Điều khoản của phiên bản hiện tại"
+      savedRevision={contract.currentVersion.rowVersion}
+      isBilingual={contract.languageMode === ContractLanguageMode.Bilingual} onChange={updateDrafts}
+      renderTermChildren={(draft) => { const term = terms.find((item) => String(item.termId) === draft.clientId); return term ? renderComments(term) : undefined; }} />
+      : <TermsListEditor terms={terms} getKey={(term) => term.termId} title="Điều khoản hợp đồng"
+        getCardProps={(term) => ({ inputId: `contract-${term.termId}`, isBilingual: contract.languageMode === ContractLanguageMode.Bilingual,
+          children: <>{term.termKind === ContractTermKind.Payment && <PaymentPlanEditor rows={contract.currentVersion.paymentMilestones}
+            isBilingual={contract.languageMode === ContractLanguageMode.Bilingual} editable={false} onChange={() => {}} />}{renderComments(term)}</> })} />}
+  </div>;
 }

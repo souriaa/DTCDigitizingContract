@@ -9,6 +9,7 @@ public sealed class TblContractAcceptanceRecord
     public string AcceptanceCode { get; set; } = null!;
     public DateTime AcceptanceDate { get; set; }
     public string Location { get; set; } = null!;
+    public string? LocationEn { get; set; }
     public byte AcceptanceKind { get; set; }
     public byte Status { get; set; }
     public string? SnapshotHash { get; set; }

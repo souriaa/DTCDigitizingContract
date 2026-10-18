@@ -8,14 +8,14 @@ public class ContractTemplatePolicyTests
     private static string ValidSha256Hash => new('a', 64);
 
     [Fact]
-    public void SoftwareSupplyPlaceholderCatalog_V4_HasExpectedShape()
+    public void SoftwareSupplyPlaceholderCatalog_V5_HasExpectedShape()
     {
         var catalog = SoftwareSupplyPlaceholderCatalog.All;
 
-        Assert.Equal("V4", SoftwareSupplyPlaceholderCatalog.Version);
-        Assert.Equal(37, catalog.Count);
+        Assert.Equal("V5", SoftwareSupplyPlaceholderCatalog.Version);
+        Assert.Equal(51, catalog.Count);
         Assert.DoesNotContain(catalog, item => item.IsRequired);
-        Assert.Equal(37, catalog.Count(item => !item.IsRequired));
+        Assert.Equal(51, catalog.Count(item => !item.IsRequired));
         Assert.All(catalog, item =>
             Assert.Equal(TemplatePlaceholderMultiplicity.ZeroOrOne, item.Multiplicity));
         Assert.Equal(

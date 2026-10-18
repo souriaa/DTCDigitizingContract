@@ -62,6 +62,7 @@ export function ProductFormModal({
     null,
   );
   const [productName, setProductName] = useState("");
+  const [productNameEn, setProductNameEn] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productOrder, setProductOrder] = useState("1");
@@ -169,6 +170,7 @@ export function ProductFormModal({
       if (item) {
         setProductCode(item.productCode || "");
         setProductName(item.productName || "");
+        setProductNameEn(item.productNameEn || "");
         setCategoryId(
           item.categoryId !== undefined && item.categoryId !== null
             ? String(item.categoryId)
@@ -202,6 +204,7 @@ export function ProductFormModal({
       } else {
         setProductCode("");
         setProductName("");
+        setProductNameEn("");
         setCategoryId(initialCategoryId ? String(initialCategoryId) : "");
         setProductPrice("");
         setProductOrder("1");
@@ -228,6 +231,11 @@ export function ProductFormModal({
     if (!productName.trim()) {
       newErrors.productName = "Vui lòng nhập tên sản phẩm";
     }
+    if (!productNameEn.trim()) {
+      newErrors.productNameEn = "Vui lòng nhập tên sản phẩm tiếng Anh";
+    } else if (productNameEn.trim().length > 500) {
+      newErrors.productNameEn = "Tên sản phẩm tiếng Anh không được vượt quá 500 ký tự";
+    }
     if (productPrice && isNaN(Number(productPrice))) {
       newErrors.productPrice = "Đơn giá phải là số hợp lệ";
     }
@@ -248,6 +256,7 @@ export function ProductFormModal({
     if (
       newErrors.productCode ||
       newErrors.productName ||
+      newErrors.productNameEn ||
       newErrors.productPrice ||
       newErrors.categoryId ||
       newErrors.langId
@@ -273,6 +282,7 @@ export function ProductFormModal({
       const commonPayload = {
         productCode: productCode.trim() || null,
         productName: productName.trim(),
+        productNameEn: productNameEn.trim(),
         categoryId: categoryIdVal,
         productShortDesc: productShortDesc.trim() || null,
         productDetails: productDetails.trim() || null,
@@ -298,7 +308,7 @@ export function ProductFormModal({
       }
       onSuccess(
         createdProduct ??
-          (item ? { ...item, categoryId: categoryIdVal } : undefined),
+          (item ? { ...item, productName: commonPayload.productName, productNameEn: commonPayload.productNameEn, categoryId: categoryIdVal } : undefined),
       );
       onClose();
     } catch (error: unknown) {
@@ -437,6 +447,13 @@ export function ProductFormModal({
               {errors.productName && (
                 <p className="text-xs text-destructive">{errors.productName}</p>
               )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="productNameEn">Tên sản phẩm tiếng Anh {!viewOnly && <span className="text-destructive">*</span>}</Label>
+              <Input id="productNameEn" value={productNameEn} onChange={(event) => setProductNameEn(event.target.value)}
+                disabled={viewOnly} maxLength={500} aria-invalid={!!errors.productNameEn} placeholder="Nhập tên sản phẩm tiếng Anh..." />
+              {errors.productNameEn && <p className="text-xs text-destructive">{errors.productNameEn}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

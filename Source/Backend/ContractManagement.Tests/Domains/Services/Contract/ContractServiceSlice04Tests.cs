@@ -15,7 +15,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractServiceSlice04Tests
+public sealed partial class ContractServiceSlice04Tests
 {
     private const int TenantId = 904;
     private const int EmployeeId = 41;
@@ -1064,12 +1064,14 @@ public sealed class ContractServiceSlice04Tests
             ProductId = ProductId,
             ProductCode = "P-01",
             ProductName = "Product",
+            ProductNameEn = "Catalog product",
             Status = 1
         });
         context.TblServices.Add(new TblService
         {
             ServiceId = ServiceId,
             ServiceName = "Service",
+            ServiceNameEn = "Catalog service",
             Status = 1
         });
         context.TblContractTemplates.Add(new TblContractTemplate

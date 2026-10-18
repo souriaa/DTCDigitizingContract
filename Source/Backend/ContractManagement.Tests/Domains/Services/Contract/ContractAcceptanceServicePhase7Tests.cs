@@ -26,6 +26,50 @@ namespace ContractManagement.Tests.Domains.Services.Contract;
 
 public sealed class ContractAcceptanceServicePhase7Tests
 {
+    [Fact]
+    public async Task Preview_MissingCustomerEnglishCustomSource_RendersBlankFromSignedSnapshot()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        (await db.TblCustomers.SingleAsync()).CustomerBankName = "Không dùng ngân hàng VI";
+        db.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = TemplateVersionId, PlaceholderKey = "ACCEPTANCE_CONTACT",
+            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "customer.bank-name-en",
+            DataKind = 1, Multiplicity = 2, IsSystem = false, DefaultValue = "Không dùng mặc định"
+        });
+        await db.SaveChangesAsync();
+        storage.Add("templates/acceptance.docx", CreateTemplateDocxWithCustomAndSignatures());
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(ContractId, CreateRequest(), EmployeeId);
+        var preview = await service.PreviewAsync(ContractId, draft.AcceptanceRecordId, "docx", EmployeeId);
+        using var doc = WordprocessingDocument.Open(new MemoryStream(preview.Content), false);
+        var text = doc.MainDocumentPart!.Document!.InnerText;
+        Assert.DoesNotContain("{{ACCEPTANCE_CONTACT}}", text);
+        Assert.DoesNotContain("Không dùng ngân hàng VI", text);
+        Assert.DoesNotContain("Không dùng mặc định", text);
+    }
+
+    [Fact]
+    public async Task Create_EnglishContractReference_DoesNotRequireOptionalCustomerLegalName()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage);
+        var legal = await db.TblContractVersionLegalSnapshots.SingleAsync();
+        legal.ContractNameEn = "Software supply contract";
+        var tenant = await db.TblContractVersionPartySnapshots.SingleAsync(x => x.PartyRole == 1);
+        tenant.LegalNameEn = "Provider company";
+        await db.SaveChangesAsync();
+        var draft = await CreateService(db, storage).CreateAsync(ContractId, CreateRequest(), EmployeeId);
+        var reference = Assert.Single(draft.References, x => x.ReferenceType == AcceptanceReferenceType.Contract);
+        Assert.NotNull(reference.TextEn);
+        Assert.Contains("Provider company and  regarding Software supply contract", reference.TextEn);
+        Assert.DoesNotContain("Khách hàng A", reference.TextEn);
+        Assert.Contains("12 September 2026", reference.TextEn);
+    }
+
     private const int ContractId = 71;
     private const int VersionId = 72;
     private const int TemplateId = 73;
@@ -162,6 +206,29 @@ public sealed class ContractAcceptanceServicePhase7Tests
         Assert.DoesNotContain(auditedStrings, value =>
             value.Contains("Đã hoàn thành công việc", StringComparison.Ordinal)
             || value.Contains("contract-rich-text", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Preview_EnglishCustomSourceUsesSignedSnapshot_NotCurrentCustomer()
+    {
+        await using var db = CreateContext();
+        var storage = new TrackingStorage();
+        await SeedAsync(db, storage, customerBankNameEn: "Frozen English bank");
+        (await db.TblCustomers.SingleAsync()).CustomerBankNameEn = "Current English bank";
+        db.TblContractTemplateFields.Add(new()
+        {
+            TemplateVersionId = TemplateVersionId, PlaceholderKey = "ACCEPTANCE_CONTACT",
+            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "customer.bank-name-en",
+            DataKind = 1, Multiplicity = 2, IsSystem = false
+        });
+        await db.SaveChangesAsync();
+        storage.Add("templates/acceptance.docx", CreateTemplateDocxWithCustomAndSignatures());
+        var service = CreateService(db, storage);
+        var draft = await service.CreateAsync(ContractId, CreateRequest(), EmployeeId);
+        var preview = await service.PreviewAsync(ContractId, draft.AcceptanceRecordId, "docx", EmployeeId);
+        using var doc = WordprocessingDocument.Open(new MemoryStream(preview.Content), false);
+        Assert.Contains("Frozen English bank", doc.MainDocumentPart!.Document!.InnerText);
+        Assert.DoesNotContain("Current English bank", doc.MainDocumentPart.Document.InnerText);
     }
 
     [Fact]
@@ -799,7 +866,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
     };
 
     private static async Task SeedAsync(
-        DbDtctechContext db, TrackingStorage storage)
+        DbDtctechContext db, TrackingStorage storage, string? customerBankNameEn = null)
     {
         var now = new DateTime(2026, 9, 18, 8, 0, 0, DateTimeKind.Utc);
         var templateDocx = CreateTemplateDocx();
@@ -961,6 +1028,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
                     ContractVersionPartySnapshotId = 2,
                     PartyRole = 2,
                     LegalName = "Khách hàng A",
+                    BankNameEn = customerBankNameEn,
                     Address = "Bình Dương",
                     RepresentativeName = "Trần Văn A",
                     RepresentativeTitle = "Kế toán trưởng"

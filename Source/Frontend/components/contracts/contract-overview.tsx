@@ -71,6 +71,7 @@ interface CatalogItem {
   id: string;
   originalId: number;
   itemName: string;
+  itemNameEn: string;
   itemType: ContractItemType;
   unitPrice: number;
 }
@@ -223,6 +224,7 @@ export function ContractOverview({
               id: `p-${p.productId}`,
               originalId: p.productId,
               itemName: p.productName || "Sản phẩm không tên",
+              itemNameEn: p.productNameEn ?? "",
               itemType: ContractItemType.Product,
               unitPrice: p.productPrice || 0,
             }));
@@ -233,6 +235,7 @@ export function ContractOverview({
               id: `s-${s.serviceId}`,
               originalId: s.serviceId,
               itemName: s.serviceName || "Dịch vụ không tên",
+              itemNameEn: s.serviceNameEn ?? "",
               itemType: ContractItemType.Service,
               unitPrice: s.servicePrice || 0,
             }));
@@ -285,7 +288,7 @@ export function ContractOverview({
           : null,
       itemCode: null,
       itemName: catalogItem.itemName,
-      itemNameEn: null,
+      itemNameEn: catalogItem.itemNameEn,
       itemDescription: null,
       itemDescriptionEn: null,
       unitName: null,

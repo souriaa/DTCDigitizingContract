@@ -477,6 +477,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("Fax")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -484,6 +489,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LegalNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<byte>("PartyRole")
@@ -500,6 +510,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("RepresentativeTitle")
                         .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("TaxCode")
@@ -571,6 +586,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LocationEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<byte[]>("RowVersion")
@@ -687,6 +707,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<int>("AcceptanceRecordId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<string>("ContentEn")
                         .HasColumnType("nvarchar(max)");
 
@@ -727,6 +752,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAcceptanceSection", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractAcceptanceSection_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [ContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractAcceptanceSection_Order", "[DisplayOrder] >= 0");
                         });
                 });
@@ -830,6 +857,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<int>("AppendixId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -889,6 +921,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAppendixTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractAppendixTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractAppendixTerm_Order", "[DisplayOrder] >= 0");
                         });
                 });
@@ -2714,6 +2748,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TemplateAppendixTermId"));
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -2775,6 +2814,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTemplateAppendixTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTemplateAppendixTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTemplateAppendixTerm_Code", "LEN(LTRIM(RTRIM([TermCode]))) > 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplateAppendixTerm_Order", "[DisplayOrder] >= 0");
@@ -3254,6 +3295,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TemplateTermId"));
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -3325,6 +3371,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTemplateTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTemplateTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTemplateTerm_DisplayOrder", "[DisplayOrder] >= 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplateTerm_TemplateVersionId", "[TemplateVersionId] > 0");
@@ -3487,6 +3535,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TermId"));
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
@@ -3567,6 +3620,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTerm_ContractId", "[ContractId] > 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTerm_DisplayOrder", "[DisplayOrder] >= 0");
@@ -3812,6 +3867,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("BankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -3821,8 +3881,28 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("BankNameEn")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CityEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactTitleEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<long>("ContractVersionLegalSnapshotId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("CountryEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("FaxNumber")
                         .HasMaxLength(50)
@@ -3832,6 +3912,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("LegalNameEn")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<byte>("PartyRole")
@@ -3850,6 +3935,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("RepresentativeTitle")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<int?>("SourceCustomerId")
@@ -4034,6 +4124,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("CustomerAddressEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("CustomerBankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -4041,6 +4136,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("CustomerBankName")
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("CustomerBankNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("CustomerBirthday")
@@ -4056,6 +4156,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("CustomerCityEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("CustomerCode")
                         .HasMaxLength(30)
                         .IsUnicode(false)
@@ -4068,6 +4173,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("CustomerCompany")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CustomerCompanyEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("CustomerContactPersonName")
                         .HasMaxLength(200)
@@ -4082,9 +4192,19 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("CustomerContactPersonTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("CustomerCountry")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerCountryEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(50)
@@ -4139,6 +4259,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("CustomerRepresentativeTitle")
                         .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerRepresentativeTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("CustomerSourceId")
@@ -4993,6 +5118,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("ProductNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("ProductOrder")
                         .HasColumnType("int");
 
@@ -5040,7 +5170,10 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("tbl_Products", (string)null);
+                    b.ToTable("tbl_Products", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_ProductNameEn", "LEN(LTRIM(RTRIM([ProductNameEn]))) > 0");
+                        });
                 });
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblQuotation", b =>
@@ -5199,6 +5332,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("ServiceNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("ServiceOrder")
                         .HasColumnType("int");
 
@@ -5246,7 +5384,10 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasKey("ServiceId")
                         .HasName("PK__tbl_Serv__C51BB00A20C1E124");
 
-                    b.ToTable("tbl_Services", (string)null);
+                    b.ToTable("tbl_Services", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Services_ServiceNameEn", "LEN(LTRIM(RTRIM([ServiceNameEn]))) > 0");
+                        });
                 });
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblServiceType", b =>
@@ -5279,6 +5420,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("BankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -5286,6 +5432,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("BankName")
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BankNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -5304,6 +5455,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("LegalEntityNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(30)
                         .IsUnicode(false)
@@ -5317,6 +5473,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("RepresentativeTitle")
                         .IsRequired()
                         .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<byte[]>("RowVersion")
@@ -5342,6 +5503,14 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_TenantLegalProfile", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TenantLegalProfile_AddressEn", "LEN(LTRIM(RTRIM([AddressEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_BankNameEn", "LEN(LTRIM(RTRIM([BankNameEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_LegalEntityNameEn", "LEN(LTRIM(RTRIM([LegalEntityNameEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_RepresentativeTitleEn", "LEN(LTRIM(RTRIM([RepresentativeTitleEn]))) > 0");
+
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Employees", "[CreatedByEmployeeId] > 0 AND [UpdatedByEmployeeId] > 0");
 
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Singleton", "[TenantLegalProfileId] = 1");

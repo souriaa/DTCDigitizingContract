@@ -66,6 +66,7 @@ public sealed class CustomerPublicContractTermResponse
     public string? TermContent { get; init; }
 
     public string? TermContentEn { get; init; }
+        public byte BilingualContentMode { get; set; } = 1;
 
     public bool IsNegotiable { get; init; }
 

@@ -6,6 +6,14 @@ namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 /// </summary>
 public sealed class TblTenantLegalProfile
 {
+    public string? LegalEntityNameEn { get; set; }
+
+    public string? AddressEn { get; set; }
+
+    public string? RepresentativeTitleEn { get; set; }
+
+    public string? BankNameEn { get; set; }
+
     public int TenantLegalProfileId { get; set; }
 
     public string LegalEntityName { get; set; } = string.Empty;

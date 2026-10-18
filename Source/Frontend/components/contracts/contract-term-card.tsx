@@ -6,29 +6,22 @@ import {
   ArrowUp,
   ChevronDown,
   LockKeyhole,
+  Pencil,
   Trash2,
   UnlockKeyhole,
 } from "lucide-react";
 
+import { TermFields } from "@/components/contract-documents/term-fields";
+import { TermLanguageSection } from "@/components/contract-documents/term-language-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ContractRichTextContent } from "@/components/ui/custom/contract-rich-text-content";
-import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ContractTermKind } from "@/services/contract-template-api";
 import { Card } from "../ui/card";
@@ -38,6 +31,7 @@ export type ContractTermEditableField =
   | "termTitleEn"
   | "termContent"
   | "termContentEn"
+  | "bilingualContentMode"
   | "isNegotiable";
 
 export interface ContractTermCardValue {
@@ -46,16 +40,20 @@ export interface ContractTermCardValue {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
   termKind?: ContractTermKind;
 }
 
-interface ContractTermCardProps {
+export interface ContractTermCardProps {
   term: ContractTermCardValue;
   inputId: string;
   className?: string;
   editable?: boolean;
+  actionsEnabled?: boolean;
+  notifyMoveSuccess?: boolean;
+  onEdit?: () => void;
   isBilingual?: boolean;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
@@ -70,9 +68,10 @@ interface ContractTermCardProps {
   onOpenChange?: (open: boolean) => void;
   onChange?: (
     field: ContractTermEditableField,
-    value: string | boolean,
+    value: string | boolean | number,
   ) => void;
   onKindChange?: (value: ContractTermKind) => void;
+  onValueChange?: (patch: Partial<ContractTermCardValue>) => void;
   onMove?: (direction: -1 | 1) => void | boolean | Promise<void | boolean>;
   onRemove?: () => void;
   children?: ReactNode;
@@ -83,6 +82,9 @@ export function ContractTermCard({
   inputId,
   className,
   editable = false,
+  actionsEnabled = editable,
+  notifyMoveSuccess = true,
+  onEdit,
   isBilingual = false,
   canMoveUp = false,
   canMoveDown = false,
@@ -97,6 +99,7 @@ export function ContractTermCard({
   onOpenChange,
   onChange,
   onKindChange,
+  onValueChange,
   onMove,
   onRemove,
   children,
@@ -109,7 +112,7 @@ export function ContractTermCard({
         toast.error("Đổi thứ tự thất bại");
         return;
       }
-      toast.info("Thứ tự đã được thay đổi");
+      if (notifyMoveSuccess) toast.info("Thứ tự đã được thay đổi");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message
@@ -156,11 +159,26 @@ export function ContractTermCard({
                 <Badge>Thanh toán theo đợt</Badge>
               )}
             </div>
-            <p className="truncate text-sm font-medium">{term.termTitle}</p>
+            {isBilingual ? (
+              <div className="space-y-1.5">
+                <div className="flex min-w-0 items-start gap-2">
+                  <Badge variant="outline" className="border-sky-200 text-sky-700 dark:border-sky-900 dark:text-sky-300">EN</Badge>
+                  <p lang={term.termTitleEn ? "en" : "vi"} className="min-w-0 break-words text-sm font-medium">
+                    {term.termTitleEn || "Chưa có tiêu đề tiếng Anh"}
+                  </p>
+                </div>
+                <div className="flex min-w-0 items-start gap-2">
+                  <Badge variant="outline" className="border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300">VI</Badge>
+                  <p lang="vi" className="min-w-0 break-words text-sm font-medium">{term.termTitle}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="truncate text-sm font-medium">{term.termTitle}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-1 self-end sm:self-start">
-            {editable && onMove && (
+            {actionsEnabled && onMove && (
               <>
                 <Button
                   type="button"
@@ -184,7 +202,18 @@ export function ContractTermCard({
                 </Button>
               </>
             )}
-            {editable && onRemove && (
+            {actionsEnabled && onEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Sửa điều khoản"
+                onClick={onEdit}
+              >
+                <Pencil className="size-4" />
+              </Button>
+            )}
+            {actionsEnabled && onRemove && (
               <Button
                 type="button"
                 variant="ghost"
@@ -213,90 +242,50 @@ export function ContractTermCard({
         <CollapsibleContent className="pt-4">
           {editable ? (
             <div className="grid gap-4">
-              {onKindChange && (
-                <div className="space-y-2">
-                  <Label htmlFor={`term-kind-${inputId}`}>
-                    Loại điều khoản
-                  </Label>
-                  <Select
-                    value={String(term.termKind ?? ContractTermKind.General)}
-                    onValueChange={(value) =>
-                      onKindChange(Number(value) as ContractTermKind)
-                    }
-                  >
-                    <SelectTrigger
-                      id={`term-kind-${inputId}`}
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="Chọn loại điều khoản" />
-                    </SelectTrigger>
-                    <SelectContent showSearch={false}>
-                      <SelectItem value={String(ContractTermKind.General)}>
-                        Điều khoản thường
-                      </SelectItem>
-                      <SelectItem value={String(ContractTermKind.Payment)}>
-                        Điều khoản thanh toán
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor={`term-title-${inputId}`}>
-                  {titleLabel} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={`term-title-${inputId}`}
-                  value={term.termTitle}
-                  onChange={(event) =>
-                    onChange?.("termTitle", event.target.value)
+              <TermFields
+                id={`term-${inputId}`}
+                showCode={false}
+                isBilingual={isBilingual}
+                titleLabel={titleLabel}
+                contentLabel={contentLabel}
+                englishTitlePlaceholder={englishTitlePlaceholder}
+                englishContentPlaceholder={englishContentPlaceholder}
+                kind={term.termKind}
+                onKindChange={onKindChange}
+                value={{
+                  code: term.termCode,
+                  title: term.termTitle,
+                  titleEn: term.termTitleEn ?? "",
+                  content: term.termContent ?? "",
+                  contentEn: term.termContentEn ?? "",
+                  bilingualContentMode: term.bilingualContentMode,
+                }}
+                onChange={(next) => {
+                  if (onValueChange) {
+                    onValueChange({
+                      termTitle: next.title,
+                      termTitleEn: next.titleEn,
+                      termContent: next.content,
+                      termContentEn: next.contentEn,
+                      bilingualContentMode: next.bilingualContentMode,
+                    });
+                    return;
                   }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={`term-content-${inputId}`}>
-                  {contentLabel}
-                </Label>
-                <ContractRichTextEditor
-                  id={`term-content-${inputId}`}
-                  value={term.termContent ?? ""}
-                  placeholder="Nhập nội dung điều khoản..."
-                  ariaLabel="Nội dung điều khoản"
-                  onChange={(value) => onChange?.("termContent", value)}
-                />
-              </div>
-
-              {isBilingual && (
-                <div className="grid gap-4 rounded-xl border border-dashed p-3">
-                  <div className="space-y-2">
-                    <Label htmlFor={`term-title-en-${inputId}`}>
-                      Tiêu đề tiếng Anh{" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id={`term-title-en-${inputId}`}
-                      value={term.termTitleEn ?? ""}
-                      placeholder={englishTitlePlaceholder}
-                      onChange={(event) =>
-                        onChange?.("termTitleEn", event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`term-content-en-${inputId}`}>
-                      Nội dung tiếng Anh
-                    </Label>
-                    <ContractRichTextEditor
-                      id={`term-content-en-${inputId}`}
-                      value={term.termContentEn ?? ""}
-                      placeholder={englishContentPlaceholder}
-                      ariaLabel="Nội dung điều khoản tiếng Anh"
-                      onChange={(value) => onChange?.("termContentEn", value)}
-                    />
-                  </div>
-                </div>
-              )}
+                  if (next.title !== term.termTitle)
+                    onChange?.("termTitle", next.title);
+                  if (next.titleEn !== (term.termTitleEn ?? ""))
+                    onChange?.("termTitleEn", next.titleEn);
+                  if (next.content !== (term.termContent ?? ""))
+                    onChange?.("termContent", next.content);
+                  if (next.contentEn !== (term.termContentEn ?? ""))
+                    onChange?.("termContentEn", next.contentEn);
+                  if (next.bilingualContentMode !== term.bilingualContentMode)
+                    onChange?.(
+                      "bilingualContentMode",
+                      next.bilingualContentMode,
+                    );
+                }}
+              />
 
               {showNegotiation && (
                 <Button
@@ -317,22 +306,47 @@ export function ContractTermCard({
               )}
             </div>
           ) : (
-            <div>
-              <p className="text-sm font-semibold">{term.termTitle}</p>
-              <ContractRichTextContent
-                value={term.termContent}
-                className="mt-1 text-muted-foreground"
-              />
-              {isBilingual && (
-                <div className="mt-4 rounded-xl border border-dashed p-3">
-                  <p className="text-sm font-semibold">
-                    {term.termTitleEn || "Chưa có tiêu đề tiếng Anh"}
-                  </p>
+            <div className="grid min-w-0 gap-4">
+              {isBilingual && term.bilingualContentMode !== 2 ? (
+                <>
+                  <TermLanguageSection language="en">
+                    <p className="break-words text-sm font-semibold" lang={term.termTitleEn ? "en" : "vi"}>
+                      {term.termTitleEn || "Chưa có tiêu đề tiếng Anh"}
+                    </p>
+                    <ContractRichTextContent
+                      value={term.termContentEn}
+                      emptyText="Chưa có nội dung tiếng Anh"
+                      className="text-foreground"
+                    />
+                  </TermLanguageSection>
+                  <TermLanguageSection language="vi">
+                    <p className="break-words text-sm font-semibold" lang="vi">{term.termTitle}</p>
+                    <ContractRichTextContent value={term.termContent} className="text-foreground" />
+                  </TermLanguageSection>
+                </>
+              ) : isBilingual ? (
+                <TermLanguageSection language="combined">
+                  <div className="space-y-2 border-b pb-3">
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline">EN</Badge>
+                      <p className="min-w-0 break-words text-sm font-semibold" lang={term.termTitleEn ? "en" : "vi"}>
+                        {term.termTitleEn || "Chưa có tiêu đề tiếng Anh"}
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline">VI</Badge>
+                      <p className="min-w-0 break-words text-sm font-semibold" lang="vi">{term.termTitle}</p>
+                    </div>
+                  </div>
                   <ContractRichTextContent
-                    value={term.termContentEn}
-                    emptyText="Chưa có nội dung tiếng Anh"
-                    className="mt-1 text-muted-foreground"
+                    value={term.termContent}
+                    className="text-foreground"
                   />
+                </TermLanguageSection>
+              ) : (
+                <div>
+                  <p className="text-sm font-semibold">{term.termTitle}</p>
+                  <ContractRichTextContent value={term.termContent} className="mt-2 text-foreground" />
                 </div>
               )}
             </div>

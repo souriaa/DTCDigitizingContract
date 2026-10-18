@@ -137,7 +137,7 @@ public sealed class ContractTemplatePreviewTests
 
         Assert.True(catalogKeys.SetEquals(
             SoftwareSupplyPreviewDatasetV1.CoveredPlaceholderKeys));
-        Assert.Equal("V4", SoftwareSupplyPreviewDatasetV1.Version);
+        Assert.Equal("V5", SoftwareSupplyPreviewDatasetV1.Version);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.LegalBases.Count);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.Items.Count);
         Assert.Equal(
@@ -365,7 +365,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         scalarValues["CONTRACT_CODE"] = "HD-REAL-001";
         scalarValues["CUSTOMER_NAME"] = "Công ty Khách hàng Thật";
         scalarValues["CUSTOMER_TAX_CODE"] = "0109999999";
@@ -374,7 +374,8 @@ public sealed class ContractTemplatePreviewTests
             scalarValues,
             [new ContractTemplateRenderItem(
                 1, "Sản phẩm", "Phần mềm thật", 2, 1_000_000m,
-                "10%", "8%", 1_944_000m)],
+                "10%", "8%", 1_944_000m)
+                { TypeEn = "Product", DescriptionEn = "Actual software" }],
             [new ContractTemplateRenderTerm(
                 1, "Phạm vi thật", "Actual scope", RichText("Nội dung thật"),
                 RichText("Actual content"))],
@@ -404,6 +405,14 @@ public sealed class ContractTemplatePreviewTests
         Assert.Contains("HD-REAL-001", text);
         Assert.Contains("Công ty Khách hàng Thật", text);
         Assert.Contains("Phần mềm thật", text);
+        Assert.Contains("Actual software", text);
+        var missingEnglish = renderData with
+        {
+            Items = [renderData.Items[0] with { DescriptionEn = null }]
+        };
+        Assert.Equal("BilingualItemDataRequired",
+            Assert.Throws<ContractTemplatePreviewException>(() => new ContractTemplatePreviewRenderer().Render(
+                CreateSourceDocument(), ContractLanguageMode.Bilingual, missingEnglish)).FailureCode);
         Assert.Contains("Nhân viên Thật", text);
         Assert.DoesNotContain("Trần Thị Mẫu", text);
         Assert.Contains("Căn cứ dữ liệu hợp đồng thật", text);
@@ -415,7 +424,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var paymentTerm = new ContractTemplateRenderTerm(
             1, "Thanh toán", "Payment", RichText("Bảng do người dùng tự nhập"),
             RichText("User-authored table"))
@@ -453,7 +462,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var data = new ContractTemplateRenderData(
             scalarValues, [], [],
             new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN A", "A"),
@@ -519,7 +528,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var data = new ContractTemplateRenderData(
             scalarValues, [], [],
             new ContractTemplateRenderSignature("Bên A", "A"),
@@ -581,7 +590,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var richContent = ContractTermRichText.Prefix +
             """{"blocks":[{"type":"paragraph","alignment":"center","runs":[{"text":"Nội dung đậm","bold":true,"italic":true,"underline":true,"fontSize":18}]},{"type":"table","columnWidthsBps":[5000,5000],"rows":[{"cells":[{"paragraphs":[{"alignment":"right","runs":[{"text":"Cột một"}]}]},{"paragraphs":[{"alignment":"left","runs":[{"text":"Cột hai","bold":true}]},{"alignment":"center","runs":[{"text":"Dòng hai"}]}]}]}]}]}""";
         var renderData = new ContractTemplateRenderData(
@@ -644,7 +653,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var richContent = ContractTermRichText.Prefix +
             """{"blocks":[{"type":"table","columnWidthsBps":[3000,4500,2500],"rows":[{"cells":[{"colspan":2,"rowspan":2,"verticalAlign":"center","paragraphs":[{"runs":[{"text":"A"}]}]},{"verticalAlign":"bottom","paragraphs":[{"runs":[{"text":"B"}]}]}]},{"cells":[{"paragraphs":[{"runs":[{"text":"C"}]}]}]},{"cells":[{"paragraphs":[{"runs":[{"text":"D"}]}]},{"colspan":2,"verticalAlign":"top","paragraphs":[{"runs":[{"text":"E"}]}]}]}]}]}""";
         var renderData = new ContractTemplateRenderData(
@@ -764,7 +773,7 @@ public sealed class ContractTemplatePreviewTests
     {
         var scalarValues = SoftwareSupplyPlaceholderCatalog.GetAll()
             .Where(item => item.DataKind == TemplatePlaceholderDataKind.Scalar)
-            .ToDictionary(item => item.Key, _ => string.Empty, StringComparer.Ordinal);
+            .ToDictionary(item => item.Key, item => item.Key.EndsWith("_EN", StringComparison.Ordinal) ? "English fixture value" : string.Empty, StringComparer.Ordinal);
         var renderData = new ContractTemplateRenderData(
             scalarValues,
             [],
@@ -902,6 +911,105 @@ public sealed class ContractTemplatePreviewTests
     }
 
     [Fact]
+    public void Renderer_CombinedTermWithTable_EmitsOneBodyAndOneTable()
+    {
+        var content = ContractTermRichText.Prefix + System.Text.Json.JsonSerializer.Serialize(
+            new ContractTermRichTextDocument
+            {
+                Blocks = [new ContractTermRichTextBlock
+                {
+                    Type = "table", ColumnWidthsBps = [10000],
+                    Rows = [new ContractTermRichTextRow
+                    {
+                        Cells = [new ContractTermRichTextCell
+                        {
+                            Paragraphs = [new ContractTermRichTextParagraph
+                            {
+                                Runs = [new ContractTermRichTextRun { Text = "Combined body / Nội dung gộp" }]
+                            }]
+                        }]
+                    }]
+                }]
+            });
+        var bytes = new ContractTemplatePreviewRenderer().RenderSample(CreateSourceDocument(),
+            ContractLanguageMode.Bilingual, ContractPlaceholderCatalog.SystemDefinitions,
+            new Dictionary<string, string>(), new ContractTemplateAuthoringPreviewData
+            {
+                ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
+                Terms = [new ContractTemplateRenderTerm(1, "Nội dung", "Content", content, "")
+                    { BilingualContentMode = 2 }]
+            });
+        using var stream = new MemoryStream(bytes);
+        using var document = WordprocessingDocument.Open(stream, false);
+        Assert.Equal(2, document.MainDocumentPart!.Document!.Descendants<W.Table>().Count());
+        Assert.Single(document.MainDocumentPart.Document.Descendants<W.Text>(),
+            x => x.Text == "Combined body / Nội dung gộp");
+    }
+
+    [Theory]
+    [InlineData("Căn cứ vào:", false)]
+    [InlineData("Căn cứ vào:", true)]
+    [InlineData("Pursuant to:", false)]
+    [InlineData("  Căn cứ   vào:  ", false)]
+    [InlineData("Căn cứ vào thỏa thuận của hai bên:", false)]
+    public void Renderer_LegalBases_PreservesAuthoredHeadingEvenWhenEmpty(string heading, bool hasBasis)
+    {
+        using var source = new MemoryStream();
+        var bytes = CreateSourceDocument();
+        source.Write(bytes);
+        source.Position = 0;
+        using (var doc = WordprocessingDocument.Open(source, true))
+        {
+            var marker = doc.MainDocumentPart!.Document!.Descendants<W.Paragraph>()
+                .Single(p => p.InnerText == "{{CONTRACT_LEGAL_BASES}}");
+            marker.InsertBeforeSelf(new W.Paragraph(
+                new W.Run(new W.Text(heading[..4])),
+                new W.Run(new W.Text(heading[4..]))));
+            marker.InsertBeforeSelf(new W.Paragraph());
+            doc.MainDocumentPart.Document.Save();
+        }
+        var preview = new ContractTemplatePreviewRenderer().RenderSample(
+            source.ToArray(), ContractLanguageMode.Bilingual,
+            ContractPlaceholderCatalog.SystemDefinitions, new Dictionary<string, string>(),
+            new ContractTemplateAuthoringPreviewData
+            {
+                ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
+                LegalBases = hasBasis
+                    ? [new ContractTemplateRenderLegalBasis(1, RichText("Căn cứ được cấu hình"), RichText("Configured basis"))]
+                    : []
+            });
+        using var output = new MemoryStream(preview);
+        using var document = WordprocessingDocument.Open(output, false);
+        var paragraphs = document.MainDocumentPart!.Document!.Descendants<W.Paragraph>()
+            .Select(p => p.InnerText).ToList();
+        Assert.Contains(heading, paragraphs);
+        Assert.DoesNotContain("{{CONTRACT_LEGAL_BASES}}", ReadAllText(document.MainDocumentPart));
+        if (hasBasis) Assert.Contains("Căn cứ được cấu hình", ReadAllText(document.MainDocumentPart));
+    }
+
+    [Fact]
+    public async Task GeneratePreview_BilingualAppendixWithoutEnglishName_IsRejected()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+        context.TblContractTemplateAppendices.Add(new TblContractTemplateAppendix
+        {
+            TemplateVersionId = VersionId, AppendixCode = "ANNEX-NO-EN",
+            AppendixName = "Phụ lục", DisplayOrder = 1,
+            CreatedEmployeeId = AdminOfficerId, CreatedDate = DateTime.UtcNow,
+            RowVersion = [3, 3, 3, 3, 3, 3, 3, 3]
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var exception = await Assert.ThrowsAsync<ContractTemplatePreviewException>(() =>
+            CreateService(context, storage).GeneratePreviewAsync(VersionId,
+                PreviewRequest((context.TblContractTemplateVersions.Single(v => v.TemplateVersionId == VersionId)).RowVersion),
+                AdminOfficerId));
+        Assert.Equal("AppendixNameEnRequired", exception.FailureCode);
+    }
+
+    [Fact]
     public async Task Preview_UsesConfiguredLegalBases_AndBecomesStaleWhenTheyChange()
     {
         await using var context = CreateContext();
@@ -988,6 +1096,62 @@ public sealed class ContractTemplatePreviewTests
             service.DownloadPreviewAsync(VersionId, AdminOfficerId));
         Assert.Equal("PreviewStale", stale.FailureCode);
         Assert.Contains(generated.PreviewFileId, storage.StoredFileIds);
+    }
+
+    [Theory]
+    [InlineData(true, "tiêu đề tiếng Anh")]
+    [InlineData(false, "thiếu nội dung tiếng Anh")]
+    public async Task Preview_BilingualValidation_ReportsItemAndExactField(bool missingTitle, string expected)
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+        context.TblContractTemplateTerms.Add(new()
+        {
+            TemplateVersionId = VersionId, TermCode = "TERM-03", TermTitle = "Phạm vi cung cấp",
+            TermTitleEn = missingTitle ? null : "Scope of supply",
+            TermContent = RichText("Nội dung Việt"),
+            TermContentEn = missingTitle ? RichText("English body") : RichText(" "),
+            CreatedEmployeeId = AdminOfficerId, CreatedDate = DateTime.UtcNow, DisplayOrder = 1,
+            RowVersion = [4, 4, 4, 4, 4, 4, 4, 4]
+        });
+        await context.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<ContractTemplatePreviewException>(() =>
+            CreateService(context, storage).GeneratePreviewAsync(VersionId,
+                PreviewRequest((context.TblContractTemplateVersions.Single(x => x.TemplateVersionId == VersionId)).RowVersion),
+                AdminOfficerId));
+        Assert.Equal("BilingualContentInvalid", error.FailureCode);
+        Assert.Contains("Phạm vi cung cấp", error.Message);
+        Assert.Contains("TERM-03", error.Message);
+        Assert.Contains(expected, error.Message);
+        Assert.Empty(storage.UploadedFileIds);
+    }
+
+    [Fact]
+    public async Task ChangedBilingualModeOrEnglishTitle_MakesPreviewStale()
+    {
+        await using var context = CreateContext();
+        var storage = new TestFileStorage(context);
+        await SeedValidDraftAsync(context, storage, CreateSourceDocument());
+        context.TblContractTemplateTerms.Add(new()
+        {
+            TemplateVersionId = VersionId, TermCode = "TERM-BILINGUAL", TermTitle = "Tiêu đề Việt",
+            TermTitleEn = "English heading", TermContent = RichText("Nội dung Việt"), TermContentEn = RichText("English body"),
+            CreatedEmployeeId = AdminOfficerId, CreatedDate = DateTime.UtcNow, DisplayOrder = 1,
+            RowVersion = [4, 4, 4, 4, 4, 4, 4, 4]
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, storage);
+        await service.GeneratePreviewAsync(VersionId,
+            PreviewRequest((await GetVersionAsync(context)).RowVersion), AdminOfficerId);
+        var term = await context.TblContractTemplateTerms.FirstAsync();
+        term.BilingualContentMode = 2;
+        term.TermContentEn = null;
+        term.TermTitleEn = "Changed English heading";
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        Assert.Equal("PreviewStale", (await Assert.ThrowsAsync<ContractTemplatePreviewException>(
+            () => service.DownloadPreviewAsync(VersionId, AdminOfficerId))).FailureCode);
     }
 
     [Fact]

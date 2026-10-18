@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.Domains.Policies.ContractTemplate;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
@@ -88,6 +89,7 @@ public partial class ContractService
                             TermTitleEn = term.TermTitleEn,
                             TermContent = term.TermContent,
                             TermContentEn = term.TermContentEn,
+                            BilingualContentMode = term.BilingualContentMode,
                             DisplayOrder = term.DisplayOrder,
                             CreatedEmployeeId = employeeId,
                             CreatedDate = now
@@ -330,6 +332,7 @@ public partial class ContractService
             TermTitleEn = NormalizeOptional(request.TermTitleEn),
             TermContent = NormalizeRichText(request.TermContent),
             TermContentEn = NormalizeRichText(request.TermContentEn),
+            BilingualContentMode = request.BilingualContentMode,
             DisplayOrder = request.DisplayOrder > 0
                 ? request.DisplayOrder
                 : (await _dbContext.TblContractAppendixTerms
@@ -365,6 +368,7 @@ public partial class ContractService
         row.TermTitleEn = NormalizeOptional(request.TermTitleEn);
         row.TermContent = NormalizeRichText(request.TermContent);
         row.TermContentEn = NormalizeRichText(request.TermContentEn);
+        row.BilingualContentMode = request.BilingualContentMode;
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedEmployeeId = employeeId;
         row.UpdatedDate = DateTime.UtcNow;
@@ -584,13 +588,8 @@ public partial class ContractService
     private static void ValidateAppendixTermLanguage(
         TblContract contract, TblContractAppendixTerm term)
     {
-        if ((ContractLanguageMode)contract.LanguageMode ==
-                ContractLanguageMode.Bilingual
-            && (string.IsNullOrWhiteSpace(term.TermTitleEn)
-                || (!string.IsNullOrWhiteSpace(term.TermContent)
-                    && string.IsNullOrWhiteSpace(term.TermContentEn))))
-            throw new ArgumentException(
-                "Điều khoản phụ lục song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+        BilingualContentPolicy.Validate(term.BilingualContentMode, (ContractLanguageMode)contract.LanguageMode,
+            term.TermTitleEn, term.TermContent, term.TermContentEn, term.TermCode);
     }
 
     private static void MatchRowVersion(
@@ -730,6 +729,7 @@ public partial class ContractService
             TermTitleEn = row.TermTitleEn,
             TermContent = row.TermContent,
             TermContentEn = row.TermContentEn,
+            BilingualContentMode = row.BilingualContentMode,
             DisplayOrder = row.DisplayOrder,
             RowVersion = EncodeRowVersion(row.RowVersion)
         };

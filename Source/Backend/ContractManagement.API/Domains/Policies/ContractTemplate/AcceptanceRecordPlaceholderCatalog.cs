@@ -7,11 +7,19 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 /// </summary>
 public static class AcceptanceRecordPlaceholderCatalog
 {
-    public const string Version = "V2";
+    public const string Version = "V3";
 
     private static readonly IReadOnlyList<SoftwareSupplyPlaceholderDefinition>
         Items =
         [
+            Scalar("ACCEPTANCE_DATE_EN", "Ngày nghiệm thu tiếng Anh", "Acceptance.AcceptanceDate"),
+            Scalar("ACCEPTANCE_LOCATION_EN", "Địa điểm nghiệm thu tiếng Anh", "Acceptance.LocationEn"),
+            Scalar("CUSTOMER_LEGAL_NAME_EN", "Tên pháp nhân khách hàng tiếng Anh", "Acceptance.Customer.LegalNameEn"),
+            Scalar("CUSTOMER_ADDRESS_EN", "Địa chỉ khách hàng tiếng Anh", "Acceptance.Customer.AddressEn"),
+            Scalar("CUSTOMER_REPRESENTATIVE_TITLE_EN", "Chức danh đại diện khách hàng tiếng Anh", "Acceptance.Customer.RepresentativeTitleEn"),
+            Scalar("TENANT_LEGAL_NAME_EN", "Tên pháp nhân doanh nghiệp tiếng Anh", "Acceptance.Tenant.LegalNameEn"),
+            Scalar("TENANT_ADDRESS_EN", "Địa chỉ doanh nghiệp tiếng Anh", "Acceptance.Tenant.AddressEn"),
+            Scalar("TENANT_REPRESENTATIVE_TITLE_EN", "Chức danh đại diện doanh nghiệp tiếng Anh", "Acceptance.Tenant.RepresentativeTitleEn"),
             Scalar("ACCEPTANCE_CODE", "Mã biên bản nghiệm thu", "Acceptance.AcceptanceCode"),
             Scalar("ACCEPTANCE_DATE", "Ngày nghiệm thu", "Acceptance.AcceptanceDate"),
             Scalar("ACCEPTANCE_LOCATION", "Địa điểm nghiệm thu", "Acceptance.Location"),

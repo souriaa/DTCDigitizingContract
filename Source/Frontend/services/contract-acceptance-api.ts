@@ -58,6 +58,9 @@ export interface ContractAcceptanceParty {
   acceptancePartyId: number;
   partyRole: AcceptancePartyRole;
   legalName: string;
+  legalNameEn?: string | null;
+  addressEn?: string | null;
+  representativeTitleEn?: string | null;
   address?: string | null;
   phone?: string | null;
   fax?: string | null;
@@ -73,6 +76,7 @@ export interface ContractAcceptanceSection {
   titleEn?: string | null;
   contentVi?: string | null;
   contentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   rowVersion: string;
 }
@@ -117,6 +121,7 @@ export interface ContractAcceptanceRecord
   templateVersionId: number;
   templateName: string;
   location: string;
+  locationEn?: string | null;
   snapshotHash?: string | null;
   finalizedAt?: string | null;
   finalizedByEmployeeId?: number | null;
@@ -134,6 +139,9 @@ export interface ContractAcceptanceRecord
 
 export interface ContractAcceptancePartyInput {
   legalName: string;
+  legalNameEn?: string | null;
+  addressEn?: string | null;
+  representativeTitleEn?: string | null;
   address?: string | null;
   phone?: string | null;
   fax?: string | null;
@@ -171,6 +179,7 @@ export const contractAcceptanceApi = {
       acceptanceCode: string;
       acceptanceDate: string;
       location: string;
+  locationEn?: string | null;
       acceptanceKind: AcceptanceKind;
       appendixIds: number[];
       paymentMilestoneIds: number[];
@@ -186,6 +195,7 @@ export const contractAcceptanceApi = {
       acceptanceCode: string;
       acceptanceDate: string;
       location: string;
+  locationEn?: string | null;
       acceptanceKind: AcceptanceKind;
       customerParty: ContractAcceptancePartyInput;
       tenantParty: ContractAcceptancePartyInput;
@@ -215,6 +225,7 @@ export const contractAcceptanceApi = {
       titleEn?: string | null;
       contentVi?: string | null;
       contentEn?: string | null;
+  bilingualContentMode: number;
       displayOrder: number;
     }>,
     rowVersion: string,
