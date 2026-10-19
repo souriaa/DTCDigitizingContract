@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { AcceptanceHandoverScopeEditor } from "@/components/contracts/acceptance-handover-scope-editor";
+import { DocumentField as Field, DocumentPartyFields as PartyEditor } from "@/components/contract-documents/document-party-fields";
 import {
   BookmarkCheck,
   Building2,
@@ -60,6 +62,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   ContractLanguageMode,
+  ContractDirection,
   ContractStatus,
   type ContractDetailResponse,
 } from "@/services/contract-api";
@@ -80,6 +83,7 @@ import {
 } from "@/services/contract-acceptance-api";
 
 interface Props {
+  scopeRevision?: number;
   contract: ContractDetailResponse;
   paymentMilestones: ContractPaymentMilestoneResponse[];
   readiness: ContractCompletionReadinessResponse;
@@ -149,6 +153,7 @@ export function ContractAcceptanceRecords({
   signedActive,
   canManage,
   onChanged,
+  scopeRevision = 0,
 }: Props) {
   const isBilingual = contract.languageMode === ContractLanguageMode.Bilingual;
   const [records, setRecords] = useState<ContractAcceptanceRecordSummary[]>([]);
@@ -203,7 +208,7 @@ export function ContractAcceptanceRecords({
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timeout);
-  }, [load]);
+  }, [load, scopeRevision]);
 
   const appendices = useMemo(
     () =>
@@ -365,6 +370,11 @@ export function ContractAcceptanceRecords({
           : [],
         latest.rowVersion,
       );
+      latest = await contractAcceptanceApi.replaceHandoverScope(
+        contract.contractId, draft.acceptanceRecordId,
+        draft.handoverScope.map(x => ({ handoverLineId: x.handoverLineId, quantity: x.quantity })),
+        latest.rowVersion,
+      );
       latest = await contractAcceptanceApi.replaceSections(
         contract.contractId,
         draft.acceptanceRecordId,
@@ -409,6 +419,8 @@ export function ContractAcceptanceRecords({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        event.defaultPrevented ||
+        (event.target instanceof Element && !!event.target.closest('[data-document-save-scope="handover"]')) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         event.shiftKey ||
@@ -640,14 +652,14 @@ export function ContractAcceptanceRecords({
   const availablePaymentMilestones = paymentMilestones.filter(
     (milestone) => !unavailableMilestoneIds.has(milestone.paymentMilestoneId),
   );
+  const acceptanceFullyCompleted = readiness.acceptanceCompleted;
   const canCreate =
-    canManage &&
+    !readiness.scopeIntegrityError && canManage &&
     contract.status === ContractStatus.Signed &&
     signedActive &&
     !activeRecord &&
     !signedFinalRecord &&
-    !readiness.acceptanceCompleted &&
-    (!hasPartialHistory || availablePaymentMilestones.length > 0);
+    !acceptanceFullyCompleted;
   const customer = selected?.parties.find(
     (party) => party.partyRole === AcceptancePartyRole.Customer,
   );
@@ -715,10 +727,10 @@ export function ContractAcceptanceRecords({
           signedActive &&
           !activeRecord &&
           !signedFinalRecord &&
-          readiness.acceptanceCompleted && (
+          acceptanceFullyCompleted && (
             <Alert>
               <AlertDescription>
-                Toàn bộ các đợt đã được nghiệm thu bằng biên bản có bản ký.
+                Toàn bộ các đợt và phạm vi đã được nghiệm thu bằng biên bản có bản ký.
                 Không cần tạo thêm biên bản.
               </AlertDescription>
             </Alert>
@@ -727,17 +739,16 @@ export function ContractAcceptanceRecords({
           signedActive &&
           !activeRecord &&
           hasPartialHistory &&
-          !readiness.acceptanceCompleted &&
+          !acceptanceFullyCompleted &&
           availablePaymentMilestones.length === 0 && (
             <Alert>
               <AlertDescription>
-                Không còn đợt khả dụng để lập biên bản mới. Hãy kiểm tra các
-                biên bản đã chốt hoặc liên hệ quản trị viên nếu tiến độ chưa
-                đúng.
+                Đã hết đợt thanh toán khả dụng nhưng còn phạm vi cần nghiệm thu.
+                Bạn có thể tạo biên bản một phần tiếp theo chỉ cho phạm vi còn lại, không chọn lại đợt tiền.
               </AlertDescription>
             </Alert>
           )}
-        {hasSignedPartial && !readiness.acceptanceCompleted && (
+        {hasSignedPartial && !acceptanceFullyCompleted && (
           <div className="space-y-2 rounded-lg border p-3 text-sm">
             <p className="font-medium">
               Đã nghiệm thu {readiness.acceptedMilestoneCount}/
@@ -746,7 +757,7 @@ export function ContractAcceptanceRecords({
             <p className="text-muted-foreground">
               {activeRecord?.status === AcceptanceRecordStatus.Finalized
                 ? "Biên bản đang chờ bản ký; các đợt trong đó chưa được tính là đã nghiệm thu."
-                : "Các đợt còn lại cần lập biên bản nghiệm thu một phần và tải bản ký."}
+                : "Tiếp tục nghiệm thu một phần cho hạng mục còn lại; đợt thanh toán chọn riêng nếu còn."}
             </p>
             <ul className="list-disc pl-5">
               {paymentMilestones
@@ -898,6 +909,9 @@ export function ContractAcceptanceRecords({
               </div>
             </div>
 
+            {selected.status !== AcceptanceRecordStatus.Draft && <Card><CardHeader><CardTitle>Phạm vi đã chốt nghiệm thu</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">{selected.handoverScope.map(x => <p key={x.handoverLineId}>{x.handoverCode} · {x.nameVi}: {x.quantity} {x.unitVi}</p>)}</CardContent></Card>}
+
             {isDraft ? (
               <div className="space-y-6">
                 <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-primary/30 bg-background/95 p-3 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between">
@@ -991,7 +1005,7 @@ export function ContractAcceptanceRecords({
                     <div className="grid gap-4 md:grid-cols-2 pt-1">
                       {customer && (
                         <PartyEditor
-                          title="Bên A — Khách hàng"
+                          title={contract.contractDirection === ContractDirection.Purchase ? "Đối tác — Bên cung cấp" : "Đối tác — Bên mua"}
                           party={customer}
                           representativeLabel="Người liên lạc"
                           onChange={(key, value) =>
@@ -1005,7 +1019,7 @@ export function ContractAcceptanceRecords({
                       )}
                       {tenant && (
                         <PartyEditor
-                          title="Bên B — Doanh nghiệp"
+                          title={contract.contractDirection === ContractDirection.Purchase ? "Doanh nghiệp — Bên mua" : "Doanh nghiệp — Bên cung cấp"}
                           party={tenant}
                           onChange={(key, value) =>
                             updateParty(AcceptancePartyRole.Tenant, key, value)
@@ -1255,6 +1269,11 @@ export function ContractAcceptanceRecords({
                   </CardContent>
                 </Card>
 
+                <AcceptanceHandoverScopeEditor contractId={contract.contractId} recordId={selected.acceptanceRecordId}
+                  rowVersion={selected.rowVersion} revision={scopeRevision} selected={selected.handoverScope}
+                  blocker={selected.handoverBlocker} disabled={busy || !canManage}
+                  onChange={handoverScope => setSelected({ ...selected, handoverScope, handoverBlocker: handoverScope.length ? null : "Chưa chọn phạm vi bàn giao cần nghiệm thu." })} />
+
                 {/* 4. Nội dung biên bản */}
                 <Collapsible
                   defaultOpen
@@ -1334,9 +1353,7 @@ export function ContractAcceptanceRecords({
                           }}
                           inputId={`acceptance-${selected.acceptanceRecordId}-${section.acceptanceSectionId}`}
                           editable
-                          isBilingual={
-                            section.titleEn != null || section.contentEn != null || section.bilingualContentMode === 2
-                          }
+                          isBilingual={isBilingual}
                           orderLabel="Mục nghiệm thu"
                           titleLabel="Tiêu đề mục"
                           contentLabel="Nội dung mục"
@@ -1374,7 +1391,7 @@ export function ContractAcceptanceRecords({
                       <div className="flex items-center gap-2.5 sm:shrink-0">
                         <Button
                           type="button"
-                          disabled={busy}
+                          disabled={busy || selected.handoverScope.length === 0 || !!selected.handoverBlocker}
                           onClick={() => setFinalizeOpen(true)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
                         >
@@ -1744,7 +1761,7 @@ export function ContractAcceptanceRecords({
                 availablePaymentMilestones.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt
-                    hoặc đã ký.
+                    hoặc đã ký. Vòng này có thể chỉ nghiệm thu phạm vi còn lại.
                   </p>
                 )}
               <Alert>
@@ -1783,7 +1800,7 @@ export function ContractAcceptanceRecords({
               <Button
                 disabled={
                   busy ||
-                  (createForm.acceptanceKind === AcceptanceKind.Partial &&
+                  (createForm.acceptanceKind === AcceptanceKind.Partial && availablePaymentMilestones.length > 0 &&
                     createForm.paymentMilestoneIds.length === 0)
                 }
                 onClick={() => void createRecord()}
@@ -1818,6 +1835,7 @@ export function ContractAcceptanceRecords({
           if (!selected) return;
           const saved = await saveAllDraftChanges(true);
           if (!saved) return;
+          if (saved.handoverBlocker) { toast.error(saved.handoverBlocker); return; }
 
           const finalized = await commit(
             () =>
@@ -1886,101 +1904,5 @@ export function ContractAcceptanceRecords({
         </DialogContent>
       </Dialog>
     </Card>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  disabled = false,
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  disabled?: boolean;
-  required?: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
-      <Input
-        type={type}
-        value={value}
-        disabled={disabled}
-        required={required}
-        onChange={(event) => onChange(event.target.value)}
-        className="bg-background"
-      />
-    </div>
-  );
-}
-
-function PartyEditor({
-  title,
-  party,
-  representativeLabel = "Người đại diện",
-  onChange,
-}: {
-  title: string;
-  party: ContractAcceptanceParty;
-  representativeLabel?: string;
-  onChange: (key: keyof ContractAcceptanceParty, value: string) => void;
-}) {
-  return (
-    <div className="space-y-3.5 rounded-xl border border-border/70 bg-card p-4 shadow-xs">
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
-        <Building2 className="size-4 text-primary shrink-0" />
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-      </div>
-      <Field
-        label="Tên pháp nhân"
-        required
-        value={party.legalName}
-        disabled
-        onChange={(value) => onChange("legalName", value)}
-      />
-      <Field label="Tên pháp nhân tiếng Anh" value={party.legalNameEn ?? ""} disabled onChange={() => {}} />
-      <Field label="Địa chỉ tiếng Anh" value={party.addressEn ?? ""} onChange={(value) => onChange("addressEn", value)} />
-      <Field label="Chức vụ tiếng Anh" value={party.representativeTitleEn ?? ""} onChange={(value) => onChange("representativeTitleEn", value)} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label={representativeLabel}
-          required
-          value={party.representativeName}
-          onChange={(value) => onChange("representativeName", value)}
-        />
-        <Field
-          label="Chức vụ"
-          value={party.representativeTitle ?? ""}
-          onChange={(value) => onChange("representativeTitle", value)}
-        />
-      </div>
-      <Field
-        label="Địa chỉ"
-        value={party.address ?? ""}
-        onChange={(value) => onChange("address", value)}
-      />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Field
-          label="Điện thoại"
-          value={party.phone ?? ""}
-          onChange={(value) => onChange("phone", value)}
-        />
-        <Field
-          label="Fax"
-          value={party.fax ?? ""}
-          onChange={(value) => onChange("fax", value)}
-        />
-        <Field
-          label="Mã số thuế"
-          value={party.taxCode ?? ""}
-          onChange={(value) => onChange("taxCode", value)}
-        />
-      </div>
-    </div>
   );
 }

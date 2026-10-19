@@ -15,6 +15,10 @@ public sealed record ContractTemplateRenderData(
     string Notice,
     string CurrencyCode = "VND")
 {
+    public ContractDirection ContractDirection { get; init; }
+    public IReadOnlyList<ContractTemplateRenderReference> DocumentReferences { get; init; } = [];
+    public IReadOnlyList<ContractTemplateRenderHandoverItem> HandoverItems { get; init; } = [];
+
     public IReadOnlyList<SoftwareSupplyPlaceholderDefinition>? Definitions { get; init; }
 
     public IReadOnlyList<ContractTemplateRenderLegalBasis> LegalBases { get; init; } = [];
@@ -23,6 +27,10 @@ public sealed record ContractTemplateRenderData(
 
     public IReadOnlyList<ContractTemplateRenderAppendix> Appendices { get; init; } = [];
 }
+
+public sealed record ContractTemplateRenderReference(string TextVi, string? TextEn);
+public sealed record ContractTemplateRenderHandoverItem(int No, string Code, string NameVi, string? NameEn,
+    string UnitVi, string? UnitEn, decimal Quantity, string? NotesVi = null, string? NotesEn = null);
 
 public sealed record ContractTemplateRenderAppendix(
     int No,
@@ -93,6 +101,8 @@ public sealed record ContractTemplateRenderLegalBasis(
 /// </summary>
 public sealed record ContractTemplateAuthoringPreviewData
 {
+    public ContractDirection ContractDirection { get; init; }
+
     public IReadOnlyList<int> ItemTableColumnWidthsBps { get; init; } = [];
     public IReadOnlyList<ContractTemplateRenderLegalBasis> LegalBases { get; init; } = [];
     public IReadOnlyList<ContractTemplateRenderTerm> Terms { get; init; } = [];

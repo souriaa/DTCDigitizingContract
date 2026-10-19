@@ -227,6 +227,12 @@ namespace ContractManagement.Domains.Services.Contract
                     x.Contract.Status == (byte)filter.Status.Value);
             }
 
+            if (filter.ContractDirection.HasValue)
+            {
+                ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(filter.ContractDirection.Value);
+                query = query.Where(x => x.Contract.ContractDirection == (byte)filter.ContractDirection.Value);
+            }
+
             if (filter.ContractType.HasValue)
             {
                 query = query.Where(x =>
@@ -254,6 +260,7 @@ namespace ContractManagement.Domains.Services.Contract
                     ContractName = x.Contract.ContractName,
                     ContractType =
                         (ContractType)x.Contract.ContractType,
+                    ContractDirection = (ContractDirection)x.Contract.ContractDirection,
                     Status =
                         (ContractStatus)x.Contract.Status,
 
@@ -324,6 +331,7 @@ namespace ContractManagement.Domains.Services.Contract
             }
 
             // API này chỉ dùng khi tạo hợp đồng bảo trì hoặc duy trì.
+            ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(filter.ContractDirection);
             if (filter.TargetContractType !=
                     ContractType.SoftwareMaintenance
                 && filter.TargetContractType !=
@@ -365,6 +373,7 @@ namespace ContractManagement.Domains.Services.Contract
                 .Where(x =>
                     (canReadTenant || x.EmployeeId == employeeId)
                     && x.CustomerId == filter.CustomerId
+                    && x.ContractDirection == (byte)filter.ContractDirection
                     && x.ContractType ==
                         (byte)ContractType.SoftwareSupply
                     && x.Status ==
@@ -395,6 +404,7 @@ namespace ContractManagement.Domains.Services.Contract
                     ContractCode = x.ContractCode,
                     ContractName = x.ContractName,
                     ContractType = (ContractType)x.ContractType,
+                    ContractDirection = (ContractDirection)x.ContractDirection,
                     Status = (ContractStatus)x.Status,
                     EffectiveDate = x.EffectiveDate,
                     ExpireDate = x.ExpireDate
@@ -448,6 +458,7 @@ namespace ContractManagement.Domains.Services.Contract
                     await ValidateResponsibleEmployeeAsync(
                         responsibleEmployeeId);
 
+                    ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
                     var customerAudit =
                         await ValidateCustomerAsync(request.CustomerId);
                     await ValidateTemplateAsync(request);
@@ -597,6 +608,7 @@ namespace ContractManagement.Domains.Services.Contract
                         CreatedEmployeeId = createdEmployeeId,
 
                         ContractType = (byte)request.ContractType,
+                        ContractDirection = (byte)request.ContractDirection,
                         TemplateVersionId = request.TemplateVersionId,
                         ParentContractId = request.ParentContractId,
                         CurrentVersionId = null,
@@ -1040,6 +1052,7 @@ namespace ContractManagement.Domains.Services.Contract
                         VersionNo = contractVersion.VersionNo,
                         CustomerId = contract.CustomerId,
                         ContractType = request.ContractType,
+                        ContractDirection = request.ContractDirection,
 
                         TemplateVersionId =
                             request.TemplateVersionId,
@@ -1604,6 +1617,7 @@ namespace ContractManagement.Domains.Services.Contract
                 ContractNameEn = contract.ContractNameEn,
 
                 ContractType = (ContractType)contract.ContractType,
+                ContractDirection = (ContractDirection)contract.ContractDirection,
                 TemplateVersionId = contract.TemplateVersionId,
                 ParentContractId = contract.ParentContractId,
                 Status = (ContractStatus)contract.Status,
@@ -1805,6 +1819,8 @@ namespace ContractManagement.Domains.Services.Contract
                                 "Không tìm thấy hợp đồng.");
                         }
 
+                        if (request.ContractDirection.HasValue && (byte)request.ContractDirection.Value != contract.ContractDirection)
+                            throw new ArgumentException("Không được đổi chiều Mua/Bán sau khi tạo hợp đồng.");
                         var currentStatus = (ContractStatus)contract.Status;
 
                         if (!ContractLifecyclePolicy.CanEditContent(currentStatus))
@@ -4778,7 +4794,8 @@ namespace ContractManagement.Domains.Services.Contract
                             contract.ContractId,
                             employeeId);
                         if (rendered.Snapshot.Version.VersionId != version.VersionId
-                            || rendered.Snapshot.Contract.ContractId != contract.ContractId)
+                            || rendered.Snapshot.Contract.ContractId != contract.ContractId
+                            || rendered.Snapshot.Contract.ContractDirection != contract.ContractDirection)
                         {
                             throw new InvalidOperationException(
                                 "Renderer trả snapshot không thuộc contract/version đang gửi duyệt.");
@@ -5271,6 +5288,7 @@ namespace ContractManagement.Domains.Services.Contract
                 select new
                 {
                     VersionStatus = version.Status,
+                    version.ContractDirection,
                     template.DocumentType,
                     template.LanguageMode,
                     template.IsActive,
@@ -5314,6 +5332,10 @@ namespace ContractManagement.Domains.Services.Contract
                     "Loại template không khớp với loại hợp đồng.");
             }
 
+            ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
+            if (templateData.ContractDirection != (byte)request.ContractDirection)
+                throw new ArgumentException("Chiều giao dịch của mẫu không khớp với hợp đồng.");
+
             if (templateData.LanguageMode !=
                 (byte)request.LanguageMode)
             {
@@ -5341,6 +5363,7 @@ namespace ContractManagement.Domains.Services.Contract
                     x.CustomerId,
                     x.EmployeeId,
                     x.ContractType,
+                    x.ContractDirection,
                     x.Status
                 })
                 .FirstOrDefaultAsync();
@@ -5350,6 +5373,9 @@ namespace ContractManagement.Domains.Services.Contract
                 throw new KeyNotFoundException(
                     "Không tìm thấy hợp đồng nguồn.");
             }
+
+            if (parentContract.ContractDirection != (byte)request.ContractDirection)
+                throw new ArgumentException("Hợp đồng nguồn phải có cùng chiều Mua/Bán.");
 
             // Người dùng chỉ được chọn hợp đồng mình có quyền xem.
             if (parentContract.EmployeeId != employeeId)

@@ -7,6 +7,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
     /// </summary>
     public class UpdateContractDraftRequest : IValidatableObject
     {
+        [EnumDataType(typeof(ContractManagement.API.Common.Enums.ContractDirection))]
+        public ContractManagement.API.Common.Enums.ContractDirection? ContractDirection { get; set; }
         /// <summary>
         /// RowVersion của Contract lấy từ API Get Detail.
         /// </summary>

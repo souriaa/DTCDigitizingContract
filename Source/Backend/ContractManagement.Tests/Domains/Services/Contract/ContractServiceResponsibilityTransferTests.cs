@@ -951,6 +951,7 @@ public partial class ContractServiceResponsibilityTransferTests
 
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = responsibleEmployeeId,

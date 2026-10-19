@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { getContractDirectionLabel } from "@/services/contract-api";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -280,7 +281,7 @@ export default function ContractTemplateDetailPage() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">
-                              Phiên bản {version.versionNo}
+                              Phiên bản {version.versionNo} · {getContractDirectionLabel(version.contractDirection)}
                             </p>
                             <TemplateVersionStatusBadge
                               status={version.status}

@@ -19,7 +19,8 @@ public sealed class NotificationInboxTests
     {
         await using var db = CreateDb();
         db.TblEmployees.AddRange(Employee(11), Employee(12), Employee(13, status: 0));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 12, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 12, ContractName = "Test" });
         await db.SaveChangesAsync();
         var publisher = Publisher(db);
         var evt = Event(actor: 11);
@@ -41,7 +42,8 @@ public sealed class NotificationInboxTests
     {
         await using var db = CreateDb();
         db.TblEmployees.AddRange(Employee(11), Employee(12));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 12, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 12, ContractName = "Test" });
         await db.SaveChangesAsync();
         await Publisher(db).StageAsync(Event(actor: null), [12]);
         await db.SaveChangesAsync();
@@ -62,7 +64,8 @@ public sealed class NotificationInboxTests
     {
         await using var db = CreateDb();
         db.TblEmployees.Add(Employee(12));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 12, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 12, ContractName = "Test" });
         await db.SaveChangesAsync();
         var controller = Controller(db,
             new ContractNotificationResourcePolicy(db, new ContractResourceAuthorizationService(db)), 12);
@@ -79,7 +82,8 @@ public sealed class NotificationInboxTests
         await using var db = CreateDb();
         db.TblEmployees.AddRange(Employee(11), Employee(21, role: EmployeeType.Manager),
             Employee(22, role: EmployeeType.Manager), Employee(23, status: 0, role: EmployeeType.Manager));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 11, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 11, ContractName = "Test" });
         db.TblApprovalWorkflows.Add(new TblApprovalWorkflow
         {
             WorkflowId = 7, WorkflowName = "Manager 21", ObjectType = "Contract",
@@ -101,7 +105,8 @@ public sealed class NotificationInboxTests
         await using var db = CreateDb();
         db.TblEmployees.AddRange(Employee(11), Employee(21, role: EmployeeType.Manager),
             Employee(22, role: EmployeeType.Manager));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 11, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 11, ContractName = "Test" });
         var workflow = new TblApprovalWorkflow
         {
             WorkflowId = 7, WorkflowName = "Manager 21", ObjectType = "Contract",
@@ -128,7 +133,8 @@ public sealed class NotificationInboxTests
     {
         await using var db = CreateDb();
         db.TblEmployees.Add(Employee(12));
-        db.TblContracts.Add(new TblContract { ContractId = 10, EmployeeId = 12, ContractName = "Test" });
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = (byte)1, ContractId = 10, EmployeeId = 12, ContractName = "Test" });
         await db.SaveChangesAsync();
         var producer = new ContractNotificationProducer(db, Publisher(db));
 

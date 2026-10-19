@@ -30,12 +30,16 @@ public sealed class ContractServicePhase8CSubmissionTests
     private const int TemplateVersionId = 8807;
     private static readonly byte[] InitialRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
-    [Fact]
-    public async Task Submit_HappyPath_PersistsImmutableArtifactsAndInvalidatesAccess()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Submit_HappyPath_PersistsImmutableArtifactsAndInvalidatesAccess(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedReadyContractAsync(context, includeCustomerAccess: true);
-        var renderer = new StubRenderer();
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
+        var renderer = new StubRenderer(direction);
         var storage = new TrackingPrivateStorage();
 
         var response = await CreateService(context, renderer, storage)
@@ -468,6 +472,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = OwnerId,
@@ -603,7 +608,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         Assert.Equal(expectedFileCount, await context.TblFileStorages.CountAsync());
     }
 
-    private sealed class StubRenderer : IContractSubmissionArtifactRenderer
+    private sealed class StubRenderer(ContractDirection direction = ContractDirection.Sale) : IContractSubmissionArtifactRenderer
     {
         public int CallCount { get; private set; }
 
@@ -613,9 +618,10 @@ public sealed class ContractServicePhase8CSubmissionTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            var snapshot = ContractSnapshotTestData.Create(ContractId, VersionId, TemplateVersionId);
+            snapshot = snapshot with { Contract = snapshot.Contract with { ContractDirection = (byte)direction } };
             return Task.FromResult(new ContractSubmissionArtifactRenderResult(
-                ContractSnapshotTestData.Create(ContractId, VersionId,
-                    TemplateVersionId),
+                snapshot,
                 TemplateVersionId,
                 [0x50, 0x4B, 0x03, 0x04, 0x01],
                 "HD-8C-001-submitted.docx",

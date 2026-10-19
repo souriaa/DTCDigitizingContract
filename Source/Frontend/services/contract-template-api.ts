@@ -1,6 +1,7 @@
 import axiosClient from "@/lib/axios-interceptor";
 import {
   ContractLanguageMode,
+  ContractDirection,
   ContractTermKind,
 } from "@/services/contract-api";
 
@@ -115,6 +116,7 @@ export interface ContractTemplateFilterRequest {
 }
 
 export interface CreateContractTemplateRequest {
+  contractDirection: ContractDirection;
   templateCode: string;
   templateName: string;
   templateNameEn?: string | null;
@@ -300,6 +302,7 @@ export interface ContractTemplateResponse {
   description?: string | null;
   currentPublishedVersionId?: number | null;
   currentPublishedVersionNo?: number | null;
+  currentPublishedContractDirection?: ContractDirection | null;
   isActive: boolean;
   createdEmployeeId: number;
   createdDate: string;
@@ -309,6 +312,7 @@ export interface ContractTemplateResponse {
 }
 
 export interface AvailableContractTemplateVersionResponse {
+  contractDirection: ContractDirection;
   templateId: number;
   templateCode: string;
   templateName: string;
@@ -340,6 +344,7 @@ export interface AvailableContractTemplateVersionDetailResponse
 }
 
 export interface AvailableContractTemplateFilterRequest {
+  contractDirection?: ContractDirection;
   page?: number;
   pageSize?: number;
   keyword?: string;
@@ -348,6 +353,7 @@ export interface AvailableContractTemplateFilterRequest {
 }
 
 export interface ContractTemplateVersionSummaryResponse {
+  contractDirection: ContractDirection;
   templateVersionId: number;
   versionNo: number;
   changeNote?: string | null;
@@ -474,6 +480,7 @@ export interface SaveContractTemplatePaymentMilestoneRequest {
 }
 
 export interface ContractTemplateVersionDetailResponse {
+  contractDirection: ContractDirection;
   templateVersionId: number;
   templateId: number;
   templateCode: string;

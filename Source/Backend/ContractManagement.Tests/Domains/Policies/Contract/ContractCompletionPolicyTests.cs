@@ -5,11 +5,21 @@ namespace ContractManagement.Tests.Domains.Policies.Contract;
 
 public sealed class ContractCompletionPolicyTests
 {
+    [Theory]
+    [InlineData(false, false, ContractCompletionBlockerCode.HandoverIncomplete)]
+    [InlineData(true, true, ContractCompletionBlockerCode.ExecutionDocumentInProgress)]
+    public void Evaluate_blocks_missing_handover_or_unresolved_execution_document(bool handover, bool pending, ContractCompletionBlockerCode code)
+    {
+        var result = ContractCompletionPolicy.Evaluate(ContractStatus.Signed, true, true, true, 100m, 100m, handover, pending);
+        Assert.False(result.CanComplete);
+        Assert.Contains(result.Blockers, x => x.Code == code);
+    }
+
     [Fact]
     public void Evaluate_returns_ready_when_all_phase10_conditions_are_met()
     {
         var result = ContractCompletionPolicy.Evaluate(
-            ContractStatus.Signed, true, true, true, 100m, 100m);
+            ContractStatus.Signed, true, true, true, 100m, 100m, true, false);
         Assert.True(result.CanComplete);
         Assert.Empty(result.Blockers);
     }
@@ -24,7 +34,7 @@ public sealed class ContractCompletionPolicyTests
         decimal paid, ContractCompletionBlockerCode expected)
     {
         var result = ContractCompletionPolicy.Evaluate(status, signed,
-            acceptanceCompleted, hasSignedAcceptance, total, paid);
+            acceptanceCompleted, hasSignedAcceptance, total, paid, true, false);
         Assert.False(result.CanComplete);
         Assert.Contains(result.Blockers, blocker => blocker.Code == expected);
     }
@@ -33,8 +43,8 @@ public sealed class ContractCompletionPolicyTests
     public void Evaluate_reports_all_missing_conditions()
     {
         var result = ContractCompletionPolicy.Evaluate(
-            ContractStatus.PendingSignature, false, false, false, 100m, 0m);
-        Assert.Equal(3, result.Blockers.Count);
+            ContractStatus.PendingSignature, false, false, false, 100m, 0m, false, false);
+        Assert.Equal(4, result.Blockers.Count);
     }
 
     [Fact]
@@ -46,7 +56,7 @@ public sealed class ContractCompletionPolicyTests
             acceptanceCompleted: true,
             hasSignedAcceptance: true,
             totalAmount: 100m,
-            paidAmount: 100m);
+            paidAmount: 100m, handoverCompleted: true, executionDocumentInProgress: false);
 
         Assert.False(result.CanComplete);
         Assert.Contains(
@@ -63,6 +73,6 @@ public sealed class ContractCompletionPolicyTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             ContractCompletionPolicy.Evaluate(
-                ContractStatus.Signed, true, true, true, total, paid));
+                ContractStatus.Signed, true, true, true, total, paid, true, false));
     }
 }

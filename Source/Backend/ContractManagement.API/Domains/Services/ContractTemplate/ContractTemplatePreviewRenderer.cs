@@ -14,7 +14,7 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 /// </summary>
 public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRenderer
 {
-    public const string FormatVersion = "V18";
+    public const string FormatVersion = "V21";
 
     private const string GeneratedContentFont = "Times New Roman";
     private const string GeneratedContentFontSize = "24";
@@ -24,19 +24,30 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         IReadOnlyDictionary<string, string> customSamples,
         ContractTemplateAuthoringPreviewData? authoringData = null)
     {
+        // A direction-free call is an isolated demonstration, never a persisted template.
+        var direction = authoringData is null ? ContractDirection.Sale : authoringData.ContractDirection;
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(direction);
         var data = CreateSampleRenderData(languageMode);
+        DocumentParty SampleParty(string prefix) => new(DocumentPartyMarkers.Fields.ToDictionary(
+            field => field.Suffix, field => data.ScalarValues.GetValueOrDefault(prefix + "_" + field.Suffix) ?? string.Empty));
+        var sampleRoles = DocumentPartyMarkers.Values(direction, SampleParty("PROVIDER"), SampleParty("CUSTOMER"));
         var values = new Dictionary<string, string>(data.ScalarValues, StringComparer.Ordinal);
         AddAcceptanceSampleValues(values);
-        if (definitions.Any(x => x.IsSystem && x.Key == "CUSTOMER_REPRESENTATIVE_TITLE"))
-            values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Tổng giám đốc";
+        values["HANDOVER_CODE"] = "BBBG-SAMPLE-001";
+        values["HANDOVER_DATE"] = "19/09/2026"; values["HANDOVER_DATE_EN"] = "19 September 2026";
+        values["HANDOVER_LOCATION"] = "Hà Nội"; values["HANDOVER_LOCATION_EN"] = "Hanoi";
+        foreach (var pair in sampleRoles) values[pair.Key] = pair.Value;
         foreach (var pair in customSamples) values[pair.Key] = pair.Value;
         var terms = authoringData is not null
             ? authoringData.Terms
             : data.Terms;
         return Render(sourceDocumentBytes, languageMode, data with
         {
+            ContractDirection = direction,
             ScalarValues = values,
             Definitions = definitions,
+            DocumentReferences = [new("Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Doanh nghiệp mẫu và Đối tác mẫu.", "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01 September 2026 between Sample Tenant and Sample Counterparty.")],
+            HandoverItems = [new(1, "ITEM-1", "Phần mềm mẫu", "Sample software", "Giấy phép", "License", 1)],
             ItemTableColumnWidthsBps = authoringData?.ItemTableColumnWidthsBps
                 ?? data.ItemTableColumnWidthsBps,
             LegalBases = authoringData?.LegalBases ?? data.LegalBases,
@@ -52,6 +63,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
     {
         ArgumentNullException.ThrowIfNull(sourceDocumentBytes);
         ArgumentNullException.ThrowIfNull(renderData);
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(renderData.ContractDirection);
         if (sourceDocumentBytes.Length == 0)
         {
             throw new ContractTemplatePreviewException(
@@ -82,11 +94,11 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     "Dữ liệu render không có snapshot placeholder của template version.");
             var scalarValues = new Dictionary<string, string>(renderData.ScalarValues, StringComparer.Ordinal);
             foreach (var field in definitions.Where(x => x.DataKind == TemplatePlaceholderDataKind.Scalar
-                         && DocumentEnglishPolicy.IsOptionalCustomerEnglish(x)))
+                         && DocumentEnglishPolicy.IsOptionalPartyEnglish(x, renderData.ContractDirection)))
                 scalarValues[field.Key] = DocumentEnglishPolicy.OptionalCustomerEnglish(scalarValues.GetValueOrDefault(field.Key));
             var dynamicParagraphs = LocateDynamicParagraphs(mainPart, definitions);
             EnsureAppendixMarkerIsLastDynamicBlock(mainPart, dynamicParagraphs);
-            ValidateEnglishMarkers(mainPart, definitions, scalarValues);
+            ValidateEnglishMarkers(mainPart, definitions, scalarValues, renderData.ContractDirection);
             ReplaceDynamicBlocks(dynamicParagraphs, languageMode, renderData);
 
             foreach (var root in GetTextRoots(mainPart))
@@ -103,12 +115,12 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
 
     private static void ValidateEnglishMarkers(MainDocumentPart mainPart,
         IReadOnlyList<SoftwareSupplyPlaceholderDefinition> definitions,
-        IReadOnlyDictionary<string, string> values)
+        IReadOnlyDictionary<string, string> values, ContractDirection direction)
     {
         var texts = GetTextRoots(mainPart).SelectMany(root => root.Descendants<W.Paragraph>())
             .Select(p => p.InnerText).ToArray();
         foreach (var field in definitions.Where(x => x.DataKind == TemplatePlaceholderDataKind.Scalar
-                     && !DocumentEnglishPolicy.IsOptionalCustomerEnglish(x)
+                     && !DocumentEnglishPolicy.IsOptionalPartyEnglish(x, direction)
                      && (x.IsSystem && x.Key.EndsWith("_EN", StringComparison.Ordinal)
                          || x.SourceFieldKey?.EndsWith("-en", StringComparison.Ordinal) == true)))
             if (texts.Any(text => text.Contains($"{{{{{field.Key}}}}}", StringComparison.Ordinal)))
@@ -217,8 +229,9 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     languageMode, renderData, availableWidthDxa),
                 "CONTRACT_APPENDICES" => CreateAppendixElements(
                     languageMode, renderData, availableWidthDxa),
-                "DOCUMENT_REFERENCES" => CreateAcceptanceReferenceSample(
-                    languageMode),
+                "DOCUMENT_REFERENCES" => CreateDocumentReferenceElements(languageMode, renderData.DocumentReferences),
+                "HANDOVER_ITEM_TABLE" => [CreateHandoverItemTable(languageMode, renderData.HandoverItems, availableWidthDxa)],
+                "HANDOVER_SECTIONS" => CreateAcceptanceSectionElements(languageMode, renderData.Terms, availableWidthDxa),
                 "ACCEPTANCE_SECTIONS" => CreateAcceptanceSectionElements(
                     languageMode, renderData.Terms, availableWidthDxa),
                 "SIGNATURE_PROVIDER" =>
@@ -238,24 +251,38 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
     }
 
-    private static IReadOnlyList<OpenXmlElement> CreateAcceptanceReferenceSample(
-        ContractLanguageMode languageMode)
+    private static IReadOnlyList<OpenXmlElement> CreateDocumentReferenceElements(
+        ContractLanguageMode languageMode, IReadOnlyList<ContractTemplateRenderReference> references)
     {
-        var result = new List<OpenXmlElement>
+        var result = new List<OpenXmlElement>();
+        foreach (var reference in references)
         {
-            CreateStyledParagraph(
-                "Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Công ty Khách hàng Mẫu và Công ty DTC về việc Cung cấp phần mềm mẫu.",
-                italic: true)
-        };
-        if (languageMode == ContractLanguageMode.Bilingual)
-        {
-            result.Add(CreateStyledParagraph(
-                "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01/09/2026 between Sample Customer Company and DTC Company regarding the sample software supply.",
-                italic: true));
+            if (languageMode == ContractLanguageMode.Bilingual)
+                result.Add(CreateStyledParagraph(DocumentEnglishPolicy.Require(reference.TextEn, "căn cứ tiếng Anh"), italic: true));
+            result.Add(CreateStyledParagraph(reference.TextVi, italic: true));
         }
-
-        result.Reverse();
         return result;
+    }
+
+    private static W.Table CreateHandoverItemTable(ContractLanguageMode language,
+        IReadOnlyList<ContractTemplateRenderHandoverItem> items, int width)
+    {
+        var widths = ContractTableLayoutPolicy.MapToDxa([700, 1500, 4600, 1400, 1800], width);
+        var rows = new List<IEnumerable<string>> { new[] {
+            DocumentEnglishPolicy.Label(language, "No.", "STT"), DocumentEnglishPolicy.Label(language, "Code", "Mã"),
+            DocumentEnglishPolicy.Label(language, "Delivered items", "Hạng mục bàn giao"),
+            DocumentEnglishPolicy.Label(language, "Unit", "Đơn vị"), DocumentEnglishPolicy.Label(language, "Quantity", "Số lượng") } };
+        foreach (var item in items)
+        {
+            var name = language == ContractLanguageMode.Bilingual
+                ? DocumentEnglishPolicy.Require(item.NameEn, "tên hạng mục tiếng Anh") + "\n\n" + item.NameVi : item.NameVi;
+            var unit = language == ContractLanguageMode.Bilingual
+                ? DocumentEnglishPolicy.Require(item.UnitEn, "đơn vị tiếng Anh") + "\n\n" + item.UnitVi : item.UnitVi;
+            if (!string.IsNullOrWhiteSpace(item.NotesVi) || !string.IsNullOrWhiteSpace(item.NotesEn))
+                name += "\n" + (language == ContractLanguageMode.Bilingual ? item.NotesEn + "\n\n" : "") + item.NotesVi;
+            rows.Add(new[] { item.No.ToString(), item.Code, name, unit, item.Quantity.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) });
+        }
+        return CreateTable(rows, true, widths, width);
     }
 
     private static IReadOnlyList<OpenXmlElement> CreateAcceptanceSectionElements(
@@ -1150,30 +1177,9 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
     {
         values["ACCEPTANCE_DATE_EN"] = "20 September 2026";
         values["ACCEPTANCE_LOCATION_EN"] = "Hanoi";
-        values["CUSTOMER_LEGAL_NAME_EN"] = "Sample Legal Company";
-        values["CUSTOMER_ADDRESS_EN"] = "Sample address, Vietnam";
-        values["CUSTOMER_REPRESENTATIVE_TITLE_EN"] = "Project Manager";
-        values["TENANT_LEGAL_NAME_EN"] = "Sample Legal Company";
-        values["TENANT_ADDRESS_EN"] = "Sample address, Vietnam";
-        values["TENANT_REPRESENTATIVE_TITLE_EN"] = "Project Manager";
         values["ACCEPTANCE_CODE"] = "BBNT-SAMPLE-001";
         values["ACCEPTANCE_DATE"] = "20/09/2026";
         values["ACCEPTANCE_LOCATION"] = "Hà Nội";
-        values["CUSTOMER_LEGAL_NAME"] = "CÔNG TY KHÁCH HÀNG MẪU";
-        values["CUSTOMER_ADDRESS"] = "Số 01, Đường Mẫu, Hà Nội";
-        values["CUSTOMER_PHONE"] = "024 0000 0000";
-        values["CUSTOMER_FAX"] = "024 0000 0001";
-        values["CUSTOMER_TAX_CODE"] = "0100000000";
-        values["CUSTOMER_REPRESENTATIVE_NAME"] = "Nguyễn Văn A";
-        values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Giám đốc";
-        values["TENANT_LEGAL_NAME"] =
-            "CÔNG TY TNHH CÔNG NGHỆ ỨNG DỤNG VÀ TRUYỀN THÔNG DTC";
-        values["TENANT_ADDRESS"] = "Số 2, ngách 6, ngõ 200, Vĩnh Hưng, Hà Nội";
-        values["TENANT_PHONE"] = "024 3557 3636";
-        values["TENANT_FAX"] = "024 3569 0588";
-        values["TENANT_TAX_CODE"] = "0105801335";
-        values["TENANT_REPRESENTATIVE_NAME"] = "Bùi Đức Ngọc";
-        values["TENANT_REPRESENTATIVE_TITLE"] = "Cán bộ tư vấn, triển khai";
     }
 
     private static ContractTemplatePreviewException LayoutUnsupported(string key) =>

@@ -13,6 +13,8 @@ public partial class TblContractTemplateVersion
 
     public int TemplateId { get; set; }
 
+    public byte ContractDirection { get; set; }
+
     public int VersionNo { get; set; }
 
     public string? ChangeNote { get; set; }

@@ -9,21 +9,25 @@ public static class DocumentEnglishPolicy
 {
     private static readonly HashSet<string> OptionalCustomerSources = new(StringComparer.Ordinal)
     {
-        "customer.company-en", "customer.address-en", "customer.bank-name-en", "customer.city-en",
-        "customer.country-en", "customer.contact-title-en", "customer.representative-title-en"
-    };
-
-    private static readonly HashSet<string> OptionalCustomerMarkers = new(StringComparer.Ordinal)
-    {
-        "CUSTOMER_COMPANY_EN", "CUSTOMER_ADDRESS_EN", "CUSTOMER_BANK_NAME_EN", "CUSTOMER_CITY_EN",
-        "CUSTOMER_COUNTRY_EN", "CUSTOMER_CONTACT_TITLE_EN", "CUSTOMER_LEGAL_NAME_EN", "CUSTOMER_REPRESENTATIVE_TITLE_EN"
+        "counterparty.company-en", "counterparty.address-en", "counterparty.bank-name-en", "counterparty.city-en",
+        "counterparty.country-en", "counterparty.contact-title-en", "counterparty.representative-title-en"
     };
 
     public static bool IsOptionalCustomerEnglishSource(string? source) =>
         source is not null && OptionalCustomerSources.Contains(source);
 
-    public static bool IsOptionalCustomerEnglish(SoftwareSupplyPlaceholderDefinition field) =>
-        field.IsSystem ? OptionalCustomerMarkers.Contains(field.Key) : IsOptionalCustomerEnglishSource(field.SourceFieldKey);
+    public static bool IsOptionalPartyEnglish(SoftwareSupplyPlaceholderDefinition field, ContractDirection direction)
+    {
+        if (IsOptionalCustomerEnglishSource(field.SourceFieldKey)) return true;
+        if (field.IsSystem && new[] { "_CITY_EN", "_COUNTRY_EN", "_CONTACT_TITLE_EN" }.Any(x => field.Key.EndsWith(x, StringComparison.Ordinal))) return true;
+        if (!field.IsSystem && field.SourceFieldKey is { } key && new[] { ".city-en", ".country-en", ".contact-title-en" }.Any(x => key.EndsWith(x, StringComparison.Ordinal))) return true;
+        var externalRole = direction == ContractDirection.Purchase ? "PROVIDER" : "CUSTOMER";
+        return field.IsSystem
+            ? DocumentPartyMarkers.Fields.Any(x => x.Suffix.EndsWith("_EN", StringComparison.Ordinal)
+                && field.Key == externalRole + "_" + x.Suffix)
+            : field.SourceFieldKey?.StartsWith(externalRole.ToLowerInvariant() + ".", StringComparison.Ordinal) == true
+                && field.SourceFieldKey.EndsWith("-en", StringComparison.Ordinal);
+    }
 
     public static string OptionalCustomerEnglish(string? value) =>
         string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();

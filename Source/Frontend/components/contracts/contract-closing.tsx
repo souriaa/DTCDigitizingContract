@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { endOfDay, format } from "date-fns";
 import {
   AlertTriangle,
@@ -45,6 +45,7 @@ import {
   ContractPaymentStatus,
 } from "@/services/contract-completion-api";
 import { formatDateTime } from "@/lib/format-date-time";
+import { ContractHandoverRecords } from "@/components/contracts/contract-handover-records";
 import { ContractAcceptanceRecords } from "@/components/contracts/contract-acceptance-records";
 
 interface Props {
@@ -94,7 +95,14 @@ export function ContractClosing({
   const [reopenReason, setReopenReason] = useState("");
   const [updatingMilestoneId, setUpdatingMilestoneId] = useState<number>();
   const [openingEvidenceFileId, setOpeningEvidenceFileId] = useState<number>();
+  const [handoverRevision, setHandoverRevision] = useState(0);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  const scrolledHandover = useRef<number | null>(null);
+  useEffect(() => {
+    if (scrolledHandover.current === contract.contractId || loading || !detail || new URLSearchParams(window.location.search).get("section") !== "handover") return;
+    scrolledHandover.current = contract.contractId;
+    document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, detail, contract.contractId]);
 
   const load = useCallback(
     async (showSpinner = true) => {
@@ -263,8 +271,9 @@ export function ContractClosing({
   );
   const checks = [
     detail.readiness.signed,
+    detail.readiness.handoverCompleted,
     detail.readiness.acceptanceCompleted,
-    detail.readiness.remainingAmount === 0,
+    detail.readiness.paymentCompleted,
   ];
   const completed = checks.filter(Boolean).length;
   const remainingAcceptanceMilestones = detail.paymentMilestones.filter(
@@ -286,13 +295,14 @@ export function ContractClosing({
         <CardContent className="space-y-4">
           <div className="flex justify-between text-sm">
             <span>Tiến độ</span>
-            <b>{completed}/3</b>
+            <b>{completed}/4</b>
           </div>
-          <Progress value={(completed / 3) * 100} />
+          <Progress value={(completed / 4) * 100} />
           {[
             ["Hợp đồng có bản scan đã ký hợp lệ", checks[0]],
-            ["Đã nghiệm thu đủ phạm vi", checks[1]],
-            ["Đã thanh toán đủ giá trị hợp đồng", checks[2]],
+            ["Đã bàn giao đủ phạm vi với bản ký hợp lệ", checks[1]],
+            ["Đã nghiệm thu đủ phạm vi và các đợt thanh toán", checks[2]],
+            ["Đã thanh toán đủ giá trị hợp đồng", checks[3]],
           ].map(([label, ok]) => (
             <div
               key={String(label)}
@@ -308,6 +318,14 @@ export function ContractClosing({
               <span className="text-sm">{label}</span>
             </div>
           ))}
+          <div className="rounded-lg border p-3 text-sm space-y-2">
+            {detail.readiness.scopeIntegrityError ? <p className="text-destructive">{detail.readiness.scopeIntegrityError}</p> : <>
+            <p>Đã bàn giao đủ {detail.readiness.deliveredScopeItemCount}/{detail.readiness.totalScopeItemCount} hạng mục · Đã nghiệm thu đủ {detail.readiness.acceptedScopeItemCount}/{detail.readiness.totalScopeItemCount} hạng mục</p>
+            {detail.readiness.scopeItems.filter(x => x.accepted < x.requiredQuantity).map(x => <p key={x.handoverScopeItemId} className="text-muted-foreground">
+              {x.nameVi}: bàn giao {x.delivered}/{x.requiredQuantity} {x.unitVi}, chờ ký {x.reserved}; nghiệm thu {x.accepted}, chờ ký {x.acceptanceReserved}
+            </p>)}
+            </>}
+          </div>
           {detail.readiness.totalMilestoneCount > 0 && (
             <div className="space-y-2 rounded-lg border p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -377,13 +395,18 @@ export function ContractClosing({
         </CardContent>
       </Card>
 
+      <ContractHandoverRecords contract={contract} canManage={canManageAcceptance} revision={handoverRevision}
+        onChanged={async () => { setHandoverRevision(value => value + 1); await load(false); }} />
+
       <ContractAcceptanceRecords
+        scopeRevision={handoverRevision}
         contract={contract}
         paymentMilestones={detail.paymentMilestones}
         readiness={detail.readiness}
         signedActive={detail.readiness.signed}
         canManage={canManageAcceptance}
         onChanged={async () => {
+          setHandoverRevision(value => value + 1);
           await load(false);
           await onContractRefetch();
         }}
@@ -393,10 +416,14 @@ export function ContractClosing({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <WalletCards className="size-5" />
-            Thanh toán
+            Thanh toán · {detail.readiness.tenantReceivesPayment ? "Thu vào" : "Chi ra"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+            <p>Bên trả: {detail.readiness.payerName || "Chưa có bản chốt"} · Bên nhận: {detail.readiness.payeeName || "Chưa có bản chốt"}</p>
+            <p>Tài khoản bên nhận: {detail.readiness.payeeBankAccount || "Chưa có thông tin"} · {detail.readiness.payeeBankName || "Chưa có ngân hàng"}</p>
+          </div>
           {hasStructuredPayment ? (
             <div className="grid gap-3 md:grid-cols-2">
               {detail.paymentMilestones.map((milestone) => {
@@ -423,7 +450,7 @@ export function ContractClosing({
                       </div>
                       <div className="flex flex-wrap justify-end gap-2">
                         <Badge variant={isPaid ? "default" : "secondary"}>
-                          {isPaid ? "Đã nộp" : "Chưa nộp"}
+                          {isPaid ? "Đã thanh toán" : "Chưa thanh toán"}
                         </Badge>
                         {milestone.isOverdue && (
                           <Badge variant="destructive">

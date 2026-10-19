@@ -142,6 +142,7 @@ public sealed class ContractAttachmentAuditTests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 983,
             EmployeeId = EmployeeId,

@@ -57,7 +57,7 @@ import {
   type ResourceAccessErrorKind,
 } from "@/lib/api-error";
 import { formatDateTime } from "@/lib/format-date-time";
-import { ContractLanguageMode } from "@/services/contract-api";
+import { ContractLanguageMode, getContractDirectionLabel } from "@/services/contract-api";
 import {
   contractTemplateApi,
   ContractTermKind,
@@ -91,6 +91,9 @@ const CONTRACT_DOCUMENT_TYPES = new Set<TemplateDocumentType>([
 const CONTRACT_ONLY_TABS = new Set<WorkspaceTab>(["legal-bases", "appendices"]);
 
 const ACCEPTANCE_SECTION_ERROR_CODES = new Set([
+  "HandoverSectionsMissing",
+  "HandoverSectionsInvalid",
+  "HandoverSectionsBilingualInvalid",
   "AcceptanceSectionsMissing",
   "AcceptanceSectionsInvalid",
   "AcceptanceSectionsBilingualInvalid",
@@ -233,8 +236,7 @@ export default function ContractTemplateVersionWorkspacePage() {
             if (CONTRACT_ONLY_TABS.has(current)) return "overview";
             if (
               current === "terms" &&
-              templateResponse.documentType !==
-                TemplateDocumentType.AcceptanceRecord
+              ![TemplateDocumentType.AcceptanceRecord, TemplateDocumentType.HandoverRecord].includes(templateResponse.documentType)
             ) {
               return "overview";
             }
@@ -527,9 +529,10 @@ export default function ContractTemplateVersionWorkspacePage() {
   const isContractDocument = Boolean(
     template && CONTRACT_DOCUMENT_TYPES.has(template.documentType),
   );
-  const isAcceptanceDocument =
-    template?.documentType === TemplateDocumentType.AcceptanceRecord;
-  const supportsStructuredContent = isContractDocument || isAcceptanceDocument;
+  const isHandoverDocument = template?.documentType === TemplateDocumentType.HandoverRecord;
+  const documentSectionName = isHandoverDocument ? "bàn giao" : "nghiệm thu";
+  const isSupportingDocument = isHandoverDocument || template?.documentType === TemplateDocumentType.AcceptanceRecord;
+  const supportsStructuredContent = isContractDocument || isSupportingDocument;
   const hasTerms = Boolean(version?.terms.length);
   const paymentTerms =
     version?.terms.filter(
@@ -547,7 +550,7 @@ export default function ContractTemplateVersionWorkspacePage() {
       paymentTerms[0].paymentMilestones.length > 0 &&
       paymentPercentTotal === 100);
   const hasValidAcceptanceSections = Boolean(
-    !isAcceptanceDocument ||
+    !isSupportingDocument ||
     (version?.terms.length &&
       version.terms.every(
         (term) =>
@@ -653,6 +656,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                       <span className="font-semibold">
                         Phiên bản {version.versionNo}
                       </span>
+                      <Badge variant="outline">{getContractDirectionLabel(version.contractDirection)}</Badge>
                       <TemplateVersionStatusBadge status={version.status} />
                       <TemplateValidationStatusBadge
                         status={version.validationStatus}
@@ -688,8 +692,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                     {supportsStructuredContent && (
                       <TabsTrigger value="terms">
                         <ListChecks />{" "}
-                        {isAcceptanceDocument
-                          ? "Nội dung nghiệm thu"
+                        {isSupportingDocument
+                          ? `Nội dung ${documentSectionName}`
                           : "Điều khoản"}
                       </TabsTrigger>
                     )}
@@ -721,8 +725,8 @@ export default function ContractTemplateVersionWorkspacePage() {
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm text-muted-foreground">
-                            {isAcceptanceDocument
-                              ? "Mục nghiệm thu"
+                            {isSupportingDocument
+                              ? `Mục ${documentSectionName}`
                               : "Điều khoản mềm"}
                           </CardTitle>
                         </CardHeader>
@@ -817,7 +821,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                       isBilingual={
                         template.languageMode === ContractLanguageMode.Bilingual
                       }
-                      mode={isAcceptanceDocument ? "acceptance" : "contract"}
+                      mode={isHandoverDocument ? "handover" : isSupportingDocument ? "acceptance" : "contract"}
                       openTermIds={openTemplateTermIds}
                       onTermOpenChange={(termId, open) =>
                         setOpenTemplateTermIds((current) => {
@@ -1075,9 +1079,9 @@ export default function ContractTemplateVersionWorkspacePage() {
                             Có ít nhất một điều khoản mềm
                           </RequirementRow>
                         )}
-                        {isAcceptanceDocument && (
+                        {isSupportingDocument && (
                           <RequirementRow met={hasValidAcceptanceSections}>
-                            Có ít nhất một mục nghiệm thu hợp lệ
+                            Có ít nhất một mục {documentSectionName} hợp lệ
                           </RequirementRow>
                         )}
                         <RequirementRow met={hasDocument}>

@@ -1093,6 +1093,7 @@ public sealed partial class ContractServiceSlice04Tests
         context.TblContractTemplateVersions.Add(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = TemplateVersionId,
                 TemplateId = TemplateId,
                 VersionNo = 1,
@@ -1196,6 +1197,7 @@ public sealed partial class ContractServiceSlice04Tests
     {
         return new CreateContractRequest
         {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             CustomerId = CustomerId,
             ContractType = ContractType.SoftwareSupply,
             TemplateVersionId = TemplateVersionId,
@@ -1287,6 +1289,7 @@ public sealed partial class ContractServiceSlice04Tests
 
         var contract = new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = 100,
             CustomerId = CustomerId,
             EmployeeId = EmployeeId,

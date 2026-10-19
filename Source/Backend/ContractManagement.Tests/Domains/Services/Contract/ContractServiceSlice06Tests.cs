@@ -31,12 +31,16 @@ public sealed class ContractServiceSlice06Tests
     private const int TermId = 604;
 
     [Theory]
-    [InlineData("Fake")]
-    [InlineData("Smtp")]
-    public async Task DraftToNegotiating_OtpCustomerCommentAndNewRound_ShouldRevokeOldAccess(string provider)
+    [InlineData("Fake", ContractDirection.Sale)]
+    [InlineData("Smtp", ContractDirection.Sale)]
+    [InlineData("Fake", ContractDirection.Purchase)]
+    [InlineData("Smtp", ContractDirection.Purchase)]
+    public async Task DraftToNegotiating_OtpCustomerCommentAndNewRound_ShouldRevokeOldAccess(string provider, ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
         var realtime = new RecordingDiscussionPublisher(context);
         var (contractService, customerAccess, cryptography) = CreateServices(context, provider, realtime);
         var rowVersion = Convert.ToBase64String(InitialRowVersion());
@@ -552,6 +556,7 @@ public sealed class ContractServiceSlice06Tests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = EmployeeId,

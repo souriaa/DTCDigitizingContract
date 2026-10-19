@@ -60,6 +60,9 @@ import {
 
 import {
   ContractType,
+  ContractDirection,
+  getContractCounterpartyLabel,
+  getContractDirectionLabel,
   ContractLanguageMode,
   ContractItemType,
   ContractItemDiscountMode,
@@ -109,7 +112,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 
 const steps = [
-  { title: "Khách hàng & Mẫu", description: "Thiết lập cơ bản" },
+  { title: "Đối tác & Mẫu", description: "Thiết lập cơ bản" },
   { title: "Sản phẩm", description: "Chọn phạm vi" },
   { title: "Điều khoản", description: "Soạn nội dung" },
   { title: "Xem trước", description: "Kiểm tra nháp" },
@@ -467,6 +470,8 @@ export default function CreateContractPage() {
     setResponsibleEmployeeId(String(user.employeeId));
     clearFieldError("responsibleEmployeeId");
   };
+  const [contractDirection, setContractDirection] = useState<ContractDirection | null>(null);
+  const counterpartyLabel = contractDirection === null ? "Đối tác" : getContractCounterpartyLabel(contractDirection);
   const [contractType, setContractType] = useState<ContractType>(
     ContractType.SoftwareSupply,
   );
@@ -502,7 +507,7 @@ export default function CreateContractPage() {
   }, [templateSearch]);
 
   useEffect(() => {
-    if (languageMode === null) {
+    if (languageMode === null || contractDirection === null) {
       setAvailableTemplates([]);
       setTemplateTotalCount(0);
       setIsLoadingTemplates(false);
@@ -517,6 +522,7 @@ export default function CreateContractPage() {
         keyword: debouncedTemplateSearch || undefined,
         documentType: getTemplateDocumentFromContractType(contractType),
         languageMode,
+        contractDirection,
       })
       .then((response) => {
         if (cancelled) return;
@@ -554,7 +560,7 @@ export default function CreateContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [contractType, languageMode, debouncedTemplateSearch, templatePage]);
+  }, [contractType, languageMode, contractDirection, debouncedTemplateSearch, templatePage]);
 
   useEffect(() => {
     if (!templateVersionId) {
@@ -581,6 +587,9 @@ export default function CreateContractPage() {
     contractTemplateApi
       .getAvailableByVersionId(Number(templateVersionId))
       .then((detail) => {
+        if (cancelled) return;
+        if (detail.contractDirection !== contractDirection || detail.languageMode !== languageMode)
+          throw new Error("Mẫu không khớp chiều giao dịch hoặc ngôn ngữ đang chọn.");
         if (!cancelled) {
           setContractTerms(
             [...detail.terms]
@@ -630,38 +639,30 @@ export default function CreateContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [templateVersionId]);
+  }, [templateVersionId, contractDirection, languageMode]);
 
-  // Fetch eligible parent contracts when customer or contractType changes
+  // Keep parent results scoped to the current subject, direction and contract type.
   useEffect(() => {
-    if (
-      (contractType === ContractType.SoftwareMaintenance ||
-        contractType === ContractType.SoftwareUpkeep) &&
-      customerId
-    ) {
-      const fetchEligibleParents = async () => {
-        setIsLoadingEligibleParents(true);
-        try {
-          const res = await contractApi.getEligibleParents({
-            customerId: Number(customerId),
-            targetContractType: contractType,
-            page: 1,
-            pageSize: 100,
-          });
-          setEligibleParents(res.items || []);
-        } catch (error) {
-          console.error("Lỗi khi tải danh sách hợp đồng nguồn:", error);
-          setEligibleParents([]);
-        } finally {
-          setIsLoadingEligibleParents(false);
-        }
-      };
-      fetchEligibleParents();
-    } else {
-      setEligibleParents([]);
-      setParentContractId("");
+    let cancelled = false;
+    setEligibleParents([]);
+    setParentContractId("");
+    if (contractDirection === null || !customerId ||
+        (contractType !== ContractType.SoftwareMaintenance && contractType !== ContractType.SoftwareUpkeep)) {
+      setIsLoadingEligibleParents(false);
+      return;
     }
-  }, [customerId, contractType]);
+    setIsLoadingEligibleParents(true);
+    contractApi.getEligibleParents({
+      customerId: Number(customerId), contractDirection, targetContractType: contractType, page: 1, pageSize: 100,
+    }).then((res) => {
+      if (!cancelled) setEligibleParents(res.items || []);
+    }).catch(() => {
+      if (!cancelled) toast.error("Không thể tải hợp đồng nguồn của đối tác.");
+    }).finally(() => {
+      if (!cancelled) setIsLoadingEligibleParents(false);
+    });
+    return () => { cancelled = true; };
+  }, [customerId, contractType, contractDirection]);
 
   // Step 2: Items, Filter & Pagination
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -925,6 +926,8 @@ export default function CreateContractPage() {
         !!customerId &&
         !!responsibleEmployeeId &&
         !!templateVersionId &&
+        contractDirection !== null &&
+        selectedTemplate?.contractDirection === contractDirection &&
         languageMode !== null &&
         selectedTemplate?.languageMode === languageMode &&
         !!contractTitle.trim() &&
@@ -963,6 +966,8 @@ export default function CreateContractPage() {
     contractTitleEn,
     languageMode,
     selectedTemplate?.languageMode,
+    selectedTemplate?.contractDirection,
+    contractDirection,
     selectedItems.length,
     selectedCatalogItems,
     effectiveDate,
@@ -989,11 +994,30 @@ export default function CreateContractPage() {
     const template = availableTemplates.find(
       (item) => item.versionId === versionId,
     );
-    if (!template || template.languageMode !== languageMode || template.contractType !== contractType) return;
+    if (!template || template.languageMode !== languageMode || template.contractType !== contractType || template.contractDirection !== contractDirection) return;
 
     setTemplateVersionId(String(versionId));
     setSelectedTemplateSnapshot(template);
     clearFieldError("templateVersionId");
+  };
+
+  const handleDirectionChange = (value: string) => {
+    const next = Number(value) as ContractDirection;
+    if (next === contractDirection) return;
+    setContractDirection(next);
+    clearFieldError("contractDirection");
+    setParentContractId("");
+    setEligibleParents([]);
+    setTemplatePage(1);
+    setTemplateVersionId("");
+    setSelectedTemplateSnapshot(null);
+    setAvailableTemplates([]);
+    setTemplateTotalCount(0);
+    setContractTerms([]);
+    setTemplateAppendices([]);
+    setContractAppendices([]);
+    setHasPendingAppendixForm(false);
+    toast.info("Đã đổi chiều giao dịch. Vui lòng chọn lại mẫu và nội dung tương thích.");
   };
 
   const handleLanguageModeChange = (value: string) => {
@@ -1050,6 +1074,13 @@ export default function CreateContractPage() {
 
   // -- SUBMIT ACTION --
   const handleSubmit = async () => {
+    if (contractDirection === null) {
+      toast.error("Vui lòng chọn chiều giao dịch Bán hoặc Mua.");
+      setCurrentStep(0);
+      setFieldErrors({ contractDirection: true });
+      scrollToAndFocus("contract-direction");
+      return;
+    }
     if (languageMode === null) {
       toast.error("Vui lòng chọn ngôn ngữ hợp đồng trước khi chọn mẫu.");
       setCurrentStep(0);
@@ -1057,7 +1088,7 @@ export default function CreateContractPage() {
       scrollToAndFocus("contract-language-mode");
       return;
     }
-    // 1. Validate Step 0: Khách hàng & Mẫu
+    // 1. Validate Step 0: Đối tác & Mẫu
     if (!customerId) {
       toast.error("Vui lòng chọn khách hàng / đối tác.");
       setCurrentStep(0);
@@ -1220,6 +1251,7 @@ export default function CreateContractPage() {
         customerId: Number(customerId),
         responsibleEmployeeId: Number(responsibleEmployeeId),
         contractType: contractType,
+        contractDirection,
         templateVersionId: Number(templateVersionId),
         parentContractId:
           contractType !== ContractType.SoftwareSupply && parentContractId
@@ -1430,7 +1462,7 @@ export default function CreateContractPage() {
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>
-                      Khách hàng / đối tác{" "}
+                      {counterpartyLabel}{" "}
                       <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -1462,7 +1494,7 @@ export default function CreateContractPage() {
                             placeholder={
                               isLoadingCustomers
                                 ? "Đang tải..."
-                                : "Chọn khách hàng"
+                                : `Chọn ${counterpartyLabel.toLocaleLowerCase()}`
                             }
                           />
                         </SelectTrigger>
@@ -1490,8 +1522,8 @@ export default function CreateContractPage() {
                           size="icon"
                           className="shrink-0"
                           onClick={() => setIsCustomerModalOpen(true)}
-                          aria-label="Tạo nhanh khách hàng"
-                          title="Tạo nhanh khách hàng"
+                          aria-label={`Tạo nhanh ${counterpartyLabel.toLocaleLowerCase()}`}
+                          title={`Tạo nhanh ${counterpartyLabel.toLocaleLowerCase()}`}
                         >
                           <Plus className="size-4" />
                         </Button>
@@ -1598,6 +1630,14 @@ export default function CreateContractPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="contract-direction">Chiều giao dịch <span className="text-red-500">*</span></Label>
+                    <Select value={contractDirection === null ? "" : String(contractDirection)} onValueChange={handleDirectionChange}>
+                      <SelectTrigger id="contract-direction" className="w-full"><SelectValue placeholder="Chọn Bán hoặc Mua..." /></SelectTrigger>
+                      <SelectContent><SelectItem value="1">Bán — Doanh nghiệp là bên cung cấp</SelectItem><SelectItem value="2">Mua — Doanh nghiệp là bên mua</SelectItem></SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Chiều giao dịch được giữ cố định sau khi tạo hợp đồng.</p>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="contract-language-mode">
                       Ngôn ngữ hợp đồng <span className="text-red-500">*</span>
                     </Label>
@@ -1644,7 +1684,7 @@ export default function CreateContractPage() {
                           <SelectValue
                             placeholder={
                               !customerId
-                                ? "Vui lòng chọn khách hàng trước"
+                                ? "Vui lòng chọn đối tác trước"
                                 : isLoadingEligibleParents
                                   ? "Đang tải hợp đồng nguồn..."
                                   : eligibleParents.length === 0
@@ -1679,7 +1719,7 @@ export default function CreateContractPage() {
                             Không có hợp đồng nguồn phù hợp
                           </AlertTitle>
                           <AlertDescription>
-                            Khách hàng đã chọn hiện chưa có hợp đồng cung cấp
+                            Đối tác đã chọn hiện chưa có hợp đồng cung cấp
                             phần mềm gốc nào ở trạng thái đủ điều kiện để tạo
                             hợp đồng bảo trì hoặc duy trì.
                           </AlertDescription>
@@ -1753,7 +1793,7 @@ export default function CreateContractPage() {
                       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         value={templateSearch}
-                        disabled={languageMode === null}
+                        disabled={languageMode === null || contractDirection === null}
                         onChange={(event) => {
                           setTemplateSearch(event.target.value);
                           setTemplatePage(1);
@@ -1784,7 +1824,7 @@ export default function CreateContractPage() {
                           const selected =
                             template.versionId === Number(templateVersionId);
                           const compatible =
-                            template.contractType === contractType && template.languageMode === languageMode;
+                            template.contractDirection === contractDirection && template.contractType === contractType && template.languageMode === languageMode;
 
                           return (
                             <button
@@ -1845,9 +1885,9 @@ export default function CreateContractPage() {
                       </div>
                     )}
 
-                    {languageMode === null ? (
+                    {languageMode === null || contractDirection === null ? (
                       <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                        Chọn ngôn ngữ hợp đồng để tải danh sách mẫu phù hợp.
+                        Chọn chiều giao dịch và ngôn ngữ hợp đồng để tải danh sách mẫu phù hợp.
                       </div>
                     ) : !isLoadingTemplates && templateTotalCount === 0 ? (
                       <div className="rounded-2xl border border-dashed px-4 py-8 text-center">
@@ -2811,7 +2851,7 @@ export default function CreateContractPage() {
                   <div>
                     <p className="text-sm font-medium">
                       {selectedCustomer?.customerCompany ||
-                        "Chưa chọn khách hàng"}
+                        "Chưa chọn đối tác"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {selectedCustomer?.customerCode || "Chọn khách ở bước 1"}
@@ -2831,7 +2871,7 @@ export default function CreateContractPage() {
                       {selectedTemplate?.name || "Chưa chọn mẫu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {getContractTypeLabel(contractType)}
+                      {getContractDirectionLabel(contractDirection ?? undefined)} · {getContractTypeLabel(contractType)}
                     </p>
                   </div>
                 </div>

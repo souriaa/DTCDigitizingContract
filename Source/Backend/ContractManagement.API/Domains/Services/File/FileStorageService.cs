@@ -248,6 +248,8 @@ namespace ContractManagement.Domains.Services.File
                     .AnyAsync(row => row.FileId == fileId)
                 || await _dbContext.TblContractAcceptanceEvidences
                     .AnyAsync(row => row.FileId == fileId)
+                || await _dbContext.TblContractHandoverEvidences
+                    .AnyAsync(row => row.FileId == fileId)
                 || await _dbContext.TblContractPaymentLedgers
                     .AnyAsync(row => row.EvidenceFileId == fileId);
             if (inUse)

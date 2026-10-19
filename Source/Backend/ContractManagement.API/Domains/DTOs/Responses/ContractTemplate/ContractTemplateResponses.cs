@@ -18,6 +18,8 @@ public sealed class SoftwareSupplyPlaceholderCatalogResponse
 /// </summary>
 public class AvailableContractTemplateVersionResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateId { get; set; }
 
     public string TemplateCode { get; set; } = string.Empty;
@@ -78,6 +80,8 @@ public class ContractTemplateResponse
 
     public int? CurrentPublishedVersionNo { get; set; }
 
+    public ContractDirection? CurrentPublishedContractDirection { get; set; }
+
     public bool IsActive { get; set; }
 
     public int CreatedEmployeeId { get; set; }
@@ -98,6 +102,8 @@ public sealed class ContractTemplateDetailResponse : ContractTemplateResponse
 
 public sealed class ContractTemplateVersionSummaryResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateVersionId { get; set; }
 
     public int VersionNo { get; set; }
@@ -121,6 +127,8 @@ public sealed class ContractTemplateVersionSummaryResponse
 
 public sealed class ContractTemplateVersionDetailResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateVersionId { get; set; }
 
     public int TemplateId { get; set; }

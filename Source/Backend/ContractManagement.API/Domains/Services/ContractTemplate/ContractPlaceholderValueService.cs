@@ -43,7 +43,9 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
         var customer = preloadedContext?.Customer ?? await db.TblCustomers.AsNoTracking().SingleOrDefaultAsync(x => x.CustomerId == contract.CustomerId, cancellationToken)
             ?? throw new PlaceholderOperationException("PlaceholderValueResolveFailed", "Không tìm thấy khách hàng của hợp đồng.");
         // A draft may be created before the legal profile is configured. Only its fields need that source.
-        var tenant = fields.Any(x => x.SourceFieldKey!.StartsWith("provider.", StringComparison.Ordinal))
+        var tenant = fields.Any(x => x.SourceFieldKey!.StartsWith("provider.", StringComparison.Ordinal)
+            || x.SourceFieldKey!.StartsWith("customer.", StringComparison.Ordinal)
+            || x.SourceFieldKey!.StartsWith("tenant.", StringComparison.Ordinal))
             ? preloadedContext?.Tenant ?? await db.TblTenantLegalProfiles.AsNoTracking().SingleOrDefaultAsync(cancellationToken) : null;
         TblEmployee? owner = null;
         TblDepartment? department = null;
@@ -86,7 +88,8 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
             {
                 ContractPlaceholderMetrics.ResolveDuration.Record(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
             }
-            if (f.IsRequired && !DocumentEnglishPolicy.IsOptionalCustomerEnglishSource(f.SourceFieldKey)
+            if (f.IsRequired && !DocumentEnglishPolicy.IsOptionalPartyEnglish(ContractPlaceholderCatalog.FromSnapshot(f),
+                    (ContractManagement.API.Common.Enums.ContractDirection)contract.ContractDirection)
                 && string.IsNullOrWhiteSpace(rendered))
                 throw new PlaceholderOperationException("PlaceholderValueRequired", $"Placeholder {f.PlaceholderKey} thiếu dữ liệu.");
             var row = stored.SingleOrDefault(x => x.PlaceholderKey == f.PlaceholderKey);

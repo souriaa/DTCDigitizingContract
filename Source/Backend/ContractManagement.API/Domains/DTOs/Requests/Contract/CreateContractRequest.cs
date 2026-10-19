@@ -8,6 +8,10 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
     /// </summary>
     public class CreateContractRequest : IValidatableObject
     {
+        [System.Text.Json.Serialization.JsonRequired]
+        [EnumDataType(typeof(ContractDirection))]
+        public ContractDirection ContractDirection { get; set; }
+
         [Range(1, int.MaxValue)]
         public int CustomerId { get; set; }
 

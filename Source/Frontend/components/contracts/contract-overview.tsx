@@ -59,6 +59,8 @@ import {
   ContractItemType,
   ContractItemDiscountMode,
   getContractTypeLabel,
+  getContractDirectionLabel,
+  getContractCounterpartyLabel,
 } from "@/services/contract-api";
 import { InfoCard } from "./contract-helpers";
 import { formatDate } from "@/lib/format-date";
@@ -373,6 +375,7 @@ export function ContractOverview({
       <Card>
         <CardHeader>
           <CardTitle>Tổng quan hợp đồng</CardTitle>
+          <p className="text-sm text-muted-foreground">Chiều giao dịch: {getContractDirectionLabel(contract.contractDirection)} — Đối tác: {getContractCounterpartyLabel(contract.contractDirection)}</p>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* SỬA TÊN HỢP ĐỒNG */}
@@ -418,7 +421,7 @@ export function ContractOverview({
             {isEditable ? (
               <div className="rounded-xl border bg-muted/30 p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 font-semibold">
-                  <Users className="size-4" /> Khách hàng
+                  <Users className="size-4" /> {getContractCounterpartyLabel(contract.contractDirection)}
                 </div>
                 <Select
                   value={String(contract.customer?.customerId || "")}
@@ -445,7 +448,7 @@ export function ContractOverview({
                   }}
                 >
                   <SelectTrigger className="w-full h-9 bg-background">
-                    <SelectValue placeholder="Chọn khách hàng" />
+                    <SelectValue placeholder={`Chọn ${getContractCounterpartyLabel(contract.contractDirection).toLocaleLowerCase()}`} />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map((c) => (
@@ -462,7 +465,7 @@ export function ContractOverview({
             ) : (
               <InfoCard
                 icon={<Users className="size-4" />}
-                label="Khách hàng"
+                label={getContractCounterpartyLabel(contract.contractDirection)}
                 value={
                   contract.customer?.customerCompany ||
                   contract.customer?.customerFullName
@@ -1084,7 +1087,7 @@ export function ContractOverview({
             <div>
               <p className="font-semibold">Chưa nhận</p>
               <p className="text-sm text-muted-foreground">
-                Theo dõi gửi/nhận bản cứng với khách hàng.
+                Theo dõi gửi/nhận bản cứng với đối tác.
               </p>
             </div>
           </CardContent>

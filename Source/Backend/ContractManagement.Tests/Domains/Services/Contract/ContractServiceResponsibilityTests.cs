@@ -143,6 +143,7 @@ public class ContractServiceResponsibilityTests
         const int replacementVersionId = TemplateVersionId + 1;
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = replacementVersionId,
             TemplateId = TemplateId,
             VersionNo = 2,
@@ -625,6 +626,7 @@ public class ContractServiceResponsibilityTests
         context.TblContractTemplateVersions.Add(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = TemplateVersionId,
                 TemplateId = TemplateId,
                 VersionNo = 1,
@@ -677,6 +679,7 @@ public class ContractServiceResponsibilityTests
     {
         return new CreateContractRequest
         {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             CustomerId = CustomerId,
             ResponsibleEmployeeId = responsibleEmployeeId,
             ContractType = ContractType.SoftwareSupply,

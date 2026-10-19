@@ -35,7 +35,7 @@ public sealed class ContractTemplateDocumentUploadServiceTests
         var manager = new ContractPlaceholderDefinitionService(context, catalog, registry);
         var request = new SaveContractPlaceholderRequest
         {
-            PlaceholderKey = "CONTACT_NAME_CUSTOM", FieldLabel = "Contact", SourceFieldKey = "customer.contact-name", DefaultValue = "Fallback"
+            PlaceholderKey = "CONTACT_NAME_CUSTOM", FieldLabel = "Contact", SourceFieldKey = "counterparty.contact-name", DefaultValue = "Fallback"
         };
         var created = await manager.SaveAsync(null, request, AdminOfficerId, default);
         var bytes = CreateDocument(RequiredTokens().Append("{{CONTACT_NAME_CUSTOM}}"));
@@ -43,20 +43,20 @@ public sealed class ContractTemplateDocumentUploadServiceTests
         await service.UploadDocumentAsync(VersionId, Request(bytes, await GetVersionRowVersionAsync(context)), AdminOfficerId);
         var field = await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key);
         var hash = (await context.TblContractTemplateVersions.AsNoTracking().SingleAsync()).PlaceholderBindingHash;
-        Assert.False(field.IsSystem); Assert.Equal("customer.contact-name", field.SourceFieldKey);
+        Assert.False(field.IsSystem); Assert.Equal("counterparty.contact-name", field.SourceFieldKey);
         Assert.Equal("Fallback", field.DefaultValue); Assert.NotNull(hash);
         Assert.Equal(Convert.FromBase64String(created.RowVersion!), field.DefinitionRowVersion);
 
-        request.RowVersion = created.RowVersion; request.SourceFieldKey = "customer.phone";
+        request.RowVersion = created.RowVersion; request.SourceFieldKey = "counterparty.phone";
         var updated = await manager.SaveAsync(created.Id, request, AdminOfficerId, default);
-        Assert.Equal("customer.contact-name", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
+        Assert.Equal("counterparty.contact-name", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
         Assert.Equal(hash, (await context.TblContractTemplateVersions.AsNoTracking().SingleAsync()).PlaceholderBindingHash);
 
         await service.UploadDocumentAsync(VersionId, Request(bytes, await GetVersionRowVersionAsync(context)), AdminOfficerId);
-        Assert.Equal("customer.phone", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
+        Assert.Equal("counterparty.phone", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
         Assert.NotEqual(hash, (await context.TblContractTemplateVersions.AsNoTracking().SingleAsync()).PlaceholderBindingHash);
         await manager.SetActiveAsync(created.Id!.Value, false, updated.RowVersion!, AdminOfficerId, default);
-        Assert.Equal("customer.phone", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
+        Assert.Equal("counterparty.phone", (await context.TblContractTemplateFields.AsNoTracking().SingleAsync(x => x.PlaceholderKey == created.Key)).SourceFieldKey);
     }
 
     private const int TenantId = 909;
@@ -371,6 +371,7 @@ public sealed class ContractTemplateDocumentUploadServiceTests
         });
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = VersionId,
             TemplateId = TemplateId,
             VersionNo = 1,
@@ -400,7 +401,7 @@ public sealed class ContractTemplateDocumentUploadServiceTests
                 PlaceholderKey = "EXISTING_FIELD",
                 FieldLabel = "Existing",
                 DataSource = "Existing.Value",
-                SourceFieldKey = "customer.name",
+                SourceFieldKey = "counterparty.name",
                 DisplayOrder = 0,
                 CreatedEmployeeId = AdminOfficerId,
                 CreatedDate = now,

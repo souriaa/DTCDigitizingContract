@@ -19,7 +19,7 @@ import { SelectFilter } from "@/components/ui/custom/select-filter";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { formatDateTime } from "@/lib/format-date-time";
-import { ContractLanguageMode } from "@/services/contract-api";
+import { ContractLanguageMode, getContractDirectionLabel } from "@/services/contract-api";
 import {
   contractTemplateApi,
   getTemplateDocumentTypeLabel,
@@ -221,7 +221,7 @@ export default function ContractTemplateListPage() {
               variant="outline"
               className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
             >
-              Phiên bản {row.original.currentPublishedVersionNo}
+              Phiên bản {row.original.currentPublishedVersionNo} · {getContractDirectionLabel(row.original.currentPublishedContractDirection ?? undefined)}
             </Badge>
           ) : (
             <span className="whitespace-nowrap text-sm text-muted-foreground">

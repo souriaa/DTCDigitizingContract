@@ -147,6 +147,17 @@ public sealed class FileResourceAuthorizationService
                     cancellationToken);
                 return;
 
+            case "ContractHandoverArtifact":
+            case "ContractHandoverEvidence":
+                if (isWrite)
+                    throw new RbacOperationException(StatusCodes.Status403Forbidden,
+                        AuthorizationErrorCodes.PermissionDenied, "Hồ sơ bàn giao là bất biến, không được sửa/xóa qua API tệp chung.");
+                var handoverContractId = await _dbContext.TblContractHandoverRecords.AsNoTracking()
+                    .Where(x => x.HandoverRecordId == objectId).Select(x => (int?)x.ContractId).SingleOrDefaultAsync(cancellationToken);
+                if (!handoverContractId.HasValue) throw ResourceNotFound();
+                await _contractAuthorization.EnsureCanReadAsync(handoverContractId.Value, employeeId, cancellationToken);
+                return;
+
             case ContractSignedEvidenceObjectType:
             case ContractAcceptanceEvidenceObjectType:
             case ContractPaymentEvidenceObjectType:

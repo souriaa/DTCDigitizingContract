@@ -8,7 +8,7 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 /// </summary>
 public static class SoftwareSupplyPreviewDatasetV1
 {
-    public const string Version = "V5";
+    public const string Version = "V6";
 
     public const string LegalDisclaimer =
         "DỮ LIỆU MẪU — KHÔNG CÓ GIÁ TRỊ PHÁP LÝ";
@@ -20,7 +20,7 @@ public static class SoftwareSupplyPreviewDatasetV1
         "EFFECTIVE_DATE_EN",
         "EXPIRE_DATE_EN",
         "CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN",
-        "CUSTOMER_COMPANY_EN",
+        "CUSTOMER_LEGAL_NAME_EN",
         "CUSTOMER_ADDRESS_EN",
         "CUSTOMER_BANK_NAME_EN",
         "CUSTOMER_CITY_EN",
@@ -38,7 +38,7 @@ public static class SoftwareSupplyPreviewDatasetV1
         "CONTRACT_CURRENCY",
         "CUSTOMER_CODE",
         "CUSTOMER_NAME",
-        "CUSTOMER_COMPANY",
+        "CUSTOMER_LEGAL_NAME",
         "CUSTOMER_TAX_CODE",
         "CUSTOMER_ADDRESS",
         "CUSTOMER_EMAIL",
@@ -69,7 +69,7 @@ public static class SoftwareSupplyPreviewDatasetV1
         "CONTRACT_TOTAL_AMOUNT_IN_WORDS"
     };
 
-    public static IReadOnlySet<string> CoveredPlaceholderKeys => Keys;
+    public static IReadOnlySet<string> CoveredPlaceholderKeys => Keys.Union(DocumentPartyMarkers.Definitions.Select(x => x.Key)).ToHashSet(StringComparer.Ordinal);
 
     public static IReadOnlyDictionary<string, string> GetScalarValues(
         ContractLanguageMode languageMode)
@@ -77,13 +77,13 @@ public static class SoftwareSupplyPreviewDatasetV1
         // Scalar VI and EN markers have independent values, just like real contract data.
         var contractName = "HỢP ĐỒNG CUNG CẤP PHẦN MỀM — " + LegalDisclaimer;
 
-        return new Dictionary<string, string>(StringComparer.Ordinal)
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["CONTRACT_DATE_EN"] = "15 August 2026",
             ["EFFECTIVE_DATE_EN"] = "01 September 2026",
             ["EXPIRE_DATE_EN"] = "31 August 2027",
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = "Seventy-two million one hundred and eighty-seven thousand five hundred Vietnamese dong only",
-            ["CUSTOMER_COMPANY_EN"] = "MINH AN SAMPLE ENTERPRISE SOLUTIONS JOINT STOCK COMPANY",
+            ["CUSTOMER_LEGAL_NAME_EN"] = "MINH AN SAMPLE ENTERPRISE SOLUTIONS JOINT STOCK COMPANY",
             ["CUSTOMER_ADDRESS_EN"] = "18th Floor, Sample Building, Ho Chi Minh City, Vietnam",
             ["CUSTOMER_BANK_NAME_EN"] = "Sample Customer Commercial Bank",
             ["CUSTOMER_CITY_EN"] = "Ho Chi Minh City",
@@ -101,7 +101,7 @@ public static class SoftwareSupplyPreviewDatasetV1
             ["CONTRACT_CURRENCY"] = "VND",
             ["CUSTOMER_CODE"] = "CUS-DEMO-2026",
             ["CUSTOMER_NAME"] = "Nguyễn Khách Hàng Mẫu",
-            ["CUSTOMER_COMPANY"] =
+            ["CUSTOMER_LEGAL_NAME"] =
                 "CÔNG TY CỔ PHẦN GIẢ LẬP GIẢI PHÁP DOANH NGHIỆP MINH AN",
             ["CUSTOMER_TAX_CODE"] = "0312345678",
             ["CUSTOMER_ADDRESS"] =
@@ -130,6 +130,9 @@ public static class SoftwareSupplyPreviewDatasetV1
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS"] =
                 "Bảy mươi hai triệu một trăm tám mươi bảy nghìn năm trăm đồng chẵn"
         };
+        foreach (var field in DocumentPartyMarkers.Definitions)
+            values.TryAdd(field.Key, string.Empty);
+        return values;
     }
 
     public static IReadOnlyList<SoftwareSupplyPreviewLineItem> Items { get; } =

@@ -24,7 +24,7 @@ using static ContractManagement.Tests.AuditValueTestData;
 
 namespace ContractManagement.Tests.Domains.Services.ContractTemplate;
 
-public sealed class ContractTemplatePreviewTests
+public sealed partial class ContractTemplatePreviewTests
 {
     [Fact]
     public void TemplateAuditFieldVocabulary_ContainsDocumentAndAppendixTypedFields()
@@ -137,7 +137,7 @@ public sealed class ContractTemplatePreviewTests
 
         Assert.True(catalogKeys.SetEquals(
             SoftwareSupplyPreviewDatasetV1.CoveredPlaceholderKeys));
-        Assert.Equal("V5", SoftwareSupplyPreviewDatasetV1.Version);
+        Assert.Equal("V6", SoftwareSupplyPreviewDatasetV1.Version);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.LegalBases.Count);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.Items.Count);
         Assert.Equal(
@@ -382,7 +382,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN CUNG CẤP", "Nhân viên Thật"),
             new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN KHÁCH HÀNG", "Khách hàng Thật"),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
             LegalBases =
@@ -443,7 +443,7 @@ public sealed class ContractTemplatePreviewTests
             scalarValues, [], [paymentTerm],
             new ContractTemplateRenderSignature("Bên A", "A"),
             new ContractTemplateRenderSignature("Bên B", "B"), string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
         };
@@ -469,7 +469,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN A", "A"),
             new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN B", "B"),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
             Appendices =
@@ -535,7 +535,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature("Bên A", "A"),
             new ContractTemplateRenderSignature("Bên B", "B"),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
             Appendices = []
@@ -573,7 +573,7 @@ public sealed class ContractTemplatePreviewTests
             new Dictionary<string, string>(), [], [],
             new ContractTemplateRenderSignature("A", "A"),
             new ContractTemplateRenderSignature("B", "B"), string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps =
                 ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
@@ -602,7 +602,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
         };
@@ -663,7 +663,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
         };
@@ -787,7 +787,7 @@ public sealed class ContractTemplatePreviewTests
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             new ContractTemplateRenderSignature(string.Empty, string.Empty),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
         };
@@ -935,7 +935,7 @@ public sealed class ContractTemplatePreviewTests
         var bytes = new ContractTemplatePreviewRenderer().RenderSample(CreateSourceDocument(),
             ContractLanguageMode.Bilingual, ContractPlaceholderCatalog.SystemDefinitions,
             new Dictionary<string, string>(), new ContractTemplateAuthoringPreviewData
-            {
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
                 Terms = [new ContractTemplateRenderTerm(1, "Nội dung", "Content", content, "")
                     { BilingualContentMode = 2 }]
@@ -973,7 +973,7 @@ public sealed class ContractTemplatePreviewTests
             source.ToArray(), ContractLanguageMode.Bilingual,
             ContractPlaceholderCatalog.SystemDefinitions, new Dictionary<string, string>(),
             new ContractTemplateAuthoringPreviewData
-            {
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps,
                 LegalBases = hasBasis
                     ? [new ContractTemplateRenderLegalBasis(1, RichText("Căn cứ được cấu hình"), RichText("Configured basis"))]
@@ -1689,6 +1689,7 @@ public sealed class ContractTemplatePreviewTests
         var now = DateTime.UtcNow;
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = nextVersionId,
             TemplateId = TemplateId,
             VersionNo = 2,
@@ -1808,6 +1809,7 @@ public sealed class ContractTemplatePreviewTests
             .ToArray();
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = VersionId,
             TemplateId = TemplateId,
             VersionNo = 1,

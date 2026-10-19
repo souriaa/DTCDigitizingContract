@@ -1,3 +1,4 @@
+import type { ContractDirection } from "@/services/contract-api";
 import axiosClient from "@/lib/axios-interceptor";
 
 const BASE_URL = "/api/contracts";
@@ -17,6 +18,7 @@ export enum AcceptanceKind {
 export enum AcceptanceReferenceType {
   Contract = 1,
   Appendix = 2,
+  Handover = 3,
 }
 
 export enum AcceptancePartyRole {
@@ -25,6 +27,7 @@ export enum AcceptancePartyRole {
 }
 
 export interface ContractAcceptanceTemplateOption {
+  contractDirection: ContractDirection;
   templateId: number;
   templateVersionId: number;
   versionNo: number;
@@ -49,6 +52,7 @@ export interface ContractAcceptanceReference {
   acceptanceReferenceId: number;
   referenceType: AcceptanceReferenceType;
   appendixId?: number | null;
+  handoverRecordId?: number | null;
   textVi: string;
   textEn?: string | null;
   displayOrder: number;
@@ -118,6 +122,7 @@ export interface ContractAcceptanceSignedEvidence {
 export interface ContractAcceptanceRecord
   extends ContractAcceptanceRecordSummary {
   contractId: number;
+  contractDirection: ContractDirection;
   templateVersionId: number;
   templateName: string;
   location: string;
@@ -129,6 +134,8 @@ export interface ContractAcceptanceRecord
   signedAt?: string | null;
   cancelledAt?: string | null;
   cancellationReason?: string | null;
+  handoverScope: AcceptanceHandoverScope[];
+  handoverBlocker?: string | null;
   references: ContractAcceptanceReference[];
   parties: ContractAcceptanceParty[];
   sections: ContractAcceptanceSection[];
@@ -160,7 +167,17 @@ const multipart = (file: File, rowVersion: string) => {
 const url = (contractId: number) =>
   `${BASE_URL}/${contractId}/acceptance-records`;
 
+export interface AcceptanceHandoverScope {
+  handoverLineId: number; handoverRecordId: number; handoverScopeItemId: number;
+  handoverCode: string; handoverDate: string; signDate: string; itemCode: string;
+  nameVi: string; nameEn?: string | null; unitVi: string; unitEn?: string | null;
+  deliveredQuantity: number; availableQuantity: number; quantity: number; scopeMode: number;
+}
 export const contractAcceptanceApi = {
+  handoverOptions: (id: number, recordId: number) =>
+    axiosClient.get<unknown, { items: AcceptanceHandoverScope[]; blocker?: string | null }>(`${url(id)}/${recordId}/handover-scope`),
+  replaceHandoverScope: (id: number, recordId: number, items: { handoverLineId: number; quantity: number }[], rowVersion: string) =>
+    axiosClient.put<unknown, ContractAcceptanceRecord>(`${url(id)}/${recordId}/handover-scope`, { items, rowVersion }),
   templates: (contractId: number) =>
     axiosClient.get<unknown, ContractAcceptanceTemplateOption[]>(
       `${url(contractId)}/templates`,

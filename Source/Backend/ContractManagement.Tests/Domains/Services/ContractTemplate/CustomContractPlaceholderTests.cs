@@ -26,7 +26,7 @@ public sealed class CustomContractPlaceholderTests
         db.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
-            SourceFieldKey = "customer.company-en", IsSystem = false, IsRequired = true,
+            SourceFieldKey = "counterparty.company-en", IsSystem = false, IsRequired = true,
             DefaultValue = "Do not substitute this default", DataKind = 1, Multiplicity = 2
         });
         await db.SaveChangesAsync();
@@ -45,7 +45,7 @@ public sealed class CustomContractPlaceholderTests
         new(db, Registry, Options.Create(new CustomContractPlaceholderOptions { Enabled = enabled }));
     private static ContractPlaceholderDefinitionService Service(DbDtctechContext db) => new(db, Catalog(db), Registry);
     private static SaveContractPlaceholderRequest Request(string key = "CUSTOM_CONTACT") => new()
-    { PlaceholderKey = key, FieldLabel = "Người liên hệ", SourceFieldKey = "customer.contact-name" };
+    { PlaceholderKey = key, FieldLabel = "Người liên hệ", SourceFieldKey = "counterparty.contact-name" };
 
     private static async Task SeedActor(DbDtctechContext db)
     {
@@ -61,7 +61,7 @@ public sealed class CustomContractPlaceholderTests
         db.TblContractPlaceholderDefinitions.Add(new()
         {
             PlaceholderKey = "PROVIDER_BANK_NAME_EN", FieldLabel = "Conflicting custom",
-            SourceFieldKey = "customer.phone", IsActive = true, CreatedEmployeeId = 1, CreatedDate = DateTime.UtcNow
+            SourceFieldKey = "counterparty.phone", IsActive = true, CreatedEmployeeId = 1, CreatedDate = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
         Assert.Equal("PlaceholderKeyCollision", (await Assert.ThrowsAsync<PlaceholderOperationException>(
@@ -77,10 +77,11 @@ public sealed class CustomContractPlaceholderTests
         db.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
-            SourceFieldKey = "customer.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
+            SourceFieldKey = "counterparty.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
         });
         await db.SaveChangesAsync();
-        var contract = new TblContract { ContractId = 30, CustomerId = 10, EmployeeId = 1, TemplateVersionId = 20 };
+        var contract = new TblContract {
+            ContractDirection = (byte)1, ContractId = 30, CustomerId = 10, EmployeeId = 1, TemplateVersionId = 20 };
         var version = new TblContractVersion { VersionId = 40, ContractId = 30, TemplateVersionId = 20 };
         var values = new ContractPlaceholderValueService(db, Registry);
         Assert.Equal("First English name", (await values.CaptureAsync(contract, version))["EN_COMPANY"]);
@@ -105,10 +106,11 @@ public sealed class CustomContractPlaceholderTests
         db.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = 20, PlaceholderKey = "EN_COMPANY", FieldLabel = "Company EN", DataSource = "Customer",
-            SourceFieldKey = "customer.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
+            SourceFieldKey = "counterparty.company-en", IsSystem = false, DataKind = 1, Multiplicity = 2
         });
         await db.SaveChangesAsync();
-        var contract = new TblContract { ContractId = 30, CustomerId = 10, TemplateVersionId = 20 };
+        var contract = new TblContract {
+            ContractDirection = (byte)1, ContractId = 30, CustomerId = 10, TemplateVersionId = 20 };
         var version = new TblContractVersion { VersionId = 40, ContractId = 30, TemplateVersionId = 20 };
         var preloaded = new ContractPlaceholderResolveContext(contract, version,
             new() { CustomerId = 10, CustomerCompanyEn = "English source captured for snapshot" }, null, null, null);
@@ -120,10 +122,10 @@ public sealed class CustomContractPlaceholderTests
     public void Registry_ContainsOnlyExplicitBusinessFields()
     {
         var fields = Registry.GetAllFields();
-        Assert.Equal(6, fields.Select(x => x.ModuleKey).Distinct().Count());
+        Assert.Equal(8, fields.Select(x => x.ModuleKey).Distinct().Count());
         Assert.Equal(fields.Count, fields.Select(x => x.SourceFieldKey).Distinct().Count());
         Assert.Contains(fields, x => x.SourceFieldKey == "department.name");
-        Assert.Contains(fields, x => x.SourceFieldKey == "customer.contact-name");
+        Assert.Contains(fields, x => x.SourceFieldKey == "counterparty.contact-name");
         Assert.DoesNotContain(fields, x => x.SourceFieldKey.Contains("password") || x.SourceFieldKey.Contains("token") || x.SourceFieldKey.Contains("storage"));
         Assert.Throws<PlaceholderOperationException>(() => Registry.GetRequired("Employee.EmployeePassword"));
         Assert.Throws<ArgumentException>(() => new ContractPlaceholderSourceRegistry([
@@ -141,9 +143,9 @@ public sealed class CustomContractPlaceholderTests
     public void Formatting_ValidatesBeforeApplyingFallback()
     {
         Assert.Equal("10/09/2026", Registry.Format("contract.effective-date", new DateTime(2026, 9, 10), null, null));
-        Assert.Equal("fallback", Registry.Format("customer.contact-name", " ", null, "fallback"));
-        Assert.Equal("", Registry.Format("customer.contact-name", null, null, null));
-        Assert.Throws<PlaceholderOperationException>(() => Registry.Format("customer.contact-name", null, "N0", "fallback"));
+        Assert.Equal("fallback", Registry.Format("counterparty.contact-name", " ", null, "fallback"));
+        Assert.Equal("", Registry.Format("counterparty.contact-name", null, null, null));
+        Assert.Throws<PlaceholderOperationException>(() => Registry.Format("counterparty.contact-name", null, "N0", "fallback"));
     }
 
     [Theory]
@@ -212,23 +214,12 @@ public sealed class CustomContractPlaceholderTests
     }
 
     [Fact]
-    public async Task FormerSystemRepresentativeTitle_CanBeCreatedAsCustom()
+    public async Task CanonicalRepresentativeTitle_IsReservedAndCannotBeOverridden()
     {
         await using var db = Context(); await SeedActor(db);
-        var request = Request("CUSTOMER_REPRESENTATIVE_TITLE");
-        request.FieldLabel = "Chức danh người đại diện";
-        request.SourceFieldKey = "customer.representative-title";
-
-        var created = await Service(db).SaveAsync(null, request, 1, default);
-
-        Assert.False(created.IsSystem);
-        Assert.Equal("customer.representative-title", created.SourceFieldKey);
-        var rendered = new ContractTemplatePreviewRenderer().RenderSample(
-            Document(created.Key), ContractLanguageMode.Vietnamese,
-            [.. ContractPlaceholderCatalog.SystemDefinitions, created],
-            new Dictionary<string, string> { [created.Key] = "Giám đốc custom" });
-        using var document = WordprocessingDocument.Open(new MemoryStream(rendered), false);
-        Assert.Contains("Giám đốc custom", document.MainDocumentPart!.Document!.InnerText);
+        var error = await Assert.ThrowsAsync<PlaceholderOperationException>(() =>
+            Service(db).SaveAsync(null, Request("CUSTOMER_REPRESENTATIVE_TITLE"), 1, default));
+        Assert.Equal("SystemPlaceholderImmutable", error.Code);
     }
 
     [Fact]
@@ -237,7 +228,7 @@ public sealed class CustomContractPlaceholderTests
         await using var db = Context(); await SeedActor(db);
         var service = Service(db);
         var created = await service.SaveAsync(null, Request(), 1, default);
-        var update = Request(); update.RowVersion = created.RowVersion; update.SourceFieldKey = "customer.phone";
+        var update = Request(); update.RowVersion = created.RowVersion; update.SourceFieldKey = "counterparty.phone";
         var changed = await service.SaveAsync(created.Id, update, 1, default);
         Assert.NotEqual(created.RowVersion, changed.RowVersion);
         Assert.Equal("PlaceholderConcurrencyConflict", (await Assert.ThrowsAsync<PlaceholderOperationException>(() => service.SaveAsync(created.Id, update, 1, default))).Code);
@@ -259,7 +250,7 @@ public sealed class CustomContractPlaceholderTests
         var changed = await service.SaveAsync(created.Id, update, 1, default);
         var updatedAudit = await db.TblContractPlaceholderAudits.SingleAsync(
             audit => audit.ActionType == "PlaceholderDefinitionUpdated");
-        Assert.Equal("customer.contact-name",
+        Assert.Equal("counterparty.contact-name",
             updatedAudit.PreviousSourceFieldKey);
         Assert.Equal("contract.effective-date", updatedAudit.NewSourceFieldKey);
         Assert.Null(updatedAudit.PreviousFormatString);
@@ -343,7 +334,7 @@ public sealed class CustomContractPlaceholderTests
             File(Document("CUSTOM_CONTACT", split: true)),
             TemplateDocumentType.SoftwareSupplyContract);
         Assert.True(accepted.IsCatalogValid, accepted.ValidationMessage);
-        Assert.Contains(accepted.Definitions!, x => x.Key == item.Key && x.SourceFieldKey == "customer.contact-name");
+        Assert.Contains(accepted.Definitions!, x => x.Key == item.Key && x.SourceFieldKey == "counterparty.contact-name");
         var duplicate = await validator.ValidateAsync(
             File(Document("CUSTOM_CONTACT", duplicate: true)),
             TemplateDocumentType.SoftwareSupplyContract);
@@ -365,7 +356,7 @@ public sealed class CustomContractPlaceholderTests
             .ValidateAsync(File(bytes),
                 TemplateDocumentType.SoftwareSupplyContract);
         var hash = ContractPlaceholderCatalog.Fingerprint(validation.Definitions!);
-        var update = Request(); update.SourceFieldKey = "customer.phone"; update.RowVersion = item.RowVersion;
+        var update = Request(); update.SourceFieldKey = "counterparty.phone"; update.RowVersion = item.RowVersion;
         await Service(db).SaveAsync(item.Id, update, 1, default);
         Assert.Equal(hash, ContractPlaceholderCatalog.Fingerprint(validation.Definitions!));
         Assert.NotEqual(validation.CatalogRevision, ContractPlaceholderCatalog.Fingerprint(await Catalog(db).GetAsync()));
@@ -388,7 +379,8 @@ public sealed class CustomContractPlaceholderTests
             SourceFieldKey = item.SourceFieldKey!, IsSystem = false, DataKind = 1, Multiplicity = 2
         });
         await db.SaveChangesAsync();
-        var contract = new TblContract { ContractId = 30, CustomerId = 10, EmployeeId = 1, TemplateVersionId = 20 };
+        var contract = new TblContract {
+            ContractDirection = (byte)1, ContractId = 30, CustomerId = 10, EmployeeId = 1, TemplateVersionId = 20 };
         var version = new TblContractVersion { VersionId = 40, ContractId = 30, TemplateVersionId = 20 };
         var values = new ContractPlaceholderValueService(db, Registry);
         Assert.Equal("Original", (await values.CaptureAsync(contract, version))[item.Key]);

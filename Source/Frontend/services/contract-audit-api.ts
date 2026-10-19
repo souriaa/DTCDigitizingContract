@@ -65,6 +65,12 @@ export const CONTRACT_AUDIT_ACTION_TYPES = [
   "AcceptanceRecordFinalized",
   "AcceptanceRecordUpdated",
   "AcceptanceRecordCreated",
+  "HandoverScopeConfirmed",
+  "HandoverCreated",
+  "HandoverUpdated",
+  "HandoverFinalized",
+  "HandoverSigned",
+  "HandoverCancelled",
 ] as const;
 
 export const CONTRACT_AUDIT_SUBJECT_TYPES = [
@@ -79,6 +85,7 @@ export const CONTRACT_AUDIT_SUBJECT_TYPES = [
   "AcceptanceEvidence",
   "Payment",
   "AcceptanceRecord",
+  "HandoverRecord",
 ] as const;
 
 export type ContractAuditActorType =
@@ -175,6 +182,7 @@ export const CONTRACT_AUDIT_SUBJECT_LABELS: Record<
   AcceptanceEvidence: "Chứng từ nghiệm thu",
   Payment: "Khoản thanh toán",
   AcceptanceRecord: "Biên bản nghiệm thu",
+  HandoverRecord: "Biên bản bàn giao",
 };
 
 export const CONTRACT_AUDIT_ACTION_LABELS: Record<
@@ -229,6 +237,12 @@ export const CONTRACT_AUDIT_ACTION_LABELS: Record<
   AcceptanceRecordFinalized: "Kết thúc biên bản nghiệm thu",
   AcceptanceRecordUpdated: "Cập nhật biên bản nghiệm thu",
   AcceptanceRecordCreated: "Tạo biên bản nghiệm thu",
+  HandoverScopeConfirmed: "Xác nhận phạm vi bàn giao",
+  HandoverCreated: "Tạo biên bản bàn giao",
+  HandoverUpdated: "Cập nhật biên bản bàn giao",
+  HandoverFinalized: "Chốt biên bản bàn giao",
+  HandoverSigned: "Tải bản ký bàn giao",
+  HandoverCancelled: "Hủy biên bản bàn giao",
 };
 
 export const contractAuditApi = {

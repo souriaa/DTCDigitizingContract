@@ -7,6 +7,7 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
     /// </summary>
     public class EligibleParentContractFilterRequest
     {
+        public ContractDirection ContractDirection { get; set; }
         public int Page { get; set; } = 1;
 
         public int PageSize { get; set; } = 20;

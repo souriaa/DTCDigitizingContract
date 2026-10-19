@@ -1,3 +1,4 @@
+import type { ContractDirection } from "@/services/contract-api";
 import axiosClient from "@/lib/axios-interceptor";
 
 export interface DashboardFilter {
@@ -13,6 +14,7 @@ export interface DashboardSummaryItem {
 }
 
 export interface DashboardCurrencyAmount {
+  contractDirection: ContractDirection;
   currency: string;
   amount: number;
 }

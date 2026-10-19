@@ -12,24 +12,19 @@ public sealed record MissingDocumentEnglishSource(string Area, string Label)
 /// <summary>Works only with the DOCX field snapshot and preloaded sources, without database queries.</summary>
 public static class ContractEnglishDependencies
 {
-    private static readonly IReadOnlyDictionary<string, string> Sources = new Dictionary<string, string>(StringComparer.Ordinal)
-    {
-        ["CONTRACT_NAME_EN"] = "contract.name-en",
-        ["CONTRACT_DATE_EN"] = "contract.created-date-en",
-        ["EFFECTIVE_DATE_EN"] = "contract.effective-date-en",
-        ["EXPIRE_DATE_EN"] = "contract.expire-date-en",
-        ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = "version.total-amount-in-words-en",
-        ["CUSTOMER_COMPANY_EN"] = "customer.company-en",
-        ["CUSTOMER_ADDRESS_EN"] = "customer.address-en",
-        ["CUSTOMER_BANK_NAME_EN"] = "customer.bank-name-en",
-        ["CUSTOMER_CITY_EN"] = "customer.city-en",
-        ["CUSTOMER_COUNTRY_EN"] = "customer.country-en",
-        ["CUSTOMER_CONTACT_TITLE_EN"] = "customer.contact-title-en",
-        ["PROVIDER_LEGAL_NAME_EN"] = "provider.legal-name-en",
-        ["PROVIDER_ADDRESS_EN"] = "provider.address-en",
-        ["PROVIDER_REPRESENTATIVE_TITLE_EN"] = "provider.representative-title-en",
-        ["PROVIDER_BANK_NAME_EN"] = "provider.bank-name-en"
-    };
+    private static readonly IReadOnlyDictionary<string, string> Sources =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["CONTRACT_NAME_EN"] = "contract.name-en",
+            ["CONTRACT_DATE_EN"] = "contract.created-date-en",
+            ["EFFECTIVE_DATE_EN"] = "contract.effective-date-en",
+            ["EXPIRE_DATE_EN"] = "contract.expire-date-en",
+            ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = "version.total-amount-in-words-en"
+        }.Concat(DocumentPartyMarkers.Definitions.Where(x => x.Key.EndsWith("_EN", StringComparison.Ordinal))
+            .Select(x => new KeyValuePair<string, string>(x.Key,
+                (x.Key.StartsWith("PROVIDER_", StringComparison.Ordinal) ? "provider." : "customer.")
+                + DocumentPartyMarkers.SourceSuffix(x.Key[(x.Key.IndexOf('_') + 1)..]))))
+        .ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
 
     public static IReadOnlyList<MissingDocumentEnglishSource> FindMissing(
         IReadOnlyList<TblContractTemplateField> usedFields, ContractLanguageMode language,
@@ -46,12 +41,14 @@ public static class ContractEnglishDependencies
             && usedFields.Any(x => x.PlaceholderKey == "CONTRACT_APPENDICES"))
         {
             required.Add("contract.name-en");
-            required.Add("provider.legal-name-en");
+            required.Add("tenant.legal-name-en");
         }
         var result = new List<MissingDocumentEnglishSource>();
         foreach (var key in required)
         {
-            if (DocumentEnglishPolicy.IsOptionalCustomerEnglishSource(key)) continue;
+            if (DocumentEnglishPolicy.IsOptionalPartyEnglish(new(key, key, false, TemplatePlaceholderDataKind.Scalar,
+                    TemplatePlaceholderMultiplicity.ZeroOrMore, key) { IsSystem = false, SourceFieldKey = key },
+                    (ContractDirection)context.Contract.ContractDirection)) continue;
             var raw = registry.Resolve(key, context);
             if (raw is null || raw is string text && string.IsNullOrWhiteSpace(text))
                 result.Add(new(key.Split('.')[0], registry.GetRequired(key).FieldLabel));

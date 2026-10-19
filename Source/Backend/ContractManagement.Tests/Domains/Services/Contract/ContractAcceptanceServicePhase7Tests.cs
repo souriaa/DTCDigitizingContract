@@ -24,7 +24,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractAcceptanceServicePhase7Tests
+public sealed partial class ContractAcceptanceServicePhase7Tests
 {
     [Fact]
     public async Task Preview_MissingCustomerEnglishCustomSource_RendersBlankFromSignedSnapshot()
@@ -36,7 +36,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         db.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = TemplateVersionId, PlaceholderKey = "ACCEPTANCE_CONTACT",
-            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "customer.bank-name-en",
+            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "counterparty.bank-name-en",
             DataKind = 1, Multiplicity = 2, IsSystem = false, DefaultValue = "Không dùng mặc định"
         });
         await db.SaveChangesAsync();
@@ -95,6 +95,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             notifications: notifications);
 
         var draft = await service.CreateAsync(ContractId, CreateRequest(), actorId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId,
             draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, actorId);
@@ -115,20 +116,23 @@ public sealed class ContractAcceptanceServicePhase7Tests
             Assert.DoesNotContain(item.Recipients, recipient => recipient.EmployeeId == actorId));
     }
 
-    [Fact]
-    public async Task Lifecycle_UsesRelationalSnapshot_Artifacts_AndSignedGate()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Lifecycle_UsesRelationalSnapshot_Artifacts_AndSignedGate(ContractDirection direction)
     {
         await using var db = CreateContext();
         var storage = new TrackingStorage();
-        await SeedAsync(db, storage);
+        await SeedAsync(db, storage, direction: direction);
         var audit = new CapturingAuditWriter();
         var service = CreateService(db, storage, audit);
 
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
 
         Assert.Equal(AcceptanceRecordStatus.Draft, draft.Status);
-        Assert.Equal(2, draft.References.Count);
+        Assert.Equal(3, draft.References.Count);
         Assert.Equal(AcceptanceReferenceType.Contract,
             draft.References[0].ReferenceType);
         Assert.Contains("ký ngày 12/09/2026", draft.References[0].TextVi);
@@ -213,7 +217,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         db.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = TemplateVersionId, PlaceholderKey = "ACCEPTANCE_CONTACT",
-            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "customer.bank-name-en",
+            FieldLabel = "Ngân hàng tiếng Anh", DataSource = "Customer", SourceFieldKey = "counterparty.bank-name-en",
             DataKind = 1, Multiplicity = 2, IsSystem = false
         });
         await db.SaveChangesAsync();
@@ -240,7 +244,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             PlaceholderKey = "ACCEPTANCE_CONTACT",
             FieldLabel = "Người liên hệ nghiệm thu",
             DataSource = "Khách hàng / Người liên hệ",
-            SourceFieldKey = "customer.contact-name",
+            SourceFieldKey = "counterparty.contact-name",
             DataKind = (byte)TemplatePlaceholderDataKind.Scalar,
             Multiplicity = (byte)TemplatePlaceholderMultiplicity.ZeroOrOne,
             IsSystem = false,
@@ -297,7 +301,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         contract.SignDate = null;
         await db.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.CreateAsync(ContractId, CreateRequest(), EmployeeId));
 
         contract = await db.TblContracts.SingleAsync();
@@ -481,6 +485,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
 
         var draft = await service.CreateAsync(
             ContractId, request, EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId,
             draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -579,7 +584,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
     }
 
     [Fact]
-    public async Task Create_WhenSignedPartialsCoverAllMilestones_IsRejected()
+    public async Task Create_WhenSignedPartialsCoverAllMilestones_StillAllowsRemainingScope()
     {
         await using var db = CreateContext();
         var storage = new TrackingStorage();
@@ -623,13 +628,12 @@ public sealed class ContractAcceptanceServicePhase7Tests
         await db.SaveChangesAsync();
         var request = CreateRequest();
         request.AcceptanceCode = "BBNT-NEW";
-        request.PaymentMilestoneIds = [MilestoneId + 1];
+        request.PaymentMilestoneIds = [];
 
-        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            CreateService(db, storage).CreateAsync(
-                ContractId, request, EmployeeId));
-
-        Assert.Equal("AcceptanceAlreadyCompleted", exception.Code);
+        var next = await CreateService(db, storage).CreateAsync(ContractId, request, EmployeeId);
+        Assert.Equal(AcceptanceKind.Partial, next.AcceptanceKind);
+        Assert.Empty(next.Milestones);
+        Assert.NotNull(next.HandoverBlocker);
     }
 
     [Fact]
@@ -641,6 +645,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
             900, AcceptanceRecordStatus.Signed, AcceptanceKind.Partial));
         db.TblContractAcceptanceMilestones.Add(new()
@@ -661,7 +666,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
                     draft.AcceptanceRecordId)).Status);
         Assert.DoesNotContain(db.TblFileStorages,
             x => x.ObjectType == "ContractAcceptanceArtifact");
-        Assert.Equal(2, storage.DeletedKeys.Count);
+        Assert.Empty(storage.DeletedKeys);
     }
 
     [Fact]
@@ -673,6 +678,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(
             ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -729,6 +735,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         storage.FailOnSaveNumber = 2;
 
         await Assert.ThrowsAsync<IOException>(() => service.FinalizeAsync(
@@ -752,6 +759,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var contract = await db.TblContracts.SingleAsync();
         contract.SignDate = null;
         await db.SaveChangesAsync();
@@ -772,6 +780,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
+        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(
             ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -862,10 +871,14 @@ public sealed class ContractAcceptanceServicePhase7Tests
 
     private static async Task SeedAsync(
         DbDtctechContext db, TrackingStorage storage, string? customerBankNameEn = null,
-        string? contractNameEn = null, string? tenantLegalNameEn = null)
+        string? contractNameEn = null, string? tenantLegalNameEn = null,
+        ContractDirection direction = ContractDirection.Sale, string? counterpartyBank = null,
+        ContractLanguageMode language = ContractLanguageMode.Vietnamese,
+        TemplateDocumentType documentType = TemplateDocumentType.AcceptanceRecord, byte[]? documentBytes = null,
+        IReadOnlyList<TblContractItem>? handoverItems = null, bool omitMilestones = false, decimal contractTotal = 0m)
     {
         var now = new DateTime(2026, 9, 18, 8, 0, 0, DateTimeKind.Utc);
-        var templateDocx = CreateTemplateDocx();
+        var templateDocx = documentBytes ?? CreateTemplateDocx();
         storage.Add("templates/acceptance.docx", templateDocx);
         db.TblEmployees.Add(new TblEmployee
         {
@@ -886,7 +899,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             new TblFileStorage
             {
                 FileId = 1,
-                ObjectType = "ContractTemplateDocument",
+                ObjectType = documentType == TemplateDocumentType.HandoverRecord ? "ContractTemplateVersion" : "ContractTemplateDocument",
                 ObjectId = TemplateVersionId,
                 FileName = "acceptance.docx",
                 FilePath = string.Empty,
@@ -918,8 +931,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
             TemplateId = TemplateId,
             TemplateCode = "ACCEPTANCE_VI",
             TemplateName = "Biên bản nghiệm thu",
-            DocumentType = (byte)TemplateDocumentType.AcceptanceRecord,
-            LanguageMode = (byte)ContractLanguageMode.Vietnamese,
+            DocumentType = (byte)documentType,
+            LanguageMode = (byte)language,
             CurrentPublishedVersionId = TemplateVersionId,
             IsActive = true,
             CreatedEmployeeId = EmployeeId,
@@ -928,6 +941,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         });
         db.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)direction,
             TemplateVersionId = TemplateVersionId,
             TemplateId = TemplateId,
             VersionNo = 1,
@@ -945,6 +959,8 @@ public sealed class ContractAcceptanceServicePhase7Tests
             TemplateVersionId = TemplateVersionId,
             TermCode = "RESULT",
             TermTitle = "I. KẾT QUẢ THỰC HIỆN",
+            TermTitleEn = documentType == TemplateDocumentType.HandoverRecord ? "Handover results" : null,
+            TermContentEn = documentType == TemplateDocumentType.HandoverRecord ? RichText("Delivered scope") : null,
             TermContent = RichText("Đã hoàn thành công việc."),
             DisplayOrder = 1,
             CreatedEmployeeId = EmployeeId,
@@ -953,18 +969,20 @@ public sealed class ContractAcceptanceServicePhase7Tests
         });
         db.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)direction,
             ContractId = ContractId,
             CustomerId = 1,
             EmployeeId = EmployeeId,
             ContractType = (byte)ContractType.SoftwareSupply,
             TemplateVersionId = 1,
             CurrentVersionId = VersionId,
+            TotalAmount = contractTotal,
             ContractCode = "HD-001",
             ContractName = "Cung cấp phần mềm",
             SignDate = new DateTime(2026, 9, 12),
             Status = (byte)ContractStatus.Signed,
             CurrencyCode = "VND",
-            LanguageMode = (byte)ContractLanguageMode.Vietnamese,
+            LanguageMode = (byte)language,
             CreatedEmployeeId = EmployeeId,
             CreatedDate = now,
             RowVersion = InitialVersion.ToArray()
@@ -974,6 +992,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             VersionId = VersionId,
             ContractId = ContractId,
             VersionNo = 1,
+            TotalAmount = contractTotal,
             TemplateVersionId = 1,
             CurrencyCode = "VND",
             IsLocked = false,
@@ -994,6 +1013,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
         });
         var legalSnapshot = new TblContractVersionLegalSnapshot
         {
+            ContractDirection = (byte)direction,
             ContractVersionLegalSnapshotId = 1,
             VersionId = VersionId,
             ContractId = ContractId,
@@ -1006,7 +1026,7 @@ public sealed class ContractAcceptanceServicePhase7Tests
             ContractCreatedDate = now,
             SignDate = new DateTime(2026, 9, 12),
             CurrencyCode = "VND",
-            LanguageMode = (byte)ContractLanguageMode.Vietnamese,
+            LanguageMode = (byte)language,
             CreatedDate = now,
             CreatedByEmployeeId = EmployeeId,
             Parties =
@@ -1025,7 +1045,11 @@ public sealed class ContractAcceptanceServicePhase7Tests
                 {
                     ContractVersionPartySnapshotId = 2,
                     PartyRole = 2,
+                    SourceCustomerId = 1,
+                    ContactName = "Người liên hệ nghiệm thu",
+                    ContactTitle = "Điều phối dự án",
                     LegalName = "Khách hàng A",
+                    BankName = counterpartyBank,
                     BankNameEn = customerBankNameEn,
                     Address = "Bình Dương",
                     RepresentativeName = "Trần Văn A",
@@ -1046,7 +1070,12 @@ public sealed class ContractAcceptanceServicePhase7Tests
             CreatedDate = now,
             RowVersion = InitialVersion.ToArray()
         });
-        db.TblContractPaymentMilestones.AddRange(
+        if (handoverItems is not null) db.TblContractItems.AddRange(handoverItems);
+        if (documentType == TemplateDocumentType.HandoverRecord)
+            db.TblContractTemplateFields.AddRange(HandoverRecordPlaceholderCatalog.All.Select((x, i) => new TblContractTemplateField {
+                TemplateVersionId = TemplateVersionId, PlaceholderKey = x.Key, FieldLabel = x.Label, SourceFieldKey = x.SourceFieldKey!, DataSource = x.DataSource,
+                DataKind = (byte)x.DataKind, Multiplicity = (byte)x.Multiplicity, IsSystem = true, IsRequired = false, DisplayOrder = i, CreatedEmployeeId = EmployeeId, CreatedDate = now }));
+        if (!omitMilestones) db.TblContractPaymentMilestones.AddRange(
             Milestone(MilestoneId, "DOT-01", 1, now),
             Milestone(MilestoneId + 1, "DOT-02", 2, now));
         await db.SaveChangesAsync();

@@ -156,6 +156,7 @@ public sealed class Phase12SqlServerReleaseGateTests
 
                 var templateVersion = new TblContractTemplateVersion
                 {
+            ContractDirection = (byte)1,
                     TemplateId = template.TemplateId,
                     VersionNo = 1,
                     Status = (byte)TemplateVersionStatus.Draft,
@@ -194,6 +195,7 @@ public sealed class Phase12SqlServerReleaseGateTests
 
                 var contract = new TblContract
                 {
+            ContractDirection = (byte)1,
                     CustomerId = customer.CustomerId,
                     EmployeeId = employee.EmployeeId,
                     ContractType = (byte)ContractType.SoftwareSupply,
@@ -304,6 +306,7 @@ public sealed class Phase12SqlServerReleaseGateTests
 
             var templateVersion = new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateId = template.TemplateId,
                 VersionNo = 1,
                 Status = (byte)TemplateVersionStatus.Draft,
@@ -343,6 +346,7 @@ public sealed class Phase12SqlServerReleaseGateTests
 
             var contract = new TblContract
             {
+            ContractDirection = (byte)1,
                 CustomerId = customer.CustomerId,
                 EmployeeId = employee.EmployeeId,
                 ContractType = (byte)ContractType.SoftwareSupply,
@@ -574,6 +578,7 @@ public sealed class Phase12SqlServerReleaseGateTests
 
         var contract = new TblContract
         {
+            ContractDirection = (byte)1,
             CustomerId = customer.CustomerId,
             EmployeeId = owner.EmployeeId,
             ContractType = (byte)ContractType.SoftwareSupply,

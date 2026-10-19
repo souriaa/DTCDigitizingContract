@@ -7,6 +7,23 @@ public partial class DbDtctechContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<TblContract>(entity =>
+        {
+            entity.Property(x => x.ContractDirection).IsRequired();
+            entity.ToTable(table => table.HasCheckConstraint("CK_tbl_Contract_ContractDirection", "[ContractDirection] IN (1, 2)"));
+            entity.HasIndex(x => new { x.ContractDirection, x.Status });
+        });
+        modelBuilder.Entity<TblContractTemplateVersion>(entity =>
+        {
+            entity.Property(x => x.ContractDirection).IsRequired();
+            entity.ToTable(table => table.HasCheckConstraint("CK_tbl_ContractTemplateVersion_ContractDirection", "[ContractDirection] IN (1, 2)"));
+            entity.HasIndex(x => new { x.ContractDirection, x.Status });
+        });
+        modelBuilder.Entity<TblContractVersionLegalSnapshot>(entity =>
+        {
+            entity.Property(x => x.ContractDirection).IsRequired();
+            entity.ToTable(table => table.HasCheckConstraint("CK_tbl_ContractVersionLegalSnapshot_ContractDirection", "[ContractDirection] IN (1, 2)"));
+        });
         modelBuilder.Entity<TblProduct>(entity =>
         {
             entity.Property(x => x.ProductNameEn).HasMaxLength(500).IsUnicode().IsRequired(false);
@@ -76,6 +93,17 @@ public partial class DbDtctechContext
         });
         modelBuilder.Entity<TblContractVersionPartySnapshot>(entity =>
         {
+            entity.Property(x => x.SubjectCode).HasMaxLength(100).IsUnicode();
+            entity.Property(x => x.ContactName).HasMaxLength(300).IsUnicode();
+            entity.Property(x => x.ContactTitle).HasMaxLength(300).IsUnicode();
+            entity.Property(x => x.ContactPhone).HasMaxLength(100).IsUnicode();
+            entity.Property(x => x.FullName).HasMaxLength(300).IsUnicode();
+            entity.Property(x => x.Email).HasMaxLength(255).IsUnicode();
+            entity.Property(x => x.Website).HasMaxLength(500).IsUnicode();
+            entity.Property(x => x.City).HasMaxLength(100).IsUnicode();
+            entity.Property(x => x.Country).HasMaxLength(100).IsUnicode();
+            entity.Property(x => x.Mobile).HasMaxLength(100).IsUnicode();
+            entity.Property(x => x.ZipCode).HasMaxLength(50).IsUnicode();
             entity.Property(x => x.LegalNameEn).HasMaxLength(1000).IsUnicode();
             entity.Property(x => x.AddressEn).HasMaxLength(2000).IsUnicode();
             entity.Property(x => x.RepresentativeTitleEn).HasMaxLength(500).IsUnicode();
@@ -90,6 +118,7 @@ public partial class DbDtctechContext
             entity.Property(x => x.AddressEn).HasMaxLength(2000).IsUnicode();
             entity.Property(x => x.RepresentativeTitleEn).HasMaxLength(300).IsUnicode();
         });
+        modelBuilder.Entity<TblContractAcceptanceRecord>().Property(x => x.ContractSignDate).HasColumnType("date");
         modelBuilder.Entity<TblContractAcceptanceRecord>().Property(x => x.LocationEn)
             .HasMaxLength(500).IsUnicode();
     }

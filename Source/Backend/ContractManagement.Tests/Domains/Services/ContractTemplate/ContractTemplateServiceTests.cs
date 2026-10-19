@@ -14,7 +14,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.ContractTemplate;
 
-public sealed class ContractTemplateServiceTests
+public sealed partial class ContractTemplateServiceTests
 {
     private const int AdminOfficerId = 101;
     private const int OtherEmployeeId = 102;
@@ -29,6 +29,7 @@ public sealed class ContractTemplateServiceTests
         var result = await CreateService(context).CreateAsync(
             new CreateContractTemplateRequest
             {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 TemplateCode = "  sw-supply  ",
                 TemplateName = "  Hợp đồng cung cấp  ",
                 TemplateNameEn = "Software supply",
@@ -72,6 +73,7 @@ public sealed class ContractTemplateServiceTests
         var created = await service.CreateAsync(
             new CreateContractTemplateRequest
             {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 TemplateCode = "ACCEPTANCE-RECORD",
                 TemplateName = "Biên bản nghiệm thu",
                 DocumentType = TemplateDocumentType.AcceptanceRecord,
@@ -502,6 +504,7 @@ public sealed class ContractTemplateServiceTests
         template.CurrentPublishedVersionId = null;
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = 4,
             TemplateId = template.TemplateId,
             VersionNo = 2,
@@ -560,6 +563,7 @@ public sealed class ContractTemplateServiceTests
         context.TblContractTemplateVersions.AddRange(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = 11,
                 TemplateId = 10,
                 VersionNo = 1,
@@ -571,6 +575,7 @@ public sealed class ContractTemplateServiceTests
             },
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = 21,
                 TemplateId = 20,
                 VersionNo = 1,
@@ -1226,6 +1231,7 @@ public sealed class ContractTemplateServiceTests
 
     private static CreateContractTemplateRequest CreateRequest(string code) => new()
     {
+        ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
         TemplateCode = code,
         TemplateName = $"Template {code}",
         DocumentType = TemplateDocumentType.SoftwareSupplyContract,
@@ -1262,6 +1268,7 @@ public sealed class ContractTemplateServiceTests
         };
         var version = new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = 2,
             TemplateId = 1,
             VersionNo = 1,

@@ -2,6 +2,7 @@ namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 
 public sealed class TblContractVersionLegalSnapshot
 {
+    public byte ContractDirection { get; set; }
     public long ContractVersionLegalSnapshotId { get; set; }
     public int VersionId { get; set; }
     public int ContractId { get; set; }
@@ -32,6 +33,17 @@ public sealed class TblContractVersionLegalSnapshot
 
 public sealed class TblContractVersionPartySnapshot
 {
+    public string? SubjectCode { get; set; }
+    public string? ContactName { get; set; }
+    public string? ContactTitle { get; set; }
+    public string? ContactPhone { get; set; }
+    public string? FullName { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public string? City { get; set; }
+    public string? Country { get; set; }
+    public string? Mobile { get; set; }
+    public string? ZipCode { get; set; }
     public string? LegalNameEn { get; set; }
     public string? AddressEn { get; set; }
     public string? RepresentativeTitleEn { get; set; }

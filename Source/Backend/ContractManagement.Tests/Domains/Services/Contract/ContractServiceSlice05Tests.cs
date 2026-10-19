@@ -780,6 +780,7 @@ public sealed class ContractServiceSlice05Tests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = EmployeeId,

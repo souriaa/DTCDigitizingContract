@@ -24,7 +24,7 @@ interface ContractTemplateTermsEditorProps {
   version: ContractTemplateVersionDetailResponse;
   isBilingual: boolean;
   onRefresh: () => Promise<void>;
-  mode?: "contract" | "acceptance";
+  mode?: "contract" | "acceptance" | "handover";
   openTermIds: ReadonlySet<number>;
   onTermOpenChange: (termId: number, open: boolean) => void;
 }
@@ -66,7 +66,8 @@ export function ContractTemplateTermsEditor({
   onTermOpenChange,
 }: ContractTemplateTermsEditorProps) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
-  const isAcceptance = mode === "acceptance";
+  const isAcceptance = mode !== "contract";
+  const sectionName = mode === "handover" ? "bàn giao" : "nghiệm thu";
   const [terms, setTerms] = useState<ContractTemplateTermResponse[]>(() =>
     [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
   );
@@ -320,7 +321,7 @@ export function ContractTemplateTermsEditor({
           ? "Đã lưu điều khoản và các đợt thanh toán."
           : hasUnsavedPayments
             ? "Đã lưu các đợt thanh toán."
-            : `Đã lưu thay đổi ${isAcceptance ? "mục nghiệm thu" : "điều khoản"}.`,
+            : `Đã lưu thay đổi ${isAcceptance ? `mục ${sectionName}` : "điều khoản"}.`,
       );
     } catch (error) {
       toast.error(getContractTemplateErrorMessage(error));
@@ -375,7 +376,7 @@ export function ContractTemplateTermsEditor({
     }
     if (hasUnsavedChanges) {
       toast.error(
-        `Vui lòng lưu các thay đổi ${isAcceptance ? "section" : "điều khoản"} trước khi thêm mới.`,
+        `Vui lòng lưu các thay đổi ${isAcceptance ? "mục nội dung" : "điều khoản"} trước khi thêm mới.`,
       );
       return;
     }
@@ -420,7 +421,7 @@ export function ContractTemplateTermsEditor({
         displayOrder: getFirstAvailableDisplayOrder(terms),
         versionRowVersion: version.rowVersion,
       });
-      toast.success(`Đã thêm ${isAcceptance ? "section" : "điều khoản"}.`);
+      toast.success(`Đã thêm ${isAcceptance ? "mục nội dung" : "điều khoản"}.`);
       setIsAddOpen(false);
       await onRefresh();
     } catch (error) {
@@ -473,9 +474,9 @@ export function ContractTemplateTermsEditor({
   return (
     <div className="space-y-4">
       <TermsListEditor terms={terms} getKey={(term) => term.templateTermId}
-        title={isAcceptance ? "Nội dung nghiệm thu" : "Điều khoản mềm"}
+        title={isAcceptance ? `Nội dung ${sectionName}` : "Điều khoản mềm"}
         description={isDraft ? "Các thẻ có viền đỏ là những thay đổi chưa được lưu." : "Phiên bản đã khóa và chỉ có thể xem."}
-        onAdd={isDraft ? openAddDialog : undefined} addLabel={isAcceptance ? "Thêm mục nghiệm thu" : "Thêm điều khoản"}
+        onAdd={isDraft ? openAddDialog : undefined} addLabel={isAcceptance ? `Thêm mục ${sectionName}` : "Thêm điều khoản"}
         getCardProps={(term, index) => ({
           inputId: `template-${term.templateTermId}`,
           className: dirtyIds.has(term.templateTermId) || orderDirtyIds.has(term.templateTermId) ? "border-destructive ring-1 ring-destructive/40" : undefined,
@@ -517,10 +518,10 @@ export function ContractTemplateTermsEditor({
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Thêm {isAcceptance ? "section nghiệm thu" : "điều khoản"}
+              Thêm {isAcceptance ? `mục ${sectionName}` : "điều khoản"}
             </DialogTitle>
             <DialogDescription>
-              {isAcceptance ? "Section" : "Điều khoản"} sẽ được thêm vào cuối
+              {isAcceptance ? "Mục nội dung" : "Điều khoản"} sẽ được thêm vào cuối
               danh sách hiện tại.
             </DialogDescription>
           </DialogHeader>
@@ -538,7 +539,7 @@ export function ContractTemplateTermsEditor({
             </Button>
             <Button onClick={addTerm} disabled={isAdding}>
               {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm{" "}
-              {isAcceptance ? "section" : "điều khoản"}
+              {isAcceptance ? "mục nội dung" : "điều khoản"}
             </Button>
           </DialogFooter>
         </DialogContent>

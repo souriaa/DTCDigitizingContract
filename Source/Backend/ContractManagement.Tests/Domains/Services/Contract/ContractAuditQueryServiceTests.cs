@@ -17,6 +17,22 @@ namespace ContractManagement.Tests.Domains.Services.Contract;
 
 public sealed class ContractAuditQueryServiceTests
 {
+    [Fact]
+    public async Task Query_HandoverActionsAndSubjectCanBeFilteredAfterWritingRealAudit()
+    {
+        await using var db = CreateContext(); await SeedAsync(db); var tenant = CreateTenant();
+        CreateWriter(db, tenant).StageEmployeeAudits([new(ContractId, 1, ManagerId,
+            ContractAuditActionTypes.HandoverCreated, ContractAuditResults.Succeeded, DateTime.UtcNow,
+            SubjectType: ContractAuditSubjectTypes.HandoverRecord, SubjectId: 9,
+            NewValues: ContractAuditValues.Create(("HandoverRecordId",9),("HandoverBaselineId",2),
+                ("HandoverLineCount",1),("HandoverStatus",0),("CurrentVersionId",1),("TemplateVersionId",4),("SnapshotHash",null)))]);
+        await db.SaveChangesAsync();
+        var result = await new ContractAuditQueryService(db,tenant).QueryAsync(new ContractAuditFilterRequest {
+            ContractId = ContractId, SubjectType = ContractAuditSubjectTypes.HandoverRecord,
+            ActionType = ContractAuditActionTypes.HandoverCreated, PageSize=20 },ManagerId);
+        Assert.Single(result.Items); Assert.Equal(ContractAuditActionTypes.HandoverCreated,result.Items[0].ActionType);
+    }
+
     private const int TenantId = 807;
     private const int ManagerId = 11;
     private const int ResponsibleId = 12;
@@ -399,6 +415,7 @@ public sealed class ContractAuditQueryServiceTests
             });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 501,
             EmployeeId = ResponsibleId,

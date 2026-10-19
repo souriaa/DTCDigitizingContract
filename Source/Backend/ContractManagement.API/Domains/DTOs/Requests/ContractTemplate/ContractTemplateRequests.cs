@@ -17,6 +17,8 @@ public sealed class ContractTemplateFilterRequest
 
 public sealed class AvailableContractTemplateFilterRequest
 {
+    [EnumDataType(typeof(ContractDirection))]
+    public ContractDirection? ContractDirection { get; set; }
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 20;
@@ -30,6 +32,9 @@ public sealed class AvailableContractTemplateFilterRequest
 
 public sealed class CreateContractTemplateRequest
 {
+    [System.Text.Json.Serialization.JsonRequired]
+    [EnumDataType(typeof(ContractDirection))]
+    public ContractDirection ContractDirection { get; set; }
     [Required]
     public string TemplateCode { get; set; } = string.Empty;
 

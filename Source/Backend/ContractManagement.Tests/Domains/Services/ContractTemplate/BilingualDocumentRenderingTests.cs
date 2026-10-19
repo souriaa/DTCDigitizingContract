@@ -59,7 +59,7 @@ public sealed class BilingualDocumentRenderingTests
     [Fact]
     public void Dependencies_OnlyUsedMarkersAndBlocksRequireMasterTranslations()
     {
-        var context = new ContractPlaceholderResolveContext(new() { ContractNameEn = "Software agreement" },
+        var context = new ContractPlaceholderResolveContext(new() { ContractDirection = 1, ContractNameEn = "Software agreement" },
             new(), new(), new() { LegalEntityNameEn = "Provider" }, null, null);
         var registry = new ContractPlaceholderSourceRegistry();
         Assert.Empty(ContractEnglishDependencies.FindMissing([], ContractLanguageMode.Bilingual, true, context, registry));
@@ -70,14 +70,14 @@ public sealed class BilingualDocumentRenderingTests
         Assert.Empty(ContractEnglishDependencies.FindMissing([field], ContractLanguageMode.Bilingual, true, context, registry));
         field.PlaceholderKey = "PROVIDER_BANK_NAME_EN";
         Assert.Equal("provider", Assert.Single(ContractEnglishDependencies.FindMissing([field], ContractLanguageMode.Bilingual, false, context, registry)).Area);
-        Assert.Equal(string.Empty, registry.Format("customer.address-en", null, null, "Do not use this default"));
+        Assert.Equal(string.Empty, registry.Format("counterparty.address-en", null, null, "Do not use this default"));
     }
 
     [Fact]
     public void TemplateRenderer_EnglishFirstAndCombinedOnlyOnce_PreservesItemGeometry()
     {
         var data = new ContractTemplateAuthoringPreviewData
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Terms =
             [
                 new(1, "Tiêu đề", "Heading", Rich("Nội dung Việt"), Rich("English body")),
@@ -119,7 +119,7 @@ public sealed class BilingualDocumentRenderingTests
                 { TypeEn = "Service", DescriptionEn = "Implementation" }
         };
         var data = new ContractTemplateRenderData(new Dictionary<string, string>(), items, [], new("", ""), new("", ""), "")
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps = ContractTableLayoutPolicy.DefaultItemColumnWidthsBps
         };
@@ -150,7 +150,7 @@ public sealed class BilingualDocumentRenderingTests
     public void EnglishMarker_IsOptionalButCannotRenderVietnameseOrEmptyTranslation()
     {
         var data = new ContractTemplateRenderData(new Dictionary<string, string> { ["PROVIDER_BANK_NAME_EN"] = "" }, [], [], new("", ""), new("", ""), "")
-        { Definitions = ContractPlaceholderCatalog.SystemDefinitions };
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  Definitions = ContractPlaceholderCatalog.SystemDefinitions };
         var renderer = new ContractTemplatePreviewRenderer();
         Assert.NotEmpty(renderer.Render(Docx("Static text"), ContractLanguageMode.Vietnamese, data));
         Assert.Equal("EnglishSourceMissing", Assert.Throws<ContractTemplatePreviewException>(() =>
@@ -158,7 +158,7 @@ public sealed class BilingualDocumentRenderingTests
     }
 
     [Theory]
-    [InlineData("CUSTOMER_COMPANY_EN")]
+    [InlineData("CUSTOMER_LEGAL_NAME_EN")]
     [InlineData("CUSTOMER_ADDRESS_EN")]
     [InlineData("CUSTOMER_BANK_NAME_EN")]
     [InlineData("CUSTOMER_CITY_EN")]
@@ -168,20 +168,20 @@ public sealed class BilingualDocumentRenderingTests
     {
         var data = new ContractTemplateRenderData(new Dictionary<string, string>
             { [marker.Replace("_EN", "")] = "KHÔNG DÙNG TIẾNG VIỆT THAY EN" }, [], [], new("", ""), new("", ""), "")
-            { Definitions = ContractPlaceholderCatalog.SystemDefinitions };
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  Definitions = ContractPlaceholderCatalog.SystemDefinitions };
         var bytes = new ContractTemplatePreviewRenderer().Render(Docx($"EN[{{{{{marker}}}}}]"), ContractLanguageMode.Bilingual, data);
         using var doc = WordprocessingDocument.Open(new MemoryStream(bytes), false);
         Assert.Equal("EN[]", doc.MainDocumentPart!.Document!.Body!.InnerText);
     }
 
     [Theory]
-    [InlineData("customer.company-en")]
-    [InlineData("customer.address-en")]
-    [InlineData("customer.bank-name-en")]
-    [InlineData("customer.city-en")]
-    [InlineData("customer.country-en")]
-    [InlineData("customer.contact-title-en")]
-    [InlineData("customer.representative-title-en")]
+    [InlineData("counterparty.company-en")]
+    [InlineData("counterparty.address-en")]
+    [InlineData("counterparty.bank-name-en")]
+    [InlineData("counterparty.city-en")]
+    [InlineData("counterparty.country-en")]
+    [InlineData("counterparty.contact-title-en")]
+    [InlineData("counterparty.representative-title-en")]
     public void CustomCustomerEnglishSource_IsOptionalForReadinessAndRendering(string source)
     {
         var field = new SoftwareSupplyPlaceholderDefinition("CUSTOM_EN", "Customer EN", true,
@@ -193,7 +193,7 @@ public sealed class BilingualDocumentRenderingTests
             ContractLanguageMode.Bilingual, false, context, new ContractPlaceholderSourceRegistry());
         Assert.Empty(missing);
         var data = new ContractTemplateRenderData(new Dictionary<string, string>(), [], [], new("", ""), new("", ""), "")
-            { Definitions = [field] };
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  Definitions = [field] };
         var bytes = new ContractTemplatePreviewRenderer().Render(Docx("EN[{{CUSTOM_EN}}]"), ContractLanguageMode.Bilingual, data);
         using var doc = WordprocessingDocument.Open(new MemoryStream(bytes), false);
         Assert.Equal("EN[]", doc.MainDocumentPart!.Document!.Body!.InnerText);
@@ -206,7 +206,7 @@ public sealed class BilingualDocumentRenderingTests
             TemplatePlaceholderDataKind.Scalar, TemplatePlaceholderMultiplicity.ZeroOrMore, "Provider")
             { IsSystem = false, SourceFieldKey = "provider.bank-name-en" };
         var data = new ContractTemplateRenderData(new Dictionary<string, string>(), [], [], new("", ""), new("", ""), "")
-            { Definitions = [field] };
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  Definitions = [field] };
         Assert.Equal("EnglishSourceMissing", Assert.Throws<ContractTemplatePreviewException>(() =>
             new ContractTemplatePreviewRenderer().Render(Docx("{{CUSTOMER_BANK_NAME_EN}}"), ContractLanguageMode.Bilingual, data)).FailureCode);
     }
@@ -219,7 +219,7 @@ public sealed class BilingualDocumentRenderingTests
     {
         var data = new ContractAcceptanceDocumentRenderData("AC-1", new(2026, 10, 18), "Hà Nội", ContractLanguageMode.Bilingual,
             [], [new() { PartyRole = AcceptancePartyRole.Customer, LegalName = "Tên khách hàng VI", Address = "Địa chỉ VI", RepresentativeTitle = "Chức danh VI" },
-                new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Bên cung cấp" }], []);
+                new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Bên cung cấp" }], []) { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale };
         var bytes = new ContractAcceptanceDocumentRenderer().Render(Docx($"EN[{{{{{marker}}}}}]"), data);
         using var doc = WordprocessingDocument.Open(new MemoryStream(bytes), false);
         Assert.Equal("EN[]", doc.MainDocumentPart!.Document!.Body!.InnerText);
@@ -239,10 +239,10 @@ public sealed class BilingualDocumentRenderingTests
         var contractData = new ContractTemplateRenderData(new Dictionary<string, string>(), [], [],
             new("Tên bên cung cấp", "Người ký bên cung cấp"),
             new("Tên bên khách hàng", "Người ký bên khách hàng"), "Lời nhắc ký tự động")
-        { Definitions = ContractPlaceholderCatalog.SystemDefinitions };
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  Definitions = ContractPlaceholderCatalog.SystemDefinitions };
         var acceptanceData = new ContractAcceptanceDocumentRenderData("AC-1", new(2026, 10, 18), "Hà Nội", language,
             [], [new() { PartyRole = AcceptancePartyRole.Customer, LegalName = "Tên bên khách hàng", RepresentativeName = "Người ký bên khách hàng" },
-                new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Tên bên cung cấp", RepresentativeName = "Người ký bên cung cấp" }], []);
+                new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Tên bên cung cấp", RepresentativeName = "Người ký bên cung cấp" }], []) { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale };
 
         foreach (var bytes in new[]
                  {
@@ -275,7 +275,7 @@ public sealed class BilingualDocumentRenderingTests
             [new() { PartyRole = AcceptancePartyRole.Customer, LegalName = "Khách", RepresentativeName = "Nguyễn A" }, new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Nhà cung cấp" }],
             [new() { TitleVi = "Kết quả", TitleEn = "Results", ContentVi = Rich("Nội dung Việt"), ContentEn = Rich("English result") },
              new() { TitleVi = "Gộp", TitleEn = "Combined", ContentVi = Rich("SINGLE ACCEPTANCE BODY"), BilingualContentMode = 2 }])
-        { LocationEn = "Hanoi" };
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,  LocationEn = "Hanoi" };
         var bytes = new ContractAcceptanceDocumentRenderer().Render(source, data);
         using var stream = new MemoryStream(bytes);
         using var doc = WordprocessingDocument.Open(stream, false);
@@ -296,7 +296,7 @@ public sealed class BilingualDocumentRenderingTests
         var tableContent = ContractTermRichText.Prefix +
             """{"blocks":[{"type":"table","columnWidthsBps":[3000,7000],"rows":[{"cells":[{"paragraphs":[{"runs":[{"text":"Stage / Đợt","bold":true}]}]},{"paragraphs":[{"runs":[{"text":"Deliverable / Nội dung","bold":true}]}]}]},{"cells":[{"paragraphs":[{"runs":[{"text":"1"}]}]},{"paragraphs":[{"alignment":"left","runs":[{"text":"Software delivery / Bàn giao phần mềm"}]}]}]},{"cells":[{"colspan":2,"paragraphs":[{"alignment":"center","runs":[{"text":"One combined table / Một bảng song ngữ"}]}]}]}]}]}""";
         var authoring = new ContractTemplateAuthoringPreviewData
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             ItemTableColumnWidthsBps = [700, 1100, 2800, 700, 1300, 900, 700, 1800],
             LegalBases = [new(1, Rich("Căn cứ nhu cầu và khả năng của các Bên."), Rich("Based on the needs and capabilities of the Parties."))],
             Terms = [new(1, "Bàn giao", "Delivery", tableContent, "") { BilingualContentMode = 2 }],
@@ -320,7 +320,7 @@ public sealed class BilingualDocumentRenderingTests
             [new() { PartyRole = AcceptancePartyRole.Customer, LegalName = "Khách hàng Mẫu", RepresentativeName = "Nguyễn Khách Hàng" },
              new() { PartyRole = AcceptancePartyRole.Tenant, LegalName = "Công ty DTC Mẫu", RepresentativeName = "Trần Nhà Cung Cấp" }],
             [new() { TitleVi = "Kết quả thực hiện", TitleEn = "Delivery results", ContentVi = tableContent, BilingualContentMode = 2 }])
-            { LocationEn = "Hanoi" });
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale, LocationEn = "Hanoi" });
         var converter = new LibreOfficeContractTemplatePdfRenderer(Microsoft.Extensions.Options.Options.Create(new TemplatePdfRenderingOptions
         {
             ExecutablePath = Environment.GetEnvironmentVariable("PHASE12_LIBREOFFICE_PATH")!, TimeoutSeconds = 60, MaxOutputBytes = 25 * 1024 * 1024
