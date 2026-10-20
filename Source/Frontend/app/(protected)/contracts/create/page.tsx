@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 // Các import UI component
 import { CreateContractAppendicesEditor } from "@/components/contracts/create-contract-appendices-editor";
+import { ContractItemUnitFields } from "@/components/contracts/contract-item-unit-fields";
 import { createAppendixFromTemplate, getAppendixDraftError, toCreateAppendixRequest, type CreateAppendixDraft } from "@/lib/contract-appendix-draft";
 import { Header } from "@/components/ui/custom/header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -123,6 +124,8 @@ type CatalogItem = {
   originalId: number;
   itemName: string;
   itemNameEn: string;
+  unitName: string;
+  unitNameEn: string;
   itemType: ContractItemType;
   unitPrice: number;
   quantity: number;
@@ -177,6 +180,8 @@ const mapProductToCatalogItem = (product: ProductResponse): CatalogItem => ({
   originalId: product.productId,
   itemName: product.productName || "Sản phẩm không tên",
   itemNameEn: product.productNameEn ?? "",
+  unitName: "",
+  unitNameEn: "",
   itemType: ContractItemType.Product,
   unitPrice: product.productPrice || 0,
   quantity: 1,
@@ -192,6 +197,8 @@ const mapServiceToCatalogItem = (service: ServiceResponse): CatalogItem => ({
   originalId: service.serviceId,
   itemName: service.serviceName || "Dịch vụ không tên",
   itemNameEn: service.serviceNameEn ?? "",
+  unitName: "",
+  unitNameEn: "",
   itemType: ContractItemType.Service,
   unitPrice: service.servicePrice || 0,
   quantity: 1,
@@ -939,6 +946,8 @@ export default function CreateContractPage() {
     if (stepIdx === 1)
       return (
         selectedItems.length > 0 &&
+        selectedCatalogItems.every((item) => item.unitName.trim() &&
+          (languageMode !== ContractLanguageMode.Bilingual || item.unitNameEn.trim())) &&
         (languageMode !== ContractLanguageMode.Bilingual ||
           selectedCatalogItems.every((item) => item.itemNameEn.trim()))
       );
@@ -1055,6 +1064,8 @@ export default function CreateContractPage() {
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
     clearFieldError(`item-card-${id}`);
+    if (patch.unitName !== undefined) clearFieldError(`item-unit-${id}`);
+    if (patch.unitNameEn !== undefined) clearFieldError(`item-unit-en-${id}`);
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -1166,6 +1177,16 @@ export default function CreateContractPage() {
       setFieldErrors({ [`item-en-${missingEnglishItem.id}`]: true });
       return;
     }
+    const missingUnitItem = selectedCatalogItems.find((item) =>
+      !item.unitName.trim() || (languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn.trim()));
+    if (missingUnitItem) {
+      const english = Boolean(missingUnitItem.unitName.trim());
+      toast.error(`Vui lòng nhập đơn vị${english ? " tiếng Anh" : ""} cho “${missingUnitItem.itemName}”.`);
+      setCurrentStep(1);
+      ensureCatalogItemVisible(missingUnitItem.id, `contract-item-${missingUnitItem.id}-unit${english ? "-en" : ""}`);
+      setFieldErrors({ [`item-unit-${english ? "en-" : ""}${missingUnitItem.id}`]: true });
+      return;
+    }
     const invalidFinanceItem = selectedCatalogItems.find((item) => {
       const subtotal = item.quantity * item.unitPrice;
       return (
@@ -1238,6 +1259,8 @@ export default function CreateContractPage() {
               ? item.itemNameEn.trim()
               : null,
           quantity: item.quantity,
+          unitName: item.unitName.trim(),
+          unitNameEn: languageMode === ContractLanguageMode.Bilingual ? item.unitNameEn.trim() : null,
           unitPrice: item.unitPrice,
           discountMode: item.discountMode,
           discountPercent: item.discountPercent,
@@ -2171,6 +2194,15 @@ export default function CreateContractPage() {
 
                           {selected && (
                             <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-4">
+                              <ContractItemUnitFields
+                                idPrefix={`contract-item-${item.id}`}
+                                unitName={item.unitName}
+                                unitNameEn={item.unitNameEn}
+                                isBilingual={languageMode === ContractLanguageMode.Bilingual}
+                                invalidUnitName={fieldErrors[`item-unit-${item.id}`]}
+                                invalidUnitNameEn={fieldErrors[`item-unit-en-${item.id}`]}
+                                onChange={(field, value) => updateCatalogItem(item.id, { [field]: value })}
+                              />
                               {languageMode ===
                                 ContractLanguageMode.Bilingual && (
                                 <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
@@ -2675,6 +2707,10 @@ export default function CreateContractPage() {
                             >
                               <div>
                                 <p>{item.itemName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.quantity} {item.unitName}
+                                  {languageMode === ContractLanguageMode.Bilingual && ` · ${item.unitNameEn}`}
+                                </p>
                                 {languageMode ===
                                   ContractLanguageMode.Bilingual && (
                                   <p className="text-xs text-muted-foreground">

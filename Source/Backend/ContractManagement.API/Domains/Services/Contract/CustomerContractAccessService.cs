@@ -588,6 +588,7 @@ public sealed class CustomerContractAccessService : ICustomerContractAccessServi
                 ItemDescription = item.ItemDescription,
                 Quantity = item.Quantity,
                 UnitName = item.UnitName,
+                UnitNameEn = item.UnitNameEn,
                 LineTotal = item.LineTotal,
                 DisplayOrder = item.DisplayOrder
             }).ToList(),

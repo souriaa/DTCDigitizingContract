@@ -445,6 +445,10 @@ export default function ContractDetailPage() {
       }
 
       for (const item of contract.currentVersion.items) {
+        if (!item.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn?.trim())) {
+          toast.error(`Vui lòng nhập đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""} cho “${item.itemName}”.`);
+          return;
+        }
         if (
           contract.languageMode === ContractLanguageMode.Bilingual &&
           !item.itemNameEn?.trim()

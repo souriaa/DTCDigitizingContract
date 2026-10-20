@@ -6375,6 +6375,16 @@ namespace ContractManagement.Domains.Services.Contract
                     "Hợp đồng phải có ít nhất một điều khoản.");
             }
 
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.UnitName))
+                    AddBlocker(blockers, ContractApprovalReadinessCodes.ContractItemUnitRequired,
+                        $"Hạng mục “{item.ItemName}” thiếu đơn vị. Cần nhập trước khi gửi duyệt để có thể bàn giao theo số lượng đã ký.");
+                if (contract.LanguageMode == (byte)ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(item.UnitNameEn))
+                    AddBlocker(blockers, ContractApprovalReadinessCodes.BilingualItemUnitRequired,
+                        $"Hạng mục “{item.ItemName}” thiếu đơn vị tiếng Anh cho hợp đồng song ngữ.");
+            }
+
             var readinessMilestones = await _dbContext.TblContractPaymentMilestones.AsNoTracking()
                 .Where(x => x.VersionId == version.VersionId).OrderBy(x => x.DisplayOrder).ToListAsync();
             var paymentTerms = terms.Where(x => x.TermKind == (byte)ContractTermKind.Payment).ToList();

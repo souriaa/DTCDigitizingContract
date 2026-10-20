@@ -63,6 +63,7 @@ import {
   getContractCounterpartyLabel,
 } from "@/services/contract-api";
 import { InfoCard } from "./contract-helpers";
+import { ContractItemUnitFields } from "./contract-item-unit-fields";
 import { formatDate } from "@/lib/format-date";
 import {
   calculateContractItemAmounts,
@@ -293,8 +294,8 @@ export function ContractOverview({
       itemNameEn: catalogItem.itemNameEn,
       itemDescription: null,
       itemDescriptionEn: null,
-      unitName: null,
-      unitNameEn: null,
+      unitName: "",
+      unitNameEn: "",
       quantity: 1,
       unitPrice: catalogItem.unitPrice,
       discountMode: ContractItemDiscountMode.None,
@@ -654,6 +655,13 @@ export function ContractOverview({
                     {isEditable ? (
                       <>
                         <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <ContractItemUnitFields
+                            idPrefix={`contract-item-${item.contractItemId}`}
+                            unitName={item.unitName}
+                            unitNameEn={item.unitNameEn}
+                            isBilingual={contract.languageMode === ContractLanguageMode.Bilingual}
+                            onChange={(field, value) => handleItemChange(item.contractItemId, field, value)}
+                          />
                           {contract.languageMode ===
                             ContractLanguageMode.Bilingual && (
                             <div className="space-y-1.5 sm:col-span-2 xl:col-span-5">
@@ -849,7 +857,10 @@ export function ContractOverview({
                       <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
                         <div>
                           <p className="text-muted-foreground">Số lượng</p>
-                          <p className="mt-1 font-medium">{item.quantity}</p>
+                          <p className="mt-1 font-medium">{item.quantity} {item.unitName}</p>
+                          {contract.languageMode === ContractLanguageMode.Bilingual && item.unitNameEn && (
+                            <p className="mt-1 text-xs text-muted-foreground">{item.unitNameEn}</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-muted-foreground">Đơn giá</p>
