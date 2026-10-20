@@ -121,6 +121,7 @@ export interface ContractAcceptanceSignedEvidence {
 
 export interface ContractAcceptanceRecord
   extends ContractAcceptanceRecordSummary {
+  contractSignDate: string;
   contractId: number;
   contractDirection: ContractDirection;
   templateVersionId: number;

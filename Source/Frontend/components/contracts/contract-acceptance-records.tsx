@@ -80,6 +80,7 @@ import {
   type ContractAcceptanceRecord,
   type ContractAcceptanceRecordSummary,
   type ContractAcceptanceTemplateOption,
+  type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
 
 interface Props {
@@ -118,9 +119,12 @@ function getAcceptanceMetadataError(
     locationEn?: string | null;
   },
   isBilingual: boolean,
+  minimumDate?: string,
 ): string | null {
   if (!value.acceptanceCode.trim()) return "Vui lòng nhập mã biên bản.";
   if (!value.acceptanceDate.trim()) return "Vui lòng chọn ngày nghiệm thu.";
+  if (minimumDate && value.acceptanceDate.slice(0, 10) < minimumDate)
+    return `Ngày nghiệm thu không được trước ngày ký hợp đồng hoặc ngày bàn giao của các nguồn đã chọn (từ ${minimumDate.split("-").reverse().join("/")}).`;
   if (!value.location.trim()) return "Vui lòng nhập địa điểm nghiệm thu.";
   if (isBilingual && !value.locationEn?.trim())
     return "Vui lòng nhập địa điểm tiếng Anh cho hợp đồng song ngữ.";
@@ -133,6 +137,13 @@ const parseDateString = (str?: string) => {
   if (!y || !m || !d) return undefined;
   return new Date(y, m - 1, d);
 };
+
+const getMinimumAcceptanceDate = (signDate?: string | null, scope: AcceptanceHandoverScope[] = []) =>
+  [signDate, ...scope.map((item) => item.handoverDate)]
+    .filter((date): date is string => Boolean(date))
+    .map((date) => date.slice(0, 10))
+    .sort()
+    .at(-1);
 
 const partyInput = (party: ContractAcceptanceParty) => ({
   legalName: party.legalName,
@@ -161,6 +172,11 @@ export function ContractAcceptanceRecords({
     ContractAcceptanceTemplateOption[]
   >([]);
   const [selected, setSelected] = useState<ContractAcceptanceRecord>();
+  const minimumCreateDate = getMinimumAcceptanceDate(contract.signDate);
+  const minimumDraftDate = getMinimumAcceptanceDate(selected?.contractSignDate, selected?.handoverScope);
+  const selectedDateError = selected && minimumDraftDate && selected.acceptanceDate.slice(0, 10) < minimumDraftDate
+    ? `Ngày nghiệm thu phải từ ${minimumDraftDate.split("-").reverse().join("/")} (không trước ngày ký hợp đồng và ngày bàn giao của nguồn đã chọn).`
+    : null;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -271,7 +287,7 @@ export function ContractAcceptanceRecords({
   };
 
   const createRecord = async () => {
-    const validationError = getAcceptanceMetadataError(createForm, isBilingual);
+    const validationError = getAcceptanceMetadataError(createForm, isBilingual, minimumCreateDate);
     if (validationError) {
       toast.error(validationError);
       setCreateStep(1);
@@ -323,7 +339,7 @@ export function ContractAcceptanceRecords({
     if (!selected || selected.status !== AcceptanceRecordStatus.Draft)
       return null;
     const draft = selected;
-    const validationError = getAcceptanceMetadataError(draft, isBilingual);
+    const validationError = getAcceptanceMetadataError(draft, isBilingual, minimumDraftDate);
     if (validationError) {
       toast.error(validationError);
       return null;
@@ -973,6 +989,7 @@ export function ContractAcceptanceRecords({
                         </Label>
                         <DateFilter
                           id="acceptance-date-edit"
+                          limit={{ from: parseDateString(minimumDraftDate) }}
                           date={parseDateString(selected.acceptanceDate)}
                           onChange={(date) =>
                             setSelected({
@@ -985,6 +1002,7 @@ export function ContractAcceptanceRecords({
                           placeholder="Chọn ngày nghiệm thu"
                           className="flex-1 shadow-none"
                         />
+                        {selectedDateError && <p className="text-xs text-destructive" role="alert">{selectedDateError}</p>}
                       </div>
                       <div className="col-span-2">
                         <Field
@@ -1391,7 +1409,7 @@ export function ContractAcceptanceRecords({
                       <div className="flex items-center gap-2.5 sm:shrink-0">
                         <Button
                           type="button"
-                          disabled={busy || selected.handoverScope.length === 0 || !!selected.handoverBlocker}
+                          disabled={busy || selected.handoverScope.length === 0 || !!selected.handoverBlocker || !!selectedDateError}
                           onClick={() => setFinalizeOpen(true)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
                         >
@@ -1632,6 +1650,7 @@ export function ContractAcceptanceRecords({
                 <Label htmlFor="acceptance-date">Ngày nghiệm thu <span className="text-red-500">*</span></Label>
                 <DateFilter
                   id="acceptance-date"
+                  limit={{ from: parseDateString(minimumCreateDate) }}
                   date={parseDateString(createForm.acceptanceDate)}
                   onChange={(date) =>
                     setCreateForm({
@@ -1790,7 +1809,7 @@ export function ContractAcceptanceRecords({
                 disabled={
                   createStep === 1 &&
                   (!createForm.templateVersionId ||
-                    Boolean(getAcceptanceMetadataError(createForm, isBilingual)))
+                    Boolean(getAcceptanceMetadataError(createForm, isBilingual, minimumCreateDate)))
                 }
                 onClick={() => setCreateStep((step) => step + 1)}
               >

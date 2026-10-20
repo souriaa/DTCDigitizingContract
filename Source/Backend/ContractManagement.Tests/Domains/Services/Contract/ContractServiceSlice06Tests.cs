@@ -118,6 +118,9 @@ public sealed class ContractServiceSlice06Tests
             message.Otp);
 
         var shared = await customerAccess.GetSharedAsync(issue.SessionSecret);
+        var sharedItem = Assert.Single(shared.Items);
+        Assert.Equal("Giấy phép", sharedItem.UnitName);
+        Assert.Equal("License", sharedItem.UnitNameEn);
         Assert.Single(shared.Terms);
         Assert.Empty(shared.Comments);
 
@@ -589,6 +592,8 @@ public sealed class ContractServiceSlice06Tests
             VersionId = VersionId,
             ItemType = 1,
             ItemName = "Slice 06 item",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Quantity = 1,
             UnitPrice = 100,
             LineSubtotal = 100,

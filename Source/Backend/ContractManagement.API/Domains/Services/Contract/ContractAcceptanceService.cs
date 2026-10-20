@@ -165,6 +165,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             Match(version.RowVersion, request.VersionRowVersion,
                 "Version hợp đồng");
             await EnsureSignedSourceAsync(contract, version, cancellationToken);
+            ValidateAcceptanceDate(request.AcceptanceDate, contract.SignDate!.Value);
             await EnsureCanStartNewRecordAsync(
                 contractId, version.VersionId, request.AcceptanceKind,
                 cancellationToken);
@@ -317,6 +318,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 request.RowVersion, cancellationToken);
             await EnsureRecordSourceAsync(
                 contractId, row.ContractVersionId, cancellationToken);
+            ValidateAcceptanceDate(request.AcceptanceDate, row.ContractSignDate);
             await EnsurePartialModeAsync(contractId, row.ContractVersionId,
                 request.AcceptanceKind, cancellationToken);
             var acceptanceCode = Required(request.AcceptanceCode, 100,
@@ -899,6 +901,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             TemplateName = header.TemplateName,
             AcceptanceCode = header.record.AcceptanceCode,
             AcceptanceDate = header.record.AcceptanceDate,
+            ContractSignDate = header.record.ContractSignDate,
             Location = header.record.Location,
             LocationEn = header.record.LocationEn,
             AcceptanceKind = (AcceptanceKind)header.record.AcceptanceKind,
@@ -1428,6 +1431,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
     private async Task ValidateFinalizableAsync(
         ContractAcceptanceRecordResponse record, CancellationToken ct)
     {
+        ValidateAcceptanceDate(record.AcceptanceDate, record.ContractSignDate, record.HandoverScope);
         if (record.References.Count == 0
             || record.References[0].ReferenceType !=
                 AcceptanceReferenceType.Contract)

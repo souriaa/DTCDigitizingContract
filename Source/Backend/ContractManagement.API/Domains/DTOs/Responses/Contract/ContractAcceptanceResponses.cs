@@ -29,6 +29,7 @@ public class ContractAcceptanceRecordSummaryResponse
 public sealed class ContractAcceptanceRecordResponse
     : ContractAcceptanceRecordSummaryResponse
 {
+    public DateTime ContractSignDate { get; set; }
     public ContractDirection ContractDirection { get; set; }
     public int ContractId { get; set; }
     public int TemplateVersionId { get; set; }

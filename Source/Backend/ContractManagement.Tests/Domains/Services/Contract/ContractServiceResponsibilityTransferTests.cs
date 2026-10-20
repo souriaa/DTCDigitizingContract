@@ -40,6 +40,23 @@ public partial class ContractServiceResponsibilityTransferTests
         "slice-03-transfer-correlation";
 
     [Fact]
+    public async Task UpdateDraft_PersistsAndReturnsSignedItemUnits()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        var service = CreateService(context);
+        var request = CreateUpdateRequest();
+        request.Items[0].UnitName = " Giấy phép ";
+        request.Items[0].UnitNameEn = " License ";
+        await service.UpdateDraftAsync(ContractId, request, CurrentResponsibleEmployeeId);
+        context.ChangeTracker.Clear();
+        var detail = await service.GetDetailAsync(ContractId, CurrentResponsibleEmployeeId);
+        var item = Assert.Single(detail.CurrentVersion.Items);
+        Assert.Equal("Giấy phép", item.UnitName);
+        Assert.Equal("License", item.UnitNameEn);
+    }
+
+    [Fact]
     public async Task CurrentResponsible_ShouldTransferSuccessfully()
     {
         await using var context = CreateContext();
@@ -807,6 +824,7 @@ public partial class ContractServiceResponsibilityTransferTests
             VersionId = VersionId,
             ItemType = (byte)ContractItemType.Product,
             ItemName = "Sản phẩm gửi duyệt",
+            UnitName = "Giấy phép",
             Quantity = 1m,
             UnitPrice = 100m,
             LineSubtotal = 100m,

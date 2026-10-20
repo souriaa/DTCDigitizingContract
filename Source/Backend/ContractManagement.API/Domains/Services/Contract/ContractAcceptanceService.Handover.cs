@@ -120,6 +120,8 @@ public sealed partial class ContractAcceptanceService
         if (selected.Length != actualCount)
             return (selected, "Có dòng nguồn bàn giao không còn hợp lệ. Vui lòng chọn lại phạm vi.");
         if (selected.Length == 0) return (selected, options.Blocker ?? "Chưa chọn phạm vi bàn giao cần nghiệm thu.");
+        var dateError = GetAcceptanceDateError(row.AcceptanceDate, row.ContractSignDate, selected);
+        if (dateError is not null) return (selected, dateError);
         if (selected.Any(x => x.Quantity > x.AvailableQuantity))
             return (selected, "Phạm vi đã được biên bản khác giữ chỗ hoặc nghiệm thu. Vui lòng chọn lại.");
         if ((AcceptanceKind)row.AcceptanceKind == AcceptanceKind.Final)
@@ -164,8 +166,29 @@ public sealed partial class ContractAcceptanceService
     {
         var row = await _db.TblContractAcceptanceRecords.AsNoTracking().SingleAsync(x => x.ContractId == contractId && x.AcceptanceRecordId == recordId, ct);
         var selected = await ReadHandoverSelectionAsync(contractId, row, ct);
+        ValidateAcceptanceDate(row.AcceptanceDate, row.ContractSignDate, selected.Selected);
         if (selected.Blocker is not null) throw Rule("AcceptanceHandoverCoverageRequired", selected.Blocker,
             StatusCodes.Status409Conflict);
+    }
+
+    private static string? GetAcceptanceDateError(DateTime date, DateTime contractSignDate,
+        IReadOnlyList<AcceptanceHandoverScopeResponse>? scope = null)
+    {
+        if (date.Date < contractSignDate.Date)
+            return $"Ngày nghiệm thu không được trước ngày ký hợp đồng ({contractSignDate:dd/MM/yyyy}).";
+        var source = scope?.OrderByDescending(x => x.HandoverDate).FirstOrDefault(x => date.Date < x.HandoverDate.Date);
+        if (source is not null)
+        {
+            return $"Ngày nghiệm thu không được trước ngày bàn giao của biên bản {source.HandoverCode}. Chọn từ {source.HandoverDate:dd/MM/yyyy}.";
+        }
+        return null;
+    }
+
+    private static void ValidateAcceptanceDate(DateTime date, DateTime contractSignDate,
+        IReadOnlyList<AcceptanceHandoverScopeResponse>? scope = null)
+    {
+        var error = GetAcceptanceDateError(date, contractSignDate, scope);
+        if (error is not null) throw Rule("AcceptanceDateInvalid", error);
     }
 
     private static IEnumerable<ContractAcceptanceReferenceResponse> HandoverReferences(
