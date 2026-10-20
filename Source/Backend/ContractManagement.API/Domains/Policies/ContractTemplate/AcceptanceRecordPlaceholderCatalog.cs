@@ -7,7 +7,7 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 /// </summary>
 public static class AcceptanceRecordPlaceholderCatalog
 {
-    public const string Version = "V4";
+    public const string Version = "V5";
 
     private static readonly IReadOnlyList<SoftwareSupplyPlaceholderDefinition>
         Items =

@@ -480,6 +480,7 @@ export interface SaveContractTemplatePaymentMilestoneRequest {
 }
 
 export interface ContractTemplateVersionDetailResponse {
+  requiresSections: boolean;
   contractDirection: ContractDirection;
   templateVersionId: number;
   templateId: number;

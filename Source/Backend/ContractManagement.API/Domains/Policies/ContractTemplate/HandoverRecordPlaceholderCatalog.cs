@@ -4,7 +4,7 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 
 public static class HandoverRecordPlaceholderCatalog
 {
-    public const string Version = "V1";
+    public const string Version = "V2";
     public static IReadOnlyList<SoftwareSupplyPlaceholderDefinition> All { get; } = new[]
     {
         Field("HANDOVER_CODE", "Mã biên bản bàn giao"),
@@ -26,6 +26,12 @@ public static class HandoverRecordPlaceholderCatalog
 public static class SupportingDocumentCatalog
 {
     public static bool Supports(TemplateDocumentType type) => type is TemplateDocumentType.AcceptanceRecord or TemplateDocumentType.HandoverRecord;
+    public static string SectionsKey(TemplateDocumentType type) => type switch
+    {
+        TemplateDocumentType.AcceptanceRecord => "ACCEPTANCE_SECTIONS",
+        TemplateDocumentType.HandoverRecord => "HANDOVER_SECTIONS",
+        _ => throw new ArgumentOutOfRangeException(nameof(type))
+    };
     public static IReadOnlyList<SoftwareSupplyPlaceholderDefinition> Get(TemplateDocumentType type) => type switch
     {
         TemplateDocumentType.AcceptanceRecord => AcceptanceRecordPlaceholderCatalog.All,

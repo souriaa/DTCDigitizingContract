@@ -137,7 +137,7 @@ public sealed partial class ContractTemplatePreviewTests
 
         Assert.True(catalogKeys.SetEquals(
             SoftwareSupplyPreviewDatasetV1.CoveredPlaceholderKeys));
-        Assert.Equal("V6", SoftwareSupplyPreviewDatasetV1.Version);
+        Assert.Equal("V7", SoftwareSupplyPreviewDatasetV1.Version);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.LegalBases.Count);
         Assert.Equal(2, SoftwareSupplyPreviewDatasetV1.Items.Count);
         Assert.Equal(

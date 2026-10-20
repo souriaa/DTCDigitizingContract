@@ -205,9 +205,10 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 .Where(x => x.TemplateVersionId == request.TemplateVersionId)
                 .OrderBy(x => x.DisplayOrder).ThenBy(x => x.TemplateTermId)
                 .ToListAsync(cancellationToken);
-            if (sourceSections.Count == 0)
+            if (sourceSections.Count == 0 && await SupportingDocumentSectionReader.IsRequiredAsync(
+                    _db, request.TemplateVersionId, TemplateDocumentType.AcceptanceRecord, cancellationToken))
                 throw Rule("AcceptanceSectionsMissing",
-                    "Acceptance template phải có ít nhất một section.");
+                    "DOCX có {{ACCEPTANCE_SECTIONS}} nên mẫu phải có ít nhất một mục nghiệm thu.");
 
             var now = DateTime.UtcNow;
             var row = new TblContractAcceptanceRecord
@@ -399,14 +400,12 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
     {
         await _authorization.EnsureCanManageAcceptanceAsync(
             contractId, employeeId, cancellationToken);
-        if (request.Sections.Count == 0)
-            throw Rule("AcceptanceSectionsMissing",
-                "Biên bản phải có ít nhất một section.");
         ValidateSections(request.Sections);
         return await ExecuteAsync(async () =>
         {
             var row = await RequireDraftAsync(contractId, acceptanceRecordId,
                 request.RowVersion, cancellationToken);
+            await EnsureSectionsRequiredAsync(row.TemplateVersionId, request.Sections.Count, cancellationToken);
             var languageMode = await LoadTemplateLanguageModeAsync(
                 row.TemplateVersionId, cancellationToken);
             ValidateSectionLanguage(request.Sections, languageMode);
@@ -519,7 +518,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 StringComparison.Ordinal))
             throw Rule("StaleRowVersion", "Biên bản đã thay đổi.",
                 StatusCodes.Status409Conflict);
-        ValidateFinalizable(before);
+        await ValidateFinalizableAsync(before, cancellationToken);
         await EnsureRecordSourceAsync(
             contractId, before.ContractVersionId, cancellationToken);
         var sourceRow = await _db.TblContractAcceptanceRecords.AsNoTracking().SingleAsync(x => x.AcceptanceRecordId == acceptanceRecordId, cancellationToken);
@@ -928,7 +927,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
         int contractId, int acceptanceRecordId, CancellationToken ct)
     {
         var detail = await LoadAsync(contractId, acceptanceRecordId, ct);
-        ValidateFinalizable(detail);
+        await ValidateFinalizableAsync(detail, ct);
         var template = await (
             from version in _db.TblContractTemplateVersions.AsNoTracking()
             join owner in _db.TblContractTemplates.AsNoTracking()
@@ -1419,18 +1418,25 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             where version.TemplateVersionId == templateVersionId
             select (ContractLanguageMode)template.LanguageMode).SingleAsync(ct);
 
-    private static void ValidateFinalizable(
-        ContractAcceptanceRecordResponse record)
+    private async Task EnsureSectionsRequiredAsync(int templateVersionId, int count, CancellationToken ct)
+    {
+        if (count == 0 && await SupportingDocumentSectionReader.IsRequiredAsync(
+                _db, templateVersionId, TemplateDocumentType.AcceptanceRecord, ct))
+            throw Rule("AcceptanceSectionsMissing", "DOCX có {{ACCEPTANCE_SECTIONS}} nên cần ít nhất một mục nghiệm thu.");
+    }
+
+    private async Task ValidateFinalizableAsync(
+        ContractAcceptanceRecordResponse record, CancellationToken ct)
     {
         if (record.References.Count == 0
             || record.References[0].ReferenceType !=
                 AcceptanceReferenceType.Contract)
             throw Rule("AcceptanceContractReferenceMissing",
                 "Biên bản thiếu căn cứ hợp đồng bắt buộc.");
-        if (record.Parties.Count != 2
-            || record.Sections.Count == 0)
+        if (record.Parties.Count != 2)
             throw Rule("AcceptanceSnapshotIncomplete",
-                "Biên bản thiếu snapshot hai bên hoặc section.");
+                "Biên bản thiếu snapshot hai bên.");
+        await EnsureSectionsRequiredAsync(record.TemplateVersionId, record.Sections.Count, ct);
         if (record.AcceptanceKind == AcceptanceKind.Final
             && record.Milestones.Count > 0)
             throw Rule("AcceptanceMilestoneNotAllowed",

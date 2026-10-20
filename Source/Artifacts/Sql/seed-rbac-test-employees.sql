@@ -1,7 +1,7 @@
 /*
   DEV/TEST ONLY
 
-  Tạo một nhân viên active cho mỗi EmployeeType trong tenant hungnd.
+  Tạo một nhân viên active cho mỗi EmployeeType trong tenant đã migrate đầy đủ.
   Mật khẩu được sao chép nguyên giá trị hash từ tài khoản nguồn @SourceAdminAccount.
 
   EmployeeType:
@@ -13,40 +13,43 @@
     6 = Manager
 
   Script có thể chạy lại: tài khoản đã tồn tại sẽ không được insert lần nữa.
+  Chỉ 6 account/code/role test khớp bên dưới được bỏ cờ bắt đổi mật khẩu.
   RowVersion không được insert vì đây là cột rowversion do SQL Server tự sinh.
 */
-
-USE [ContractManagement_Tenant_hungnd];
-GO
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
+-- Chọn đúng tenant database trong SSMS và điền lại tên bên dưới trước khi chạy.
+DECLARE @ExpectedDatabase sysname = N'ContractManagement_Tenant_hungnd';
 DECLARE @SourceAdminAccount varchar(50) = 'admin';
 DECLARE @SourceAdminId int;
 DECLARE @SourcePassword varchar(255);
-DECLARE @SourceDepartmentId int;
-
-IF DB_NAME() <> 'ContractManagement_Tenant_hungnd'
+IF DB_NAME() <> @ExpectedDatabase OR DB_NAME() IN (N'master', N'model', N'msdb', N'tempdb')
 BEGIN
-    THROW 50000, N'Sai database đích. Hãy kiểm tra lại câu lệnh USE.', 1;
+    THROW 50000, N'Chọn đúng tenant database và đặt @ExpectedDatabase trùng tên DB trước khi chạy.', 1;
 END;
+
+IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
+    THROW 50004, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261019090835_HandoverFoundationPhase03')
+    THROW 50005, N'Tenant chưa có migration HandoverFoundationPhase03. Hãy cập nhật schema trước khi seed.', 1;
 
 IF (
     SELECT COUNT_BIG(*)
     FROM dbo.tbl_Employee
     WHERE EmployeeAccount = @SourceAdminAccount
+      AND EmployeeType = 6 AND Status = 1
 ) <> 1
 BEGIN
-    THROW 50001, N'Phải có đúng một tài khoản nguồn admin. Hãy sửa @SourceAdminAccount.', 1;
+    THROW 50001, N'Đặt @SourceAdminAccount thành tài khoản Manager active được provision cho tenant.', 1;
 END;
 
 SELECT
     @SourceAdminId = EmployeeId,
-    @SourcePassword = EmployeePassword,
-    @SourceDepartmentId = DepartmentId
+    @SourcePassword = EmployeePassword
 FROM dbo.tbl_Employee
-WHERE EmployeeAccount = @SourceAdminAccount;
+WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1;
 
 IF NULLIF(@SourcePassword, '') IS NULL
 BEGIN
@@ -58,7 +61,8 @@ DECLARE @Roles table
     EmployeeType tinyint NOT NULL PRIMARY KEY,
     EmployeeCode varchar(30) NOT NULL,
     EmployeeAccount varchar(50) NOT NULL UNIQUE,
-    EmployeeFullName nvarchar(100) NOT NULL
+    EmployeeFullName nvarchar(100) NOT NULL,
+    DepartmentCode varchar(20) NOT NULL
 );
 
 INSERT INTO @Roles
@@ -66,15 +70,28 @@ INSERT INTO @Roles
     EmployeeType,
     EmployeeCode,
     EmployeeAccount,
-    EmployeeFullName
+    EmployeeFullName,
+    DepartmentCode
 )
 VALUES
-    (1, 'RBAC-SALE',          'test.sale',          N'Test Sale'),
-    (2, 'RBAC-MARKETING',     'test.marketing',     N'Test Marketing'),
-    (3, 'RBAC-ADMIN-OFFICER', 'test.adminofficer',  N'Test Admin Officer'),
-    (4, 'RBAC-TECHNICAL',     'test.technical',     N'Test Technical'),
-    (5, 'RBAC-ACCOUNTANT',    'test.accountant',    N'Test Accountant'),
-    (6, 'RBAC-MANAGER',       'test.manager',       N'Test Manager');
+    (1, 'RBAC-SALE',          'test.sale',          N'Test Kinh doanh', 'KD'),
+    (2, 'RBAC-MARKETING',     'test.marketing',     N'Test Marketing', 'MKT'),
+    (3, 'RBAC-ADMIN-OFFICER', 'test.adminofficer',  N'Test Quản trị', 'HCNS'),
+    (4, 'RBAC-TECHNICAL',     'test.technical',     N'Test Kỹ thuật', 'KTHUAT'),
+    (5, 'RBAC-ACCOUNTANT',    'test.accountant',    N'Test Kế toán', 'KTTC'),
+    (6, 'RBAC-MANAGER',       'test.manager',       N'Test Quản lý', 'BGD');
+
+IF EXISTS (SELECT 1 FROM @Roles AS role WHERE
+    (SELECT COUNT_BIG(*) FROM dbo.tbl_Department AS department WHERE department.DepartmentCode = role.DepartmentCode AND department.Stutus = 1) <> 1)
+    THROW 50006, N'Chạy seed-test-departments.sql trước; mỗi mã phòng ban phải có đúng một phòng ban active.', 1;
+
+IF EXISTS (SELECT 1 FROM @Roles AS role INNER JOIN dbo.tbl_Employee AS employee
+    ON employee.EmployeeCode = role.EmployeeCode WHERE employee.EmployeeAccount <> role.EmployeeAccount OR employee.EmployeeAccount IS NULL)
+    THROW 50007, N'Mã nhân viên test đã thuộc tài khoản khác. Script không ghi đè tài khoản hiện có.', 1;
+
+IF EXISTS (SELECT 1 FROM @Roles AS role INNER JOIN dbo.tbl_Employee AS employee
+    ON employee.EmployeeAccount = role.EmployeeAccount GROUP BY role.EmployeeAccount HAVING COUNT_BIG(*) > 1)
+    THROW 50008, N'Tài khoản test bị trùng trong DB. Script không tự chọn một bản ghi.', 1;
 
 -- Không âm thầm dùng lại một account đã tồn tại nhưng mang role khác.
 IF EXISTS
@@ -111,6 +128,10 @@ BEGIN TRY
         Status,
         DepartmentId,
         EmployeeType,
+        DefaultPage,
+        MustChangePassword,
+        PasswordChangedAt,
+        SessionVersion,
         Others
     )
     OUTPUT
@@ -132,16 +153,34 @@ BEGIN TRY
         GETUTCDATE(),
         GETUTCDATE(),
         1,
-        @SourceDepartmentId,
+        department.DepartmentID,
         role.EmployeeType,
+        '/contracts',
+        0,
+        SYSUTCDATETIME(),
+        1,
         N'Tài khoản test RBAC; mật khẩu sao chép từ ' + @SourceAdminAccount
     FROM @Roles AS role
+    INNER JOIN dbo.tbl_Department AS department ON department.DepartmentCode = role.DepartmentCode AND department.Stutus = 1
     WHERE NOT EXISTS
     (
         SELECT 1
         FROM dbo.tbl_Employee AS employee WITH (UPDLOCK, HOLDLOCK)
         WHERE employee.EmployeeAccount = role.EmployeeAccount
     );
+
+    -- DEV/TEST ONLY: áp dụng cả tài khoản test đã seed trước đó; không đổi hash.
+    -- Tăng session version để phiên cũ còn cờ bắt đổi mật khẩu phải đăng nhập lại.
+    UPDATE employee
+    SET MustChangePassword = 0,
+        SessionVersion = employee.SessionVersion + 1,
+        UserModified = @SourceAdminId,
+        DateModified = GETUTCDATE()
+    FROM dbo.tbl_Employee AS employee
+    INNER JOIN @Roles AS role ON employee.EmployeeAccount = role.EmployeeAccount
+        AND employee.EmployeeCode = role.EmployeeCode
+        AND employee.EmployeeType = role.EmployeeType
+    WHERE employee.MustChangePassword = 1;
 
     COMMIT TRANSACTION;
 END TRY
@@ -169,6 +208,9 @@ SELECT
     END AS EmployeeTypeName,
     employee.Status,
     employee.DepartmentId,
+    employee.DefaultPage,
+    employee.MustChangePassword,
+    employee.SessionVersion,
     employee.RowVersion,
     CASE WHEN inserted.EmployeeId IS NULL THEN 'Already existed' ELSE 'Inserted' END AS ScriptResult
 FROM dbo.tbl_Employee AS employee

@@ -8,7 +8,7 @@ namespace ContractManagement.Domains.Policies.ContractTemplate;
 /// </summary>
 public static class SoftwareSupplyPreviewDatasetV1
 {
-    public const string Version = "V6";
+    public const string Version = "V7";
 
     public const string LegalDisclaimer =
         "DỮ LIỆU MẪU — KHÔNG CÓ GIÁ TRỊ PHÁP LÝ";
@@ -20,13 +20,13 @@ public static class SoftwareSupplyPreviewDatasetV1
         "EFFECTIVE_DATE_EN",
         "EXPIRE_DATE_EN",
         "CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN",
-        "CUSTOMER_LEGAL_NAME_EN",
+        "CUSTOMER_COMPANY_NAME_EN",
         "CUSTOMER_ADDRESS_EN",
         "CUSTOMER_BANK_NAME_EN",
         "CUSTOMER_CITY_EN",
         "CUSTOMER_COUNTRY_EN",
         "CUSTOMER_CONTACT_TITLE_EN",
-        "PROVIDER_LEGAL_NAME_EN",
+        "PROVIDER_COMPANY_NAME_EN",
         "PROVIDER_ADDRESS_EN",
         "PROVIDER_REPRESENTATIVE_TITLE_EN",
         "PROVIDER_BANK_NAME_EN",
@@ -38,12 +38,12 @@ public static class SoftwareSupplyPreviewDatasetV1
         "CONTRACT_CURRENCY",
         "CUSTOMER_CODE",
         "CUSTOMER_NAME",
-        "CUSTOMER_LEGAL_NAME",
+        "CUSTOMER_COMPANY_NAME",
         "CUSTOMER_TAX_CODE",
         "CUSTOMER_ADDRESS",
         "CUSTOMER_EMAIL",
         "CUSTOMER_PHONE",
-        "PROVIDER_LEGAL_NAME",
+        "PROVIDER_COMPANY_NAME",
         "PROVIDER_TAX_CODE",
         "PROVIDER_ADDRESS",
         "PROVIDER_REPRESENTATIVE_NAME",
@@ -83,13 +83,13 @@ public static class SoftwareSupplyPreviewDatasetV1
             ["EFFECTIVE_DATE_EN"] = "01 September 2026",
             ["EXPIRE_DATE_EN"] = "31 August 2027",
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = "Seventy-two million one hundred and eighty-seven thousand five hundred Vietnamese dong only",
-            ["CUSTOMER_LEGAL_NAME_EN"] = "MINH AN SAMPLE ENTERPRISE SOLUTIONS JOINT STOCK COMPANY",
+            ["CUSTOMER_COMPANY_NAME_EN"] = "MINH AN SAMPLE ENTERPRISE SOLUTIONS JOINT STOCK COMPANY",
             ["CUSTOMER_ADDRESS_EN"] = "18th Floor, Sample Building, Ho Chi Minh City, Vietnam",
             ["CUSTOMER_BANK_NAME_EN"] = "Sample Customer Commercial Bank",
             ["CUSTOMER_CITY_EN"] = "Ho Chi Minh City",
             ["CUSTOMER_COUNTRY_EN"] = "Vietnam",
             ["CUSTOMER_CONTACT_TITLE_EN"] = "Project Manager",
-            ["PROVIDER_LEGAL_NAME_EN"] = "DTC SAMPLE JOINT STOCK COMPANY",
+            ["PROVIDER_COMPANY_NAME_EN"] = "DTC SAMPLE JOINT STOCK COMPANY",
             ["PROVIDER_ADDRESS_EN"] = "10th Floor, DTC Sample Building, Hanoi, Vietnam",
             ["PROVIDER_REPRESENTATIVE_TITLE_EN"] = "Director",
             ["PROVIDER_BANK_NAME_EN"] = "Sample Provider Commercial Bank",
@@ -101,14 +101,15 @@ public static class SoftwareSupplyPreviewDatasetV1
             ["CONTRACT_CURRENCY"] = "VND",
             ["CUSTOMER_CODE"] = "CUS-DEMO-2026",
             ["CUSTOMER_NAME"] = "Nguyễn Khách Hàng Mẫu",
-            ["CUSTOMER_LEGAL_NAME"] =
+            ["CUSTOMER_COMPANY_NAME"] =
                 "CÔNG TY CỔ PHẦN GIẢ LẬP GIẢI PHÁP DOANH NGHIỆP MINH AN",
             ["CUSTOMER_TAX_CODE"] = "0312345678",
             ["CUSTOMER_ADDRESS"] =
                 "Tầng 18, Tòa nhà Minh An Demo, 123 Đường Mẫu, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh, Việt Nam",
             ["CUSTOMER_EMAIL"] = "legal.demo.customer@example.invalid",
             ["CUSTOMER_PHONE"] = "+84 28 7300 0001",
-            ["PROVIDER_LEGAL_NAME"] = "CÔNG TY CỔ PHẦN DTC MẪU",
+            ["CUSTOMER_REPRESENTATIVE_PHONE"] = "+84 90 123 0001",
+            ["PROVIDER_COMPANY_NAME"] = "CÔNG TY CỔ PHẦN DTC MẪU",
             ["PROVIDER_TAX_CODE"] = "0107654321",
             ["PROVIDER_ADDRESS"] =
                 "Tầng 10, Tòa nhà DTC Demo, Hà Nội, Việt Nam",

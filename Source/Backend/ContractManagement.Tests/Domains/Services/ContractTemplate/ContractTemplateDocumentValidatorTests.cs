@@ -227,8 +227,8 @@ public sealed class ContractTemplateDocumentValidatorTests
             "BIÊN BẢN {{ACCEPTANCE_CODE}}",
             "{{DOCUMENT_REFERENCES}}",
             "Tại {{ACCEPTANCE_LOCATION}} ngày {{ACCEPTANCE_DATE}}",
-            "{{CUSTOMER_LEGAL_NAME}}",
-            "{{PROVIDER_LEGAL_NAME}}",
+            "{{CUSTOMER_COMPANY_NAME}}",
+            "{{PROVIDER_COMPANY_NAME}}",
             "{{ACCEPTANCE_SECTIONS}}"
         ]);
 

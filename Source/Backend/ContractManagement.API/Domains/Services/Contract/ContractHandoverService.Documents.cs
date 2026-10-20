@@ -84,7 +84,7 @@ public sealed partial class ContractHandoverService
         var template = await TemplateAsync(source, row.TemplateVersionId, false, ct);
         if (detail.Parties.Count != 2 || detail.Lines.Count == 0) throw Rule("HandoverSnapshotIncomplete", "Biên bản thiếu hai bên hoặc phạm vi.");
         ValidateMetadata(new HandoverMetadataRequest { HandoverCode = row.HandoverCode, HandoverDate = row.HandoverDate, Location = row.Location, LocationEn = row.LocationEn }, source);
-        ValidateSections(detail.Sections, detail.LanguageMode);
+        await ValidateSectionsAsync(row.TemplateVersionId, detail.Sections, detail.LanguageMode, ct);
         var content = await ReadFileAsync(template.File, ct);
         if (!string.Equals(Convert.ToHexString(SHA256.HashData(content)), template.Version.DocumentHash, StringComparison.OrdinalIgnoreCase))
             throw Rule("HandoverTemplateHashMismatch", "DOCX nguồn không khớp hash của phiên bản mẫu.");

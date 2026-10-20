@@ -551,8 +551,8 @@ export default function ContractTemplateVersionWorkspacePage() {
       paymentPercentTotal === 100);
   const hasValidAcceptanceSections = Boolean(
     !isSupportingDocument ||
-    (version?.terms.length &&
-      version.terms.every(
+    ((!version?.requiresSections || hasTerms) &&
+      version?.terms.every(
         (term) =>
           term.termKind === ContractTermKind.General &&
           (template?.languageMode !== ContractLanguageMode.Bilingual ||
@@ -1081,7 +1081,11 @@ export default function ContractTemplateVersionWorkspacePage() {
                         )}
                         {isSupportingDocument && (
                           <RequirementRow met={hasValidAcceptanceSections}>
-                            Có ít nhất một mục {documentSectionName} hợp lệ
+                            {version.requiresSections
+                              ? `Có ít nhất một mục ${documentSectionName} hợp lệ`
+                              : hasTerms
+                                ? `Các mục ${documentSectionName} đã nhập hợp lệ (không bắt buộc)`
+                                : `DOCX không dùng {{${isHandoverDocument ? "HANDOVER_SECTIONS" : "ACCEPTANCE_SECTIONS"}}}: không bắt buộc nội dung ${documentSectionName}`}
                           </RequirementRow>
                         )}
                         <RequirementRow met={hasDocument}>

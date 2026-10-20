@@ -135,8 +135,8 @@ public sealed partial class ContractDocumentPreviewServiceTests
         var pdf = new CapturingPdfRenderer();
         var result = await CreateService(db, source, pdf).RenderAsync(ContractId, OwnerId);
         var values = DocumentPartyMarkers.Values(direction, DocumentParty.From(result.Snapshot.Tenant), DocumentParty.From(result.Snapshot.Customer));
-        Assert.Equal(direction == ContractDirection.Sale ? result.Snapshot.Tenant.LegalEntityName : result.Snapshot.Customer.LegalName, values["PROVIDER_LEGAL_NAME"]);
-        Assert.Equal(direction == ContractDirection.Purchase ? result.Snapshot.Tenant.LegalEntityName : result.Snapshot.Customer.LegalName, values["CUSTOMER_LEGAL_NAME"]);
+        Assert.Equal(direction == ContractDirection.Sale ? result.Snapshot.Tenant.LegalEntityName : result.Snapshot.Customer.LegalName, values["PROVIDER_COMPANY_NAME"]);
+        Assert.Equal(direction == ContractDirection.Purchase ? result.Snapshot.Tenant.LegalEntityName : result.Snapshot.Customer.LegalName, values["CUSTOMER_COMPANY_NAME"]);
         Assert.Equal(result.DocxContent, pdf.InputDocx);
         using var document = WordprocessingDocument.Open(new MemoryStream(result.DocxContent), false);
         Assert.DoesNotContain("{{", document.MainDocumentPart!.Document!.InnerText);

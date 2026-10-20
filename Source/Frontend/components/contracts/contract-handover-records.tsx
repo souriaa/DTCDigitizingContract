@@ -111,7 +111,6 @@ export function ContractHandoverRecords({
   const [reason, setReason] = useState("");
   const [file, setFile] = useState<File>();
   const [signDate, setSignDate] = useState("");
-  const [pdfUrl, setPdfUrl] = useState("");
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const sectionRoot = useRef<HTMLDivElement>(null);
   const saveLock = useRef(false);
@@ -154,12 +153,6 @@ export function ContractHandoverRecords({
     setSelected(undefined);
     setSaved("");
   }, [contract.contractId]);
-  useEffect(
-    () => () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    },
-    [pdfUrl],
-  );
   const refresh = async () => {
     await load();
     try {
@@ -315,10 +308,20 @@ export function ContractHandoverRecords({
         : [...lines, { handoverScopeItemId: id, quantity: qty }];
   const documentFile = async (kind: "docx" | "pdf" | "evidence") => {
     if (!selected || busy) return;
-    const target = editable && dirty ? await save(true) : selected;
-    if (!target) return;
-    setBusy(true);
+    const previewWindow =
+      kind === "pdf" ? window.open("about:blank", "_blank") : null;
+    if (kind === "pdf" && !previewWindow) {
+      toast.error("Vui lòng cho phép mở cửa sổ bật lên để xem PDF bàn giao.");
+      return;
+    }
+    if (previewWindow) previewWindow.opener = null;
     try {
+      const target = editable && dirty ? await save(true) : selected;
+      if (!target) {
+        previewWindow?.close();
+        return;
+      }
+      setBusy(true);
       const blob =
         kind === "evidence"
           ? await api.evidence(
@@ -331,9 +334,13 @@ export function ContractHandoverRecords({
               kind,
               target.record.status === HandoverStatus.Draft,
             );
-      if (kind === "pdf") setPdfUrl(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(
+        kind === "pdf" && blob.type !== "application/pdf"
+          ? new Blob([blob], { type: "application/pdf" })
+          : blob,
+      );
+      if (previewWindow) previewWindow.location.replace(url);
       else {
-        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download =
@@ -341,9 +348,10 @@ export function ContractHandoverRecords({
             ? (target.signedEvidence?.fileName ?? "ban-ky")
             : `${target.record.handoverCode}.docx`;
         a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
       }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
+      previewWindow?.close();
       toast.error(getApiErrorMessage(e, "Không thể mở tệp bàn giao."));
     } finally {
       setBusy(false);
@@ -450,6 +458,7 @@ export function ContractHandoverRecords({
           onChange={(v) =>
             change({ handoverDate: v ? format(v, "yyyy-MM-dd") : "" })
           }
+          className="flex-1"
           limit={{ to: new Date() }}
         />
       </div>
@@ -583,7 +592,9 @@ export function ContractHandoverRecords({
                       await api.get(contract.contractId, x.handoverRecordId),
                     );
                   } catch (e) {
-                    toast.error(getApiErrorMessage(e));
+                    toast.error(
+                      getApiErrorMessage(e, "Không thể tải biên bản bàn giao."),
+                    );
                   } finally {
                     setBusy(false);
                   }
@@ -1288,28 +1299,6 @@ export function ContractHandoverRecords({
           )
         }
       />
-      <Dialog
-        open={!!pdfUrl}
-        onOpenChange={(open) => {
-          if (!open) setPdfUrl("");
-        }}
-      >
-        <DialogContent className="h-[90vh] sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>Bản PDF bàn giao</DialogTitle>
-            <DialogDescription>
-              Xem trước hoặc tài liệu đã chốt.
-            </DialogDescription>
-          </DialogHeader>
-          {pdfUrl && (
-            <iframe
-              title="Bản PDF bàn giao"
-              src={pdfUrl}
-              className="h-full min-h-0 w-full"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

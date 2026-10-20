@@ -8,14 +8,14 @@ public class ContractTemplatePolicyTests
     private static string ValidSha256Hash => new('a', 64);
 
     [Fact]
-    public void SoftwareSupplyPlaceholderCatalog_V6_HasExpectedShape()
+    public void SoftwareSupplyPlaceholderCatalog_V7_HasExpectedShape()
     {
         var catalog = SoftwareSupplyPlaceholderCatalog.All;
 
-        Assert.Equal("V6", SoftwareSupplyPlaceholderCatalog.Version);
-        Assert.Equal(63, catalog.Count);
+        Assert.Equal("V7", SoftwareSupplyPlaceholderCatalog.Version);
+        Assert.Equal(64, catalog.Count);
         Assert.DoesNotContain(catalog, item => item.IsRequired);
-        Assert.Equal(63, catalog.Count(item => !item.IsRequired));
+        Assert.Equal(64, catalog.Count(item => !item.IsRequired));
         Assert.All(catalog, item =>
             Assert.Contains(item.Multiplicity, new[] { TemplatePlaceholderMultiplicity.ZeroOrOne, TemplatePlaceholderMultiplicity.ZeroOrMore }));
         Assert.Equal(
@@ -31,9 +31,9 @@ public class ContractTemplatePolicyTests
             SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_NAME")?.DataSource);
         Assert.NotNull(SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_REPRESENTATIVE_TITLE"));
         Assert.Equal(
-            "PROVIDER.LEGAL_NAME",
+            "PROVIDER.COMPANY_NAME",
             SoftwareSupplyPlaceholderCatalog.Find(
-                "PROVIDER_LEGAL_NAME")?.DataSource);
+                "PROVIDER_COMPANY_NAME")?.DataSource);
     }
 
     [Theory]

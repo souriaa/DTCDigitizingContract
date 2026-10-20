@@ -207,11 +207,13 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         ContractRowVersion = Convert.ToBase64String(InitialVersion), VersionRowVersion = Convert.ToBase64String(InitialVersion) };
     private static async Task<(ContractHandoverService Service, ContractManagement.API.Domains.DTOs.Responses.Contract.HandoverReadinessResponse Scope)>
         HandoverFixture(DbDtctechContext db, TrackingStorage storage, ContractDirection direction = ContractDirection.Sale,
-            ContractLanguageMode language = ContractLanguageMode.Vietnamese, bool realAudit = false, decimal contractTotal = 0m)
+            ContractLanguageMode language = ContractLanguageMode.Vietnamese, bool realAudit = false, decimal contractTotal = 0m,
+            string? counterpartyContactPhone = null, bool omitSections = false, byte[]? documentBytes = null)
     {
-        var docx = HandoverDocx();
+        var docx = documentBytes ?? HandoverDocx();
         await SeedAsync(db, storage, contractNameEn: "Software agreement", tenantLegalNameEn: "Tenant company",
             contractTotal: contractTotal, direction: direction, language: language, documentType: TemplateDocumentType.HandoverRecord, documentBytes: docx,
+            counterpartyContactPhone: counterpartyContactPhone, omitSections: omitSections,
             handoverItems: [
                 new TblContractItem { ContractItemId = 1701, ContractId = ContractId, VersionId = VersionId,
                     ItemName = "Phạm vi sản phẩm", ItemNameEn = "Product scope", UnitName = "Giấy phép", UnitNameEn = "License", Quantity = 2, DisplayOrder = 1, RowVersion = InitialVersion },
@@ -233,7 +235,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         using var stream = new MemoryStream();
         using (var document = WordprocessingDocument.Create(stream, DocumentFormat.OpenXml.WordprocessingDocumentType.Document, true)) {
             var part = document.AddMainDocumentPart(); var body = new W.Body();
-            foreach (var marker in new[] { "HANDOVER_CODE", "HANDOVER_DATE", "HANDOVER_LOCATION", "PROVIDER_LEGAL_NAME", "CUSTOMER_LEGAL_NAME", "DOCUMENT_REFERENCES", "HANDOVER_ITEM_TABLE", "HANDOVER_SECTIONS", "SIGNATURE_PROVIDER", "SIGNATURE_CUSTOMER" })
+            foreach (var marker in new[] { "HANDOVER_CODE", "HANDOVER_DATE", "HANDOVER_LOCATION", "PROVIDER_COMPANY_NAME", "CUSTOMER_COMPANY_NAME", "CUSTOMER_REPRESENTATIVE_PHONE", "DOCUMENT_REFERENCES", "HANDOVER_ITEM_TABLE", "HANDOVER_SECTIONS", "SIGNATURE_PROVIDER", "SIGNATURE_CUSTOMER" })
                 body.Append(new W.Paragraph(new W.ParagraphProperties(new W.Justification { Val = W.JustificationValues.Center }), new W.Run(new W.Text("{{" + marker + "}}"))));
             part.Document = new W.Document(body); part.Document.Save();
         } return stream.ToArray();

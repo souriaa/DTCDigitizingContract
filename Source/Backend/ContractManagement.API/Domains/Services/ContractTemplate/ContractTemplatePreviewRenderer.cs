@@ -14,7 +14,7 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 /// </summary>
 public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRenderer
 {
-    public const string FormatVersion = "V21";
+    public const string FormatVersion = "V22";
 
     private const string GeneratedContentFont = "Times New Roman";
     private const string GeneratedContentFontSize = "24";
@@ -28,8 +28,9 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var direction = authoringData is null ? ContractDirection.Sale : authoringData.ContractDirection;
         ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(direction);
         var data = CreateSampleRenderData(languageMode);
-        DocumentParty SampleParty(string prefix) => new(DocumentPartyMarkers.Fields.ToDictionary(
-            field => field.Suffix, field => data.ScalarValues.GetValueOrDefault(prefix + "_" + field.Suffix) ?? string.Empty));
+        DocumentParty SampleParty(string prefix) => new(DocumentPartyMarkers.Fields.Select(field => field.Suffix)
+            .Append("REPRESENTATIVE_PHONE").ToDictionary(suffix => suffix,
+                suffix => data.ScalarValues.GetValueOrDefault(prefix + "_" + suffix) ?? string.Empty));
         var sampleRoles = DocumentPartyMarkers.Values(direction, SampleParty("PROVIDER"), SampleParty("CUSTOMER"));
         var values = new Dictionary<string, string>(data.ScalarValues, StringComparer.Ordinal);
         AddAcceptanceSampleValues(values);

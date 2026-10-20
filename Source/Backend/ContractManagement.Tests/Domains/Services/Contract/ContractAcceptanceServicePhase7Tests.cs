@@ -875,7 +875,8 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         ContractDirection direction = ContractDirection.Sale, string? counterpartyBank = null,
         ContractLanguageMode language = ContractLanguageMode.Vietnamese,
         TemplateDocumentType documentType = TemplateDocumentType.AcceptanceRecord, byte[]? documentBytes = null,
-        IReadOnlyList<TblContractItem>? handoverItems = null, bool omitMilestones = false, decimal contractTotal = 0m)
+        IReadOnlyList<TblContractItem>? handoverItems = null, bool omitMilestones = false, decimal contractTotal = 0m,
+        string? counterpartyContactPhone = null, bool omitSections = false)
     {
         var now = new DateTime(2026, 9, 18, 8, 0, 0, DateTimeKind.Utc);
         var templateDocx = documentBytes ?? CreateTemplateDocx();
@@ -953,7 +954,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             CreatedDate = now,
             RowVersion = InitialVersion.ToArray()
         });
-        db.TblContractTemplateTerms.Add(new TblContractTemplateTerm
+        if (!omitSections) db.TblContractTemplateTerms.Add(new TblContractTemplateTerm
         {
             TemplateTermId = 1,
             TemplateVersionId = TemplateVersionId,
@@ -1048,6 +1049,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
                     SourceCustomerId = 1,
                     ContactName = "Người liên hệ nghiệm thu",
                     ContactTitle = "Điều phối dự án",
+                    ContactPhone = counterpartyContactPhone,
                     LegalName = "Khách hàng A",
                     BankName = counterpartyBank,
                     BankNameEn = customerBankNameEn,
@@ -1071,10 +1073,16 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             RowVersion = InitialVersion.ToArray()
         });
         if (handoverItems is not null) db.TblContractItems.AddRange(handoverItems);
-        if (documentType == TemplateDocumentType.HandoverRecord)
-            db.TblContractTemplateFields.AddRange(HandoverRecordPlaceholderCatalog.All.Select((x, i) => new TblContractTemplateField {
+        using (var source = WordprocessingDocument.Open(new MemoryStream(templateDocx), false))
+        {
+            var text = source.MainDocumentPart!.Document!.InnerText;
+            var definitions = documentType == TemplateDocumentType.HandoverRecord
+                ? HandoverRecordPlaceholderCatalog.All
+                : AcceptanceRecordPlaceholderCatalog.All.Where(x => x.Key == "ACCEPTANCE_SECTIONS").ToArray();
+            db.TblContractTemplateFields.AddRange(definitions.Where(x => text.Contains("{{" + x.Key + "}}", StringComparison.Ordinal)).Select((x, i) => new TblContractTemplateField {
                 TemplateVersionId = TemplateVersionId, PlaceholderKey = x.Key, FieldLabel = x.Label, SourceFieldKey = x.SourceFieldKey!, DataSource = x.DataSource,
                 DataKind = (byte)x.DataKind, Multiplicity = (byte)x.Multiplicity, IsSystem = true, IsRequired = false, DisplayOrder = i, CreatedEmployeeId = EmployeeId, CreatedDate = now }));
+        }
         if (!omitMilestones) db.TblContractPaymentMilestones.AddRange(
             Milestone(MilestoneId, "DOT-01", 1, now),
             Milestone(MilestoneId + 1, "DOT-02", 2, now));

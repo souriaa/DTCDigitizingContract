@@ -5,6 +5,7 @@ using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.Contract;
 using ContractManagement.Domains.Policies.Contract;
 using ContractManagement.Domains.Policies.ContractTemplate;
+using ContractManagement.Domains.Services.ContractTemplate;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
 namespace ContractManagement.Domains.Services.Contract;
@@ -69,7 +70,7 @@ public sealed partial class ContractHandoverService
             if (sections.Any(x => x.TermKind != (byte)ContractTermKind.General)) throw Rule("HandoverSectionsInvalid", "Mẫu bàn giao không được có điều khoản thanh toán.");
             var sectionInputs = sections.Select(x => new HandoverSectionInput { SectionCode = x.TermCode, TitleVi = x.TermTitle, TitleEn = x.TermTitleEn,
                 ContentVi = x.TermContent, ContentEn = x.TermContentEn, BilingualContentMode = x.BilingualContentMode }).ToArray();
-            ValidateSections(sectionInputs, (ContractLanguageMode)source.Legal.LanguageMode);
+            await ValidateSectionsAsync(request.TemplateVersionId, sectionInputs, (ContractLanguageMode)source.Legal.LanguageMode, ct);
             var parties = source.Parties.Select(x => new TblContractHandoverParty {
                 SubjectKind = x.PartyRole, LegalName = x.LegalName, LegalNameEn = x.LegalNameEn, Address = x.Address, AddressEn = x.AddressEn,
                 Phone = x.PhoneNumber, Fax = x.FaxNumber, TaxCode = x.TaxCode,
@@ -99,7 +100,8 @@ public sealed partial class ContractHandoverService
             var source = await SourceAsync(contractId, row.ContractVersionId, true, ct);
             _ = await TemplateAsync(source, row.TemplateVersionId, false, ct);
             var code = await CodeAsync(contractId, request.HandoverCode, recordId, ct);
-            ValidateMetadata(request, source); ValidateSections(request.Sections, (ContractLanguageMode)source.Legal.LanguageMode);
+            ValidateMetadata(request, source);
+            await ValidateSectionsAsync(row.TemplateVersionId, request.Sections, (ContractLanguageMode)source.Legal.LanguageMode, ct);
             await ValidateReferencesAsync(source, request.AppendixIds, ct);
             await ValidateLinesAsync(source, row.HandoverBaselineId, request.Lines, recordId, ct);
             var parties = await db.TblContractHandoverParties.Where(x => x.HandoverRecordId == recordId).ToListAsync(ct);
@@ -144,10 +146,13 @@ public sealed partial class ContractHandoverService
         if (!ContractTermRichText.TryParse(value.Trim(), out _)) throw Rule("HandoverRichTextInvalid", "Nội dung không đúng rich text schema hiện hành.");
         return value.Trim();
     }
-    private static void ValidateSections(IReadOnlyList<HandoverSectionInput> sections, ContractLanguageMode language)
+    private async Task ValidateSectionsAsync(int templateVersionId, IReadOnlyList<HandoverSectionInput> sections, ContractLanguageMode language, CancellationToken ct)
     {
-        if (sections.Count == 0 || sections.Count > 100 || sections.Select(x => x.SectionCode.Trim().ToUpperInvariant()).Distinct().Count() != sections.Count)
-            throw Rule("HandoverSectionsInvalid", "Cần ít nhất một mục nội dung, tối đa 100 và mã không trùng.");
+        if (sections.Count == 0 && await SupportingDocumentSectionReader.IsRequiredAsync(
+                db, templateVersionId, TemplateDocumentType.HandoverRecord, ct))
+            throw Rule("HandoverSectionsMissing", "DOCX có {{HANDOVER_SECTIONS}} nên cần ít nhất một mục bàn giao.");
+        if (sections.Count > 100 || sections.Select(x => x.SectionCode.Trim().ToUpperInvariant()).Distinct().Count() != sections.Count)
+            throw Rule("HandoverSectionsInvalid", "Tối đa 100 mục nội dung và mã không được trùng.");
         foreach (var x in sections) {
             _ = Text(x.SectionCode, 100, "Mã mục"); _ = Text(x.TitleVi, 1000, "Tiêu đề");
             _ = RichText(x.ContentVi); _ = RichText(x.ContentEn);

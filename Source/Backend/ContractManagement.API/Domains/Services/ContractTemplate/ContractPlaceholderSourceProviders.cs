@@ -148,5 +148,7 @@ public sealed class ContractRolePlaceholderSourceProvider : ContractPlaceholderS
                     role == "provider" ? "Vai trò: Bên cung cấp" : "Vai trò: Bên mua", field.Label,
                     PlaceholderValueType.Text,
                     context => (role == "provider" ? context.Parties.Provider : context.Parties.Customer).Value.Get(field.Suffix));
+        Add("customer.representative-phone", "customer", "Vai trò: Bên mua", "Điện thoại người đại diện tham gia / người liên lạc",
+            PlaceholderValueType.Text, context => context.Parties.Customer.Value.Get("REPRESENTATIVE_PHONE"));
     }
 }

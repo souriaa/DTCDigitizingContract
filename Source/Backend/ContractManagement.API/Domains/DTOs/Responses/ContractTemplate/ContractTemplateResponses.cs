@@ -127,6 +127,7 @@ public sealed class ContractTemplateVersionSummaryResponse
 
 public sealed class ContractTemplateVersionDetailResponse
 {
+    public bool RequiresSections { get; set; }
     public ContractDirection ContractDirection { get; set; }
 
     public int TemplateVersionId { get; set; }

@@ -158,7 +158,7 @@ public sealed class BilingualDocumentRenderingTests
     }
 
     [Theory]
-    [InlineData("CUSTOMER_LEGAL_NAME_EN")]
+    [InlineData("CUSTOMER_COMPANY_NAME_EN")]
     [InlineData("CUSTOMER_ADDRESS_EN")]
     [InlineData("CUSTOMER_BANK_NAME_EN")]
     [InlineData("CUSTOMER_CITY_EN")]
@@ -212,7 +212,7 @@ public sealed class BilingualDocumentRenderingTests
     }
 
     [Theory]
-    [InlineData("CUSTOMER_LEGAL_NAME_EN")]
+    [InlineData("CUSTOMER_COMPANY_NAME_EN")]
     [InlineData("CUSTOMER_ADDRESS_EN")]
     [InlineData("CUSTOMER_REPRESENTATIVE_TITLE_EN")]
     public void AcceptanceCustomerEnglish_MissingValueRendersBlank(string marker)
@@ -307,7 +307,7 @@ public sealed class BilingualDocumentRenderingTests
         };
         var contract = new ContractTemplatePreviewRenderer().RenderSample(Docx(
             "SOFTWARE SUPPLY AGREEMENT / HỢP ĐỒNG CUNG CẤP PHẦN MỀM",
-            "{{PROVIDER_LEGAL_NAME_EN}} / {{PROVIDER_LEGAL_NAME}}", "{{CONTRACT_LEGAL_BASES}}",
+            "{{PROVIDER_COMPANY_NAME_EN}} / {{PROVIDER_COMPANY_NAME}}", "{{CONTRACT_LEGAL_BASES}}",
             "{{CONTRACT_ITEM_TABLE}}", "{{CONTRACT_TERMS}}", "{{SIGNATURE_PROVIDER}}", "{{CONTRACT_APPENDICES}}"),
             ContractLanguageMode.Bilingual, ContractPlaceholderCatalog.SystemDefinitions, new Dictionary<string, string>(), authoring);
         var acceptance = new ContractAcceptanceDocumentRenderer().Render(Docx(

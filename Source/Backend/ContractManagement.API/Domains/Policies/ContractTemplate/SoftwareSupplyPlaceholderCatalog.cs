@@ -43,14 +43,14 @@ public sealed record SoftwareSupplyPlaceholderDefinition(
 }
 
 /// <summary>
-/// Catalog V4 cho template hợp đồng cung cấp phần mềm.
+/// Catalog hiện hành cho template hợp đồng cung cấp phần mềm.
 ///
 /// Tenant chỉ cấu hình template/version/term. Tenant không được thay đổi
 /// key, DataSource, requiredness hoặc multiplicity của catalog này.
 /// </summary>
 public static class SoftwareSupplyPlaceholderCatalog
 {
-    public const string Version = "V6";
+    public const string Version = "V7";
 
     private static readonly IReadOnlyList<SoftwareSupplyPlaceholderDefinition>
         Items =

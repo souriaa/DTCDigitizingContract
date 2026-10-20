@@ -72,7 +72,7 @@ public sealed partial class ContractTemplatePreviewTests
         using var stream = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document)) {
             var part = doc.AddMainDocumentPart(); var body = new W.Body();
-            foreach (var key in new[] { "HANDOVER_CODE", "PROVIDER_LEGAL_NAME", "CUSTOMER_LEGAL_NAME", "DOCUMENT_REFERENCES", "HANDOVER_ITEM_TABLE", "HANDOVER_SECTIONS", "SIGNATURE_PROVIDER", "SIGNATURE_CUSTOMER" })
+            foreach (var key in new[] { "HANDOVER_CODE", "PROVIDER_COMPANY_NAME", "CUSTOMER_COMPANY_NAME", "DOCUMENT_REFERENCES", "HANDOVER_ITEM_TABLE", "HANDOVER_SECTIONS", "SIGNATURE_PROVIDER", "SIGNATURE_CUSTOMER" })
                 body.Append(new W.Paragraph(new W.ParagraphProperties(new W.Justification { Val = W.JustificationValues.Center }), new W.Run(new W.Text("{{" + key + "}}"))));
             part.Document = new W.Document(body); part.Document.Save();
         }

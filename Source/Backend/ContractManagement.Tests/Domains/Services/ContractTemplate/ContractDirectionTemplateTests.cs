@@ -47,8 +47,8 @@ public sealed partial class ContractTemplateServiceTests
         {
             var part = doc.AddMainDocumentPart();
             part.Document = new W.Document(new W.Body(
-                new W.Paragraph(new W.Run(new W.Text("{{PROVIDER_LEGAL_NAME}}"))),
-                new W.Paragraph(new W.Run(new W.Text("{{CUSTOMER_LEGAL_NAME}}")))));
+                new W.Paragraph(new W.Run(new W.Text("{{PROVIDER_COMPANY_NAME}}"))),
+                new W.Paragraph(new W.Run(new W.Text("{{CUSTOMER_COMPANY_NAME}}")))));
             part.Document.Save();
         }
         var result = new ContractTemplatePreviewRenderer().RenderSample(stream.ToArray(), ContractLanguageMode.Vietnamese,
@@ -56,7 +56,7 @@ public sealed partial class ContractTemplateServiceTests
         using var rendered = WordprocessingDocument.Open(new MemoryStream(result), false);
         var paragraphs = rendered.MainDocumentPart!.Document!.Body!.Elements<W.Paragraph>().Select(x => x.InnerText).ToArray();
         var samples = SoftwareSupplyPreviewDatasetV1.GetScalarValues(ContractLanguageMode.Vietnamese);
-        Assert.Equal(samples[direction == ContractDirection.Sale ? "PROVIDER_LEGAL_NAME" : "CUSTOMER_LEGAL_NAME"], paragraphs[0]);
-        Assert.Equal(samples[direction == ContractDirection.Sale ? "CUSTOMER_LEGAL_NAME" : "PROVIDER_LEGAL_NAME"], paragraphs[1]);
+        Assert.Equal(samples[direction == ContractDirection.Sale ? "PROVIDER_COMPANY_NAME" : "CUSTOMER_COMPANY_NAME"], paragraphs[0]);
+        Assert.Equal(samples[direction == ContractDirection.Sale ? "CUSTOMER_COMPANY_NAME" : "PROVIDER_COMPANY_NAME"], paragraphs[1]);
     }
 }

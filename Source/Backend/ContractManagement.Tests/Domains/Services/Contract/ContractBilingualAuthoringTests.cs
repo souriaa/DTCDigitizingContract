@@ -110,9 +110,9 @@ public sealed partial class ContractServiceSlice04Tests
         var version = await db.TblContractVersions.SingleAsync(x => x.VersionId == versionId);
         db.TblContractTemplateFields.Add(new()
         {
-            TemplateVersionId = version.TemplateVersionId, PlaceholderKey = "CUSTOMER_LEGAL_NAME_EN",
+            TemplateVersionId = version.TemplateVersionId, PlaceholderKey = "CUSTOMER_COMPANY_NAME_EN",
             FieldLabel = "Công ty khách hàng tiếng Anh", DataSource = "Customer.CustomerCompanyEn",
-            SourceFieldKey = "system.CUSTOMER_LEGAL_NAME_EN", IsSystem = true, DataKind = 1, Multiplicity = 2
+            SourceFieldKey = "system.CUSTOMER_COMPANY_NAME_EN", IsSystem = true, DataKind = 1, Multiplicity = 2
         });
         await db.SaveChangesAsync();
         var before = await CreateService(db).GetDetailAsync(100, EmployeeId);

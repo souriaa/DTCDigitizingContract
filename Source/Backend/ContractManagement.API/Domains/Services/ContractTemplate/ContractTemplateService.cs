@@ -3007,9 +3007,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             .ToListAsync(cancellationToken);
         if (sections.Count == 0)
         {
+            if (!await SupportingDocumentSectionReader.IsRequiredAsync(_dbContext, versionId, documentType, cancellationToken))
+                return;
             throw new ContractTemplatePreviewException(
                 documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsMissing" : "AcceptanceSectionsMissing",
-                "Mẫu biên bản phải có ít nhất một mục nội dung trước khi phát hành.");
+                $"DOCX có {{{{{SupportingDocumentCatalog.SectionsKey(documentType)}}}}} nên phải có ít nhất một mục nội dung trước khi phát hành.");
         }
 
         if (sections.Any(section => section.TermKind !=
@@ -3419,6 +3421,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             cancellationToken);
 
         var response = MapVersionDetail(version, template);
+        response.RequiresSections = await SupportingDocumentSectionReader.IsRequiredAsync(
+            _dbContext, versionId, (TemplateDocumentType)template.DocumentType, cancellationToken);
         if (version.PreviewedByEmployeeId is int previewedByEmployeeId)
         {
             response.PreviewedByEmployeeName =
