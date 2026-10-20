@@ -3933,13 +3933,15 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
     private async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        System.Data.IsolationLevel? isolationLevel = null)
     {
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await _dbContext.Database
-                .BeginTransactionAsync(cancellationToken);
+            await using var transaction = isolationLevel.HasValue && _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(isolationLevel.Value, cancellationToken)
+                : await _dbContext.Database.BeginTransactionAsync(cancellationToken);
             try
             {
                 var result = await operation();

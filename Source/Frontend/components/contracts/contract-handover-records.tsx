@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, Download, Eye, Plus, Save, Truck } from "lucide-react";
+import { ChevronDown, Download, Eye, Loader2, Plus, Save, Truck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,21 @@ export function ContractHandoverRecords({
     }
     setSelected(next);
     setSaved(JSON.stringify(next));
+  };
+  const openRecord = async (recordId: number) => {
+    if (busy) return;
+    if (dirty) {
+      toast.error("Vui lòng lưu thay đổi trước khi mở biên bản khác.");
+      return;
+    }
+    setBusy(true);
+    try {
+      acceptRecord(await api.get(contract.contractId, recordId));
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Không thể tải biên bản bàn giao."));
+    } finally {
+      setBusy(false);
+    }
   };
   const load = useCallback(async () => {
     try {
@@ -569,38 +584,33 @@ export function ContractHandoverRecords({
               </p>
             </div>
           ))}
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {records.map((x) => (
               <Button
+                type="button"
                 key={x.handoverRecordId}
-                variant={
+                variant="outline"
+                aria-pressed={selected?.record.handoverRecordId === x.handoverRecordId}
+                className={`h-auto w-full justify-start rounded-lg p-3 text-left whitespace-normal hover:bg-muted ${
                   selected?.record.handoverRecordId === x.handoverRecordId
-                    ? "secondary"
-                    : "outline"
-                }
+                    ? "border-primary bg-muted"
+                    : ""
+                }`}
                 disabled={busy}
-                onClick={async () => {
-                  if (dirty) {
-                    toast.error(
-                      "Vui lòng lưu thay đổi trước khi mở biên bản khác.",
-                    );
-                    return;
-                  }
-                  setBusy(true);
-                  try {
-                    acceptRecord(
-                      await api.get(contract.contractId, x.handoverRecordId),
-                    );
-                  } catch (e) {
-                    toast.error(
-                      getApiErrorMessage(e, "Không thể tải biên bản bàn giao."),
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
+                onClick={() => void openRecord(x.handoverRecordId)}
               >
-                {x.handoverCode} · {statusText[x.status]}
+                <div className="w-full space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 break-words font-semibold">{x.handoverCode}</span>
+                    <Badge variant={x.status === HandoverStatus.Cancelled ? "destructive" : "secondary"}>
+                      {statusText[x.status]}
+                    </Badge>
+                  </div>
+                  <p className="text-xs font-normal text-muted-foreground">
+                    {day(x.handoverDate)?.toLocaleDateString("vi-VN")}
+                    {selected?.record.handoverRecordId === x.handoverRecordId && " · Đang xem"}
+                  </p>
+                </div>
               </Button>
             ))}
           </div>
@@ -616,33 +626,47 @@ export function ContractHandoverRecords({
             </p>
           )}
           {selected && (
-            <div className="space-y-4">
+            <div className="space-y-6 rounded-lg border p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold">
-                    {selected.record.handoverCode}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold">
+                      {selected.record.handoverCode}
+                    </h3>
+                    <Badge variant="outline">
+                      {statusText[selected.record.status]}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {selected.templateName} · Phiên bản mẫu{" "}
                     {selected.templateVersionNo} · Phiên bản hợp đồng{" "}
                     {selected.contractVersionNo}
                   </p>
                 </div>
-                <Badge variant="outline">
-                  {statusText[selected.record.status]}
-                </Badge>
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void documentFile("pdf")}>
+                    <Eye className="size-4" /> PDF
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void documentFile("docx")}>
+                    <Download className="size-4" /> DOCX
+                  </Button>
+                </div>
               </div>
               {editable && (
-                <div className="sticky top-2 z-20 flex items-center justify-between rounded-xl border bg-background/95 p-3 shadow-sm">
-                  <p className="text-sm">
-                    {dirty
-                      ? "Bàn giao có thay đổi chưa được lưu"
-                      : "Bản nháp bàn giao đã được lưu"}{" "}
-                    · Ctrl+S
-                  </p>
-                  <Button disabled={busy || !dirty} onClick={() => void save()}>
-                    <Save className="size-4" />
-                    Lưu tất cả
+                <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-primary/30 bg-background/95 p-3 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Chỉnh sửa bản nháp bàn giao</p>
+                    <p className="text-xs text-muted-foreground">
+                      Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn bộ nội dung biên bản.
+                      Có thể dùng Ctrl+S (hoặc ⌘+S).
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground" role="status">
+                      {dirty ? "Có thay đổi chưa được lưu." : "Bản nháp đã được lưu."}
+                    </p>
+                  </div>
+                  <Button type="button" className="shrink-0 gap-2" disabled={busy || !dirty} onClick={() => void save()}>
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    Lưu tất cả thay đổi
                   </Button>
                 </div>
               )}
@@ -947,22 +971,6 @@ export function ContractHandoverRecords({
                 </CollapsibleContent>
               </Collapsible>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void documentFile("pdf")}
-                >
-                  <Eye className="size-4" />
-                  Xem PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void documentFile("docx")}
-                >
-                  <Download className="size-4" />
-                  Tải DOCX
-                </Button>
                 {editable && (
                   <Button
                     disabled={busy}

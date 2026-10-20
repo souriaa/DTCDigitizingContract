@@ -138,6 +138,11 @@ export interface CopyContractTemplateVersionRequest {
   changeNote?: string | null;
 }
 
+export interface DeleteContractTemplateRequest {
+  rowVersion: string;
+  versions: { templateVersionId: number; rowVersion: string }[];
+}
+
 export interface GenerateContractTemplatePreviewRequest {
   versionRowVersion: string;
 }
@@ -580,6 +585,12 @@ export const contractTemplateApi = {
     axiosClient.put<unknown, ContractTemplateDetailResponse>(
       `${BASE_URL}/${templateId}`,
       data,
+    ),
+
+  delete: (templateId: number, data: DeleteContractTemplateRequest) =>
+    axiosClient.delete<unknown, { templateId: number }>(
+      `${BASE_URL}/${templateId}`,
+      { data },
     ),
 
   getVersion: (versionId: number) =>

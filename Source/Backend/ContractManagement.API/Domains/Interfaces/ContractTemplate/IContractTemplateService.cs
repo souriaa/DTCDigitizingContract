@@ -45,6 +45,9 @@ public interface IContractTemplateService
         int employeeId,
         CancellationToken cancellationToken = default);
 
+    Task DeleteAsync(int templateId, DeleteContractTemplateRequest request,
+        int employeeId, CancellationToken cancellationToken = default);
+
     Task<ContractTemplateVersionDetailResponse> GetVersionAsync(
         int versionId,
         int employeeId,

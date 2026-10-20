@@ -75,6 +75,24 @@ public sealed class CopyContractTemplateVersionRequest
     public string? ChangeNote { get; set; }
 }
 
+public sealed class DeleteContractTemplateRequest
+{
+    [Required]
+    public string RowVersion { get; set; } = string.Empty;
+
+    [Required, MinLength(1)]
+    public List<DeleteContractTemplateVersionRequest> Versions { get; set; } = [];
+}
+
+public sealed class DeleteContractTemplateVersionRequest
+{
+    [Range(1, int.MaxValue)]
+    public int TemplateVersionId { get; set; }
+
+    [Required]
+    public string RowVersion { get; set; } = string.Empty;
+}
+
 /// <summary>
 /// Multipart request. VersionRowVersion protects the Draft from a stale upload.
 /// </summary>

@@ -18,6 +18,7 @@ public sealed class ContractTemplateAuditWriter : IContractTemplateAuditWriter
 
     private static readonly HashSet<string> ActionTypes =
     [
+        ContractTemplateAuditActionTypes.TemplateDeleted,
         ContractTemplateAuditActionTypes.DocumentUploaded,
         ContractTemplateAuditActionTypes.DocumentReplaced,
         ContractTemplateAuditActionTypes.ValidationInvalid,

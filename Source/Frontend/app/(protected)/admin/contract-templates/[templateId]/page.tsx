@@ -15,6 +15,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 
 import { ContractTemplateFormDialog } from "@/components/contract-templates/contract-template-form-dialog";
+import { DeleteContractTemplateButton } from "@/components/contract-templates/delete-contract-template-button";
 import {
   TemplateValidationStatusBadge,
   TemplateVersionStatusBadge,
@@ -200,13 +201,19 @@ export default function ContractTemplateDetailPage() {
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditOpen(true)}
-                  >
-                    <Pencil className="size-4" /> Chỉnh sửa
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditOpen(true)}
+                    >
+                      <Pencil className="size-4" /> Chỉnh sửa
+                    </Button>
+                    <DeleteContractTemplateButton
+                      templateId={templateId}
+                      onDeleted={() => router.replace("/admin/contract-templates")}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
