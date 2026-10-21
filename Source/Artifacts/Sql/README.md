@@ -1,6 +1,8 @@
 # Seed dữ liệu test cho tenant DB mới
 
-Cập nhật theo schema đến `20261021025411_CatalogItemUnits` (21/10/2026).
+Cập nhật theo schema đến `20261021045743_AcceptanceEvidenceSignDate` (21/10/2026).
+
+Ngày ký thực tế nghiệm thu lưu riêng ở `tbl_ContractAcceptanceEvidence.SignDate` và được nhập khi tải bản ký mới. Migration không lấy ngày upload để điền cho bản ký cũ, không đổi các mốc thanh toán đã kích hoạt trước đó.
 
 Catalog seed khai báo rõ đơn vị VI/EN cho từng sản phẩm và dịch vụ mới. Không tự cập nhật đơn vị của bản ghi đã có; hãy điền đơn vị trong màn sửa danh mục nếu cần dùng các bản ghi đó cho hợp đồng mới.
 

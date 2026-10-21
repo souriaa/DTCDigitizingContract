@@ -621,6 +621,10 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 AcceptanceRecordPolicy.EnsureCanTransition(
                     (AcceptanceRecordStatus)row.Status,
                     AcceptanceRecordStatus.Signed);
+                if (!AcceptanceRecordPolicy.IsSignDateValid(request.SignDate, row.AcceptanceDate, DateTimeOffset.UtcNow))
+                    throw Rule("AcceptanceSignDateInvalid",
+                        "Vui lòng chọn ngày ký thực tế, không trước ngày nghiệm thu và không nằm trong tương lai.");
+                var signDate = request.SignDate!.Value.Date;
                 var contract = await _db.TblContracts.SingleAsync(
                     x => x.ContractId == contractId, cancellationToken);
                 var version = await _db.TblContractVersions.SingleAsync(
@@ -655,6 +659,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 {
                     AcceptanceRecordId = acceptanceRecordId,
                     FileId = file.FileId,
+                    SignDate = signDate,
                     UploadedByEmployeeId = employeeId,
                     UploadedAt = now
                 };
@@ -668,7 +673,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                     row.AcceptanceRecordId,
                     version.VersionId,
                     (AcceptanceKind)row.AcceptanceKind,
-                    now.Date,
+                    signDate,
                     employeeId,
                     cancellationToken);
                 // Materialize the evidence identity before using it as an audit
@@ -683,6 +688,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                     SubjectId: evidence.AcceptanceEvidenceId,
                     NewValues: ContractAuditValues.Create(
                         ("AcceptanceEvidenceId", evidence.AcceptanceEvidenceId),
+                        ("SignDate", evidence.SignDate),
                         ("FileId", file.FileId),
                         ("FileType", file.FileType),
                         ("Sha256", file.Sha256),
@@ -1590,6 +1596,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             ContentType = row.file.ContentType ?? string.Empty,
             FileSize = row.file.FileSize ?? 0,
             Sha256 = row.file.Sha256 ?? string.Empty,
+            SignDate = row.evidence.SignDate,
             UploadedByEmployeeId = row.evidence.UploadedByEmployeeId,
             UploadedByEmployeeName = row.EmployeeFullName,
             UploadedAt = row.evidence.UploadedAt,

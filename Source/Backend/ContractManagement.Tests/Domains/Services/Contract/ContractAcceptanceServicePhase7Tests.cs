@@ -103,6 +103,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             new()
             {
                 RowVersion = finalized.RowVersion,
+                SignDate = new DateTime(2026, 9, 20),
                 File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
             }, actorId);
 
@@ -173,6 +174,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             new()
             {
                 RowVersion = finalized.RowVersion,
+                SignDate = new DateTime(2026, 9, 20),
                 File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
             }, EmployeeId);
         var signed = await service.GetAsync(
@@ -183,7 +185,11 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             signed.SignedEvidence!.AcceptanceEvidenceId);
         var milestone = await db.TblContractPaymentMilestones
             .SingleAsync(x => x.PaymentMilestoneId == MilestoneId);
-        Assert.Equal(signed.SignedAt!.Value.Date, milestone.AnchorDate);
+        Assert.Equal(new DateTime(2026, 9, 20), evidence.SignDate);
+        Assert.Equal(evidence.SignDate, milestone.AnchorDate);
+        Assert.Equal(evidence.UploadedAt, signed.SignedAt);
+        Assert.NotEqual(evidence.SignDate, evidence.UploadedAt.Date);
+        Assert.Equal(evidence.SignDate, signed.SignedEvidence.SignDate);
         Assert.Equal(milestone.AnchorDate!.Value.AddDays(5), milestone.DueDate);
         var outsideScope = await db.TblContractPaymentMilestones
             .SingleAsync(x => x.PaymentMilestoneId == MilestoneId + 1);
@@ -493,6 +499,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             finalized.AcceptanceRecordId, new()
             {
                 RowVersion = finalized.RowVersion,
+                SignDate = new DateTime(2026, 9, 20),
                 File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
             }, EmployeeId);
 
@@ -696,6 +703,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
                 finalized.AcceptanceRecordId, new()
                 {
                     RowVersion = finalized.RowVersion,
+                    SignDate = new DateTime(2026, 9, 20),
                     File = FormFile("signed.pdf", "application/pdf", "%PDF-signed")
                 }, EmployeeId));
 
@@ -793,6 +801,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
                 new()
                 {
                     RowVersion = Convert.ToBase64String([9, 8, 7, 6]),
+                    SignDate = new DateTime(2026, 9, 20),
                     File = FormFile(
                         "signed.pdf", "application/pdf", "%PDF-stale")
                 },
@@ -819,7 +828,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
     private static ContractAcceptanceService CreateService(
         DbDtctechContext db,
         TrackingStorage storage,
-        CapturingAuditWriter? audit = null,
+        IContractAuditWriter? audit = null,
         IContractResourceAuthorizationService? authorization = null,
         ContractNotificationProducer? notifications = null)
     {

@@ -32,8 +32,8 @@ END;
 
 IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
     THROW 50026, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021025411_CatalogItemUnits')
-    THROW 50027, N'Tenant chưa có migration CatalogItemUnits. Hãy cập nhật schema trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021045743_AcceptanceEvidenceSignDate')
+    THROW 50027, N'Tenant chưa có migration AcceptanceEvidenceSignDate. Hãy cập nhật schema trước khi seed.', 1;
 IF (SELECT COUNT_BIG(*) FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1) <> 1
     THROW 50021, N'Đặt @SourceAdminAccount thành tài khoản Manager active được provision cho tenant.', 1;
 SELECT @CreatedByEmployeeId = EmployeeId FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1;

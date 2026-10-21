@@ -103,6 +103,7 @@ export interface ContractAcceptanceArtifact {
 }
 
 export interface ContractAcceptanceSignedEvidence {
+  signDate: string | null;
   acceptanceEvidenceId: number;
   contractId: number;
   versionId: number;
@@ -158,10 +159,11 @@ export interface ContractAcceptancePartyInput {
   representativeTitle?: string | null;
 }
 
-const multipart = (file: File, rowVersion: string) => {
+const multipart = (file: File, rowVersion: string, signDate: string) => {
   const data = new FormData();
   data.append("file", file);
   data.append("rowVersion", rowVersion);
+  data.append("signDate", signDate);
   return data;
 };
 
@@ -277,10 +279,11 @@ export const contractAcceptanceApi = {
     recordId: number,
     file: File,
     rowVersion: string,
+    signDate: string,
   ) =>
     axiosClient.post<unknown, ContractAcceptanceSignedEvidence>(
       `${url(contractId)}/${recordId}/signed-evidence`,
-      multipart(file, rowVersion),
+      multipart(file, rowVersion, signDate),
       { headers: { "Content-Type": "multipart/form-data" } },
     ),
   cancel: (
@@ -298,4 +301,8 @@ export const contractAcceptanceApi = {
       `${url(contractId)}/${recordId}/artifacts/${format}`,
       { responseType: "blob" },
     ),
+  downloadSignedEvidence: (fileId: number) =>
+    axiosClient.get<unknown, Blob>(`/api/files/${fileId}/download`, {
+      responseType: "blob",
+    }),
 };

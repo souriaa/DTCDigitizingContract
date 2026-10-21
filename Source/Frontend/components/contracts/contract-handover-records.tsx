@@ -624,7 +624,9 @@ export function ContractHandoverRecords({
             <DocumentRecordSwitcher
               title="Chuyển biên bản bàn giao"
               count={records.length}
-              selectedCode={detailsOpen ? selected?.record.handoverCode : undefined}
+              selectedCode={
+                detailsOpen ? selected?.record.handoverCode : undefined
+              }
               onOpenChange={(open) => {
                 if (!open) setDetailsOpen(false);
               }}
@@ -636,11 +638,16 @@ export function ContractHandoverRecords({
                     key={x.handoverRecordId}
                     variant="outline"
                     aria-pressed={
-                      detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId
+                      detailsOpen &&
+                      selected?.record.handoverRecordId === x.handoverRecordId
                     }
-                    aria-expanded={detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId}
+                    aria-expanded={
+                      detailsOpen &&
+                      selected?.record.handoverRecordId === x.handoverRecordId
+                    }
                     className={`h-auto w-full justify-start rounded-lg p-3 text-left whitespace-normal hover:bg-muted ${
-                      detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId
+                      detailsOpen &&
+                      selected?.record.handoverRecordId === x.handoverRecordId
                         ? "border-primary bg-muted"
                         : ""
                     }`}
@@ -664,7 +671,9 @@ export function ContractHandoverRecords({
                       </div>
                       <p className="text-xs font-normal text-muted-foreground">
                         {day(x.handoverDate)?.toLocaleDateString("vi-VN")}
-                        {detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId &&
+                        {detailsOpen &&
+                          selected?.record.handoverRecordId ===
+                            x.handoverRecordId &&
                           " · Đang xem"}
                       </p>
                     </div>
@@ -693,7 +702,10 @@ export function ContractHandoverRecords({
             </p>
           )}
           {selected && (
-            <div hidden={!detailsOpen} className="space-y-6 rounded-lg border p-4">
+            <div
+              hidden={!detailsOpen}
+              className="space-y-6 rounded-lg border p-4"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1128,10 +1140,9 @@ export function ContractHandoverRecords({
                   <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
                     <b>Biên bản đã chốt và đang chờ bản ký</b>
                     <Label htmlFor="handover-signed-file">
-                      Tệp bản ký hai bên{" "}
-                      <span className="text-red-500">*</span>
+                      Tệp bản ký hai bên <span className="text-red-500">*</span>
                     </Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div>
                       <Input
                         id="handover-signed-file"
                         type="file"
@@ -1154,16 +1165,10 @@ export function ContractHandoverRecords({
                           setFile(next);
                         }}
                       />
-                      <Button
-                        type="button"
-                        disabled={busy || !file || !signDate}
-                        onClick={() => setConfirm("sign")}
-                      >
-                        <FileSignature className="mr-2 size-4" /> Tải bản ký
-                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Tệp PDF/JPG/PNG, tối đa 20 MB. Vui lòng chọn ngày ký thực tế trước khi tải bản ký.
+                      Tệp PDF/JPG/PNG, tối đa 20 MB. Vui lòng chọn ngày ký thực
+                      tế trước khi tải bản ký.
                     </p>
                     <Label>
                       Ngày ký thực tế <span className="text-red-500">*</span>
@@ -1179,14 +1184,25 @@ export function ContractHandoverRecords({
                         to: new Date(),
                       }}
                     />
+                    <div className="flex justify-end border-t border-amber-200 pt-3 dark:border-amber-900/50">
+                      <Button
+                        type="button"
+                        className="w-full sm:w-auto"
+                        disabled={busy || !file || !signDate}
+                        onClick={() => setConfirm("sign")}
+                      >
+                        <FileSignature className="size-4" /> Tải bản ký
+                      </Button>
+                    </div>
                   </div>
                 )}
               {selected.signedEvidence && (
                 <Alert>
-                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  <CheckCircle2 className="size-4" color="green" />
                   <AlertDescription className="space-y-1">
                     <p>
-                      Đã ký · Ngày ký: {selected.signedEvidence.signDate.slice(0, 10)}
+                      Đã ký · Ngày ký:{" "}
+                      {selected.signedEvidence.signDate.slice(0, 10)}
                     </p>
                     <p>
                       Tải bởi{" "}

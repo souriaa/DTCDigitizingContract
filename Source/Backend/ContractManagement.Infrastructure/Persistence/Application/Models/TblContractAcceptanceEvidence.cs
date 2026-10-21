@@ -8,6 +8,7 @@ public sealed class TblContractAcceptanceEvidence
     public int AcceptanceEvidenceId { get; set; }
     public int AcceptanceRecordId { get; set; }
     public int FileId { get; set; }
+    public DateTime? SignDate { get; set; }
     public int UploadedByEmployeeId { get; set; }
     public DateTime UploadedAt { get; set; }
     public byte[] RowVersion { get; set; } = null!;

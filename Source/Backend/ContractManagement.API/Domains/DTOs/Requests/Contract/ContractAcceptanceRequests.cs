@@ -96,5 +96,7 @@ public sealed class CancelContractAcceptanceRecordRequest
 public sealed class UploadContractAcceptanceSignedEvidenceRequest
 {
     public IFormFile File { get; set; } = null!;
+    [Required(ErrorMessage = "Vui lòng chọn ngày ký thực tế.")]
+    public DateTime? SignDate { get; set; }
     [Required] public string RowVersion { get; set; } = string.Empty;
 }
