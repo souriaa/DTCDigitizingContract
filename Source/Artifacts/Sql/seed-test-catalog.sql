@@ -32,8 +32,8 @@ END;
 
 IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
     THROW 50026, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261019090835_HandoverFoundationPhase03')
-    THROW 50027, N'Tenant chưa có migration HandoverFoundationPhase03. Hãy cập nhật schema trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021025411_CatalogItemUnits')
+    THROW 50027, N'Tenant chưa có migration CatalogItemUnits. Hãy cập nhật schema trước khi seed.', 1;
 IF (SELECT COUNT_BIG(*) FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1) <> 1
     THROW 50021, N'Đặt @SourceAdminAccount thành tài khoản Manager active được provision cho tenant.', 1;
 SELECT @CreatedByEmployeeId = EmployeeId FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1;
@@ -167,6 +167,33 @@ VALUES
     (N'Kiểm thử bảo mật ứng dụng', N'Application Security Testing', N'Kiểm thử', 35000000, 0, 0, N'Đánh giá lỗ hổng bảo mật ứng dụng.', N'Kiểm thử theo phạm vi, báo cáo phát hiện và đề xuất khắc phục.', 8, 'kiem-thu-bao-mat-ung-dung'),
     (N'Chuyển đổi dữ liệu hợp đồng', N'Contract Data Migration', N'Chuyển đổi dữ liệu', 40000000, 10000000, 5000000, N'Chuẩn hóa và nhập dữ liệu hợp đồng cũ.', N'Làm sạch dữ liệu, ánh xạ trường và kiểm tra sau chuyển đổi.', 9, 'chuyen-doi-du-lieu-hop-dong'),
     (N'Đánh giá an ninh hệ thống', N'System Security Assessment', N'An ninh mạng', 55000000, 0, 10000000, N'Đánh giá cấu hình và rủi ro an ninh mạng.', N'Rà soát kiến trúc, kiểm tra cấu hình và lập kế hoạch cải thiện.', 10, 'danh-gia-an-ninh-he-thong');
+
+-- Đơn vị được khai báo riêng cho dữ liệu test mới, không suy đoán hoặc ghi đè dữ liệu hiện có.
+DECLARE @ProductUnitSeed table (ProductCode varchar(20) PRIMARY KEY, UnitName nvarchar(100) NOT NULL, UnitNameEn nvarchar(100) NOT NULL);
+INSERT INTO @ProductUnitSeed VALUES
+    ('DTC-CONTRACT', N'Giấy phép', N'License'),
+    ('DTC-CRM', N'Giấy phép', N'License'),
+    ('DTC-ERP', N'Giấy phép', N'License'),
+    ('CLOUD-STD', N'Máy chủ', N'Server'),
+    ('NETWORK-GW', N'Thiết bị', N'Device'),
+    ('ENDPOINT-SEC', N'Giấy phép', N'License'),
+    ('FIREWALL-ENT', N'Thiết bị', N'Device'),
+    ('DOC-SCANNER', N'Máy', N'Unit'),
+    ('DATA-ANALYTICS', N'Giấy phép', N'License'),
+    ('BACKUP-APPLIANCE', N'Thiết bị', N'Device');
+
+DECLARE @ServiceUnitSeed table (ServiceName nvarchar(200) PRIMARY KEY, UnitName nvarchar(100) NOT NULL, UnitNameEn nvarchar(100) NOT NULL);
+INSERT INTO @ServiceUnitSeed VALUES
+    (N'Tư vấn quy trình quản lý hợp đồng', N'Gói', N'Package'),
+    (N'Triển khai DTC Contract Hub', N'Gói', N'Package'),
+    (N'Tích hợp ERP và CRM', N'Gói', N'Package'),
+    (N'Bảo trì phần mềm hàng năm', N'Năm', N'Year'),
+    (N'Đào tạo quản trị viên hệ thống', N'Khóa', N'Course'),
+    (N'Hỗ trợ kỹ thuật 24/7', N'Năm', N'Year'),
+    (N'Cloud Hosting Standard', N'Tháng', N'Month'),
+    (N'Kiểm thử bảo mật ứng dụng', N'Gói', N'Package'),
+    (N'Chuyển đổi dữ liệu hợp đồng', N'Gói', N'Package'),
+    (N'Đánh giá an ninh hệ thống', N'Gói', N'Package');
 
 DECLARE @InsertedCategories table
 (
@@ -325,6 +352,8 @@ BEGIN TRY
         ProductCode,
         ProductName,
         ProductNameEn,
+        UnitName,
+        UnitNameEn,
         CategoryId,
         ProductShortDesc,
         ProductDetails,
@@ -344,6 +373,8 @@ BEGIN TRY
         source.ProductCode,
         source.ProductName,
         source.ProductNameEn,
+        units.UnitName,
+        units.UnitNameEn,
         category.CategoryId,
         source.ProductShortDesc,
         source.ProductDetails,
@@ -357,6 +388,7 @@ BEGIN TRY
         GETDATE(),
         N'Dữ liệu test catalog'
     FROM @ProductSeed AS source
+    INNER JOIN @ProductUnitSeed AS units ON units.ProductCode = source.ProductCode
     INNER JOIN dbo.tbl_Categories AS category
         ON category.CategoryName = source.CategoryName
     WHERE NOT EXISTS
@@ -386,6 +418,8 @@ BEGIN TRY
     (
         ServiceName,
         ServiceNameEn,
+        UnitName,
+        UnitNameEn,
         ServiceParentId,
         UserCreated,
         DateCreated,
@@ -410,6 +444,8 @@ BEGIN TRY
     SELECT
         source.ServiceName,
         source.ServiceNameEn,
+        units.UnitName,
+        units.UnitNameEn,
         NULL,
         @CreatedByEmployeeId,
         GETDATE(),
@@ -429,6 +465,7 @@ BEGIN TRY
         source.ServiceName,
         source.ServiceShortDesc
     FROM @ServiceSeed AS source
+    INNER JOIN @ServiceUnitSeed AS units ON units.ServiceName = source.ServiceName
     INNER JOIN dbo.tbl_ServiceTypes AS serviceType
         ON serviceType.ServiceTypeName = source.ServiceTypeName
     WHERE NOT EXISTS

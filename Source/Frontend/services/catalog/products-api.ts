@@ -30,6 +30,8 @@ export interface ProductFilterParams {
 }
 
 export interface CreateProductRequest {
+  unitName: string;
+  unitNameEn: string;
   productCode?: string | null;
   productName: string;
   productNameEn: string;
@@ -50,6 +52,8 @@ export interface CreateProductRequest {
 }
 
 export interface UpdateProductRequest {
+  unitName: string;
+  unitNameEn: string;
   productCode?: string | null;
   productName: string;
   productNameEn: string;
@@ -70,6 +74,8 @@ export interface UpdateProductRequest {
 }
 
 export interface ProductResponse {
+  unitName: string | null;
+  unitNameEn: string | null;
   productId: number;
   productCode?: string;
   productName?: string;

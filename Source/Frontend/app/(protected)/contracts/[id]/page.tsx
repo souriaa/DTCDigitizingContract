@@ -446,7 +446,7 @@ export default function ContractDetailPage() {
 
       for (const item of contract.currentVersion.items) {
         if (!item.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn?.trim())) {
-          toast.error(`Vui lòng nhập đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""} cho “${item.itemName}”.`);
+          toast.error(`“${item.itemName}” thiếu đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""}. Hãy cập nhật danh mục và thêm lại hạng mục trước khi lưu.`);
           return;
         }
         if (

@@ -1065,6 +1065,8 @@ public sealed partial class ContractServiceSlice04Tests
             ProductCode = "P-01",
             ProductName = "Product",
             ProductNameEn = "Catalog product",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblServices.Add(new TblService
@@ -1072,6 +1074,8 @@ public sealed partial class ContractServiceSlice04Tests
             ServiceId = ServiceId,
             ServiceName = "Service",
             ServiceNameEn = "Catalog service",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblContractTemplates.Add(new TblContractTemplate

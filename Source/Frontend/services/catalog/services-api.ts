@@ -31,6 +31,8 @@ export interface ServiceFilterParams {
 }
 
 export interface CreateServiceRequest {
+  unitName: string;
+  unitNameEn: string;
   serviceName: string;
   serviceNameEn: string;
   serviceTypeId: number;
@@ -52,6 +54,8 @@ export interface CreateServiceRequest {
 }
 
 export interface UpdateServiceRequest {
+  unitName: string;
+  unitNameEn: string;
   serviceName: string;
   serviceNameEn: string;
   serviceTypeId: number;
@@ -73,6 +77,8 @@ export interface UpdateServiceRequest {
 }
 
 export interface ServiceResponse {
+  unitName: string | null;
+  unitNameEn: string | null;
   serviceId: number;
   serviceName?: string | null;
   serviceNameEn: string | null;

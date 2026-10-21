@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, Download, Eye, Loader2, Plus, Save, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  Eye,
+  FileSignature,
+  Loader2,
+  Plus,
+  Save,
+  Truck,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +49,9 @@ import {
   DocumentPartyFields,
 } from "@/components/contract-documents/document-party-fields";
 import { DocumentQuantitySelector } from "@/components/contract-documents/document-quantity-selector";
+import { DocumentRecordSwitcher } from "@/components/contract-documents/document-record-switcher";
+import { DocumentRecordPagination } from "@/components/contract-documents/document-record-pagination";
+import { useDocumentRecordPagination } from "@/hooks/use-document-record-pagination";
 import { ContractTermCard } from "@/components/contracts/contract-term-card";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
@@ -91,10 +104,19 @@ export function ContractHandoverRecords({
   onChanged: () => Promise<void>;
 }) {
   const [records, setRecords] = useState<HandoverSummary[]>([]);
+  const {
+    page: recordPage,
+    pageSize: recordPageSize,
+    totalPages: totalRecordPages,
+    paginatedRecords,
+    setPage: setRecordPage,
+    changePageSize: changeRecordPageSize,
+  } = useDocumentRecordPagination(records, contract.contractId);
   const [readiness, setReadiness] = useState<HandoverReadiness>();
   const [templates, setTemplates] = useState<HandoverTemplate[]>([]);
   const [candidates, setCandidates] = useState<HandoverScopeCandidate[]>([]);
   const [selected, setSelected] = useState<HandoverDetail>();
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -129,10 +151,15 @@ export function ContractHandoverRecords({
       setOpenSections(new Set());
     }
     setSelected(next);
+    setDetailsOpen(true);
     setSaved(JSON.stringify(next));
   };
   const openRecord = async (recordId: number) => {
     if (busy) return;
+    if (selected?.record.handoverRecordId === recordId) {
+      setDetailsOpen(true);
+      return;
+    }
     if (dirty) {
       toast.error("Vui lòng lưu thay đổi trước khi mở biên bản khác.");
       return;
@@ -145,6 +172,14 @@ export function ContractHandoverRecords({
     } finally {
       setBusy(false);
     }
+  };
+  const toggleRecord = (recordId: number) => {
+    if (busy) return;
+    if (selected?.record.handoverRecordId === recordId) {
+      setDetailsOpen((open) => !open);
+      return;
+    }
+    void openRecord(recordId);
   };
   const load = useCallback(async () => {
     try {
@@ -186,6 +221,7 @@ export function ContractHandoverRecords({
     try {
       const next = await action();
       acceptRecord(next);
+      setRecordPage(1);
       toast.success(message);
       await refresh();
       return next;
@@ -584,40 +620,71 @@ export function ContractHandoverRecords({
               </p>
             </div>
           ))}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {records.map((x) => (
-              <Button
-                type="button"
-                key={x.handoverRecordId}
-                variant="outline"
-                aria-pressed={selected?.record.handoverRecordId === x.handoverRecordId}
-                className={`h-auto w-full justify-start rounded-lg p-3 text-left whitespace-normal hover:bg-muted ${
-                  selected?.record.handoverRecordId === x.handoverRecordId
-                    ? "border-primary bg-muted"
-                    : ""
-                }`}
-                disabled={busy}
-                onClick={() => void openRecord(x.handoverRecordId)}
-              >
-                <div className="w-full space-y-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 break-words font-semibold">{x.handoverCode}</span>
-                    <Badge variant={x.status === HandoverStatus.Cancelled ? "destructive" : "secondary"}>
-                      {statusText[x.status]}
-                    </Badge>
-                  </div>
-                  <p className="text-xs font-normal text-muted-foreground">
-                    {day(x.handoverDate)?.toLocaleDateString("vi-VN")}
-                    {selected?.record.handoverRecordId === x.handoverRecordId && " · Đang xem"}
-                  </p>
-                </div>
-              </Button>
-            ))}
-          </div>
+          {records.length > 0 && (
+            <DocumentRecordSwitcher
+              title="Chuyển biên bản bàn giao"
+              count={records.length}
+              selectedCode={detailsOpen ? selected?.record.handoverCode : undefined}
+              onOpenChange={(open) => {
+                if (!open) setDetailsOpen(false);
+              }}
+            >
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {paginatedRecords.map((x) => (
+                  <Button
+                    type="button"
+                    key={x.handoverRecordId}
+                    variant="outline"
+                    aria-pressed={
+                      detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId
+                    }
+                    aria-expanded={detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId}
+                    className={`h-auto w-full justify-start rounded-lg p-3 text-left whitespace-normal hover:bg-muted ${
+                      detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId
+                        ? "border-primary bg-muted"
+                        : ""
+                    }`}
+                    disabled={busy}
+                    onClick={() => toggleRecord(x.handoverRecordId)}
+                  >
+                    <div className="w-full space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 break-words font-semibold">
+                          {x.handoverCode}
+                        </span>
+                        <Badge
+                          variant={
+                            x.status === HandoverStatus.Cancelled
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {statusText[x.status]}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {day(x.handoverDate)?.toLocaleDateString("vi-VN")}
+                        {detailsOpen && selected?.record.handoverRecordId === x.handoverRecordId &&
+                          " · Đang xem"}
+                      </p>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+              <DocumentRecordPagination
+                totalCount={records.length}
+                page={recordPage}
+                pageSize={recordPageSize}
+                totalPages={totalRecordPages}
+                onPageChange={setRecordPage}
+                onPageSizeChange={changeRecordPageSize}
+              />
+            </DocumentRecordSwitcher>
+          )}
           {readiness?.activeRecordId && !selected && (
             <p className="text-sm text-muted-foreground">
-              Mở bản nháp/chờ ký phía trên để tiếp tục, hoặc hủy trước khi tạo
-              lần mới.
+              Mở danh sách biên bản phía trên và chọn bản nháp/chờ ký để tiếp
+              tục, hoặc hủy trước khi tạo lần mới.
             </p>
           )}
           {!loading && records.length === 0 && (
@@ -626,7 +693,7 @@ export function ContractHandoverRecords({
             </p>
           )}
           {selected && (
-            <div className="space-y-6 rounded-lg border p-4">
+            <div hidden={!detailsOpen} className="space-y-6 rounded-lg border p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -644,10 +711,20 @@ export function ContractHandoverRecords({
                   </p>
                 </div>
                 <div className="ml-auto flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void documentFile("pdf")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void documentFile("pdf")}
+                  >
                     <Eye className="size-4" /> PDF
                   </Button>
-                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void documentFile("docx")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void documentFile("docx")}
+                  >
                     <Download className="size-4" /> DOCX
                   </Button>
                 </div>
@@ -655,17 +732,33 @@ export function ContractHandoverRecords({
               {editable && (
                 <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-primary/30 bg-background/95 p-3 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold">Chỉnh sửa bản nháp bàn giao</p>
-                    <p className="text-xs text-muted-foreground">
-                      Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn bộ nội dung biên bản.
-                      Có thể dùng Ctrl+S (hoặc ⌘+S).
+                    <p className="text-sm font-semibold">
+                      Chỉnh sửa bản nháp bàn giao
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground" role="status">
-                      {dirty ? "Có thay đổi chưa được lưu." : "Bản nháp đã được lưu."}
+                    <p className="text-xs text-muted-foreground">
+                      Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn
+                      bộ nội dung biên bản. Có thể dùng Ctrl+S (hoặc ⌘+S).
+                    </p>
+                    <p
+                      className="mt-1 text-xs text-muted-foreground"
+                      role="status"
+                    >
+                      {dirty
+                        ? "Có thay đổi chưa được lưu."
+                        : "Bản nháp đã được lưu."}
                     </p>
                   </div>
-                  <Button type="button" className="shrink-0 gap-2" disabled={busy || !dirty} onClick={() => void save()}>
-                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  <Button
+                    type="button"
+                    className="shrink-0 gap-2"
+                    disabled={busy || !dirty}
+                    onClick={() => void save()}
+                  >
+                    {busy ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Save className="size-4" />
+                    )}
                     Lưu tất cả thay đổi
                   </Button>
                 </div>
@@ -795,8 +888,15 @@ export function ContractHandoverRecords({
               )}
               <Collapsible defaultOpen={false}>
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost">
-                    Thông tin hai bên <ChevronDown className="size-4" />
+                  <Button
+                    variant="ghost"
+                    className="group/handover-parties mb-2"
+                  >
+                    Thông tin hai bên
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="size-4 transition-transform duration-200 group-data-[state=open]/handover-parties:-rotate-180 motion-reduce:transition-none"
+                    />
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="grid gap-4 sm:grid-cols-2">
@@ -831,8 +931,15 @@ export function ContractHandoverRecords({
               </Collapsible>
               <Collapsible defaultOpen={false}>
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost">
-                    Nội dung bàn giao <ChevronDown className="size-4" />
+                  <Button
+                    variant="ghost"
+                    className="group/handover-parties mb-2"
+                  >
+                    Nội dung bàn giao{" "}
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="size-4 transition-transform duration-200 group-data-[state=open]/handover-parties:-rotate-180 motion-reduce:transition-none"
+                    />
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3">
@@ -1018,30 +1125,46 @@ export function ContractHandoverRecords({
               {canManage &&
                 contract.status === ContractStatus.Signed &&
                 selected.record.status === HandoverStatus.Finalized && (
-                  <div className="space-y-3 rounded-lg border p-3">
-                    <Label>
-                      Bản ký hai bên (PDF/JPG/PNG, tối đa 20 MB){" "}
+                  <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
+                    <b>Biên bản đã chốt và đang chờ bản ký</b>
+                    <Label htmlFor="handover-signed-file">
+                      Tệp bản ký hai bên{" "}
                       <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      disabled={busy}
-                      onChange={(e) => {
-                        const next = e.target.files?.[0];
-                        if (
-                          next &&
-                          (next.size > 20 * 1024 * 1024 ||
-                            !/\.(pdf|jpe?g|png)$/i.test(next.name))
-                        ) {
-                          toast.error("Chọn tệp PDF/JPG/PNG tối đa 20 MB.");
-                          e.target.value = "";
-                          setFile(undefined);
-                          return;
-                        }
-                        setFile(next);
-                      }}
-                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="handover-signed-file"
+                        type="file"
+                        required
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        disabled={busy}
+                        className="bg-background"
+                        onChange={(e) => {
+                          const next = e.target.files?.[0];
+                          if (
+                            next &&
+                            (next.size > 20 * 1024 * 1024 ||
+                              !/\.(pdf|jpe?g|png)$/i.test(next.name))
+                          ) {
+                            toast.error("Chọn tệp PDF/JPG/PNG tối đa 20 MB.");
+                            e.target.value = "";
+                            setFile(undefined);
+                            return;
+                          }
+                          setFile(next);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        disabled={busy || !file || !signDate}
+                        onClick={() => setConfirm("sign")}
+                      >
+                        <FileSignature className="mr-2 size-4" /> Tải bản ký
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tệp PDF/JPG/PNG, tối đa 20 MB. Vui lòng chọn ngày ký thực tế trước khi tải bản ký.
+                    </p>
                     <Label>
                       Ngày ký thực tế <span className="text-red-500">*</span>
                     </Label>
@@ -1056,32 +1179,30 @@ export function ContractHandoverRecords({
                         to: new Date(),
                       }}
                     />
-                    <Button
-                      disabled={busy || !file || !signDate}
-                      onClick={() => setConfirm("sign")}
-                    >
-                      Tải bản ký
-                    </Button>
                   </div>
                 )}
               {selected.signedEvidence && (
-                <div className="rounded-lg border p-3 text-sm">
-                  <p>
-                    Ngày ký: {selected.signedEvidence.signDate.slice(0, 10)}
-                  </p>
-                  <p>
-                    Tải bởi{" "}
-                    {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
-                    {dateText(selected.signedEvidence.uploadedAt)}
-                  </p>
-                  <Button
-                    variant="link"
-                    disabled={busy}
-                    onClick={() => void documentFile("evidence")}
-                  >
-                    {selected.signedEvidence.fileName}
-                  </Button>
-                </div>
+                <Alert>
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  <AlertDescription className="space-y-1">
+                    <p>
+                      Đã ký · Ngày ký: {selected.signedEvidence.signDate.slice(0, 10)}
+                    </p>
+                    <p>
+                      Tải bởi{" "}
+                      {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
+                      {dateText(selected.signedEvidence.uploadedAt)}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      disabled={busy}
+                      onClick={() => void documentFile("evidence")}
+                    >
+                      {selected.signedEvidence.fileName}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           )}

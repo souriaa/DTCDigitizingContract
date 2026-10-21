@@ -1,6 +1,8 @@
 # Seed dữ liệu test cho tenant DB mới
 
-Cập nhật theo schema đến `20261019090835_HandoverFoundationPhase03` (20/10/2026).
+Cập nhật theo schema đến `20261021025411_CatalogItemUnits` (21/10/2026).
+
+Catalog seed khai báo rõ đơn vị VI/EN cho từng sản phẩm và dịch vụ mới. Không tự cập nhật đơn vị của bản ghi đã có; hãy điền đơn vị trong màn sửa danh mục nếu cần dùng các bản ghi đó cho hợp đồng mới.
 
 Các file SQL ở đây **chỉ thêm dữ liệu mẫu**, không tạo database/schema, không thay thế EF migration và không phải bản backup. Không dùng trên production.
 

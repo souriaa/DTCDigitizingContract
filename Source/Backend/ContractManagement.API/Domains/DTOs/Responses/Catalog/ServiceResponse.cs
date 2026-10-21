@@ -10,6 +10,8 @@
         public string? ServiceName { get; set; }
 
         public string? ServiceNameEn { get; set; }
+        public string? UnitName { get; set; }
+        public string? UnitNameEn { get; set; }
 
         public byte? ServiceTypeId { get; set; }
 

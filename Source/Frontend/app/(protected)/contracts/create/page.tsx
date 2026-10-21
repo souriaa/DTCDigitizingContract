@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 
 // Các import UI component
 import { CreateContractAppendicesEditor } from "@/components/contracts/create-contract-appendices-editor";
-import { ContractItemUnitFields } from "@/components/contracts/contract-item-unit-fields";
 import { createAppendixFromTemplate, getAppendixDraftError, toCreateAppendixRequest, type CreateAppendixDraft } from "@/lib/contract-appendix-draft";
 import { Header } from "@/components/ui/custom/header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -180,8 +179,8 @@ const mapProductToCatalogItem = (product: ProductResponse): CatalogItem => ({
   originalId: product.productId,
   itemName: product.productName || "Sản phẩm không tên",
   itemNameEn: product.productNameEn ?? "",
-  unitName: "",
-  unitNameEn: "",
+  unitName: product.unitName ?? "",
+  unitNameEn: product.unitNameEn ?? "",
   itemType: ContractItemType.Product,
   unitPrice: product.productPrice || 0,
   quantity: 1,
@@ -197,8 +196,8 @@ const mapServiceToCatalogItem = (service: ServiceResponse): CatalogItem => ({
   originalId: service.serviceId,
   itemName: service.serviceName || "Dịch vụ không tên",
   itemNameEn: service.serviceNameEn ?? "",
-  unitName: "",
-  unitNameEn: "",
+  unitName: service.unitName ?? "",
+  unitNameEn: service.unitNameEn ?? "",
   itemType: ContractItemType.Service,
   unitPrice: service.servicePrice || 0,
   quantity: 1,
@@ -730,7 +729,8 @@ export default function CreateContractPage() {
           );
           const fetchedIds = new Set(fetchedItems.map((item) => item.id));
           const mergedFetchedItems = fetchedItems.map(
-            (item) => ({ ...(currentById.get(item.id) ?? item), itemNameEn: item.itemNameEn }),
+            (item) => ({ ...(currentById.get(item.id) ?? item), itemNameEn: item.itemNameEn,
+              unitName: item.unitName, unitNameEn: item.unitNameEn }),
           );
 
           return [
@@ -1064,8 +1064,6 @@ export default function CreateContractPage() {
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
     clearFieldError(`item-card-${id}`);
-    if (patch.unitName !== undefined) clearFieldError(`item-unit-${id}`);
-    if (patch.unitNameEn !== undefined) clearFieldError(`item-unit-en-${id}`);
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -1181,10 +1179,10 @@ export default function CreateContractPage() {
       !item.unitName.trim() || (languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn.trim()));
     if (missingUnitItem) {
       const english = Boolean(missingUnitItem.unitName.trim());
-      toast.error(`Vui lòng nhập đơn vị${english ? " tiếng Anh" : ""} cho “${missingUnitItem.itemName}”.`);
+      toast.error(`“${missingUnitItem.itemName}” thiếu đơn vị${english ? " tiếng Anh" : ""} trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi chọn.`);
       setCurrentStep(1);
-      ensureCatalogItemVisible(missingUnitItem.id, `contract-item-${missingUnitItem.id}-unit${english ? "-en" : ""}`);
-      setFieldErrors({ [`item-unit-${english ? "en-" : ""}${missingUnitItem.id}`]: true });
+      ensureCatalogItemVisible(missingUnitItem.id, `contract-item-card-${missingUnitItem.id}`);
+      setFieldErrors({ [`item-card-${missingUnitItem.id}`]: true });
       return;
     }
     const invalidFinanceItem = selectedCatalogItems.find((item) => {
@@ -1259,8 +1257,6 @@ export default function CreateContractPage() {
               ? item.itemNameEn.trim()
               : null,
           quantity: item.quantity,
-          unitName: item.unitName.trim(),
-          unitNameEn: languageMode === ContractLanguageMode.Bilingual ? item.unitNameEn.trim() : null,
           unitPrice: item.unitPrice,
           discountMode: item.discountMode,
           discountPercent: item.discountPercent,
@@ -2194,15 +2190,16 @@ export default function CreateContractPage() {
 
                           {selected && (
                             <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-4">
-                              <ContractItemUnitFields
-                                idPrefix={`contract-item-${item.id}`}
-                                unitName={item.unitName}
-                                unitNameEn={item.unitNameEn}
-                                isBilingual={languageMode === ContractLanguageMode.Bilingual}
-                                invalidUnitName={fieldErrors[`item-unit-${item.id}`]}
-                                invalidUnitNameEn={fieldErrors[`item-unit-en-${item.id}`]}
-                                onChange={(field, value) => updateCatalogItem(item.id, { [field]: value })}
-                              />
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Đơn vị</Label>
+                                <p className="text-sm">{item.unitName || "Chưa có đơn vị trong danh mục"}</p>
+                              </div>
+                              {languageMode === ContractLanguageMode.Bilingual && (
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">Đơn vị tiếng Anh</Label>
+                                  <p className="text-sm">{item.unitNameEn || "Chưa có đơn vị tiếng Anh trong danh mục"}</p>
+                                </div>
+                              )}
                               {languageMode ===
                                 ContractLanguageMode.Bilingual && (
                                 <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">

@@ -2736,6 +2736,7 @@ public partial class DbDtctechContext : DbContext
             entity.Property(e => e.ServiceTypeName).HasMaxLength(200);
         });
 
+        ConfigureCatalogUnits(modelBuilder);
         ConfigureHandover(modelBuilder);
         ConfigurePlaceholders(modelBuilder);
         ConfigureLegalBases(modelBuilder);

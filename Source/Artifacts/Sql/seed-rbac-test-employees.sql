@@ -32,8 +32,8 @@ END;
 
 IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
     THROW 50004, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261019090835_HandoverFoundationPhase03')
-    THROW 50005, N'Tenant chưa có migration HandoverFoundationPhase03. Hãy cập nhật schema trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021025411_CatalogItemUnits')
+    THROW 50005, N'Tenant chưa có migration CatalogItemUnits. Hãy cập nhật schema trước khi seed.', 1;
 
 IF (
     SELECT COUNT_BIG(*)

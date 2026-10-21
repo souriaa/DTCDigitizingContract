@@ -5731,6 +5731,16 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitNameEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("ViewTotal")
                         .HasColumnType("int");
 
@@ -5940,6 +5950,16 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("TitleBrowser")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitNameEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int?>("UserCreated")
                         .HasColumnType("int");

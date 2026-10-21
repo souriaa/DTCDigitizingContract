@@ -63,7 +63,6 @@ import {
   getContractCounterpartyLabel,
 } from "@/services/contract-api";
 import { InfoCard } from "./contract-helpers";
-import { ContractItemUnitFields } from "./contract-item-unit-fields";
 import { formatDate } from "@/lib/format-date";
 import {
   calculateContractItemAmounts,
@@ -75,6 +74,8 @@ interface CatalogItem {
   originalId: number;
   itemName: string;
   itemNameEn: string;
+  unitName: string | null;
+  unitNameEn: string | null;
   itemType: ContractItemType;
   unitPrice: number;
 }
@@ -156,6 +157,17 @@ export function ContractOverview({
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<"all" | "service" | "product">(
+    "all",
+  );
+  const visibleCatalogItems = catalogItems.filter(
+    (item) =>
+      catalogTab === "all" ||
+      item.itemType ===
+        (catalogTab === "product"
+          ? ContractItemType.Product
+          : ContractItemType.Service),
+  );
 
   const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
   const [debouncedCatalogQuery, setDebouncedCatalogQuery] = useState("");
@@ -168,21 +180,19 @@ export function ContractOverview({
   }, [catalogSearchQuery]);
 
   const [itemsSearchQuery, setItemsSearchQuery] = useState("");
-  const [itemsTab, setItemsTab] = useState<"product" | "service">(() =>
-    contract.currentVersion?.items.some(
-      (item) => item.itemType === ContractItemType.Product,
-    )
-      ? "product"
-      : "service",
+  const [itemsTab, setItemsTab] = useState<"all" | "product" | "service">(
+    "all",
   );
   const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  const currentItemType = itemsTab === "product"
-    ? ContractItemType.Product
-    : ContractItemType.Service;
+  const currentItemType =
+    itemsTab === "product"
+      ? ContractItemType.Product
+      : ContractItemType.Service;
   const filteredItems = (contract.currentVersion?.items || []).filter(
-    (item) => item.itemType === currentItemType &&
+    (item) =>
+      (itemsTab === "all" || item.itemType === currentItemType) &&
       item.itemName.toLowerCase().includes(itemsSearchQuery.toLowerCase()),
   );
 
@@ -228,6 +238,8 @@ export function ContractOverview({
               originalId: p.productId,
               itemName: p.productName || "Sản phẩm không tên",
               itemNameEn: p.productNameEn ?? "",
+              unitName: p.unitName,
+              unitNameEn: p.unitNameEn,
               itemType: ContractItemType.Product,
               unitPrice: p.productPrice || 0,
             }));
@@ -239,6 +251,8 @@ export function ContractOverview({
               originalId: s.serviceId,
               itemName: s.serviceName || "Dịch vụ không tên",
               itemNameEn: s.serviceNameEn ?? "",
+              unitName: s.unitName,
+              unitNameEn: s.unitNameEn,
               itemType: ContractItemType.Service,
               unitPrice: s.servicePrice || 0,
             }));
@@ -263,6 +277,10 @@ export function ContractOverview({
 
   const handleAddCatalogItem = (catalogItem: CatalogItem) => {
     if (!contract || !contract.currentVersion) return;
+    if (!catalogItem.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !catalogItem.unitNameEn?.trim())) {
+      toast.error(`“${catalogItem.itemName}” thiếu đơn vị trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi thêm vào hợp đồng.`);
+      return;
+    }
 
     const exists = contract.currentVersion.items.some(
       (i) =>
@@ -294,8 +312,8 @@ export function ContractOverview({
       itemNameEn: catalogItem.itemNameEn,
       itemDescription: null,
       itemDescriptionEn: null,
-      unitName: "",
-      unitNameEn: "",
+      unitName: catalogItem.unitName,
+      unitNameEn: catalogItem.unitNameEn,
       quantity: 1,
       unitPrice: catalogItem.unitPrice,
       discountMode: ContractItemDiscountMode.None,
@@ -322,9 +340,10 @@ export function ContractOverview({
       catalogItem.itemType === ContractItemType.Product ? "product" : "service",
     );
     setItemsSearchQuery("");
-    const nextCount = contract.currentVersion.items.filter(
-      (item) => item.itemType === catalogItem.itemType,
-    ).length + 1;
+    const nextCount =
+      contract.currentVersion.items.filter(
+        (item) => item.itemType === catalogItem.itemType,
+      ).length + 1;
     setItemsCurrentPage(Math.ceil(nextCount / itemsPerPage));
   };
 
@@ -376,7 +395,11 @@ export function ContractOverview({
       <Card>
         <CardHeader>
           <CardTitle>Tổng quan hợp đồng</CardTitle>
-          <p className="text-sm text-muted-foreground">Chiều giao dịch: {getContractDirectionLabel(contract.contractDirection)} — Đối tác: {getContractCounterpartyLabel(contract.contractDirection)}</p>
+          <p className="text-sm text-muted-foreground">
+            Chiều giao dịch:{" "}
+            {getContractDirectionLabel(contract.contractDirection)} — Đối tác:{" "}
+            {getContractCounterpartyLabel(contract.contractDirection)}
+          </p>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* SỬA TÊN HỢP ĐỒNG */}
@@ -422,7 +445,8 @@ export function ContractOverview({
             {isEditable ? (
               <div className="rounded-xl border bg-muted/30 p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 font-semibold">
-                  <Users className="size-4" /> {getContractCounterpartyLabel(contract.contractDirection)}
+                  <Users className="size-4" />{" "}
+                  {getContractCounterpartyLabel(contract.contractDirection)}
                 </div>
                 <Select
                   value={String(contract.customer?.customerId || "")}
@@ -449,7 +473,9 @@ export function ContractOverview({
                   }}
                 >
                   <SelectTrigger className="w-full h-9 bg-background">
-                    <SelectValue placeholder={`Chọn ${getContractCounterpartyLabel(contract.contractDirection).toLocaleLowerCase()}`} />
+                    <SelectValue
+                      placeholder={`Chọn ${getContractCounterpartyLabel(contract.contractDirection).toLocaleLowerCase()}`}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map((c) => (
@@ -508,12 +534,15 @@ export function ContractOverview({
           <Separator />
 
           {/* SỬA SẢN PHẨM / DỊCH VỤ (ITEMS) */}
-          <Tabs value={itemsTab} onValueChange={(value) => {
-            if (value !== "product" && value !== "service") return;
-            setItemsTab(value);
-            setItemsCurrentPage(1);
-            setItemsSearchQuery("");
-          }}>
+          <Tabs
+            value={itemsTab}
+            onValueChange={(value) => {
+              if (value !== "all" && value !== "product" && value !== "service") return;
+              setItemsTab(value);
+              setItemsCurrentPage(1);
+              setItemsSearchQuery("");
+            }}
+          >
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold">Sản phẩm / Dịch vụ</h4>
               {isEditable && (
@@ -529,462 +558,526 @@ export function ContractOverview({
                       <DialogTitle>Thêm Sản phẩm / Dịch vụ</DialogTitle>
                     </DialogHeader>
 
-                    <div className="relative mt-2">
-                      <Input
-                        type="text"
-                        placeholder="Tìm theo mã hoặc tên sản phẩm/dịch vụ..."
-                        className="bg-background w-full"
-                        value={catalogSearchQuery}
-                        onChange={(e) => setCatalogSearchQuery(e.target.value)}
-                      />
-                    </div>
+                    <Tabs
+                      value={catalogTab}
+                      onValueChange={(value) => {
+                        if (
+                          value === "all" ||
+                          value === "service" ||
+                          value === "product"
+                        )
+                          setCatalogTab(value);
+                      }}
+                      className="flex min-h-0 flex-1 flex-col"
+                    >
+                      <TabsList className="w-full shrink-0">
+                        <TabsTrigger value="all" className="flex-1">
+                          Tất cả
+                        </TabsTrigger>
+                        <TabsTrigger value="product" className="flex-1">
+                          Sản phẩm
+                        </TabsTrigger>
+                        <TabsTrigger value="service" className="flex-1">
+                          Dịch vụ
+                        </TabsTrigger>
+                      </TabsList>
+                      <div className="relative mt-2">
+                        <Input
+                          type="text"
+                          placeholder="Tìm theo mã hoặc tên sản phẩm/dịch vụ..."
+                          className="bg-background w-full"
+                          value={catalogSearchQuery}
+                          onChange={(e) =>
+                            setCatalogSearchQuery(e.target.value)
+                          }
+                        />
+                      </div>
 
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4">
-                      {isLoadingCatalog ? (
-                        <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="size-5 animate-spin text-primary" />
-                          Đang tải danh sách...
-                        </div>
-                      ) : (
-                        catalogItems.map((item) => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer w-full text-left"
-                            onClick={() => handleAddCatalogItem(item)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Package className="size-5" />
+                      <TabsContent
+                        value={catalogTab}
+                        className="min-h-0 flex-1 overflow-y-auto pr-2 space-y-2 mt-4"
+                      >
+                        {isLoadingCatalog ? (
+                          <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-2">
+                            <Loader2 className="size-5 animate-spin text-primary" />
+                            Đang tải danh sách...
+                          </div>
+                        ) : visibleCatalogItems.length === 0 ? (
+                          <p className="py-8 text-center text-sm text-muted-foreground">
+                            Không tìm thấy{" "}
+                            {catalogTab === "product"
+                              ? "sản phẩm"
+                              : catalogTab === "service"
+                                ? "dịch vụ"
+                                : "sản phẩm/dịch vụ"}{" "}
+                            phù hợp.
+                          </p>
+                        ) : (
+                          visibleCatalogItems.map((item) => (
+                            <button
+                              type="button"
+                              key={item.id}
+                              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer w-full text-left"
+                              onClick={() => handleAddCatalogItem(item)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                  <Package className="size-5" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{item.itemName}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.itemType === ContractItemType.Product
+                                      ? "Sản phẩm"
+                                      : "Dịch vụ"}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{item.itemName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {item.itemType === ContractItemType.Product
-                                    ? "Sản phẩm"
-                                    : "Dịch vụ"}
-                                </p>
-                              </div>
-                            </div>
-                            <span className="font-semibold text-primary">
-                              {formatCurrency(
-                                item.unitPrice,
-                                contract.currencyCode,
-                              )}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
+                              <span className="font-semibold text-primary">
+                                {formatCurrency(
+                                  item.unitPrice,
+                                  contract.currencyCode,
+                                )}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </TabsContent>
+                    </Tabs>
                   </DialogContent>
                 </Dialog>
               )}
             </div>
 
             <TabsList className="mb-3">
+              <TabsTrigger value="all">
+                Tất cả ({contract.currentVersion?.items.length ?? 0})
+              </TabsTrigger>
               <TabsTrigger value="product">
-                Sản phẩm ({contract.currentVersion?.items.filter((item) => item.itemType === ContractItemType.Product).length ?? 0})
+                Sản phẩm (
+                {contract.currentVersion?.items.filter(
+                  (item) => item.itemType === ContractItemType.Product,
+                ).length ?? 0}
+                )
               </TabsTrigger>
               <TabsTrigger value="service">
-                Dịch vụ ({contract.currentVersion?.items.filter((item) => item.itemType === ContractItemType.Service).length ?? 0})
+                Dịch vụ (
+                {contract.currentVersion?.items.filter(
+                  (item) => item.itemType === ContractItemType.Service,
+                ).length ?? 0}
+                )
               </TabsTrigger>
             </TabsList>
             <TabsContent value={itemsTab}>
-            {/* Thanh tìm kiếm Items */}
-            {(contract.currentVersion?.items?.length || 0) > 0 && (
-              <div className="relative mb-3">
-                <Input
-                  type="text"
-                  placeholder="Tìm kiếm sản phẩm / dịch vụ..."
-                  className="bg-background w-full"
-                  value={itemsSearchQuery}
-                  onChange={(e) => {
-                    setItemsSearchQuery(e.target.value);
-                    setItemsCurrentPage(1);
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {filteredItems.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  {itemsSearchQuery
-                    ? "Không tìm thấy mục phù hợp."
-                    : itemsTab === "product" ? "Chưa có sản phẩm trong hợp đồng." : "Chưa có dịch vụ trong hợp đồng."}
-                </p>
+              {/* Thanh tìm kiếm Items */}
+              {(contract.currentVersion?.items?.length || 0) > 0 && (
+                <div className="relative mb-3">
+                  <Input
+                    type="text"
+                    placeholder="Tìm kiếm sản phẩm / dịch vụ..."
+                    className="bg-background w-full"
+                    value={itemsSearchQuery}
+                    onChange={(e) => {
+                      setItemsSearchQuery(e.target.value);
+                      setItemsCurrentPage(1);
+                    }}
+                  />
+                </div>
               )}
-              {paginatedItems.map((item) => {
-                const amounts = isEditable
-                  ? calculateContractItemAmounts(item, contract.currencyCode)
-                  : {
-                      lineSubtotal: item.lineSubtotal,
-                      discountAmount: item.discountAmount,
-                      vatAmount: item.vatAmount,
-                      lineTotal: item.lineTotal,
-                    };
 
-                return (
-                  <div
-                    key={item.contractItemId}
-                    className="overflow-hidden rounded-xl border bg-background"
-                  >
-                    <div className="flex items-start justify-between gap-3 border-b bg-muted/30 p-4">
-                      <div className="min-w-0">
-                        <p className="font-semibold">{item.itemName}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {item.itemCode ||
-                            (item.itemType === ContractItemType.Product
-                              ? "Sản phẩm"
-                              : "Dịch vụ")}
-                        </p>
+              <div className="space-y-3">
+                {filteredItems.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {itemsSearchQuery
+                      ? "Không tìm thấy mục phù hợp."
+                      : itemsTab === "product"
+                        ? "Chưa có sản phẩm trong hợp đồng."
+                        : itemsTab === "service"
+                          ? "Chưa có dịch vụ trong hợp đồng."
+                          : "Chưa có sản phẩm / dịch vụ trong hợp đồng."}
+                  </p>
+                )}
+                {paginatedItems.map((item) => {
+                  const amounts = isEditable
+                    ? calculateContractItemAmounts(item, contract.currencyCode)
+                    : {
+                        lineSubtotal: item.lineSubtotal,
+                        discountAmount: item.discountAmount,
+                        vatAmount: item.vatAmount,
+                        lineTotal: item.lineTotal,
+                      };
+
+                  return (
+                    <div
+                      key={item.contractItemId}
+                      className="overflow-hidden rounded-xl border bg-background"
+                    >
+                      <div className="flex items-start justify-between gap-3 border-b bg-muted/30 p-4">
+                        <div className="min-w-0">
+                          <p className="font-semibold">{item.itemName}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {item.itemCode ||
+                              (item.itemType === ContractItemType.Product
+                                ? "Sản phẩm"
+                                : "Dịch vụ")}
+                          </p>
+                        </div>
+                        {isEditable && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() =>
+                              handleRemoveItem(item.contractItemId)
+                            }
+                          >
+                            <Trash2 className="size-4" />
+                            <span className="sr-only">Xóa sản phẩm</span>
+                          </Button>
+                        )}
                       </div>
-                      {isEditable && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => handleRemoveItem(item.contractItemId)}
-                        >
-                          <Trash2 className="size-4" />
-                          <span className="sr-only">Xóa sản phẩm</span>
-                        </Button>
-                      )}
-                    </div>
 
-                    {isEditable ? (
-                      <>
-                        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <ContractItemUnitFields
-                            idPrefix={`contract-item-${item.contractItemId}`}
-                            unitName={item.unitName}
-                            unitNameEn={item.unitNameEn}
-                            isBilingual={contract.languageMode === ContractLanguageMode.Bilingual}
-                            onChange={(field, value) => handleItemChange(item.contractItemId, field, value)}
-                          />
-                          {contract.languageMode ===
-                            ContractLanguageMode.Bilingual && (
-                            <div className="space-y-1.5 sm:col-span-2 xl:col-span-5">
+                      {isEditable ? (
+                        <>
+                          <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">Đơn vị đã lấy từ danh mục</span>
+                              <p className="text-sm">{item.unitName || "Chưa có đơn vị"}</p>
+                              {contract.languageMode === ContractLanguageMode.Bilingual && <p className="text-xs text-muted-foreground">{item.unitNameEn || "Chưa có đơn vị tiếng Anh"}</p>}
+                            </div>
+                            {contract.languageMode ===
+                              ContractLanguageMode.Bilingual && (
+                              <div className="space-y-1.5 sm:col-span-2 xl:col-span-5">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Tên sản phẩm / dịch vụ tiếng Anh
+                                </span>
+                                <Input
+                                  value={item.itemNameEn || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      item.contractItemId,
+                                      "itemNameEn",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-1.5">
                               <span className="text-xs font-medium text-muted-foreground">
-                                Tên sản phẩm / dịch vụ tiếng Anh
+                                Số lượng
                               </span>
-                              <Input
-                                value={item.itemNameEn || ""}
-                                onChange={(e) =>
+                              <IntegerInput
+                                min={1}
+                                value={item.quantity}
+                                onValueChange={(value) =>
                                   handleItemChange(
                                     item.contractItemId,
-                                    "itemNameEn",
-                                    e.target.value,
+                                    "quantity",
+                                    value,
                                   )
                                 }
-                                placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
                               />
                             </div>
-                          )}
-                          <div className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Số lượng
-                            </span>
-                            <IntegerInput
-                              min={1}
-                              value={item.quantity}
-                              onValueChange={(value) =>
-                                handleItemChange(
-                                  item.contractItemId,
-                                  "quantity",
-                                  value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Đơn giá
-                            </span>
-                            <DecimalInput
-                              min={0}
-                              value={item.unitPrice}
-                              onValueChange={(value) =>
-                                handleItemChange(
-                                  item.contractItemId,
-                                  "unitPrice",
-                                  value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Chiết khấu
-                            </span>
-                            <Select
-                              value={String(item.discountMode)}
-                              onValueChange={(value) =>
-                                handleItemPatch(item.contractItemId, {
-                                  discountMode: Number(
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Đơn giá
+                              </span>
+                              <DecimalInput
+                                min={0}
+                                value={item.unitPrice}
+                                onValueChange={(value) =>
+                                  handleItemChange(
+                                    item.contractItemId,
+                                    "unitPrice",
                                     value,
-                                  ) as ContractItemDiscountMode,
-                                  discountPercent: 0,
-                                  fixedDiscountAmount: 0,
-                                })
-                              }
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem
-                                  value={String(ContractItemDiscountMode.None)}
-                                >
-                                  Không chiết khấu
-                                </SelectItem>
-                                <SelectItem
-                                  value={String(
-                                    ContractItemDiscountMode.Percentage,
-                                  )}
-                                >
-                                  Theo phần trăm
-                                </SelectItem>
-                                <SelectItem
-                                  value={String(
-                                    ContractItemDiscountMode.FixedAmount,
-                                  )}
-                                >
-                                  Số tiền cố định
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Chiết khấu
+                              </span>
+                              <Select
+                                value={String(item.discountMode)}
+                                onValueChange={(value) =>
+                                  handleItemPatch(item.contractItemId, {
+                                    discountMode: Number(
+                                      value,
+                                    ) as ContractItemDiscountMode,
+                                    discountPercent: 0,
+                                    fixedDiscountAmount: 0,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem
+                                    value={String(
+                                      ContractItemDiscountMode.None,
+                                    )}
+                                  >
+                                    Không chiết khấu
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={String(
+                                      ContractItemDiscountMode.Percentage,
+                                    )}
+                                  >
+                                    Theo phần trăm
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={String(
+                                      ContractItemDiscountMode.FixedAmount,
+                                    )}
+                                  >
+                                    Số tiền cố định
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                          {item.discountMode !==
-                            ContractItemDiscountMode.Percentage &&
-                            item.discountMode !==
-                              ContractItemDiscountMode.FixedAmount && (
+                            {item.discountMode !==
+                              ContractItemDiscountMode.Percentage &&
+                              item.discountMode !==
+                                ContractItemDiscountMode.FixedAmount && (
+                                <div className="space-y-1.5">
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    Số tiền giảm
+                                  </span>
+                                  <Input disabled defaultValue={0} />
+                                </div>
+                              )}
+
+                            {item.discountMode ===
+                              ContractItemDiscountMode.Percentage && (
                               <div className="space-y-1.5">
                                 <span className="text-xs font-medium text-muted-foreground">
-                                  Số tiền giảm
+                                  Số tiền giảm (%)
                                 </span>
-                                <Input disabled defaultValue={0} />
+                                <DecimalInput
+                                  min={0}
+                                  max={100}
+                                  value={item.discountPercent}
+                                  onValueChange={(value) =>
+                                    handleItemChange(
+                                      item.contractItemId,
+                                      "discountPercent",
+                                      value,
+                                    )
+                                  }
+                                />
                               </div>
                             )}
 
-                          {item.discountMode ===
-                            ContractItemDiscountMode.Percentage && (
-                            <div className="space-y-1.5">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                Số tiền giảm (%)
-                              </span>
-                              <DecimalInput
-                                min={0}
-                                max={100}
-                                value={item.discountPercent}
-                                onValueChange={(value) =>
-                                  handleItemChange(
-                                    item.contractItemId,
-                                    "discountPercent",
-                                    value,
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-
-                          {item.discountMode ===
-                            ContractItemDiscountMode.FixedAmount && (
-                            <div className="space-y-1.5">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                Số tiền giảm ({contract.currencyCode})
-                              </span>
-                              <DecimalInput
-                                min={0}
-                                value={item.fixedDiscountAmount}
-                                onValueChange={(value) =>
-                                  handleItemChange(
-                                    item.contractItemId,
-                                    "fixedDiscountAmount",
-                                    value,
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <div className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Thuế VAT
-                            </span>
-                            <div className="flex h-9 items-center justify-between rounded-md border px-3">
-                              <span className="text-sm">
-                                {item.isTaxable ? "Có thuế" : "Không thuế"}
-                              </span>
-                              <Switch
-                                checked={item.isTaxable}
-                                onCheckedChange={(checked) =>
-                                  handleItemPatch(item.contractItemId, {
-                                    isTaxable: checked,
-                                    vatPercent: checked
-                                      ? item.vatPercent || 10
-                                      : 0,
-                                  })
-                                }
-                              />
-                            </div>
+                            {item.discountMode ===
+                              ContractItemDiscountMode.FixedAmount && (
+                              <div className="space-y-1.5">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Số tiền giảm ({contract.currencyCode})
+                                </span>
+                                <DecimalInput
+                                  min={0}
+                                  value={item.fixedDiscountAmount}
+                                  onValueChange={(value) =>
+                                    handleItemChange(
+                                      item.contractItemId,
+                                      "fixedDiscountAmount",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            )}
                           </div>
-
-                          {item.isTaxable && (
+                          <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
                             <div className="space-y-1.5">
                               <span className="text-xs font-medium text-muted-foreground">
-                                Thuế suất (%)
+                                Thuế VAT
                               </span>
-                              <DecimalInput
-                                min={0}
-                                max={100}
-                                value={item.vatPercent}
-                                onValueChange={(value) =>
-                                  handleItemChange(
-                                    item.contractItemId,
-                                    "vatPercent",
-                                    value,
-                                  )
-                                }
-                              />
+                              <div className="flex h-9 items-center justify-between rounded-md border px-3">
+                                <span className="text-sm">
+                                  {item.isTaxable ? "Có thuế" : "Không thuế"}
+                                </span>
+                                <Switch
+                                  checked={item.isTaxable}
+                                  onCheckedChange={(checked) =>
+                                    handleItemPatch(item.contractItemId, {
+                                      isTaxable: checked,
+                                      vatPercent: checked
+                                        ? item.vatPercent || 10
+                                        : 0,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {item.isTaxable && (
+                              <div className="space-y-1.5">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Thuế suất (%)
+                                </span>
+                                <DecimalInput
+                                  min={0}
+                                  max={100}
+                                  value={item.vatPercent}
+                                  onValueChange={(value) =>
+                                    handleItemChange(
+                                      item.contractItemId,
+                                      "vatPercent",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                          <div>
+                            <p className="text-muted-foreground">Số lượng</p>
+                            <p className="mt-1 font-medium">
+                              {item.quantity} {item.unitName}
+                            </p>
+                            {contract.languageMode ===
+                              ContractLanguageMode.Bilingual &&
+                              item.unitNameEn && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {item.unitNameEn}
+                                </p>
+                              )}
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Đơn giá</p>
+                            <p className="mt-1 font-medium">
+                              {formatCurrency(
+                                item.unitPrice,
+                                contract.currencyCode,
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Chiết khấu</p>
+                            <p className="mt-1 font-medium">
+                              {item.discountMode ===
+                              ContractItemDiscountMode.Percentage
+                                ? `${item.discountPercent}%`
+                                : item.discountMode ===
+                                    ContractItemDiscountMode.FixedAmount
+                                  ? formatCurrency(
+                                      item.fixedDiscountAmount,
+                                      contract.currencyCode,
+                                    )
+                                  : "Không"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">VAT</p>
+                            <p className="mt-1 font-medium">
+                              {item.isTaxable
+                                ? `${item.vatPercent}%`
+                                : "Không thuế"}
+                            </p>
+                          </div>
+                          {contract.languageMode ===
+                            ContractLanguageMode.Bilingual && (
+                            <div className="sm:col-span-2 xl:col-span-4">
+                              <p className="text-muted-foreground">
+                                Tên tiếng Anh
+                              </p>
+                              <p className="mt-1 font-medium">
+                                {item.itemNameEn || "Chưa cập nhật"}
+                              </p>
                             </div>
                           )}
                         </div>
-                      </>
-                    ) : (
-                      <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                        <div>
-                          <p className="text-muted-foreground">Số lượng</p>
-                          <p className="mt-1 font-medium">{item.quantity} {item.unitName}</p>
-                          {contract.languageMode === ContractLanguageMode.Bilingual && item.unitNameEn && (
-                            <p className="mt-1 text-xs text-muted-foreground">{item.unitNameEn}</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Đơn giá</p>
-                          <p className="mt-1 font-medium">
+                      )}
+
+                      <div className="grid gap-3 border-t bg-muted/20 px-4 py-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="flex justify-between gap-3 xl:block">
+                          <span className="text-muted-foreground">
+                            Tạm tính
+                          </span>
+                          <p className="font-medium">
                             {formatCurrency(
-                              item.unitPrice,
+                              amounts.lineSubtotal,
                               contract.currencyCode,
                             )}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Chiết khấu</p>
-                          <p className="mt-1 font-medium">
-                            {item.discountMode ===
-                            ContractItemDiscountMode.Percentage
-                              ? `${item.discountPercent}%`
-                              : item.discountMode ===
-                                  ContractItemDiscountMode.FixedAmount
-                                ? formatCurrency(
-                                    item.fixedDiscountAmount,
-                                    contract.currencyCode,
-                                  )
-                                : "Không"}
+                        <div className="flex justify-between gap-3 xl:block">
+                          <span className="text-muted-foreground">
+                            Chiết khấu
+                          </span>
+                          <p className="font-medium text-emerald-600">
+                            -
+                            {formatCurrency(
+                              amounts.discountAmount,
+                              contract.currencyCode,
+                            )}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">VAT</p>
-                          <p className="mt-1 font-medium">
-                            {item.isTaxable
-                              ? `${item.vatPercent}%`
-                              : "Không thuế"}
+                        <div className="flex justify-between gap-3 xl:block">
+                          <span className="text-muted-foreground">VAT</span>
+                          <p className="font-medium">
+                            {formatCurrency(
+                              amounts.vatAmount,
+                              contract.currencyCode,
+                            )}
                           </p>
                         </div>
-                        {contract.languageMode ===
-                          ContractLanguageMode.Bilingual && (
-                          <div className="sm:col-span-2 xl:col-span-4">
-                            <p className="text-muted-foreground">
-                              Tên tiếng Anh
-                            </p>
-                            <p className="mt-1 font-medium">
-                              {item.itemNameEn || "Chưa cập nhật"}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="grid gap-3 border-t bg-muted/20 px-4 py-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="flex justify-between gap-3 xl:block">
-                        <span className="text-muted-foreground">Tạm tính</span>
-                        <p className="font-medium">
-                          {formatCurrency(
-                            amounts.lineSubtotal,
-                            contract.currencyCode,
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex justify-between gap-3 xl:block">
-                        <span className="text-muted-foreground">
-                          Chiết khấu
-                        </span>
-                        <p className="font-medium text-emerald-600">
-                          -
-                          {formatCurrency(
-                            amounts.discountAmount,
-                            contract.currencyCode,
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex justify-between gap-3 xl:block">
-                        <span className="text-muted-foreground">VAT</span>
-                        <p className="font-medium">
-                          {formatCurrency(
-                            amounts.vatAmount,
-                            contract.currencyCode,
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex justify-between gap-3 xl:block">
-                        <span className="text-muted-foreground">
-                          Thành tiền
-                        </span>
-                        <p className="font-semibold text-primary">
-                          {formatCurrency(
-                            amounts.lineTotal,
-                            contract.currencyCode,
-                          )}
-                        </p>
+                        <div className="flex justify-between gap-3 xl:block">
+                          <span className="text-muted-foreground">
+                            Thành tiền
+                          </span>
+                          <p className="font-semibold text-primary">
+                            {formatCurrency(
+                              amounts.lineTotal,
+                              contract.currencyCode,
+                            )}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              {itemsTotalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setItemsCurrentPage((p) => Math.max(1, p - 1))
-                    }
-                    disabled={itemsCurrentPage === 1}
-                  >
-                    <ChevronLeft className="size-4 mr-1" /> Trước
-                  </Button>
-                  <span className="text-sm font-medium">
-                    Trang {itemsCurrentPage} / {itemsTotalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setItemsCurrentPage((p) =>
-                        Math.min(itemsTotalPages, p + 1),
-                      )
-                    }
-                    disabled={itemsCurrentPage === itemsTotalPages}
-                  >
-                    Sau <ChevronRight className="size-4 ml-1" />
-                  </Button>
-                </div>
-              )}
-            </div>
+                {itemsTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setItemsCurrentPage((p) => Math.max(1, p - 1))
+                      }
+                      disabled={itemsCurrentPage === 1}
+                    >
+                      <ChevronLeft className="size-4 mr-1" /> Trước
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Trang {itemsCurrentPage} / {itemsTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setItemsCurrentPage((p) =>
+                          Math.min(itemsTotalPages, p + 1),
+                        )
+                      }
+                      disabled={itemsCurrentPage === itemsTotalPages}
+                    >
+                      Sau <ChevronRight className="size-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -2064,6 +2064,8 @@ namespace ContractManagement.Domains.Services.Contract
                                     || item.SourceServiceId.HasValue)
                                 {
                                     requestItem.ItemCode = item.ItemCode;
+                                    requestItem.UnitName = item.UnitName;
+                                    requestItem.UnitNameEn = item.UnitNameEn;
                                 }
 
                                 var changedFields = GetChangedItemFields(
@@ -5444,7 +5446,9 @@ namespace ContractManagement.Domains.Services.Contract
                         {
                             x.ProductId,
                             x.ProductCode,
-                            x.ProductNameEn
+                            x.ProductNameEn,
+                            x.UnitName,
+                            x.UnitNameEn
                         })
                         .ToDictionaryAsync(x => x.ProductId);
 
@@ -5460,6 +5464,9 @@ namespace ContractManagement.Domains.Services.Contract
                     item.ItemCode = activeProducts[
                         item.SourceProductId!.Value].ProductCode;
                     item.ItemNameEn = NormalizeOptional(activeProducts[item.SourceProductId.Value].ProductNameEn);
+                    item.UnitName = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                        activeProducts[item.SourceProductId.Value].UnitName, $"Đơn vị của sản phẩm '{item.ItemName}'");
+                    item.UnitNameEn = NormalizeOptional(activeProducts[item.SourceProductId.Value].UnitNameEn);
                 }
             }
 
@@ -5477,7 +5484,7 @@ namespace ContractManagement.Domains.Services.Contract
                         .Where(x =>
                             serviceIds.Contains(x.ServiceId) &&
                             x.Status == 1)
-                        .Select(x => new { x.ServiceId, x.ServiceNameEn })
+                        .Select(x => new { x.ServiceId, x.ServiceNameEn, x.UnitName, x.UnitNameEn })
                         .ToDictionaryAsync(x => x.ServiceId);
 
                 if (activeServices.Count != serviceIds.Count)
@@ -5491,13 +5498,21 @@ namespace ContractManagement.Domains.Services.Contract
                 {
                     item.ItemCode = null;
                     item.ItemNameEn = NormalizeOptional(activeServices[item.SourceServiceId!.Value].ServiceNameEn);
+                    item.UnitName = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                        activeServices[item.SourceServiceId.Value].UnitName, $"Đơn vị của dịch vụ '{item.ItemName}'");
+                    item.UnitNameEn = NormalizeOptional(activeServices[item.SourceServiceId.Value].UnitNameEn);
                 }
             }
             if (languageMode == ContractLanguageMode.Bilingual)
             {
                 foreach (var item in items)
+                {
                     item.ItemNameEn = ContractManagement.Domains.Policies.Catalog.CatalogEnglishNamePolicy.Require(
                         item.ItemNameEn, $"Tên tiếng Anh của sản phẩm/dịch vụ '{item.ItemName}' trong danh mục");
+                    if (item.SourceProductId.HasValue || item.SourceServiceId.HasValue)
+                        item.UnitNameEn = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                            item.UnitNameEn, $"Đơn vị tiếng Anh của sản phẩm/dịch vụ '{item.ItemName}' trong danh mục");
+                }
             }
         }
 
