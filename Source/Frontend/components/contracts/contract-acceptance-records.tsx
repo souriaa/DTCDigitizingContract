@@ -2,13 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { AcceptanceHandoverScopeEditor } from "@/components/contracts/acceptance-handover-scope-editor";
+import {
+  DocumentField as Field,
+  DocumentPartyFields as PartyEditor,
+} from "@/components/contract-documents/document-party-fields";
+import { DocumentRecordSwitcher } from "@/components/contract-documents/document-record-switcher";
+import { DocumentRecordPagination } from "@/components/contract-documents/document-record-pagination";
+import { useDocumentRecordPagination } from "@/hooks/use-document-record-pagination";
 import {
   BookmarkCheck,
   Building2,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Eye,
   FileCheck2,
@@ -57,8 +63,10 @@ import {
   ContractTermCard,
   type ContractTermEditableField,
 } from "@/components/contracts/contract-term-card";
-import { getApiErrorMessage } from "@/lib/api-error";
+import { getApiErrorMessage, getBlobApiErrorMessage } from "@/lib/api-error";
 import {
+  ContractLanguageMode,
+  ContractDirection,
   ContractStatus,
   type ContractDetailResponse,
 } from "@/services/contract-api";
@@ -76,9 +84,11 @@ import {
   type ContractAcceptanceRecord,
   type ContractAcceptanceRecordSummary,
   type ContractAcceptanceTemplateOption,
+  type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
 
 interface Props {
+  scopeRevision?: number;
   contract: ContractDetailResponse;
   paymentMilestones: ContractPaymentMilestoneResponse[];
   readiness: ContractCompletionReadinessResponse;
@@ -99,10 +109,31 @@ const emptyCreate = () => ({
   acceptanceCode: "",
   acceptanceDate: format(new Date(), "yyyy-MM-dd"),
   location: "",
+  locationEn: "",
   acceptanceKind: AcceptanceKind.Final,
   appendixIds: [] as number[],
   paymentMilestoneIds: [] as number[],
 });
+
+function getAcceptanceMetadataError(
+  value: {
+    acceptanceCode: string;
+    acceptanceDate: string;
+    location: string;
+    locationEn?: string | null;
+  },
+  isBilingual: boolean,
+  minimumDate?: string,
+): string | null {
+  if (!value.acceptanceCode.trim()) return "Vui lòng nhập mã biên bản.";
+  if (!value.acceptanceDate.trim()) return "Vui lòng chọn ngày nghiệm thu.";
+  if (minimumDate && value.acceptanceDate.slice(0, 10) < minimumDate)
+    return `Ngày nghiệm thu không được trước ngày ký hợp đồng hoặc ngày bàn giao của các nguồn đã chọn (từ ${minimumDate.split("-").reverse().join("/")}).`;
+  if (!value.location.trim()) return "Vui lòng nhập địa điểm nghiệm thu.";
+  if (isBilingual && !value.locationEn?.trim())
+    return "Vui lòng nhập địa điểm tiếng Anh cho hợp đồng song ngữ.";
+  return null;
+}
 
 const parseDateString = (str?: string) => {
   if (!str) return undefined;
@@ -111,8 +142,21 @@ const parseDateString = (str?: string) => {
   return new Date(y, m - 1, d);
 };
 
+const getMinimumAcceptanceDate = (
+  signDate?: string | null,
+  scope: AcceptanceHandoverScope[] = [],
+) =>
+  [signDate, ...scope.map((item) => item.handoverDate)]
+    .filter((date): date is string => Boolean(date))
+    .map((date) => date.slice(0, 10))
+    .sort()
+    .at(-1);
+
 const partyInput = (party: ContractAcceptanceParty) => ({
   legalName: party.legalName,
+  legalNameEn: party.legalNameEn,
+  addressEn: party.addressEn,
+  representativeTitleEn: party.representativeTitleEn,
   address: party.address,
   phone: party.phone,
   fax: party.fax,
@@ -128,12 +172,26 @@ export function ContractAcceptanceRecords({
   signedActive,
   canManage,
   onChanged,
+  scopeRevision = 0,
 }: Props) {
+  const isBilingual = contract.languageMode === ContractLanguageMode.Bilingual;
   const [records, setRecords] = useState<ContractAcceptanceRecordSummary[]>([]);
   const [templates, setTemplates] = useState<
     ContractAcceptanceTemplateOption[]
   >([]);
   const [selected, setSelected] = useState<ContractAcceptanceRecord>();
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const minimumCreateDate = getMinimumAcceptanceDate(contract.signDate);
+  const minimumDraftDate = getMinimumAcceptanceDate(
+    selected?.contractSignDate,
+    selected?.handoverScope,
+  );
+  const selectedDateError =
+    selected &&
+    minimumDraftDate &&
+    selected.acceptanceDate.slice(0, 10) < minimumDraftDate
+      ? `Ngày nghiệm thu phải từ ${minimumDraftDate.split("-").reverse().join("/")} (không trước ngày ký hợp đồng và ngày bàn giao của nguồn đã chọn).`
+      : null;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -144,21 +202,32 @@ export function ContractAcceptanceRecords({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [signedFile, setSignedFile] = useState<File>();
-  const [recordPage, setRecordPage] = useState(1);
-  const [recordPageSize, setRecordPageSize] = useState(3);
-
-  const totalRecordPages = Math.ceil(records.length / recordPageSize) || 1;
-
-  const paginatedRecords = useMemo(() => {
-    const start = (recordPage - 1) * recordPageSize;
-    return records.slice(start, start + recordPageSize);
-  }, [records, recordPage, recordPageSize]);
+  const [signDate, setSignDate] = useState("");
+  // Business dates use UTC+7; send the date-only string unchanged, not toISOString() on a picker date.
+  const signingToday = new Date(Date.now() + 7 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const signDateError = !signDate
+    ? "Vui lòng chọn ngày ký thực tế."
+    : selected && signDate < selected.acceptanceDate.slice(0, 10)
+      ? "Ngày ký thực tế không được trước ngày nghiệm thu."
+      : signDate > signingToday
+        ? "Ngày ký thực tế không được nằm trong tương lai."
+        : null;
 
   useEffect(() => {
-    if (recordPage > totalRecordPages) {
-      setRecordPage(totalRecordPages);
-    }
-  }, [recordPage, totalRecordPages]);
+    setSignedFile(undefined);
+    setSignDate("");
+    setSignedUploadConfirmOpen(false);
+  }, [selected?.acceptanceRecordId]);
+  const {
+    page: recordPage,
+    pageSize: recordPageSize,
+    totalPages: totalRecordPages,
+    paginatedRecords,
+    setPage: setRecordPage,
+    changePageSize: changeRecordPageSize,
+  } = useDocumentRecordPagination(records, contract.contractId);
 
   const load = useCallback(async () => {
     try {
@@ -181,7 +250,7 @@ export function ContractAcceptanceRecords({
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timeout);
-  }, [load]);
+  }, [load, scopeRevision]);
 
   const appendices = useMemo(
     () =>
@@ -200,6 +269,7 @@ export function ContractAcceptanceRecords({
       setBusy(true);
       const next = await action();
       setSelected(next);
+      setDetailsOpen(true);
       setRecordPage(1);
       setRecords((current) => {
         const summary: ContractAcceptanceRecordSummary = next;
@@ -221,16 +291,31 @@ export function ContractAcceptanceRecords({
   };
 
   const openRecord = async (recordId: number) => {
+    if (busy) return;
+    if (selected?.acceptanceRecordId === recordId) {
+      setDetailsOpen(true);
+      return;
+    }
     try {
       setBusy(true);
       setSelected(
         await contractAcceptanceApi.get(contract.contractId, recordId),
       );
+      setDetailsOpen(true);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Không thể mở biên bản."));
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleRecord = (recordId: number) => {
+    if (busy) return;
+    if (selected?.acceptanceRecordId === recordId) {
+      setDetailsOpen((open) => !open);
+      return;
+    }
+    void openRecord(recordId);
   };
 
   const startCreate = () => {
@@ -244,6 +329,16 @@ export function ContractAcceptanceRecords({
   };
 
   const createRecord = async () => {
+    const validationError = getAcceptanceMetadataError(
+      createForm,
+      isBilingual,
+      minimumCreateDate,
+    );
+    if (validationError) {
+      toast.error(validationError);
+      setCreateStep(1);
+      return;
+    }
     const result = await commit(
       () =>
         contractAcceptanceApi.create(contract.contractId, {
@@ -252,6 +347,7 @@ export function ContractAcceptanceRecords({
           acceptanceCode: createForm.acceptanceCode.trim(),
           acceptanceDate: createForm.acceptanceDate,
           location: createForm.location.trim(),
+          locationEn: createForm.locationEn.trim() || null,
           acceptanceKind: createForm.acceptanceKind,
           appendixIds: createForm.appendixIds,
           paymentMilestoneIds:
@@ -289,6 +385,15 @@ export function ContractAcceptanceRecords({
     if (!selected || selected.status !== AcceptanceRecordStatus.Draft)
       return null;
     const draft = selected;
+    const validationError = getAcceptanceMetadataError(
+      draft,
+      isBilingual,
+      minimumDraftDate,
+    );
+    if (validationError) {
+      toast.error(validationError);
+      return null;
+    }
     const customer = draft.parties.find(
       (party) => party.partyRole === AcceptancePartyRole.Customer,
     );
@@ -306,6 +411,7 @@ export function ContractAcceptanceRecords({
           acceptanceCode: draft.acceptanceCode,
           acceptanceDate: draft.acceptanceDate.slice(0, 10),
           location: draft.location,
+          locationEn: draft.locationEn,
           acceptanceKind: draft.acceptanceKind,
           customerParty: partyInput(customer),
           tenantParty: partyInput(tenant),
@@ -330,6 +436,15 @@ export function ContractAcceptanceRecords({
           : [],
         latest.rowVersion,
       );
+      latest = await contractAcceptanceApi.replaceHandoverScope(
+        contract.contractId,
+        draft.acceptanceRecordId,
+        draft.handoverScope.map((x) => ({
+          handoverLineId: x.handoverLineId,
+          quantity: x.quantity,
+        })),
+        latest.rowVersion,
+      );
       latest = await contractAcceptanceApi.replaceSections(
         contract.contractId,
         draft.acceptanceRecordId,
@@ -339,6 +454,7 @@ export function ContractAcceptanceRecords({
           titleEn: section.titleEn,
           contentVi: section.contentVi,
           contentEn: section.contentEn,
+          bilingualContentMode: section.bilingualContentMode,
           displayOrder: section.displayOrder,
         })),
         latest.rowVersion,
@@ -373,6 +489,9 @@ export function ContractAcceptanceRecords({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        event.defaultPrevented ||
+        (event.target instanceof Element &&
+          !!event.target.closest('[data-document-save-scope="handover"]')) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         event.shiftKey ||
@@ -458,13 +577,22 @@ export function ContractAcceptanceRecords({
     });
   };
 
-  const openDocument = async (format: "docx" | "pdf", official: boolean) => {
-    if (!selected) return;
+  const openDocument = async (format: "docx" | "pdf" | "evidence", official: boolean) => {
+    if (!selected || busy) return;
+    if (format === "evidence" && !selected.signedEvidence) return;
+    const isPdf = format === "pdf" || (format === "evidence" && selected.signedEvidence?.fileType.toLowerCase() === "pdf");
     const previewWindow =
-      format === "pdf" ? window.open("about:blank", "_blank") : null;
+      isPdf ? window.open("about:blank", "_blank") : null;
+    if (isPdf && !previewWindow) {
+      toast.error("Vui lòng cho phép mở cửa sổ bật lên để xem PDF.");
+      return;
+    }
+    if (previewWindow) previewWindow.opener = null;
     try {
       setBusy(true);
-      const blob = official
+      const blob = format === "evidence"
+        ? await contractAcceptanceApi.downloadSignedEvidence(selected.signedEvidence!.fileId)
+        : official
         ? await contractAcceptanceApi.artifact(
             contract.contractId,
             selected.acceptanceRecordId,
@@ -476,18 +604,22 @@ export function ContractAcceptanceRecords({
             format,
           );
       const source = blob instanceof Blob ? blob : new Blob([blob]);
-      const objectUrl = URL.createObjectURL(source);
+      const objectUrl = URL.createObjectURL(
+        isPdf && source.type !== "application/pdf" ? new Blob([source], { type: "application/pdf" }) : source,
+      );
       if (previewWindow) previewWindow.location.replace(objectUrl);
       else {
         const anchor = document.createElement("a");
         anchor.href = objectUrl;
-        anchor.download = `${selected.acceptanceCode}.${format}`;
+        anchor.download = format === "evidence"
+          ? selected.signedEvidence!.fileName
+          : `${selected.acceptanceCode}.${format}`;
         anchor.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       previewWindow?.close();
-      toast.error(getApiErrorMessage(error, "Không thể mở tài liệu."));
+      toast.error(await getBlobApiErrorMessage(error, "Không thể mở tài liệu."));
     } finally {
       setBusy(false);
     }
@@ -504,6 +636,10 @@ export function ContractAcceptanceRecords({
     }
 
     let uploaded = false;
+    if (signDateError) {
+      toast.error(signDateError);
+      return;
+    }
     try {
       setBusy(true);
       const evidence = await contractAcceptanceApi.uploadSignedEvidence(
@@ -511,6 +647,7 @@ export function ContractAcceptanceRecords({
         selected.acceptanceRecordId,
         signedFile,
         selected.rowVersion,
+        signDate,
       );
       uploaded = true;
       setSelected((current) =>
@@ -531,6 +668,7 @@ export function ContractAcceptanceRecords({
       );
       setSignedUploadConfirmOpen(false);
       setSignedFile(undefined);
+      setSignDate("");
       toast.success("Đã lưu bản ký biên bản nghiệm thu.");
       const [record, nextRecords] = await Promise.all([
         contractAcceptanceApi.get(
@@ -604,14 +742,15 @@ export function ContractAcceptanceRecords({
   const availablePaymentMilestones = paymentMilestones.filter(
     (milestone) => !unavailableMilestoneIds.has(milestone.paymentMilestoneId),
   );
+  const acceptanceFullyCompleted = readiness.acceptanceCompleted;
   const canCreate =
+    !readiness.scopeIntegrityError &&
     canManage &&
     contract.status === ContractStatus.Signed &&
     signedActive &&
     !activeRecord &&
     !signedFinalRecord &&
-    !readiness.acceptanceCompleted &&
-    (!hasPartialHistory || availablePaymentMilestones.length > 0);
+    !acceptanceFullyCompleted;
   const customer = selected?.parties.find(
     (party) => party.partyRole === AcceptancePartyRole.Customer,
   );
@@ -679,11 +818,11 @@ export function ContractAcceptanceRecords({
           signedActive &&
           !activeRecord &&
           !signedFinalRecord &&
-          readiness.acceptanceCompleted && (
+          acceptanceFullyCompleted && (
             <Alert>
               <AlertDescription>
-                Toàn bộ các đợt đã được nghiệm thu bằng biên bản có bản ký.
-                Không cần tạo thêm biên bản.
+                Toàn bộ các đợt và phạm vi đã được nghiệm thu bằng biên bản có
+                bản ký. Không cần tạo thêm biên bản.
               </AlertDescription>
             </Alert>
           )}
@@ -691,17 +830,17 @@ export function ContractAcceptanceRecords({
           signedActive &&
           !activeRecord &&
           hasPartialHistory &&
-          !readiness.acceptanceCompleted &&
+          !acceptanceFullyCompleted &&
           availablePaymentMilestones.length === 0 && (
             <Alert>
               <AlertDescription>
-                Không còn đợt khả dụng để lập biên bản mới. Hãy kiểm tra các
-                biên bản đã chốt hoặc liên hệ quản trị viên nếu tiến độ chưa
-                đúng.
+                Đã hết đợt thanh toán khả dụng nhưng còn phạm vi cần nghiệm thu.
+                Bạn có thể tạo biên bản một phần tiếp theo chỉ cho phạm vi còn
+                lại, không chọn lại đợt tiền.
               </AlertDescription>
             </Alert>
           )}
-        {hasSignedPartial && !readiness.acceptanceCompleted && (
+        {hasSignedPartial && !acceptanceFullyCompleted && (
           <div className="space-y-2 rounded-lg border p-3 text-sm">
             <p className="font-medium">
               Đã nghiệm thu {readiness.acceptedMilestoneCount}/
@@ -710,7 +849,7 @@ export function ContractAcceptanceRecords({
             <p className="text-muted-foreground">
               {activeRecord?.status === AcceptanceRecordStatus.Finalized
                 ? "Biên bản đang chờ bản ký; các đợt trong đó chưa được tính là đã nghiệm thu."
-                : "Các đợt còn lại cần lập biên bản nghiệm thu một phần và tải bản ký."}
+                : "Tiếp tục nghiệm thu một phần cho hạng mục còn lại; đợt thanh toán chọn riêng nếu còn."}
             </p>
             <ul className="list-disc pl-5">
               {paymentMilestones
@@ -741,14 +880,31 @@ export function ContractAcceptanceRecords({
             Chưa tạo biên bản nghiệm thu.
           </p>
         ) : (
-          <div className="space-y-3">
+          <DocumentRecordSwitcher
+            title="Chuyển biên bản nghiệm thu"
+            count={records.length}
+            selectedCode={detailsOpen ? selected?.acceptanceCode : undefined}
+            onOpenChange={(open) => {
+              if (!open) setDetailsOpen(false);
+            }}
+          >
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedRecords.map((record) => (
                 <button
                   type="button"
                   key={record.acceptanceRecordId}
-                  onClick={() => void openRecord(record.acceptanceRecordId)}
+                  onClick={() => toggleRecord(record.acceptanceRecordId)}
+                  disabled={busy}
+                  aria-pressed={
+                    detailsOpen &&
+                    selected?.acceptanceRecordId === record.acceptanceRecordId
+                  }
+                  aria-expanded={
+                    detailsOpen &&
+                    selected?.acceptanceRecordId === record.acceptanceRecordId
+                  }
                   className={`rounded-lg border p-3 text-left transition-colors hover:bg-muted ${
+                    detailsOpen &&
                     selected?.acceptanceRecordId === record.acceptanceRecordId
                       ? "border-primary bg-muted"
                       : ""
@@ -776,65 +932,22 @@ export function ContractAcceptanceRecords({
               ))}
             </div>
 
-            {records.length > 0 && (
-              <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {records.length} biên bản · Trang {recordPage}/
-                  {totalRecordPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={String(recordPageSize)}
-                    onValueChange={(val) => {
-                      setRecordPageSize(Number(val));
-                      setRecordPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[100px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent showSearch={false}>
-                      {[3, 6, 9, 12].map((size) => (
-                        <SelectItem key={size} value={String(size)}>
-                          {size} / trang
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs gap-1"
-                      disabled={recordPage <= 1}
-                      onClick={() => setRecordPage((p) => Math.max(p - 1, 1))}
-                    >
-                      <ChevronLeft className="size-3.5" />
-                      <span>Trước</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs gap-1"
-                      disabled={recordPage >= totalRecordPages}
-                      onClick={() =>
-                        setRecordPage((p) => Math.min(p + 1, totalRecordPages))
-                      }
-                    >
-                      <span>Sau</span>
-                      <ChevronRight className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            <DocumentRecordPagination
+              totalCount={records.length}
+              page={recordPage}
+              pageSize={recordPageSize}
+              totalPages={totalRecordPages}
+              onPageChange={setRecordPage}
+              onPageSizeChange={changeRecordPageSize}
+            />
+          </DocumentRecordSwitcher>
         )}
 
         {selected && (
-          <div className="space-y-6 rounded-lg border p-4">
+          <div
+            hidden={!detailsOpen}
+            className="space-y-6 rounded-lg border p-4"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold">{selected.acceptanceCode}</h3>
@@ -861,6 +974,21 @@ export function ContractAcceptanceRecords({
                 </Button>
               </div>
             </div>
+
+            {selected.status !== AcceptanceRecordStatus.Draft && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Phạm vi đã chốt nghiệm thu</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {selected.handoverScope.map((x) => (
+                    <p key={x.handoverLineId}>
+                      {x.handoverCode} · {x.nameVi}: {x.quantity} {x.unitVi}
+                    </p>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {isDraft ? (
               <div className="space-y-6">
@@ -911,6 +1039,7 @@ export function ContractAcceptanceRecords({
                     <div className="grid gap-3.5 sm:grid-cols-2 p-3.5 rounded-lg border border-border/60">
                       <Field
                         label="Mã biên bản"
+                        required
                         value={selected.acceptanceCode}
                         onChange={(value) =>
                           setSelected({ ...selected, acceptanceCode: value })
@@ -918,10 +1047,12 @@ export function ContractAcceptanceRecords({
                       />
                       <div className="space-y-2">
                         <Label htmlFor="acceptance-date-edit">
-                          Ngày nghiệm thu
+                          Ngày nghiệm thu{" "}
+                          <span className="text-red-500">*</span>
                         </Label>
                         <DateFilter
                           id="acceptance-date-edit"
+                          limit={{ from: parseDateString(minimumDraftDate) }}
                           date={parseDateString(selected.acceptanceDate)}
                           onChange={(date) =>
                             setSelected({
@@ -934,13 +1065,29 @@ export function ContractAcceptanceRecords({
                           placeholder="Chọn ngày nghiệm thu"
                           className="flex-1 shadow-none"
                         />
+                        {selectedDateError && (
+                          <p className="text-xs text-destructive" role="alert">
+                            {selectedDateError}
+                          </p>
+                        )}
                       </div>
                       <div className="col-span-2">
                         <Field
                           label="Địa điểm"
+                          required
                           value={selected.location}
                           onChange={(value) =>
                             setSelected({ ...selected, location: value })
+                          }
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Field
+                          label="Địa điểm tiếng Anh"
+                          required={isBilingual}
+                          value={selected.locationEn ?? ""}
+                          onChange={(value) =>
+                            setSelected({ ...selected, locationEn: value })
                           }
                         />
                       </div>
@@ -949,7 +1096,12 @@ export function ContractAcceptanceRecords({
                     <div className="grid gap-4 md:grid-cols-2 pt-1">
                       {customer && (
                         <PartyEditor
-                          title="Bên A — Khách hàng"
+                          title={
+                            contract.contractDirection ===
+                            ContractDirection.Purchase
+                              ? "Đối tác — Bên cung cấp"
+                              : "Đối tác — Bên mua"
+                          }
                           party={customer}
                           representativeLabel="Người liên lạc"
                           onChange={(key, value) =>
@@ -963,7 +1115,12 @@ export function ContractAcceptanceRecords({
                       )}
                       {tenant && (
                         <PartyEditor
-                          title="Bên B — Doanh nghiệp"
+                          title={
+                            contract.contractDirection ===
+                            ContractDirection.Purchase
+                              ? "Doanh nghiệp — Bên mua"
+                              : "Doanh nghiệp — Bên cung cấp"
+                          }
                           party={tenant}
                           onChange={(key, value) =>
                             updateParty(AcceptancePartyRole.Tenant, key, value)
@@ -1090,7 +1247,8 @@ export function ContractAcceptanceRecords({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-lg border border-border/60">
                       <div>
                         <span className="text-sm font-medium text-foreground block">
-                          Chế độ nghiệm thu
+                          Chế độ nghiệm thu{" "}
+                          <span className="text-red-500">*</span>
                         </span>
                         <span className="text-xs text-muted-foreground">
                           Chọn phạm vi hoàn thành của hợp đồng
@@ -1140,7 +1298,8 @@ export function ContractAcceptanceRecords({
                     ) : (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Chọn các đợt thanh toán nghiệm thu
+                          Chọn các đợt thanh toán nghiệm thu{" "}
+                          <span className="text-red-500">*</span>
                         </p>
                         {paymentMilestones.length === 0 ? (
                           <p className="text-sm text-muted-foreground italic py-2">
@@ -1213,6 +1372,25 @@ export function ContractAcceptanceRecords({
                   </CardContent>
                 </Card>
 
+                <AcceptanceHandoverScopeEditor
+                  contractId={contract.contractId}
+                  recordId={selected.acceptanceRecordId}
+                  rowVersion={selected.rowVersion}
+                  revision={scopeRevision}
+                  selected={selected.handoverScope}
+                  blocker={selected.handoverBlocker}
+                  disabled={busy || !canManage}
+                  onChange={(handoverScope) =>
+                    setSelected({
+                      ...selected,
+                      handoverScope,
+                      handoverBlocker: handoverScope.length
+                        ? null
+                        : "Chưa chọn phạm vi bàn giao cần nghiệm thu.",
+                    })
+                  }
+                />
+
                 {/* 4. Nội dung biên bản */}
                 <Collapsible
                   defaultOpen
@@ -1256,9 +1434,9 @@ export function ContractAcceptanceRecords({
                     {selected.sections.map((section, index) => {
                       const updateSection = (
                         field: ContractTermEditableField,
-                        value: string | boolean,
+                        value: string | boolean | number,
                       ) => {
-                        if (typeof value !== "string") return;
+                        if (typeof value === "boolean") return;
                         const sectionField =
                           field === "termTitle"
                             ? "titleVi"
@@ -1268,16 +1446,23 @@ export function ContractAcceptanceRecords({
                                 ? "contentVi"
                                 : field === "termContentEn"
                                   ? "contentEn"
-                                  : null;
+                                  : field === "bilingualContentMode"
+                                    ? "bilingualContentMode"
+                                    : null;
                         if (!sectionField) return;
-                        setSelected({
-                          ...selected,
-                          sections: selected.sections.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, [sectionField]: value }
-                              : item,
-                          ),
-                        });
+                        setSelected((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sections: current.sections.map(
+                                  (item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, [sectionField]: value }
+                                      : item,
+                                ),
+                              }
+                            : current,
+                        );
                       };
 
                       return (
@@ -1289,14 +1474,13 @@ export function ContractAcceptanceRecords({
                             termTitleEn: section.titleEn,
                             termContent: section.contentVi,
                             termContentEn: section.contentEn,
+                            bilingualContentMode: section.bilingualContentMode,
                             displayOrder: section.displayOrder,
                             isNegotiable: false,
                           }}
                           inputId={`acceptance-${selected.acceptanceRecordId}-${section.acceptanceSectionId}`}
                           editable
-                          isBilingual={
-                            section.titleEn != null || section.contentEn != null
-                          }
+                          isBilingual={isBilingual}
                           orderLabel="Mục nghiệm thu"
                           titleLabel="Tiêu đề mục"
                           contentLabel="Nội dung mục"
@@ -1334,7 +1518,12 @@ export function ContractAcceptanceRecords({
                       <div className="flex items-center gap-2.5 sm:shrink-0">
                         <Button
                           type="button"
-                          disabled={busy}
+                          disabled={
+                            busy ||
+                            selected.handoverScope.length === 0 ||
+                            !!selected.handoverBlocker ||
+                            !!selectedDateError
+                          }
                           onClick={() => setFinalizeOpen(true)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
                         >
@@ -1405,7 +1594,18 @@ export function ContractAcceptanceRecords({
                 </div>
                 <div className="space-y-2">
                   {selected.references.map((reference) => (
-                    <p key={reference.acceptanceReferenceId} className="italic">
+                    <p
+                      key={
+                        reference.referenceType ===
+                        AcceptanceReferenceType.Handover
+                          ? `handover:${reference.handoverRecordId}`
+                          : reference.referenceType ===
+                              AcceptanceReferenceType.Appendix
+                            ? `appendix:${reference.appendixId}`
+                            : `contract:${selected.contractVersionId}`
+                      }
+                      className="italic"
+                    >
                       {reference.textVi}
                     </p>
                   ))}
@@ -1441,6 +1641,7 @@ export function ContractAcceptanceRecords({
                             termTitleEn: section.titleEn,
                             termContent: section.contentVi,
                             termContentEn: section.contentEn,
+                            bilingualContentMode: section.bilingualContentMode,
                             displayOrder: section.displayOrder,
                             isNegotiable: false,
                           }}
@@ -1462,9 +1663,14 @@ export function ContractAcceptanceRecords({
               canManage && (
                 <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
                   <b>Biên bản đã chốt và đang chờ bản ký</b>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <Label htmlFor="acceptance-signed-file">
+                    Tệp bản ký <span className="text-red-500">*</span>
+                  </Label>
+                  <div>
                     <Input
+                      id="acceptance-signed-file"
                       type="file"
+                      required
                       accept=".pdf,.jpg,.jpeg,.png"
                       disabled={busy}
                       onChange={(event) =>
@@ -1472,11 +1678,36 @@ export function ContractAcceptanceRecords({
                       }
                       className="bg-background"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      Ngày ký thực tế <span className="text-red-500">*</span>
+                    </Label>
+                    <DateFilter
+                      date={parseDateString(signDate)}
+                      disabled={busy}
+                      onChange={(date) =>
+                        setSignDate(date ? format(date, "yyyy-MM-dd") : "")
+                      }
+                      limit={{
+                        from: parseDateString(selected.acceptanceDate),
+                        to: parseDateString(signingToday),
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ngày hai bên ký đủ, không trước ngày nghiệm thu. Các đợt
+                      thanh toán gắn với nghiệm thu sẽ tính hạn từ ngày này,
+                      không phải ngày tải tệp lên.
+                    </p>
+                  </div>
+                  <div className="flex justify-end border-t border-amber-200 pt-3 dark:border-amber-900/50">
                     <Button
-                      disabled={!signedFile || busy}
+                      type="button"
+                      className="w-full sm:w-auto"
+                      disabled={!signedFile || !!signDateError || busy}
                       onClick={() => setSignedUploadConfirmOpen(true)}
                     >
-                      <FileSignature className="mr-2 size-4" /> Tải bản ký
+                      <FileSignature className="size-4" /> Tải bản ký
                     </Button>
                   </div>
                 </div>
@@ -1485,11 +1716,30 @@ export function ContractAcceptanceRecords({
               selected.signedEvidence && (
                 <Alert>
                   <CheckCircle2 className="size-4" color="green" />
-                  <AlertDescription>
-                    Đã ký{" "}
-                    {new Date(
-                      selected.signedEvidence.uploadedAt,
-                    ).toLocaleString("vi-VN")}
+                  <AlertDescription className="space-y-1">
+                    <p>
+                      Đã ký · Ngày ký:{" "}
+                      {selected.signedEvidence.signDate
+                        ? parseDateString(
+                            selected.signedEvidence.signDate,
+                          )?.toLocaleDateString("vi-VN")
+                        : "Chưa có dữ liệu"}
+                    </p>
+                    <p>
+                      Tải bởi{" "}
+                      {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
+                      {new Date(
+                        selected.signedEvidence.uploadedAt,
+                      ).toLocaleString("vi-VN")}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      disabled={busy}
+                      onClick={() => void openDocument("evidence", true)}
+                    >
+                      {selected.signedEvidence.fileName}
+                    </Button>
                   </AlertDescription>
                 </Alert>
               )}
@@ -1530,7 +1780,10 @@ export function ContractAcceptanceRecords({
           {createStep === 1 && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label>Mẫu biên bản nghiệm thu</Label>
+                <Label>
+                  Mẫu biên bản nghiệm thu{" "}
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={
                     createForm.templateVersionId
@@ -1561,15 +1814,19 @@ export function ContractAcceptanceRecords({
               </div>
               <Field
                 label="Mã biên bản"
+                required
                 value={createForm.acceptanceCode}
                 onChange={(value) =>
                   setCreateForm({ ...createForm, acceptanceCode: value })
                 }
               />
               <div className="space-y-2">
-                <Label htmlFor="acceptance-date">Ngày nghiệm thu</Label>
+                <Label htmlFor="acceptance-date">
+                  Ngày nghiệm thu <span className="text-red-500">*</span>
+                </Label>
                 <DateFilter
                   id="acceptance-date"
+                  limit={{ from: parseDateString(minimumCreateDate) }}
                   date={parseDateString(createForm.acceptanceDate)}
                   onChange={(date) =>
                     setCreateForm({
@@ -1584,9 +1841,20 @@ export function ContractAcceptanceRecords({
               <div className="md:col-span-2">
                 <Field
                   label="Địa điểm"
+                  required
                   value={createForm.location}
                   onChange={(value) =>
                     setCreateForm({ ...createForm, location: value })
+                  }
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Field
+                  label="Địa điểm tiếng Anh"
+                  required={isBilingual}
+                  value={createForm.locationEn}
+                  onChange={(value) =>
+                    setCreateForm({ ...createForm, locationEn: value })
                   }
                 />
               </div>
@@ -1627,7 +1895,9 @@ export function ContractAcceptanceRecords({
           {createStep === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Loại nghiệm thu</Label>
+                <Label>
+                  Loại nghiệm thu <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={String(createForm.acceptanceKind)}
                   onValueChange={(value) =>
@@ -1659,6 +1929,12 @@ export function ContractAcceptanceRecords({
                   </p>
                 )}
               </div>
+              {createForm.acceptanceKind === AcceptanceKind.Partial && (
+                <Label>
+                  Đợt thanh toán nghiệm thu{" "}
+                  <span className="text-red-500">*</span>
+                </Label>
+              )}
               {createForm.acceptanceKind === AcceptanceKind.Partial &&
                 availablePaymentMilestones.map((milestone) => (
                   <label
@@ -1691,7 +1967,7 @@ export function ContractAcceptanceRecords({
                 availablePaymentMilestones.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt
-                    hoặc đã ký.
+                    hoặc đã ký. Vòng này có thể chỉ nghiệm thu phạm vi còn lại.
                   </p>
                 )}
               <Alert>
@@ -1720,8 +1996,13 @@ export function ContractAcceptanceRecords({
                 disabled={
                   createStep === 1 &&
                   (!createForm.templateVersionId ||
-                    !createForm.acceptanceCode.trim() ||
-                    !createForm.location.trim())
+                    Boolean(
+                      getAcceptanceMetadataError(
+                        createForm,
+                        isBilingual,
+                        minimumCreateDate,
+                      ),
+                    ))
                 }
                 onClick={() => setCreateStep((step) => step + 1)}
               >
@@ -1732,6 +2013,7 @@ export function ContractAcceptanceRecords({
                 disabled={
                   busy ||
                   (createForm.acceptanceKind === AcceptanceKind.Partial &&
+                    availablePaymentMilestones.length > 0 &&
                     createForm.paymentMilestoneIds.length === 0)
                 }
                 onClick={() => void createRecord()}
@@ -1753,7 +2035,12 @@ export function ContractAcceptanceRecords({
           <>
             Tải tệp <strong>{signedFile?.name}</strong> làm bản ký chính thức
             của biên bản {selected?.acceptanceCode}. Sau khi lưu, biên bản sẽ
-            chuyển sang Đã ký và được tính vào tiến độ nghiệm thu.
+            chuyển sang Đã ký với ngày ký thực tế{" "}
+            <strong>
+              {parseDateString(signDate)?.toLocaleDateString("vi-VN")}
+            </strong>{" "}
+            và được tính vào tiến độ nghiệm thu. Các đợt thanh toán gắn với
+            nghiệm thu sẽ tính hạn từ ngày này.
           </>
         }
         confirmText="Tải bản ký và đánh dấu Đã ký"
@@ -1766,6 +2053,10 @@ export function ContractAcceptanceRecords({
           if (!selected) return;
           const saved = await saveAllDraftChanges(true);
           if (!saved) return;
+          if (saved.handoverBlocker) {
+            toast.error(saved.handoverBlocker);
+            return;
+          }
 
           const finalized = await commit(
             () =>
@@ -1793,7 +2084,12 @@ export function ContractAcceptanceRecords({
               đồng.
             </DialogDescription>
           </DialogHeader>
+          <Label htmlFor="acceptance-cancel-reason">
+            Lý do hủy <span className="text-red-500">*</span>
+          </Label>
           <Textarea
+            id="acceptance-cancel-reason"
+            required
             value={cancelReason}
             onChange={(event) => setCancelReason(event.target.value)}
             placeholder="Lý do hủy bắt buộc"
@@ -1831,93 +2127,5 @@ export function ContractAcceptanceRecords({
         </DialogContent>
       </Dialog>
     </Card>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  disabled = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <Input
-        type={type}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="bg-background"
-      />
-    </div>
-  );
-}
-
-function PartyEditor({
-  title,
-  party,
-  representativeLabel = "Người đại diện",
-  onChange,
-}: {
-  title: string;
-  party: ContractAcceptanceParty;
-  representativeLabel?: string;
-  onChange: (key: keyof ContractAcceptanceParty, value: string) => void;
-}) {
-  return (
-    <div className="space-y-3.5 rounded-xl border border-border/70 bg-card p-4 shadow-xs">
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
-        <Building2 className="size-4 text-primary shrink-0" />
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-      </div>
-      <Field
-        label="Tên pháp nhân"
-        value={party.legalName}
-        disabled
-        onChange={(value) => onChange("legalName", value)}
-      />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label={representativeLabel}
-          value={party.representativeName}
-          onChange={(value) => onChange("representativeName", value)}
-        />
-        <Field
-          label="Chức vụ"
-          value={party.representativeTitle ?? ""}
-          onChange={(value) => onChange("representativeTitle", value)}
-        />
-      </div>
-      <Field
-        label="Địa chỉ"
-        value={party.address ?? ""}
-        onChange={(value) => onChange("address", value)}
-      />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Field
-          label="Điện thoại"
-          value={party.phone ?? ""}
-          onChange={(value) => onChange("phone", value)}
-        />
-        <Field
-          label="Fax"
-          value={party.fax ?? ""}
-          onChange={(value) => onChange("fax", value)}
-        />
-        <Field
-          label="Mã số thuế"
-          value={party.taxCode ?? ""}
-          onChange={(value) => onChange("taxCode", value)}
-        />
-      </div>
-    </div>
   );
 }

@@ -6,7 +6,7 @@ export type CatalogKind = "products" | "services";
 export interface CatalogFilter { status?: number; fromDate?: string; toDate?: string; keyword?: string; }
 export interface CatalogGroup { id: number; name: string; parentId: number | null; order: number | null; directCount: number; subtreeCount: number; descendantCount: number; path: string; }
 export interface CatalogGroups { groups: CatalogGroup[]; unassignedCount: number; totalCount: number; }
-export interface CatalogItem { id: number; name: string | null; code: string | null; groupId: number | null; groupPath: string; parentId: number | null; parentName: string | null; price: number | null; setupPrice: number | null; maintainPrice: number | null; status: number | null; createdAt: string | null; }
+export interface CatalogItem { id: number; name: string | null; unitName: string | null; unitNameEn: string | null; code: string | null; groupId: number | null; groupPath: string; parentId: number | null; parentName: string | null; price: number | null; setupPrice: number | null; maintainPrice: number | null; status: number | null; createdAt: string | null; }
 export interface CatalogPage { items: CatalogItem[]; totalCount: number; page: number; pageSize: number; totalPages: number; }
 export interface CatalogListFilter extends CatalogFilter { page: number; pageSize: number; groupId?: number; unassignedOnly?: boolean; }
 const base = "/api/catalog/workspace";

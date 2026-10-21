@@ -467,7 +467,7 @@ public partial class DbDtctechContext : DbContext
                     "'NegotiationComment', 'CustomerAccessLink', " +
                     "'CustomerOtpChallenge', 'CustomerAccessSession', " +
                     "'ApprovalRequest', 'SignedEvidence', " +
-                    "'ContractAppendix', 'AcceptanceRecord', " +
+                    "'ContractAppendix', 'HandoverRecord', 'AcceptanceRecord', " +
                     "'AcceptanceEvidence', 'Payment') " +
                     "AND [SubjectId] > 0)");
 
@@ -657,7 +657,7 @@ public partial class DbDtctechContext : DbContext
                 table.HasCheckConstraint("CK_tbl_ContractAuditValue_Side",
                     "[ValueSide] IN (1, 2)");
                 table.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode",
-                    "[FieldCode] BETWEEN 1 AND 99");
+                    "[FieldCode] BETWEEN 1 AND 103");
                 table.HasCheckConstraint("CK_tbl_ContractAuditValue_ValueKind",
                     "[ValueKind] IN (1, 2, 3, 4, 5)");
                 table.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldKind",
@@ -2736,6 +2736,8 @@ public partial class DbDtctechContext : DbContext
             entity.Property(e => e.ServiceTypeName).HasMaxLength(200);
         });
 
+        ConfigureCatalogUnits(modelBuilder);
+        ConfigureHandover(modelBuilder);
         ConfigurePlaceholders(modelBuilder);
         ConfigureLegalBases(modelBuilder);
         ConfigureContractVersionSnapshots(modelBuilder);

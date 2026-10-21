@@ -3,6 +3,7 @@
 import { Banknote, Coins, CreditCard, DollarSign, WalletCards } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getContractDirectionLabel } from "@/services/contract-api";
 import type { DashboardCurrencyAmount } from "@/services/dashboard-api";
 
 interface CurrencyAmountCardsProps {
@@ -51,12 +52,12 @@ export function CurrencyAmountCards({ items }: CurrencyAmountCardsProps) {
             <span>Giá trị hợp đồng theo tiền tệ</span>
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Tổng giá trị các hợp đồng phát sinh hoặc có hiệu lực theo từng loại tiền tệ
+            Giá trị hợp đồng trong kỳ, tách riêng Mua và Bán theo tiền tệ; không phải số tiền thực thu/chi
           </p>
         </div>
         {items.length > 0 && (
           <Badge variant="outline" className="text-xs font-normal">
-            {items.length} loại tiền
+            {items.length} nhóm Mua/Bán và tiền tệ
           </Badge>
         )}
       </CardHeader>
@@ -80,12 +81,12 @@ export function CurrencyAmountCards({ items }: CurrencyAmountCardsProps) {
 
               return (
                 <div
-                  key={item.currency}
+                  key={`${item.contractDirection}-${item.currency}`}
                   className="group relative overflow-hidden rounded-xl border bg-gradient-to-br from-card to-muted/20 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">
-                      Tiền tệ
+                      {getContractDirectionLabel(item.contractDirection)}
                     </span>
                     <Badge
                       variant="outline"

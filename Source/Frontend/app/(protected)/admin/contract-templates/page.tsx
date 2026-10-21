@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
-import { Eye, Languages, LibraryBig, Plus } from "lucide-react";
+import { Eye, Languages, LibraryBig, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ContractTemplateFormDialog } from "@/components/contract-templates/contract-template-form-dialog";
+import { DeleteContractTemplateButton } from "@/components/contract-templates/delete-contract-template-button";
 import { getContractTemplateErrorMessage } from "@/components/contract-templates/contract-template-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/custom/data-table-server";
 import { Header } from "@/components/ui/custom/header";
 import { SelectFilter } from "@/components/ui/custom/select-filter";
+import { SplitActionMenu } from "@/components/ui/custom/split-action-menu";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { formatDateTime } from "@/lib/format-date-time";
-import { ContractLanguageMode } from "@/services/contract-api";
+import { ContractLanguageMode, getContractDirectionLabel } from "@/services/contract-api";
 import {
   contractTemplateApi,
   getTemplateDocumentTypeLabel,
@@ -133,6 +135,14 @@ export default function ContractTemplateListPage() {
     [router],
   );
 
+  const handleDeleted = useCallback(async () => {
+    if (items.length === 1 && pagination.pageIndex > 0) {
+      setPagination((current) => ({ ...current, pageIndex: current.pageIndex - 1 }));
+      return;
+    }
+    await fetchTemplates();
+  }, [fetchTemplates, items.length, pagination.pageIndex]);
+
   const columns = useMemo<ColumnDef<ContractTemplateResponse>[]>(
     () => [
       {
@@ -221,7 +231,7 @@ export default function ContractTemplateListPage() {
               variant="outline"
               className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
             >
-              Phiên bản {row.original.currentPublishedVersionNo}
+              Phiên bản {row.original.currentPublishedVersionNo} · {getContractDirectionLabel(row.original.currentPublishedContractDirection ?? undefined)}
             </Badge>
           ) : (
             <span className="whitespace-nowrap text-sm text-muted-foreground">
@@ -245,21 +255,34 @@ export default function ContractTemplateListPage() {
         header: () => <div className="text-right">Thao tác</div>,
         cell: ({ row }) => (
           <div
-            className="flex justify-end"
+            className="flex justify-end gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openTemplate(row.original)}
-            >
-              <Eye className="size-4" /> Quản lý
-            </Button>
+            <DeleteContractTemplateButton
+              templateId={row.original.templateId}
+              onDeleted={handleDeleted}
+              renderTrigger={({ onClick, disabled, isLoading }) => (
+                <SplitActionMenu
+                  primaryLabel="Quản lý"
+                  primaryIcon={<Eye className="h-4 w-4" />}
+                  onPrimaryClick={() => openTemplate(row.original)}
+                  variant="outline"
+                  disabled={disabled}
+                  isLoading={isLoading}
+                  menuItems={[{
+                    label: "Xóa mẫu",
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick,
+                    isDestructive: true,
+                  }]}
+                />
+              )}
+            />
           </div>
         ),
       },
     ],
-    [openTemplate],
+    [openTemplate, handleDeleted],
   );
 
   const handleCreated = () => {

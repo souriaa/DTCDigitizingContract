@@ -14,7 +14,7 @@ namespace ContractManagement.Domains.Services.ContractTemplate;
 /// </summary>
 public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRenderer
 {
-    public const string FormatVersion = "V11";
+    public const string FormatVersion = "V22";
 
     private const string GeneratedContentFont = "Times New Roman";
     private const string GeneratedContentFontSize = "24";
@@ -24,19 +24,31 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         IReadOnlyDictionary<string, string> customSamples,
         ContractTemplateAuthoringPreviewData? authoringData = null)
     {
+        // A direction-free call is an isolated demonstration, never a persisted template.
+        var direction = authoringData is null ? ContractDirection.Sale : authoringData.ContractDirection;
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(direction);
         var data = CreateSampleRenderData(languageMode);
+        DocumentParty SampleParty(string prefix) => new(DocumentPartyMarkers.Fields.Select(field => field.Suffix)
+            .Append("REPRESENTATIVE_PHONE").ToDictionary(suffix => suffix,
+                suffix => data.ScalarValues.GetValueOrDefault(prefix + "_" + suffix) ?? string.Empty));
+        var sampleRoles = DocumentPartyMarkers.Values(direction, SampleParty("PROVIDER"), SampleParty("CUSTOMER"));
         var values = new Dictionary<string, string>(data.ScalarValues, StringComparer.Ordinal);
         AddAcceptanceSampleValues(values);
-        if (definitions.Any(x => x.IsSystem && x.Key == "CUSTOMER_REPRESENTATIVE_TITLE"))
-            values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Tổng giám đốc";
+        values["HANDOVER_CODE"] = "BBBG-SAMPLE-001";
+        values["HANDOVER_DATE"] = "19/09/2026"; values["HANDOVER_DATE_EN"] = "19 September 2026";
+        values["HANDOVER_LOCATION"] = "Hà Nội"; values["HANDOVER_LOCATION_EN"] = "Hanoi";
+        foreach (var pair in sampleRoles) values[pair.Key] = pair.Value;
         foreach (var pair in customSamples) values[pair.Key] = pair.Value;
         var terms = authoringData is not null
             ? authoringData.Terms
             : data.Terms;
         return Render(sourceDocumentBytes, languageMode, data with
         {
+            ContractDirection = direction,
             ScalarValues = values,
             Definitions = definitions,
+            DocumentReferences = [new("Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Doanh nghiệp mẫu và Đối tác mẫu.", "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01 September 2026 between Sample Tenant and Sample Counterparty.")],
+            HandoverItems = [new(1, "ITEM-1", "Phần mềm mẫu", "Sample software", "Giấy phép", "License", 1)],
             ItemTableColumnWidthsBps = authoringData?.ItemTableColumnWidthsBps
                 ?? data.ItemTableColumnWidthsBps,
             LegalBases = authoringData?.LegalBases ?? data.LegalBases,
@@ -52,6 +64,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
     {
         ArgumentNullException.ThrowIfNull(sourceDocumentBytes);
         ArgumentNullException.ThrowIfNull(renderData);
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(renderData.ContractDirection);
         if (sourceDocumentBytes.Length == 0)
         {
             throw new ContractTemplatePreviewException(
@@ -80,13 +93,18 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                 ?? throw new ContractTemplatePreviewException(
                     "PlaceholderSnapshotMissing",
                     "Dữ liệu render không có snapshot placeholder của template version.");
+            var scalarValues = new Dictionary<string, string>(renderData.ScalarValues, StringComparer.Ordinal);
+            foreach (var field in definitions.Where(x => x.DataKind == TemplatePlaceholderDataKind.Scalar
+                         && DocumentEnglishPolicy.IsOptionalPartyEnglish(x, renderData.ContractDirection)))
+                scalarValues[field.Key] = DocumentEnglishPolicy.OptionalCustomerEnglish(scalarValues.GetValueOrDefault(field.Key));
             var dynamicParagraphs = LocateDynamicParagraphs(mainPart, definitions);
             EnsureAppendixMarkerIsLastDynamicBlock(mainPart, dynamicParagraphs);
+            ValidateEnglishMarkers(mainPart, definitions, scalarValues, renderData.ContractDirection);
             ReplaceDynamicBlocks(dynamicParagraphs, languageMode, renderData);
 
             foreach (var root in GetTextRoots(mainPart))
             {
-                ReplaceScalarTokens(root, renderData.ScalarValues);
+                ReplaceScalarTokens(root, scalarValues);
             }
 
             EnsureNoCatalogTokensRemain(mainPart, definitions);
@@ -94,6 +112,20 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
 
         return output.ToArray();
+    }
+
+    private static void ValidateEnglishMarkers(MainDocumentPart mainPart,
+        IReadOnlyList<SoftwareSupplyPlaceholderDefinition> definitions,
+        IReadOnlyDictionary<string, string> values, ContractDirection direction)
+    {
+        var texts = GetTextRoots(mainPart).SelectMany(root => root.Descendants<W.Paragraph>())
+            .Select(p => p.InnerText).ToArray();
+        foreach (var field in definitions.Where(x => x.DataKind == TemplatePlaceholderDataKind.Scalar
+                     && !DocumentEnglishPolicy.IsOptionalPartyEnglish(x, direction)
+                     && (x.IsSystem && x.Key.EndsWith("_EN", StringComparison.Ordinal)
+                         || x.SourceFieldKey?.EndsWith("-en", StringComparison.Ordinal) == true)))
+            if (texts.Any(text => text.Contains($"{{{{{field.Key}}}}}", StringComparison.Ordinal)))
+                DocumentEnglishPolicy.Require(values.GetValueOrDefault(field.Key), field.Label);
     }
 
     private static IReadOnlyDictionary<string, W.Paragraph> LocateDynamicParagraphs(
@@ -198,21 +230,20 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     languageMode, renderData, availableWidthDxa),
                 "CONTRACT_APPENDICES" => CreateAppendixElements(
                     languageMode, renderData, availableWidthDxa),
-                "DOCUMENT_REFERENCES" => CreateAcceptanceReferenceSample(
-                    languageMode),
+                "DOCUMENT_REFERENCES" => CreateDocumentReferenceElements(languageMode, renderData.DocumentReferences),
+                "HANDOVER_ITEM_TABLE" => [CreateHandoverItemTable(languageMode, renderData.HandoverItems, availableWidthDxa)],
+                "HANDOVER_SECTIONS" => CreateAcceptanceSectionElements(languageMode, renderData.Terms, availableWidthDxa),
                 "ACCEPTANCE_SECTIONS" => CreateAcceptanceSectionElements(
                     languageMode, renderData.Terms, availableWidthDxa),
                 "SIGNATURE_PROVIDER" =>
                 [
-                    (OpenXmlElement)CreateSignatureBlock(
-                        renderData.ProviderSignature,
-                        renderData.Notice)
+                    (OpenXmlElement)CreateStyledParagraph(
+                        DocumentEnglishPolicy.SignatureHeading(languageMode, customer: false), bold: true)
                 ],
                 "SIGNATURE_CUSTOMER" =>
                 [
-                    (OpenXmlElement)CreateSignatureBlock(
-                        renderData.CustomerSignature,
-                        renderData.Notice)
+                    (OpenXmlElement)CreateStyledParagraph(
+                        DocumentEnglishPolicy.SignatureHeading(languageMode, customer: true), bold: true)
                 ],
                 _ => throw LayoutUnsupported(key)
             };
@@ -221,23 +252,38 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         }
     }
 
-    private static IReadOnlyList<OpenXmlElement> CreateAcceptanceReferenceSample(
-        ContractLanguageMode languageMode)
+    private static IReadOnlyList<OpenXmlElement> CreateDocumentReferenceElements(
+        ContractLanguageMode languageMode, IReadOnlyList<ContractTemplateRenderReference> references)
     {
-        var result = new List<OpenXmlElement>
+        var result = new List<OpenXmlElement>();
+        foreach (var reference in references)
         {
-            CreateStyledParagraph(
-                "Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Công ty Khách hàng Mẫu và Công ty DTC về việc Cung cấp phần mềm mẫu.",
-                italic: true)
-        };
-        if (languageMode == ContractLanguageMode.Bilingual)
-        {
-            result.Add(CreateStyledParagraph(
-                "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01/09/2026 between Sample Customer Company and DTC Company regarding the sample software supply.",
-                italic: true));
+            if (languageMode == ContractLanguageMode.Bilingual)
+                result.Add(CreateStyledParagraph(DocumentEnglishPolicy.Require(reference.TextEn, "căn cứ tiếng Anh"), italic: true));
+            result.Add(CreateStyledParagraph(reference.TextVi, italic: true));
         }
-
         return result;
+    }
+
+    private static W.Table CreateHandoverItemTable(ContractLanguageMode language,
+        IReadOnlyList<ContractTemplateRenderHandoverItem> items, int width)
+    {
+        var widths = ContractTableLayoutPolicy.MapToDxa([700, 1500, 4600, 1400, 1800], width);
+        var rows = new List<IEnumerable<string>> { new[] {
+            DocumentEnglishPolicy.Label(language, "No.", "STT"), DocumentEnglishPolicy.Label(language, "Code", "Mã"),
+            DocumentEnglishPolicy.Label(language, "Delivered items", "Hạng mục bàn giao"),
+            DocumentEnglishPolicy.Label(language, "Unit", "Đơn vị"), DocumentEnglishPolicy.Label(language, "Quantity", "Số lượng") } };
+        foreach (var item in items)
+        {
+            var name = language == ContractLanguageMode.Bilingual
+                ? DocumentEnglishPolicy.Require(item.NameEn, "tên hạng mục tiếng Anh") + "\n\n" + item.NameVi : item.NameVi;
+            var unit = language == ContractLanguageMode.Bilingual
+                ? DocumentEnglishPolicy.Require(item.UnitEn, "đơn vị tiếng Anh") + "\n\n" + item.UnitVi : item.UnitVi;
+            if (!string.IsNullOrWhiteSpace(item.NotesVi) || !string.IsNullOrWhiteSpace(item.NotesEn))
+                name += "\n" + (language == ContractLanguageMode.Bilingual ? item.NotesEn + "\n\n" : "") + item.NotesVi;
+            rows.Add(new[] { item.No.ToString(), item.Code, name, unit, item.Quantity.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) });
+        }
+        return CreateTable(rows, true, widths, width);
     }
 
     private static IReadOnlyList<OpenXmlElement> CreateAcceptanceSectionElements(
@@ -253,15 +299,11 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var result = new List<OpenXmlElement>();
         foreach (var section in sections)
         {
-            result.Add(CreateStyledParagraph(section.TitleVi, bold: true));
-            result.AddRange(CreateTermContentElements(
-                section.ContentVi, availableWidthDxa));
-            if (languageMode == ContractLanguageMode.Bilingual)
-            {
-                result.Add(CreateStyledParagraph(section.TitleEn, bold: true));
-                result.AddRange(CreateTermContentElements(
-                    section.ContentEn, availableWidthDxa));
-            }
+            result.Add(CreateStyledParagraph(DocumentEnglishPolicy.Label(languageMode,
+                section.TitleEn, section.TitleVi), bold: true));
+            foreach (var body in DocumentEnglishPolicy.Bodies(languageMode, section.BilingualContentMode,
+                         section.ContentVi, section.ContentEn))
+                result.AddRange(CreateTermContentElements(body, availableWidthDxa));
         }
 
         return result;
@@ -306,7 +348,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         if (sourceJustification is not null || sourceStyle is not null)
         {
             paragraph.ParagraphProperties ??= new W.ParagraphProperties();
-            if (sourceJustification is not null)
+            if (sourceJustification is not null && paragraph.ParagraphProperties.GetFirstChild<W.Justification>() is null)
             {
                 paragraph.ParagraphProperties
                     .RemoveAllChildren<W.Justification>();
@@ -413,16 +455,12 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         foreach (var term in renderData.Terms)
         {
             var title = languageMode == ContractLanguageMode.Bilingual
-                ? $"Điều {term.No}. {term.TitleVi} / Article {term.No}. {term.TitleEn}"
+                ? $"Article {term.No}. {term.TitleEn} / Điều {term.No}. {term.TitleVi}"
                 : $"Điều {term.No}. {term.TitleVi}";
             elements.Add(CreateParagraph(title, bold: true));
-            elements.AddRange(CreateTermContentElements(
-                term.ContentVi, availableWidthDxa));
-            if (languageMode == ContractLanguageMode.Bilingual)
-            {
-                elements.AddRange(CreateTermContentElements(
-                    term.ContentEn, availableWidthDxa));
-            }
+            foreach (var body in DocumentEnglishPolicy.Bodies(languageMode, term.BilingualContentMode,
+                         term.ContentVi, term.ContentEn))
+                elements.AddRange(CreateTermContentElements(body, availableWidthDxa));
         }
 
         return elements;
@@ -436,17 +474,20 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var elements = new List<OpenXmlElement>();
         foreach (var appendix in renderData.Appendices)
         {
+            if (languageMode == ContractLanguageMode.Bilingual)
+            {
+                DocumentEnglishPolicy.Require(appendix.NameEn, "tên phụ lục tiếng Anh");
+                DocumentEnglishPolicy.Require(appendix.ReferenceEn, "căn cứ phụ lục tiếng Anh");
+            }
             elements.Add(new W.Paragraph(
                 new W.Run(CreateGeneratedRunProperties(),
                     new W.Break { Type = W.BreakValues.Page })));
             var title = languageMode == ContractLanguageMode.Bilingual
                 && !string.IsNullOrWhiteSpace(appendix.NameEn)
-                ? $"PHỤ LỤC {appendix.Code}: {appendix.NameVi} / APPENDIX {appendix.Code}: {appendix.NameEn}"
+                ? $"APPENDIX {appendix.Code}: {appendix.NameEn} / PHỤ LỤC {appendix.Code}: {appendix.NameVi}"
                 : $"PHỤ LỤC {appendix.Code}: {appendix.NameVi}";
             elements.Add(CreateStyledParagraph(title, bold: true,
                 justification: W.JustificationValues.Center));
-            elements.Add(CreateStyledParagraph(appendix.ReferenceVi,
-                italic: true));
             if (languageMode == ContractLanguageMode.Bilingual
                 && !string.IsNullOrWhiteSpace(appendix.ReferenceEn))
             {
@@ -454,35 +495,28 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     italic: true));
             }
 
+            elements.Add(CreateStyledParagraph(appendix.ReferenceVi, italic: true));
+
             foreach (var term in appendix.Terms)
             {
                 var termTitle = languageMode == ContractLanguageMode.Bilingual
                     && !string.IsNullOrWhiteSpace(term.TitleEn)
-                    ? $"Điều {term.No}. {term.TitleVi} / Article {term.No}. {term.TitleEn}"
+                    ? $"Article {term.No}. {term.TitleEn} / Điều {term.No}. {term.TitleVi}"
                     : $"Điều {term.No}. {term.TitleVi}";
                 elements.Add(CreateParagraph(termTitle, bold: true));
-                elements.AddRange(CreateRichTextElements(
-                    term.ContentVi,
-                    "ContractAppendixTermRichTextInvalid",
-                    "Nội dung điều khoản phụ lục tiếng Việt không hợp lệ.",
-                    availableWidthDxa));
-                if (languageMode == ContractLanguageMode.Bilingual)
-                {
-                    elements.AddRange(CreateRichTextElements(
-                        term.ContentEn,
-                        "ContractAppendixTermRichTextInvalid",
-                        "Nội dung điều khoản phụ lục tiếng Anh không hợp lệ.",
-                        availableWidthDxa));
-                }
+                foreach (var body in DocumentEnglishPolicy.Bodies(languageMode, term.BilingualContentMode,
+                             term.ContentVi, term.ContentEn))
+                    elements.AddRange(CreateRichTextElements(body, "ContractAppendixTermRichTextInvalid",
+                        "Nội dung điều khoản phụ lục không hợp lệ.", availableWidthDxa));
             }
 
-            elements.Add(CreateAppendixSignatureTable(availableWidthDxa));
+            elements.Add(CreateAppendixSignatureTable(availableWidthDxa, languageMode));
         }
 
         return elements;
     }
 
-    private static W.Table CreateAppendixSignatureTable(int availableWidthDxa)
+    private static W.Table CreateAppendixSignatureTable(int availableWidthDxa, ContractLanguageMode languageMode)
     {
         var columnWidths = new[]
         {
@@ -510,11 +544,11 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         table.Append(new W.TableRow(
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, 0, 1),
-                CreateStyledParagraph("ĐẠI DIỆN BÊN KHÁCH HÀNG",
+                CreateStyledParagraph(DocumentEnglishPolicy.SignatureHeading(languageMode, customer: true),
                     bold: true, justification: W.JustificationValues.Center)),
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, 1, 1),
-                CreateStyledParagraph("ĐẠI DIỆN BÊN CUNG CẤP",
+                CreateStyledParagraph(DocumentEnglishPolicy.SignatureHeading(languageMode, customer: false),
                     bold: true, justification: W.JustificationValues.Center))));
         return table;
     }
@@ -527,20 +561,10 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var elements = new List<OpenXmlElement>();
         foreach (var basis in renderData.LegalBases)
         {
-            elements.AddRange(CreateRichTextElements(
-                basis.ContentVi,
-                "ContractLegalBasisRichTextInvalid",
-                "Nội dung căn cứ tiếng Việt có định dạng rich text không hợp lệ.",
-                availableWidthDxa));
-            if (languageMode == ContractLanguageMode.Bilingual
-                && !string.IsNullOrWhiteSpace(basis.ContentEn))
-            {
-                elements.AddRange(CreateRichTextElements(
-                    basis.ContentEn,
-                    "ContractLegalBasisRichTextInvalid",
-                    "Nội dung căn cứ tiếng Anh có định dạng rich text không hợp lệ.",
-                    availableWidthDxa));
-            }
+            foreach (var body in DocumentEnglishPolicy.Bodies(languageMode, (byte)BilingualContentMode.Separate,
+                         basis.ContentVi, basis.ContentEn))
+                elements.AddRange(CreateRichTextElements(body, "ContractLegalBasisRichTextInvalid",
+                    "Nội dung căn cứ có định dạng rich text không hợp lệ.", availableWidthDxa));
         }
 
         return elements;
@@ -790,33 +814,13 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             _ => null
         };
 
-    private static W.Paragraph CreateSignatureBlock(
-        ContractTemplateRenderSignature signature,
-        string notice)
-    {
-        var paragraph = new W.Paragraph(
-            CreateRun(signature.PartyTitle, bold: true),
-            CreateBreakRun());
-        if (!string.IsNullOrWhiteSpace(notice))
-        {
-            paragraph.Append(
-                CreateRun(notice),
-                CreateBreakRun());
-        }
-
-        paragraph.Append(
-            CreateBreakRun(),
-            CreateRun(signature.SignerName));
-        return paragraph;
-    }
-
     private static W.Table CreateItemTable(
         ContractLanguageMode languageMode,
         ContractTemplateRenderData renderData,
         int availableWidthDxa)
     {
         var headers = languageMode == ContractLanguageMode.Bilingual
-            ? new[] { "STT / No.", "Loại / Type", "Sản phẩm, dịch vụ / Description", "SL / Qty", "Đơn giá / Unit price", "CK / Disc.", "VAT", "Thành tiền / Total" }
+            ? new[] { "No.\n\nSTT", "Type\n\nLoại", "Description\n\nSản phẩm, dịch vụ", "Qty\n\nSL", "Unit price\n\nĐơn giá", "Disc.\n\nCK", "VAT", "Total\n\nThành tiền" }
             : new[] { "STT", "Loại", "Sản phẩm, dịch vụ", "SL", "Đơn giá", "CK", "VAT", "Thành tiền" };
         var rows = new List<IEnumerable<string>>
         {
@@ -827,8 +831,8 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             (IEnumerable<string>)
             [
                 item.No.ToString(),
-                item.Type,
-                item.Description,
+                RenderItemLanguages(item.Type, item.TypeEn, languageMode),
+                RenderItemLanguages(item.Description, item.DescriptionEn, languageMode),
                 FormatQuantity(item.Quantity),
                 FormatMoney(item.UnitPrice, renderData.CurrencyCode),
                 item.Discount,
@@ -848,11 +852,14 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             columnWidths,
             availableWidthDxa);
         var labelColumnCount = columnWidths.Count - 1;
+        var totalLabel = CreateParagraph(languageMode == ContractLanguageMode.Bilingual
+            ? "TOTAL\n\nTỔNG CỘNG" : "TỔNG CỘNG", bold: true);
+        totalLabel.ParagraphProperties = new W.ParagraphProperties(
+            new W.Justification { Val = W.JustificationValues.Right });
         var totalRow = new W.TableRow(
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, 0, labelColumnCount),
-                CreateStyledParagraph("TỔNG CỘNG", bold: true,
-                    justification: W.JustificationValues.Right)),
+                totalLabel),
             new W.TableCell(
                 CreateFixedCellProperties(columnWidths, labelColumnCount, 1),
                 CreateParagraph(FormatMoney(
@@ -860,6 +867,16 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                     renderData.CurrencyCode))));
         table.Append(totalRow);
         return table;
+    }
+
+    private static string RenderItemLanguages(string vietnamese, string? english,
+        ContractLanguageMode languageMode)
+    {
+        if (languageMode != ContractLanguageMode.Bilingual) return vietnamese;
+        if (string.IsNullOrWhiteSpace(english))
+            throw new ContractTemplatePreviewException("BilingualItemDataRequired",
+                "Sản phẩm/dịch vụ trong tài liệu song ngữ thiếu nội dung tiếng Anh.");
+        return $"{english}\n\n{vietnamese}";
     }
 
     private static W.Table CreateTable(
@@ -1053,7 +1070,13 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
 
     private static W.Paragraph CreateParagraph(string value, bool bold = false)
     {
-        return new W.Paragraph(CreateRun(value, bold));
+        var paragraph = new W.Paragraph();
+        foreach (var (line, index) in value.Split('\n').Select((line, index) => (line, index)))
+        {
+            if (index > 0) paragraph.Append(CreateBreakRun());
+            paragraph.Append(CreateRun(line, bold));
+        }
+        return paragraph;
     }
 
     private static W.Paragraph CreateStyledParagraph(
@@ -1120,7 +1143,13 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                 item.UnitPrice,
                 $"{item.DiscountPercent:0}%",
                 $"{item.VatPercent:0}%",
-                item.TotalAmount)).ToList(),
+                item.TotalAmount)
+            {
+                TypeEn = item.No == 1 ? "Product" : "Service",
+                DescriptionEn = item.No == 1
+                    ? "Sample enterprise contract management platform with approval workflows and an extended template library"
+                    : "Sample deployment, configuration and remote operation support services including key-user training"
+            }).ToList(),
         SoftwareSupplyPreviewDatasetV1.Terms.Select(term =>
             new ContractTemplateRenderTerm(
                 term.No,
@@ -1134,7 +1163,7 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         new ContractTemplateRenderSignature(
             SoftwareSupplyPreviewDatasetV1.CustomerSignature.PartyTitle,
             SoftwareSupplyPreviewDatasetV1.CustomerSignature.SignerName),
-        SoftwareSupplyPreviewDatasetV1.LegalDisclaimer)
+        DocumentEnglishPolicy.Label(languageMode, "SAMPLE DATA — NO LEGAL VALUE", SoftwareSupplyPreviewDatasetV1.LegalDisclaimer))
         {
             Definitions = ContractPlaceholderCatalog.SystemDefinitions,
             ItemTableColumnWidthsBps =
@@ -1147,24 +1176,11 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
     private static void AddAcceptanceSampleValues(
         IDictionary<string, string> values)
     {
+        values["ACCEPTANCE_DATE_EN"] = "20 September 2026";
+        values["ACCEPTANCE_LOCATION_EN"] = "Hanoi";
         values["ACCEPTANCE_CODE"] = "BBNT-SAMPLE-001";
         values["ACCEPTANCE_DATE"] = "20/09/2026";
         values["ACCEPTANCE_LOCATION"] = "Hà Nội";
-        values["CUSTOMER_LEGAL_NAME"] = "CÔNG TY KHÁCH HÀNG MẪU";
-        values["CUSTOMER_ADDRESS"] = "Số 01, Đường Mẫu, Hà Nội";
-        values["CUSTOMER_PHONE"] = "024 0000 0000";
-        values["CUSTOMER_FAX"] = "024 0000 0001";
-        values["CUSTOMER_TAX_CODE"] = "0100000000";
-        values["CUSTOMER_REPRESENTATIVE_NAME"] = "Nguyễn Văn A";
-        values["CUSTOMER_REPRESENTATIVE_TITLE"] = "Giám đốc";
-        values["TENANT_LEGAL_NAME"] =
-            "CÔNG TY TNHH CÔNG NGHỆ ỨNG DỤNG VÀ TRUYỀN THÔNG DTC";
-        values["TENANT_ADDRESS"] = "Số 2, ngách 6, ngõ 200, Vĩnh Hưng, Hà Nội";
-        values["TENANT_PHONE"] = "024 3557 3636";
-        values["TENANT_FAX"] = "024 3569 0588";
-        values["TENANT_TAX_CODE"] = "0105801335";
-        values["TENANT_REPRESENTATIVE_NAME"] = "Bùi Đức Ngọc";
-        values["TENANT_REPRESENTATIVE_TITLE"] = "Cán bộ tư vấn, triển khai";
     }
 
     private static ContractTemplatePreviewException LayoutUnsupported(string key) =>

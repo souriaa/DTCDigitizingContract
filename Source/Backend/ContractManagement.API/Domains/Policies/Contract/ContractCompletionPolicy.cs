@@ -22,13 +22,17 @@ namespace ContractManagement.API.Domains.Policies.Contract
         /// <param name="hasSignedAcceptance">Có ít nhất một biên bản đã ký hợp lệ.</param>
         /// <param name="totalAmount">Giá trị contract version đã ký.</param>
         /// <param name="paidAmount">Tổng thanh toán chưa bị void.</param>
+        /// <param name="handoverCompleted">Đã giao đủ baseline bằng chứng từ ký hợp lệ.</param>
+        /// <param name="executionDocumentInProgress">Còn bản nháp hoặc chờ ký cần giải quyết.</param>
         public static ContractCompletionEvaluation Evaluate(
             ContractStatus contractStatus,
             bool hasActiveSignedEvidence,
             bool acceptanceCompleted,
             bool hasSignedAcceptance,
             decimal totalAmount,
-            decimal paidAmount)
+            decimal paidAmount,
+            bool handoverCompleted,
+            bool executionDocumentInProgress)
         {
             EnsureDefined(contractStatus, nameof(contractStatus));
             if (totalAmount <= 0)
@@ -54,6 +58,10 @@ namespace ContractManagement.API.Domains.Policies.Contract
                 blockers.Add(new ContractCompletionBlocker(
                     ContractCompletionBlockerCode.ContractMustBeSigned));
             }
+            if (!handoverCompleted)
+                blockers.Add(new ContractCompletionBlocker(ContractCompletionBlockerCode.HandoverIncomplete));
+            if (executionDocumentInProgress)
+                blockers.Add(new ContractCompletionBlocker(ContractCompletionBlockerCode.ExecutionDocumentInProgress));
             if (!acceptanceCompleted)
             {
                 blockers.Add(new ContractCompletionBlocker(

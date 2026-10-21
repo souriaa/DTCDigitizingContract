@@ -27,6 +27,12 @@ public sealed class ContractPlaceholderCatalog(
         if (!CustomEnabled) return result;
         var custom = await db.TblContractPlaceholderDefinitions.AsNoTracking()
             .Where(x => includeInactive || x.IsActive).OrderBy(x => x.PlaceholderKey).ToListAsync(cancellationToken);
+        var reserved = SystemDefinitions.Concat(AcceptanceRecordPlaceholderCatalog.All).Concat(HandoverRecordPlaceholderCatalog.All)
+            .Select(x => x.Key).ToHashSet(StringComparer.Ordinal);
+        var collision = custom.FirstOrDefault(x => reserved.Contains(x.PlaceholderKey));
+        if (collision is not null)
+            throw new PlaceholderOperationException("PlaceholderKeyCollision",
+                $"Trường tùy chỉnh {collision.PlaceholderKey} trùng marker hệ thống. Hãy cấu hình mẫu bằng một khóa tùy chỉnh khác; hệ thống không tự đổi nguồn dữ liệu.");
         result.AddRange(custom.Select(ToDefinition));
         return result;
     }

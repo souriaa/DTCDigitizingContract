@@ -14,6 +14,7 @@ public sealed class ContractAcceptanceEvidenceResponse
     public string ContentType { get; set; } = string.Empty;
     public long FileSize { get; set; }
     public string Sha256 { get; set; } = string.Empty;
+    public DateTime? SignDate { get; set; }
     public int UploadedByEmployeeId { get; set; }
     public string? UploadedByEmployeeName { get; set; }
     public DateTime UploadedAt { get; set; }
@@ -93,7 +94,21 @@ public sealed class ContractCompletionBlockerResponse
 
 public sealed class ContractCompletionReadinessResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+    public bool TenantReceivesPayment { get; set; }
+    public string? PayerName { get; set; }
+    public string? PayeeName { get; set; }
+    public string? PayeeBankAccount { get; set; }
+    public string? PayeeBankName { get; set; }
     public bool Signed { get; set; }
+    public bool PaymentCompleted { get; set; }
+    public string? ScopeIntegrityError { get; set; }
+    public bool HandoverCompleted { get; set; }
+    public bool AcceptanceScopeCompleted { get; set; }
+    public int TotalScopeItemCount { get; set; }
+    public int DeliveredScopeItemCount { get; set; }
+    public int AcceptedScopeItemCount { get; set; }
+    public IReadOnlyList<HandoverScopeItemResponse> ScopeItems { get; set; } = [];
     public bool AcceptanceCompleted { get; set; }
     public int AcceptedMilestoneCount { get; set; }
     public int TotalMilestoneCount { get; set; }

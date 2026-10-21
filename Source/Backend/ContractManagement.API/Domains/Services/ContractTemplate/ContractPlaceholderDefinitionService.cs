@@ -36,9 +36,12 @@ public sealed class ContractPlaceholderDefinitionService(
         key = key.ToUpperInvariant();
         if (key.Length > 100 || !Regex.IsMatch(key, "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$", RegexOptions.CultureInvariant))
             throw new PlaceholderOperationException("PlaceholderKeyInvalid", "Key chỉ gồm chữ in hoa, số và dấu gạch dưới; bắt đầu bằng chữ.");
+        if (key.StartsWith("TENANT_", StringComparison.Ordinal) || key is "CUSTOMER_COMPANY" or "CUSTOMER_COMPANY_EN"
+            or "PROVIDER_LEGAL_NAME" or "PROVIDER_LEGAL_NAME_EN" or "CUSTOMER_LEGAL_NAME" or "CUSTOMER_LEGAL_NAME_EN")
+            throw new PlaceholderOperationException("PlaceholderKeyRetired", "Marker cũ không được hỗ trợ. Hãy dùng PROVIDER_COMPANY_NAME / CUSTOMER_COMPANY_NAME hoặc bản _EN cho tên công ty/pháp nhân.");
         if (ContractPlaceholderCatalog.SystemDefinitions.Any(x => x.Key == key)
-            || AcceptanceRecordPlaceholderCatalog.All.Any(x => x.Key == key
-                && x.Key != "CUSTOMER_REPRESENTATIVE_TITLE"))
+            || AcceptanceRecordPlaceholderCatalog.All.Any(x => x.Key == key)
+            || HandoverRecordPlaceholderCatalog.All.Any(x => x.Key == key))
             throw new PlaceholderOperationException("SystemPlaceholderImmutable", "Không thể thay đổi hoặc dùng trùng key hệ thống.");
         if (string.IsNullOrWhiteSpace(request.FieldLabel) || request.FieldLabel.Length > 300 || request.DefaultValue?.Length > 2000)
             throw new PlaceholderOperationException("PlaceholderKeyInvalid", "Tên hiển thị hoặc giá trị mặc định không hợp lệ.");

@@ -17,6 +17,14 @@ namespace ContractManagement.API.Domains.Services.Customer
     /// </summary>
     public class CustomerService : ICustomerService
     {
+        private static string? NormalizeEnglish(string? value, int maxLength, string field)
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            if (text.Length > maxLength) throw new ArgumentException($"{field} vượt quá {maxLength} ký tự.");
+            return text;
+        }
+
         private readonly DbDtctechContext _dbContext;
 
         public CustomerService(DbDtctechContext dbContext)
@@ -166,6 +174,13 @@ namespace ContractManagement.API.Domains.Services.Customer
             {
                 CustomerFullName = request.CustomerFullName.Trim(),
                 CustomerCompany = request.CustomerCompany?.Trim(),
+                CustomerCompanyEn = NormalizeEnglish(request.CustomerCompanyEn, 500, "CustomerCompanyEn"),
+                CustomerAddressEn = NormalizeEnglish(request.CustomerAddressEn, 500, "CustomerAddressEn"),
+                CustomerBankNameEn = NormalizeEnglish(request.CustomerBankNameEn, 500, "CustomerBankNameEn"),
+                CustomerCityEn = NormalizeEnglish(request.CustomerCityEn, 100, "CustomerCityEn"),
+                CustomerCountryEn = NormalizeEnglish(request.CustomerCountryEn, 100, "CustomerCountryEn"),
+                CustomerContactPersonTitleEn = NormalizeEnglish(request.CustomerContactPersonTitleEn, 200, "CustomerContactPersonTitleEn"),
+                CustomerRepresentativeTitleEn = NormalizeEnglish(request.CustomerRepresentativeTitleEn, 200, "CustomerRepresentativeTitleEn"),
                 CustomerEmail = request.CustomerEmail?.Trim(),
                 CustomerMobile = request.CustomerMobile?.Trim(),
                 CustomerPhone = request.CustomerPhone?.Trim(),
@@ -226,6 +241,13 @@ namespace ContractManagement.API.Domains.Services.Customer
                 customer.CustomerCode = await GenerateCodeAsync(customer.CustomerId);
             customer.CustomerFullName = request.CustomerFullName.Trim();
             customer.CustomerCompany = request.CustomerCompany?.Trim();
+            customer.CustomerCompanyEn = NormalizeEnglish(request.CustomerCompanyEn, 500, "CustomerCompanyEn");
+            customer.CustomerAddressEn = NormalizeEnglish(request.CustomerAddressEn, 500, "CustomerAddressEn");
+            customer.CustomerBankNameEn = NormalizeEnglish(request.CustomerBankNameEn, 500, "CustomerBankNameEn");
+            customer.CustomerCityEn = NormalizeEnglish(request.CustomerCityEn, 100, "CustomerCityEn");
+            customer.CustomerCountryEn = NormalizeEnglish(request.CustomerCountryEn, 100, "CustomerCountryEn");
+            customer.CustomerContactPersonTitleEn = NormalizeEnglish(request.CustomerContactPersonTitleEn, 200, "CustomerContactPersonTitleEn");
+            customer.CustomerRepresentativeTitleEn = NormalizeEnglish(request.CustomerRepresentativeTitleEn, 200, "CustomerRepresentativeTitleEn");
             customer.CustomerEmail = request.CustomerEmail?.Trim();
             customer.CustomerMobile = request.CustomerMobile?.Trim();
             customer.CustomerPhone = request.CustomerPhone?.Trim();
@@ -319,6 +341,13 @@ namespace ContractManagement.API.Domains.Services.Customer
                 CustomerCode = customer.CustomerCode,
                 CustomerFullName = customer.CustomerFullName,
                 CustomerCompany = customer.CustomerCompany,
+                CustomerCompanyEn = customer.CustomerCompanyEn,
+                CustomerAddressEn = customer.CustomerAddressEn,
+                CustomerBankNameEn = customer.CustomerBankNameEn,
+                CustomerCityEn = customer.CustomerCityEn,
+                CustomerCountryEn = customer.CustomerCountryEn,
+                CustomerContactPersonTitleEn = customer.CustomerContactPersonTitleEn,
+                CustomerRepresentativeTitleEn = customer.CustomerRepresentativeTitleEn,
                 CustomerEmail = customer.CustomerEmail,
                 CustomerMobile = customer.CustomerMobile,
                 CustomerPhone = customer.CustomerPhone,

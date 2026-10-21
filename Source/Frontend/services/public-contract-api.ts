@@ -42,6 +42,7 @@ export interface CustomerPublicContractItemResponse {
   itemDescription?: string | null;
   quantity: number;
   unitName?: string | null;
+  unitNameEn?: string | null;
   lineTotal: number;
   displayOrder: number;
 }
@@ -53,6 +54,7 @@ export interface CustomerPublicContractTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
 }

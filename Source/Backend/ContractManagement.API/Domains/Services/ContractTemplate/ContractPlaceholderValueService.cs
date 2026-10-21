@@ -12,8 +12,13 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
     : IContractPlaceholderValueService
 {
     public async Task<IReadOnlyDictionary<string, string>> CaptureAsync(TblContract contract, TblContractVersion version,
-        bool refresh = false, CancellationToken cancellationToken = default)
+        bool refresh = false, CancellationToken cancellationToken = default,
+        ContractPlaceholderResolveContext? preloadedContext = null)
     {
+        if (preloadedContext is not null && (preloadedContext.Contract.ContractId != contract.ContractId
+            || preloadedContext.Version.VersionId != version.VersionId
+            || preloadedContext.Customer.CustomerId != contract.CustomerId))
+            throw new ArgumentException("Nguồn placeholder không thuộc hợp đồng/phiên bản hiện tại.");
         var templateId = version.TemplateVersionId;
         var fields = await db.TblContractTemplateFields.AsNoTracking()
             .Where(x => x.TemplateVersionId == templateId && !x.IsSystem).ToListAsync(cancellationToken);
@@ -25,7 +30,9 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
             .Where(x => db.Entry(x).State != EntityState.Deleted).ToList();
         var complete = stored.Count == fields.Count && fields.All(f => stored.Any(v =>
             v.PlaceholderKey == f.PlaceholderKey && v.TemplateVersionId == templateId && v.SourceFieldKey == f.SourceFieldKey));
-        if (complete && (!refresh || version.IsLocked)) return stored.ToDictionary(x => x.PlaceholderKey, x => x.RenderedValue, StringComparer.Ordinal);
+        var hasEnglishSources = fields.Any(x => x.SourceFieldKey.EndsWith("-en", StringComparison.Ordinal));
+        if (complete && (version.IsLocked || !refresh && !hasEnglishSources))
+            return stored.ToDictionary(x => x.PlaceholderKey, x => x.RenderedValue, StringComparer.Ordinal);
         if (version.IsLocked)
             throw new PlaceholderOperationException("PlaceholderValueResolveFailed", "Version đã khóa thiếu snapshot placeholder. Không thể đọc lại dữ liệu hiện tại.");
         if (fields.Count == 0)
@@ -33,11 +40,13 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
             db.TblContractVersionPlaceholderValues.RemoveRange(stored);
             return new Dictionary<string, string>();
         }
-        var customer = await db.TblCustomers.AsNoTracking().SingleOrDefaultAsync(x => x.CustomerId == contract.CustomerId, cancellationToken)
+        var customer = preloadedContext?.Customer ?? await db.TblCustomers.AsNoTracking().SingleOrDefaultAsync(x => x.CustomerId == contract.CustomerId, cancellationToken)
             ?? throw new PlaceholderOperationException("PlaceholderValueResolveFailed", "Không tìm thấy khách hàng của hợp đồng.");
         // A draft may be created before the legal profile is configured. Only its fields need that source.
-        var tenant = fields.Any(x => x.SourceFieldKey!.StartsWith("provider.", StringComparison.Ordinal))
-            ? await db.TblTenantLegalProfiles.AsNoTracking().SingleOrDefaultAsync(cancellationToken) : null;
+        var tenant = fields.Any(x => x.SourceFieldKey!.StartsWith("provider.", StringComparison.Ordinal)
+            || x.SourceFieldKey!.StartsWith("customer.", StringComparison.Ordinal)
+            || x.SourceFieldKey!.StartsWith("tenant.", StringComparison.Ordinal))
+            ? preloadedContext?.Tenant ?? await db.TblTenantLegalProfiles.AsNoTracking().SingleOrDefaultAsync(cancellationToken) : null;
         TblEmployee? owner = null;
         TblDepartment? department = null;
         if (fields.Any(x => x.SourceFieldKey!.StartsWith("contract-owner.", StringComparison.Ordinal) || x.SourceFieldKey!.StartsWith("department.", StringComparison.Ordinal)))
@@ -52,6 +61,13 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var f in fields)
         {
+            var captured = stored.SingleOrDefault(x => x.PlaceholderKey == f.PlaceholderKey);
+            if (!refresh && captured is not null && captured.SourceFieldKey == f.SourceFieldKey
+                && !f.SourceFieldKey.EndsWith("-en", StringComparison.Ordinal))
+            {
+                result.Add(f.PlaceholderKey, captured.RenderedValue);
+                continue;
+            }
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
             object? raw;
             string rendered;
@@ -72,7 +88,9 @@ public sealed class ContractPlaceholderValueService(DbDtctechContext db, IContra
             {
                 ContractPlaceholderMetrics.ResolveDuration.Record(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
             }
-            if (f.IsRequired && string.IsNullOrWhiteSpace(rendered))
+            if (f.IsRequired && !DocumentEnglishPolicy.IsOptionalPartyEnglish(ContractPlaceholderCatalog.FromSnapshot(f),
+                    (ContractManagement.API.Common.Enums.ContractDirection)contract.ContractDirection)
+                && string.IsNullOrWhiteSpace(rendered))
                 throw new PlaceholderOperationException("PlaceholderValueRequired", $"Placeholder {f.PlaceholderKey} thiếu dữ liệu.");
             var row = stored.SingleOrDefault(x => x.PlaceholderKey == f.PlaceholderKey);
             if (row is null)

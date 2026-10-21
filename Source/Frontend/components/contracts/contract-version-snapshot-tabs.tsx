@@ -13,7 +13,9 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ContractTermCard } from "./contract-term-card";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
+import { AppendixCard } from "@/components/contract-documents/appendix-card";
+import { ContractLegalBases } from "./contract-legal-bases";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
 import {
@@ -127,7 +129,7 @@ export function ContractVersionSnapshotTabs({
   );
   return (
     <Tabs defaultValue="items" className="space-y-4">
-      <TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-4">
+      <TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-5">
         <TabsTrigger value="items">
           <Package className="size-4" />
           <span className="hidden sm:inline">Sản phẩm/Dịch vụ</span>
@@ -143,6 +145,7 @@ export function ContractVersionSnapshotTabs({
           <span className="hidden sm:inline">Phụ lục</span>
           <span>({version.appendices?.length ?? 0})</span>
         </TabsTrigger>
+        <TabsTrigger value="legal-bases">Căn cứ ({version.legalBases.length})</TabsTrigger>
         <TabsTrigger value="comments">
           <MessageSquareText className="size-4" />
           <span className="hidden sm:inline">Bình luận</span>
@@ -232,14 +235,8 @@ export function ContractVersionSnapshotTabs({
             Bản lưu không có điều khoản
           </EmptyState>
         ) : (
-          paginatedTerms.map((term) => (
-            <ContractTermCard
-              key={term.termId}
-              term={term}
-              inputId={`snapshot-${term.termId}`}
-              isBilingual={Boolean(term.termTitleEn || term.termContentEn)}
-            />
-          ))
+          <TermsListEditor terms={paginatedTerms} getKey={(term) => term.termId}
+            getCardProps={(term) => ({ inputId: `snapshot-${term.termId}`, isBilingual: Boolean(term.termTitleEn || term.termContentEn) })} />
         )}
         <PaginationControls
           page={termsPage}
@@ -257,37 +254,22 @@ export function ContractVersionSnapshotTabs({
         ) : (
           [...version.appendices]
             .sort((a, b) => a.displayOrder - b.displayOrder)
-            .map((appendix) => (
-              <div key={appendix.appendixId} className="rounded-xl border p-4 sm:p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold">
-                    {appendix.appendixCode} — {appendix.appendixName}
-                  </h3>
-                  <Badge variant={appendix.isRequired ? "default" : "outline"}>
-                    {appendix.isRequired ? "Bắt buộc" : "Tùy chọn"}
-                  </Badge>
-                </div>
-                {appendix.appendixDescription && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {appendix.appendixDescription}
-                  </p>
-                )}
-                <div className="mt-4 space-y-3">
-                  {appendix.terms.map((term) => (
-                    <ContractTermCard
-                      key={term.appendixTermId}
-                      term={{ ...term, isNegotiable: false }}
-                      inputId={`snapshot-appendix-${term.appendixTermId}`}
-                      isBilingual={Boolean(
-                        term.termTitleEn || term.termContentEn
-                      )}
-                      showNegotiation={false}
-                    />
-                  ))}
-                </div>
-              </div>
+            .map((appendix, index) => (
+              <AppendixCard key={appendix.appendixId} index={index} code={appendix.appendixCode}
+                name={appendix.appendixName} nameEn={appendix.appendixNameEn}
+                description={appendix.appendixDescription} required={appendix.isRequired} termCount={appendix.terms.length}>
+                <TermsListEditor terms={appendix.terms.map((term) => ({ ...term, isNegotiable: false }))}
+                  getKey={(term) => term.appendixTermId} getCardProps={(term) => ({
+                    inputId: `snapshot-appendix-${term.appendixTermId}`, isBilingual: Boolean(term.termTitleEn || term.termContentEn),
+                    showNegotiation: false,
+                  })} />
+              </AppendixCard>
             ))
         )}
+      </TabsContent>
+
+      <TabsContent value="legal-bases">
+        <ContractLegalBases bases={version.legalBases} isBilingual={version.legalBases.some((basis) => Boolean(basis.contentEn))} />
       </TabsContent>
 
       <TabsContent value="comments" className="space-y-3">

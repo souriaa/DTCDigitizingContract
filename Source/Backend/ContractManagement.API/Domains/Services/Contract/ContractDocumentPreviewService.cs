@@ -250,20 +250,18 @@ public sealed class ContractDocumentPreviewService :
                 item.ColumnKey,
                 (int)item.DisplayOrder,
                 (int)item.WidthBps)));
-        var renderData = CreateRenderData(snapshot, customer) with
+        var fields = await _dbContext.TblContractTemplateFields.AsNoTracking()
+            .Where(x => x.TemplateVersionId == templateVersionId).ToListAsync(cancellationToken);
+        var renderData = CreateRenderData(snapshot, fields.Any(x => x.PlaceholderKey == "CONTRACT_APPENDICES")) with
         {
             ItemTableColumnWidthsBps = itemTableWidths
         };
-        var fields = await _dbContext.TblContractTemplateFields.AsNoTracking()
-            .Where(x => x.TemplateVersionId == templateVersionId).ToListAsync(cancellationToken);
         var definitions = fields.Select(ContractPlaceholderCatalog.FromSnapshot).ToArray();
         var custom = await _placeholderValues
-            .CaptureAsync(contract, version, cancellationToken: cancellationToken);
+            .CaptureAsync(contract, version, cancellationToken: cancellationToken,
+                preloadedContext: new ContractPlaceholderResolveContext(contract, version, customer, tenant, null, null));
         var scalars = new Dictionary<string, string>(renderData.ScalarValues, StringComparer.Ordinal);
-        if (definitions.Any(x => x.IsSystem && x.Key == "CUSTOMER_REPRESENTATIVE_TITLE"))
-            scalars["CUSTOMER_REPRESENTATIVE_TITLE"] = snapshot.Customer.RepresentativeTitle;
-        // A former system key may be deliberately reintroduced as a custom
-        // definition. The immutable template binding decides its semantics.
+        // Resolve custom bindings from the version; locked values are never read from master again.
         foreach (var pair in custom) scalars[pair.Key] = pair.Value;
         renderData = renderData with
         {
@@ -329,6 +327,8 @@ public sealed class ContractDocumentPreviewService :
                 "Template của hợp đồng chưa từng được publish.");
         }
 
+        if (version.ContractDirection != contract.ContractDirection)
+            throw new InvalidOperationException("Chiều giao dịch của mẫu không khớp với hợp đồng.");
         if (template.LanguageMode != contract.LanguageMode)
         {
             throw new InvalidOperationException(
@@ -383,21 +383,23 @@ public sealed class ContractDocumentPreviewService :
 
     private static ContractTemplateRenderData CreateRenderData(
         SoftwareSupplyContractSnapshot snapshot,
-        TblCustomer customer)
+        bool renderAppendices)
     {
         var contract = snapshot.Contract;
         var version = snapshot.Version;
         var customerSnapshot = snapshot.Customer;
         var tenant = snapshot.Tenant;
         var currency = version.CurrencyCode;
-        var customerContactName = Required(
-            customer.CustomerContactPersonName,
+        _ = Required(
+            customerSnapshot.ContactName,
             "Người liên lạc khách hàng");
-        var customerContactTitle = Value(
-            customer.CustomerContactPersonTitle);
 
         var scalarValues = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["CONTRACT_DATE_EN"] = DocumentEnglishPolicy.Date(contract.CreatedDate),
+            ["EFFECTIVE_DATE_EN"] = contract.EffectiveDate is { } effective ? DocumentEnglishPolicy.Date(effective) : string.Empty,
+            ["EXPIRE_DATE_EN"] = contract.ExpireDate is { } expiry ? DocumentEnglishPolicy.Date(expiry) : string.Empty,
+            ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = EnglishMoneyTextFormatter.Format(version.TotalAmount, currency),
             ["CONTRACT_CODE"] = Required(contract.ContractCode, "Mã hợp đồng"),
             ["CONTRACT_NAME"] = Required(contract.ContractName, "Tên hợp đồng"),
             ["CONTRACT_NAME_EN"] = Value(contract.ContractNameEn),
@@ -409,40 +411,14 @@ public sealed class ContractDocumentPreviewService :
                 contract.ExpireDate,
                 "Ngày hết hạn"),
             ["CONTRACT_CURRENCY"] = currency,
-            ["CONTRACT_TOTAL_AMOUNT"] = FormatAmount(version.TotalAmount),
+            ["CONTRACT_TOTAL_AMOUNT"] = FormatAmount(version.TotalAmount, currency),
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS"] =
                 VietnameseMoneyTextFormatter.Format(version.TotalAmount, currency),
-            ["CUSTOMER_CODE"] = Required(customer.CustomerCode, "Mã khách hàng"),
-            ["CUSTOMER_NAME"] = Required(customer.CustomerFullName, "Tên khách hàng"),
-            ["CUSTOMER_COMPANY"] = Required(
-                customer.CustomerCompany ?? customerSnapshot.LegalName,
-                "Công ty khách hàng"),
-            ["CUSTOMER_TAX_CODE"] = Required(
-                customerSnapshot.TaxCode,
-                "Mã số thuế khách hàng"),
-            ["CUSTOMER_ADDRESS"] = customerSnapshot.Address,
-            ["CUSTOMER_EMAIL"] = Required(customer.CustomerEmail, "Email khách hàng"),
-            ["CUSTOMER_PHONE"] = Required(
-                customerSnapshot.PhoneNumber,
-                "Điện thoại khách hàng"),
-            ["PROVIDER_LEGAL_NAME"] = tenant.LegalEntityName,
-            ["PROVIDER_TAX_CODE"] = tenant.TaxCode,
-            ["PROVIDER_ADDRESS"] = tenant.Address,
-            ["PROVIDER_REPRESENTATIVE_NAME"] = tenant.RepresentativeName,
-            ["PROVIDER_REPRESENTATIVE_TITLE"] = tenant.RepresentativeTitle,
-            ["CUSTOMER_FAX"] = Value(customerSnapshot.FaxNumber),
-            ["CUSTOMER_BANK_ACCOUNT_NUMBER"] =
-                Value(customerSnapshot.BankAccountNumber),
-            ["CUSTOMER_BANK_NAME"] = Value(customerSnapshot.BankName),
-            ["PROVIDER_PHONE"] = Value(snapshot.Tenant.PhoneNumber),
-            ["PROVIDER_FAX"] = Value(snapshot.Tenant.FaxNumber),
-            ["PROVIDER_BANK_ACCOUNT_NUMBER"] =
-                Value(snapshot.Tenant.BankAccountNumber),
-            ["PROVIDER_BANK_NAME"] = Value(snapshot.Tenant.BankName),
-            ["CUSTOMER_WEBSITE"] = Value(customer.CustomerWebsite),
-            ["CUSTOMER_CITY"] = Value(customer.CustomerCity),
-            ["CUSTOMER_COUNTRY"] = Value(customer.CustomerCountry)
         };
+
+        foreach (var pair in DocumentPartyMarkers.Values((ContractDirection)contract.ContractDirection,
+                     DocumentParty.From(tenant), DocumentParty.From(customerSnapshot)))
+            scalarValues[pair.Key] = pair.Value;
 
         var items = snapshot.Items.Select((item, index) =>
             new ContractTemplateRenderItem(
@@ -450,14 +426,20 @@ public sealed class ContractDocumentPreviewService :
                 item.ItemType == (byte)ContractItemType.Product
                     ? "Sản phẩm"
                     : "Dịch vụ",
-                BuildItemDescription(item, contract.LanguageMode),
+                BuildItemDescription(item),
                 item.Quantity,
                 item.UnitPrice,
                 item.DiscountMode == (byte)ContractItemDiscountMode.Percentage
                     ? $"{item.DiscountPercent:0.####}%"
                     : FormatMoney(item.DiscountAmount, currency),
                 item.IsTaxable ? $"{item.VatPercent:0.####}%" : "0%",
-                item.LineTotal))
+                item.LineTotal)
+            {
+                TypeEn = item.ItemType == (byte)ContractItemType.Product ? "Product" : "Service",
+                DescriptionEn = string.IsNullOrWhiteSpace(item.ItemNameEn) ? null
+                    : string.IsNullOrWhiteSpace(item.ItemDescriptionEn) ? item.ItemNameEn
+                    : $"{item.ItemNameEn} — {item.ItemDescriptionEn}"
+            })
             .ToArray();
 
         var milestones = snapshot.PaymentMilestones ?? [];
@@ -470,6 +452,7 @@ public sealed class ContractDocumentPreviewService :
                 Value(term.TermContentEn))
             {
                 Kind = (ContractTermKind)term.TermKind,
+                BilingualContentMode = term.BilingualContentMode,
                 PaymentMilestones = milestones.Where(item => item.TermId == term.TermId)
                     .OrderBy(item => item.DisplayOrder)
                     .Select((item, milestoneIndex) => new ContractTemplateRenderPaymentMilestone(
@@ -485,29 +468,19 @@ public sealed class ContractDocumentPreviewService :
             scalarValues,
             items,
             terms,
-            new ContractTemplateRenderSignature(
-                "ĐẠI DIỆN BÊN CUNG CẤP",
-                $"{tenant.LegalEntityName} — MST: {tenant.TaxCode} — "
-                + $"{tenant.Address} — {tenant.RepresentativeName}, "
-                + tenant.RepresentativeTitle),
-            new ContractTemplateRenderSignature(
-                "ĐẠI DIỆN BÊN KHÁCH HÀNG",
-                $"{customerSnapshot.LegalName} — MST: "
-                + $"{Value(customerSnapshot.TaxCode)} — {customerSnapshot.Address} — "
-                + customerContactName
-                + (string.IsNullOrWhiteSpace(customerContactTitle)
-                    ? string.Empty
-                    : $", {customerContactTitle}")),
+            new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN CUNG CẤP", string.Empty),
+            new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN KHÁCH HÀNG", string.Empty),
             string.Empty,
             currency)
         {
+            ContractDirection = (ContractDirection)contract.ContractDirection,
             LegalBases = (snapshot.LegalBases ?? [])
                 .OrderBy(item => item.DisplayOrder)
                 .ThenBy(item => item.LegalBasisId)
                 .Select((item, index) => new ContractTemplateRenderLegalBasis(
                     index + 1, item.ContentVi, item.ContentEn))
                 .ToArray(),
-            Appendices = (snapshot.Appendices ?? [])
+            Appendices = (renderAppendices ? snapshot.Appendices ?? [] : [])
                 .OrderBy(item => item.DisplayOrder)
                 .ThenBy(item => item.AppendixId)
                 .Select((appendix, appendixIndex) =>
@@ -530,7 +503,7 @@ public sealed class ContractDocumentPreviewService :
                                     term.TermTitle,
                                     term.TermTitleEn,
                                     term.TermContent,
-                                    term.TermContentEn))
+                                    term.TermContentEn) { BilingualContentMode = term.BilingualContentMode })
                             .ToArray()))
                 .ToArray()
         };
@@ -545,27 +518,13 @@ public sealed class ContractDocumentPreviewService :
     private static string BuildAppendixReferenceEn(
         SoftwareSupplyContractSnapshot snapshot) =>
         $"Pursuant to Contract No. {snapshot.Contract.ContractCode} between "
-        + $"{snapshot.Tenant.LegalEntityName} and {snapshot.Customer.LegalName} "
-        + $"regarding {snapshot.Contract.ContractNameEn ?? snapshot.Contract.ContractName}.";
+        + $"{DocumentEnglishPolicy.Require(snapshot.Tenant.LegalNameEn, "tên pháp nhân tiếng Anh doanh nghiệp")} and {DocumentEnglishPolicy.OptionalCustomerEnglish(snapshot.Customer.LegalNameEn)} "
+        + $"regarding {DocumentEnglishPolicy.Require(snapshot.Contract.ContractNameEn, "tên hợp đồng tiếng Anh")}.";
 
-    private static string BuildItemDescription(
-        ContractItemLegalSnapshot item,
-        byte languageMode)
-    {
-        var vietnamese = string.IsNullOrWhiteSpace(item.ItemDescription)
+    private static string BuildItemDescription(ContractItemLegalSnapshot item) =>
+        string.IsNullOrWhiteSpace(item.ItemDescription)
             ? item.ItemName
             : $"{item.ItemName} — {item.ItemDescription}";
-        if (languageMode != (byte)ContractLanguageMode.Bilingual
-            || string.IsNullOrWhiteSpace(item.ItemNameEn))
-        {
-            return vietnamese;
-        }
-
-        var english = string.IsNullOrWhiteSpace(item.ItemDescriptionEn)
-            ? item.ItemNameEn
-            : $"{item.ItemNameEn} — {item.ItemDescriptionEn}";
-        return $"{vietnamese} / {english}";
-    }
 
     private static string FormatDate(DateTime value) =>
         $"Ngày {value:dd} tháng {value:MM} năm {value:yyyy}";
@@ -576,10 +535,15 @@ public sealed class ContractDocumentPreviewService :
             : throw new InvalidOperationException($"{fieldName} chưa được cấu hình.");
 
     private static string FormatMoney(decimal value, string currency) =>
-        $"{value:N0} {currency}".Replace(',', '.');
+        $"{FormatAmount(value, currency)} {currency}";
 
-    private static string FormatAmount(decimal value) =>
-        $"{value:N0}".Replace(',', '.');
+    private static string FormatAmount(decimal value, string currency)
+    {
+        var decimals = currency.Equals("USD", StringComparison.OrdinalIgnoreCase) ? 2 : 0;
+        var culture = System.Globalization.CultureInfo.GetCultureInfo(decimals == 0 ? "vi-VN" : "en-US");
+        return decimal.Round(value, decimals, MidpointRounding.AwayFromZero)
+            .ToString(decimals == 0 ? "N0" : "N2", culture);
+    }
 
     private static string Required(string? value, string fieldName)
     {
@@ -618,18 +582,21 @@ internal static class VietnameseMoneyTextFormatter
 
     public static string Format(decimal amount, string currencyCode)
     {
-        var rounded = decimal.Round(amount, 0, MidpointRounding.AwayFromZero);
+        var isUsd = string.Equals(currencyCode, "USD", StringComparison.OrdinalIgnoreCase);
+        var rounded = decimal.Round(amount, isUsd ? 2 : 0, MidpointRounding.AwayFromZero);
         if (rounded < 0 || rounded > long.MaxValue)
         {
             return $"{rounded:N0} {currencyCode}".Replace(',', '.');
         }
 
-        var value = decimal.ToInt64(rounded);
+        var whole = decimal.Truncate(rounded);
+        var value = decimal.ToInt64(whole);
         var number = value == 0 ? "Không" : Capitalize(ReadNumber(value));
         var unit = string.Equals(currencyCode, "VND", StringComparison.OrdinalIgnoreCase)
             ? "đồng chẵn"
             : currencyCode;
-        return $"{number} {unit}";
+        var cents = (int)((rounded - whole) * 100);
+        return isUsd && cents > 0 ? $"{number} {unit} và {ReadNumber(cents)} xu" : $"{number} {unit}";
     }
 
     private static string ReadNumber(long value)

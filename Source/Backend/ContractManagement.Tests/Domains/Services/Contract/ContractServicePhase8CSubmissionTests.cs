@@ -30,12 +30,46 @@ public sealed class ContractServicePhase8CSubmissionTests
     private const int TemplateVersionId = 8807;
     private static readonly byte[] InitialRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
-    [Fact]
-    public async Task Submit_HappyPath_PersistsImmutableArtifactsAndInvalidatesAccess()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Submit_MissingSignedUnit_IsBlockedBeforeRendering(bool english)
+    {
+        await using var context = CreateContext();
+        await SeedReadyContractAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        var item = await context.TblContractItems.SingleAsync();
+        if (english)
+        {
+            contract.LanguageMode = (byte)ContractLanguageMode.Bilingual;
+            contract.ContractNameEn = "Software contract";
+            item.ItemNameEn = "Software";
+            item.UnitNameEn = " ";
+            (await context.TblContractTerms.SingleAsync()).TermTitleEn = "General";
+        }
+        else item.UnitName = " ";
+        await context.SaveChangesAsync(); context.ChangeTracker.Clear();
+        var renderer = new StubRenderer(); var storage = new TrackingPrivateStorage();
+        var service = CreateService(context, renderer, storage);
+        var readiness = (await service.GetDetailAsync(ContractId, OwnerId)).ApprovalReadiness;
+        Assert.False(readiness.CanSubmit);
+        Assert.Contains(readiness.Blockers, x => x.Code == (english
+            ? ContractApprovalReadinessCodes.BilingualItemUnitRequired : ContractApprovalReadinessCodes.ContractItemUnitRequired));
+        await Assert.ThrowsAnyAsync<Exception>(() => service.SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId));
+        Assert.Equal(0, renderer.CallCount); Assert.Empty(storage.SavedKeys);
+        await AssertSubmissionStateUnchangedAsync(context);
+    }
+
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Submit_HappyPath_PersistsImmutableArtifactsAndInvalidatesAccess(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedReadyContractAsync(context, includeCustomerAccess: true);
-        var renderer = new StubRenderer();
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
+        var renderer = new StubRenderer(direction);
         var storage = new TrackingPrivateStorage();
 
         var response = await CreateService(context, renderer, storage)
@@ -468,6 +502,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = OwnerId,
@@ -505,6 +540,8 @@ public sealed class ContractServicePhase8CSubmissionTests
             VersionId = VersionId,
             ItemType = (byte)ContractItemType.Product,
             ItemName = "Software",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Quantity = 1m,
             UnitPrice = 100m,
             LineSubtotal = 100m,
@@ -603,7 +640,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         Assert.Equal(expectedFileCount, await context.TblFileStorages.CountAsync());
     }
 
-    private sealed class StubRenderer : IContractSubmissionArtifactRenderer
+    private sealed class StubRenderer(ContractDirection direction = ContractDirection.Sale) : IContractSubmissionArtifactRenderer
     {
         public int CallCount { get; private set; }
 
@@ -613,9 +650,10 @@ public sealed class ContractServicePhase8CSubmissionTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            var snapshot = ContractSnapshotTestData.Create(ContractId, VersionId, TemplateVersionId);
+            snapshot = snapshot with { Contract = snapshot.Contract with { ContractDirection = (byte)direction } };
             return Task.FromResult(new ContractSubmissionArtifactRenderResult(
-                ContractSnapshotTestData.Create(ContractId, VersionId,
-                    TemplateVersionId),
+                snapshot,
                 TemplateVersionId,
                 [0x50, 0x4B, 0x03, 0x04, 0x01],
                 "HD-8C-001-submitted.docx",

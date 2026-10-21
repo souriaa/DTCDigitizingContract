@@ -15,7 +15,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractServiceSlice04Tests
+public sealed partial class ContractServiceSlice04Tests
 {
     private const int TenantId = 904;
     private const int EmployeeId = 41;
@@ -1064,12 +1064,18 @@ public sealed class ContractServiceSlice04Tests
             ProductId = ProductId,
             ProductCode = "P-01",
             ProductName = "Product",
+            ProductNameEn = "Catalog product",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblServices.Add(new TblService
         {
             ServiceId = ServiceId,
             ServiceName = "Service",
+            ServiceNameEn = "Catalog service",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblContractTemplates.Add(new TblContractTemplate
@@ -1091,6 +1097,7 @@ public sealed class ContractServiceSlice04Tests
         context.TblContractTemplateVersions.Add(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = TemplateVersionId,
                 TemplateId = TemplateId,
                 VersionNo = 1,
@@ -1194,6 +1201,7 @@ public sealed class ContractServiceSlice04Tests
     {
         return new CreateContractRequest
         {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             CustomerId = CustomerId,
             ContractType = ContractType.SoftwareSupply,
             TemplateVersionId = TemplateVersionId,
@@ -1285,6 +1293,7 @@ public sealed class ContractServiceSlice04Tests
 
         var contract = new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = 100,
             CustomerId = CustomerId,
             EmployeeId = EmployeeId,

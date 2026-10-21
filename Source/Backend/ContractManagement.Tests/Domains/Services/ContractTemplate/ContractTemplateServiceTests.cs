@@ -14,7 +14,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.ContractTemplate;
 
-public sealed class ContractTemplateServiceTests
+public sealed partial class ContractTemplateServiceTests
 {
     private const int AdminOfficerId = 101;
     private const int OtherEmployeeId = 102;
@@ -29,6 +29,7 @@ public sealed class ContractTemplateServiceTests
         var result = await CreateService(context).CreateAsync(
             new CreateContractTemplateRequest
             {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 TemplateCode = "  sw-supply  ",
                 TemplateName = "  Hợp đồng cung cấp  ",
                 TemplateNameEn = "Software supply",
@@ -72,6 +73,7 @@ public sealed class ContractTemplateServiceTests
         var created = await service.CreateAsync(
             new CreateContractTemplateRequest
             {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 TemplateCode = "ACCEPTANCE-RECORD",
                 TemplateName = "Biên bản nghiệm thu",
                 DocumentType = TemplateDocumentType.AcceptanceRecord,
@@ -502,6 +504,7 @@ public sealed class ContractTemplateServiceTests
         template.CurrentPublishedVersionId = null;
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = 4,
             TemplateId = template.TemplateId,
             VersionNo = 2,
@@ -560,6 +563,7 @@ public sealed class ContractTemplateServiceTests
         context.TblContractTemplateVersions.AddRange(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = 11,
                 TemplateId = 10,
                 VersionNo = 1,
@@ -571,6 +575,7 @@ public sealed class ContractTemplateServiceTests
             },
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = 21,
                 TemplateId = 20,
                 VersionNo = 1,
@@ -921,6 +926,85 @@ public sealed class ContractTemplateServiceTests
                 AdminOfficerId)).LegalBases).BasisCode);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task BilingualAppendix_RequiresEnglishNameForCreateAndUpdate(string? nameEn)
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var request = CreateRequest("ANNEX-BILINGUAL");
+        request.LanguageMode = ContractLanguageMode.Bilingual;
+        request.TemplateNameEn = "Bilingual template";
+        var created = await service.CreateAsync(request, AdminOfficerId);
+        var draft = Assert.Single(created.Versions);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.AddAppendixAsync(
+            draft.TemplateVersionId, new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX", AppendixName = "Phụ lục", AppendixNameEn = nameEn,
+                DisplayOrder = 0, VersionRowVersion = draft.RowVersion
+            }, AdminOfficerId));
+        Assert.Empty(await context.TblContractTemplateAppendices.ToListAsync());
+        var appendix = await service.AddAppendixAsync(draft.TemplateVersionId,
+            new CreateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX", AppendixName = "Phụ lục", AppendixNameEn = "Appendix",
+                DisplayOrder = 0, VersionRowVersion = draft.RowVersion
+            }, AdminOfficerId);
+        var version = await service.GetVersionAsync(draft.TemplateVersionId, AdminOfficerId);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateAppendixAsync(
+            draft.TemplateVersionId, appendix.TemplateAppendixId,
+            new UpdateContractTemplateAppendixRequest
+            {
+                AppendixCode = "ANNEX", AppendixName = "Phụ lục", AppendixNameEn = nameEn,
+                DisplayOrder = 0, VersionRowVersion = version.RowVersion, RowVersion = appendix.RowVersion
+            }, AdminOfficerId));
+        Assert.Equal("Appendix", (await context.TblContractTemplateAppendices.SingleAsync()).AppendixNameEn);
+    }
+
+    [Fact]
+    public async Task CombinedTerm_CreateUpdateAndCopyVersion_PreserveModeAndSingleBody()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var request = CreateRequest("COMBINED-TERM");
+        request.LanguageMode = ContractLanguageMode.Bilingual;
+        request.TemplateNameEn = "Combined template";
+        var template = await service.CreateAsync(request, AdminOfficerId);
+        var draft = Assert.Single(template.Versions);
+        var term = await service.AddTermAsync(draft.TemplateVersionId,
+            new CreateContractTemplateTermRequest
+            {
+                TermCode = "PAYMENT", TermTitle = "Thanh toán", TermTitleEn = "Payment",
+                TermContent = RichText("English / Tiếng Việt"), BilingualContentMode = 2,
+                VersionRowVersion = draft.RowVersion, DisplayOrder = 0
+            }, AdminOfficerId);
+        Assert.Equal(2, term.BilingualContentMode);
+        Assert.Null(term.TermContentEn);
+        var detail = await service.GetVersionAsync(draft.TemplateVersionId, AdminOfficerId);
+        await service.UpdateTermAsync(draft.TemplateVersionId, term.TemplateTermId,
+            new UpdateContractTemplateTermRequest
+            {
+                TermCode = term.TermCode, TermTitle = term.TermTitle, TermTitleEn = term.TermTitleEn,
+                TermContent = RichText("Updated / Đã sửa"), BilingualContentMode = 2,
+                RowVersion = term.RowVersion, VersionRowVersion = detail.RowVersion, DisplayOrder = 0
+            }, AdminOfficerId);
+        var entity = await context.TblContractTemplateVersions.SingleAsync(x => x.TemplateVersionId == draft.TemplateVersionId);
+        entity.Status = (byte)TemplateVersionStatus.Published;
+        (await context.TblContractTemplates.SingleAsync(x => x.TemplateId == entity.TemplateId))
+            .CurrentPublishedVersionId = entity.TemplateVersionId;
+        await context.SaveChangesAsync();
+        var copy = await service.CopyVersionAsync(entity.TemplateVersionId,
+            new CopyContractTemplateVersionRequest { RowVersion = Encode(entity.RowVersion) }, AdminOfficerId);
+        var copiedTerm = Assert.Single(copy.Terms);
+        Assert.Equal(2, copiedTerm.BilingualContentMode);
+        Assert.Null(copiedTerm.TermContentEn);
+        Assert.Equal(RichText("Updated / Đã sửa"), copiedTerm.TermContent);
+    }
+
     [Fact]
     public async Task DraftAppendix_CrudTerm_InvalidatesPreview_AndPublishedIsImmutable()
     {
@@ -1147,6 +1231,7 @@ public sealed class ContractTemplateServiceTests
 
     private static CreateContractTemplateRequest CreateRequest(string code) => new()
     {
+        ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
         TemplateCode = code,
         TemplateName = $"Template {code}",
         DocumentType = TemplateDocumentType.SoftwareSupplyContract,
@@ -1183,6 +1268,7 @@ public sealed class ContractTemplateServiceTests
         };
         var version = new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = 2,
             TemplateId = 1,
             VersionNo = 1,

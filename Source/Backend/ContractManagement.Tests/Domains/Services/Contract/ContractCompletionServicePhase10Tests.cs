@@ -20,7 +20,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractCompletionServicePhase10Tests
+public sealed partial class ContractCompletionServicePhase10Tests
 {
     private const int TenantId = 12001;
     private const int OwnerId = 12002;
@@ -67,15 +67,17 @@ public sealed class ContractCompletionServicePhase10Tests
         Assert.False(readiness.AcceptanceCompleted);
         Assert.Equal(ContractTotal, readiness.RemainingAmount);
         Assert.Equal(
-            ["NOT_SIGNED", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
+            ["NOT_SIGNED", "HANDOVER_INCOMPLETE", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
             readiness.Blockers.Select(blocker => blocker.Code));
     }
 
-    [Fact]
-    public async Task SignedPartial_DoesNotAllowCompletionUntilEveryMilestoneIsAccepted()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task SignedPartial_DoesNotAllowCompletionUntilEveryMilestoneIsAccepted(ContractDirection direction)
     {
         await using var context = CreateContext();
-        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true, direction: direction, acceptedScopeQuantity: 1m);
         var milestones = await SeedPaymentMilestonesAsync(context,
             (PaymentDueAnchor.ContractSigned, 0, 400m),
             (PaymentDueAnchor.ContractSigned, 0, 600m));
@@ -144,6 +146,7 @@ public sealed class ContractCompletionServicePhase10Tests
             AcceptanceRecordId = 12013,
             PaymentMilestoneId = milestones[1].PaymentMilestoneId
         });
+        context.TblContractAcceptanceScopeAllocations.Add(new() { AcceptanceRecordId = 12013, HandoverLineId = 13003, Quantity = 1 });
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
@@ -650,15 +653,17 @@ public sealed class ContractCompletionServicePhase10Tests
                 ContractAuditActionTypes.PaymentVoided);
     }
 
-    [Fact]
-    public async Task Complete_ManagerMovesReadyContractToCompletedAndWritesAudit()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Complete_ManagerMovesReadyContractToCompletedAndWritesAudit(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(
             context,
             ContractStatus.Signed,
             includeAcceptance: true,
-            activePayments: [ContractTotal]);
+            activePayments: [ContractTotal], direction: direction);
 
         var response = await CreateService(context, new TrackingPrivateStorage(),
                 CreateNotifications(context))
@@ -867,7 +872,9 @@ public sealed class ContractCompletionServicePhase10Tests
         ContractStatus status,
         bool includeSignedEvidence = true,
         bool includeAcceptance = false,
-        IReadOnlyCollection<decimal>? activePayments = null)
+        IReadOnlyCollection<decimal>? activePayments = null,
+        ContractDirection direction = ContractDirection.Sale, bool includeHandover = true,
+        decimal acceptedScopeQuantity = 2m)
     {
         context.TblEmployees.AddRange(
             Employee(OwnerId, "Owner", EmployeeType.Sale),
@@ -883,11 +890,13 @@ public sealed class ContractCompletionServicePhase10Tests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)direction,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = OwnerId,
             ContractType = (byte)ContractType.SoftwareSupply,
             CurrentVersionId = VersionId,
+            SignDate = DateTime.UtcNow.Date.AddDays(-2),
             ContractCode = "HD-PHASE12",
             ContractName = "Phase 12 Completion Contract",
             Status = (byte)status,
@@ -989,6 +998,9 @@ public sealed class ContractCompletionServicePhase10Tests
                 });
         }
 
+        if (includeHandover && status is ContractStatus.Signed or ContractStatus.Completed)
+            SeedCompletionScope(context, includeAcceptance, acceptedScopeQuantity);
+
         var paymentId = 12020;
         foreach (var amount in activePayments ?? [])
         {
@@ -1013,6 +1025,7 @@ public sealed class ContractCompletionServicePhase10Tests
         await context.SaveChangesAsync();
 
         var snapshot = ContractSnapshotTestData.Create(ContractId, VersionId);
+        snapshot = snapshot with { Contract = snapshot.Contract with { ContractDirection = (byte)direction } };
         version.SnapshotHash = SoftwareSupplyContractSnapshotFactory.CalculateHash(snapshot);
         version.IsLocked = true;
         version.LockedDate = DateTime.UtcNow.AddDays(-1);

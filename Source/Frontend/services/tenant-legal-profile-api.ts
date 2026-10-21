@@ -2,6 +2,10 @@ import axiosClient from "@/lib/axios-interceptor";
 
 export interface UpsertTenantLegalProfileRequest {
   legalEntityName: string;
+  legalEntityNameEn: string;
+  addressEn: string;
+  representativeTitleEn: string;
+  bankNameEn: string;
   taxCode: string;
   address: string;
   representativeName: string;
@@ -16,6 +20,10 @@ export interface UpsertTenantLegalProfileRequest {
 export interface TenantLegalProfileResponse {
   tenantLegalProfileId: number;
   legalEntityName: string;
+  legalEntityNameEn: string | null;
+  addressEn: string | null;
+  representativeTitleEn: string | null;
+  bankNameEn: string | null;
   taxCode: string;
   address: string;
   representativeName: string;

@@ -11,6 +11,10 @@ public partial class TblProduct
 
     public string? ProductName { get; set; }
 
+    public string? ProductNameEn { get; set; }
+    public string? UnitName { get; set; }
+    public string? UnitNameEn { get; set; }
+
     public int? CategoryId { get; set; }
 
     public string? ProductShortDesc { get; set; }

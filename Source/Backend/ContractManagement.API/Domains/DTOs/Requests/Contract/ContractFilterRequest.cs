@@ -21,6 +21,9 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
 
         public ContractType? ContractType { get; set; }
 
+        [System.ComponentModel.DataAnnotations.EnumDataType(typeof(ContractDirection))]
+        public ContractDirection? ContractDirection { get; set; }
+
         public int? CustomerId { get; set; }
     }
 }

@@ -29,11 +29,15 @@ public sealed class ContractSigningServicePhase9Tests
     private const int VersionId = 905;
     private static readonly byte[] InitialRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
-    [Fact]
-    public async Task Upload_PersistsEvidenceAndMovesContractToSigned()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Upload_PersistsEvidenceAndMovesContractToSigned(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.PendingSignature);
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
         var storage = new TrackingPrivateStorage();
         var service = CreateService(context, storage, CreateNotifications(context));
 
@@ -267,6 +271,7 @@ public sealed class ContractSigningServicePhase9Tests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = OwnerId,

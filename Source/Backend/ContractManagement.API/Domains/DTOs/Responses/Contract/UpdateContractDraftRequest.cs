@@ -7,6 +7,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
     /// </summary>
     public class UpdateContractDraftRequest : IValidatableObject
     {
+        [EnumDataType(typeof(ContractManagement.API.Common.Enums.ContractDirection))]
+        public ContractManagement.API.Common.Enums.ContractDirection? ContractDirection { get; set; }
         /// <summary>
         /// RowVersion của Contract lấy từ API Get Detail.
         /// </summary>
@@ -65,7 +67,8 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
             ErrorMessage = "Hợp đồng phải có ít nhất một điều khoản.")]
         public List<UpdateContractTermRequest> Terms { get; set; } = [];
 
-        public List<ContractPaymentMilestoneDateRequest> PaymentMilestoneDates { get; set; } = [];
+        /// <summary>Các căn cứ cần sửa nội dung. Không gửi căn cứ khác không có nghĩa là xóa căn cứ đó.</summary>
+        public List<UpdateContractLegalBasisRequest> LegalBases { get; set; } = [];
 
         public IEnumerable<ValidationResult> Validate(
             ValidationContext validationContext)
@@ -79,14 +82,6 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Contract
                     new[] { nameof(ExpireDate) });
             }
 
-            if (PaymentMilestoneDates
-                .GroupBy(x => x.SourceTemplatePaymentMilestoneId)
-                .Any(group => group.Count() > 1))
-            {
-                yield return new ValidationResult(
-                    "Mỗi đợt thanh toán chỉ được nhập một ngày bắt đầu tính hạn.",
-                    new[] { nameof(PaymentMilestoneDates) });
-            }
         }
     }
 }

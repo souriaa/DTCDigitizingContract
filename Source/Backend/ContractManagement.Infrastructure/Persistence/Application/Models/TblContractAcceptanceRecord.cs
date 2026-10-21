@@ -2,6 +2,7 @@ namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 
 public sealed class TblContractAcceptanceRecord
 {
+    public DateTime ContractSignDate { get; set; }
     public int AcceptanceRecordId { get; set; }
     public int ContractId { get; set; }
     public int ContractVersionId { get; set; }
@@ -9,6 +10,7 @@ public sealed class TblContractAcceptanceRecord
     public string AcceptanceCode { get; set; } = null!;
     public DateTime AcceptanceDate { get; set; }
     public string Location { get; set; } = null!;
+    public string? LocationEn { get; set; }
     public byte AcceptanceKind { get; set; }
     public byte Status { get; set; }
     public string? SnapshotHash { get; set; }

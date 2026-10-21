@@ -25,6 +25,8 @@ import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 // Các import UI component
+import { CreateContractAppendicesEditor } from "@/components/contracts/create-contract-appendices-editor";
+import { createAppendixFromTemplate, getAppendixDraftError, toCreateAppendixRequest, type CreateAppendixDraft } from "@/lib/contract-appendix-draft";
 import { Header } from "@/components/ui/custom/header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -58,12 +60,16 @@ import {
 
 import {
   ContractType,
+  ContractDirection,
+  getContractCounterpartyLabel,
+  getContractDirectionLabel,
   ContractLanguageMode,
   ContractItemType,
   ContractItemDiscountMode,
   CreateContractRequest,
   CreateContractItemRequest,
   CreateContractTermRequest,
+  type ContractPaymentMilestoneDraft,
   CreateContractResponse,
   EligibleParentContractResponse,
   contractApi,
@@ -73,8 +79,9 @@ import {
 import {
   calculateContractItemAmounts,
   calculateContractTotals,
-  roundContractMoney,
+  allocateContractPaymentAmounts,
 } from "@/lib/contract-finance";
+import { getPaymentDraftError } from "@/lib/contract-payment-draft";
 import {
   customerApi,
   CustomerResponse,
@@ -105,7 +112,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 
 const steps = [
-  { title: "Khách hàng & Mẫu", description: "Thiết lập cơ bản" },
+  { title: "Đối tác & Mẫu", description: "Thiết lập cơ bản" },
   { title: "Sản phẩm", description: "Chọn phạm vi" },
   { title: "Điều khoản", description: "Soạn nội dung" },
   { title: "Xem trước", description: "Kiểm tra nháp" },
@@ -116,6 +123,8 @@ type CatalogItem = {
   originalId: number;
   itemName: string;
   itemNameEn: string;
+  unitName: string;
+  unitNameEn: string;
   itemType: ContractItemType;
   unitPrice: number;
   quantity: number;
@@ -169,7 +178,9 @@ const mapProductToCatalogItem = (product: ProductResponse): CatalogItem => ({
   id: `p-${product.productId}`,
   originalId: product.productId,
   itemName: product.productName || "Sản phẩm không tên",
-  itemNameEn: "",
+  itemNameEn: product.productNameEn ?? "",
+  unitName: product.unitName ?? "",
+  unitNameEn: product.unitNameEn ?? "",
   itemType: ContractItemType.Product,
   unitPrice: product.productPrice || 0,
   quantity: 1,
@@ -184,7 +195,9 @@ const mapServiceToCatalogItem = (service: ServiceResponse): CatalogItem => ({
   id: `s-${service.serviceId}`,
   originalId: service.serviceId,
   itemName: service.serviceName || "Dịch vụ không tên",
-  itemNameEn: "",
+  itemNameEn: service.serviceNameEn ?? "",
+  unitName: service.unitName ?? "",
+  unitNameEn: service.unitNameEn ?? "",
   itemType: ContractItemType.Service,
   unitPrice: service.servicePrice || 0,
   quantity: 1,
@@ -242,134 +255,24 @@ const parseDateString = (str?: string) => {
   return new Date(y, m - 1, d);
 };
 
-function PaymentPlanReview({
-  milestones,
-  currencyCode,
-  manualDates,
-  onManualDateChange,
-  viewOnly = false,
-  errors = {},
-}: {
-  milestones: Array<
-    ContractTemplatePaymentMilestoneResponse & { amount: number }
-  >;
-  currencyCode: string;
-  manualDates: Record<number, string>;
-  onManualDateChange: (milestoneId: number, date: string) => void;
-  viewOnly?: boolean;
-  errors?: Record<string, boolean>;
+function PaymentPlanReview({ milestones, currencyCode }: {
+  milestones: Array<ContractPaymentMilestoneDraft & { amount: number }>; currencyCode: string;
 }) {
-  if (milestones.length === 0) return null;
-
-  const totalPercent =
-    Math.round(
-      milestones.reduce((sum, item) => sum + item.paymentPercent, 0) * 10_000,
-    ) / 10_000;
-  const totalAmount = milestones.reduce(
-    (sum, item) => sum + (item.amount || 0),
-    0,
-  );
-
-  return (
-    <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
-      <div className="flex items-start gap-3">
-        <WalletCards className="mt-0.5 size-5 text-primary" />
-        <div>
-          <p className="font-semibold">Theo dõi các đợt thanh toán</p>
-          <p className="text-sm text-muted-foreground">
-            Số tiền được tính lại theo tổng giá trị hiện tại. Muốn đổi cấu trúc
-            các đợt, hãy tạo phiên bản mẫu mới.
-          </p>
-        </div>
-      </div>
-      <div className="grid gap-2 md:grid-cols-2">
-        {milestones.map((milestone) => (
-          <div
-            key={milestone.templatePaymentMilestoneId}
-            className="rounded-lg border bg-background p-3 text-sm"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <b>{milestone.titleVi}</b>
-              <Badge variant="secondary">{milestone.paymentPercent}%</Badge>
-            </div>
-            <p className="mt-1 font-semibold text-primary">
-              {formatCurrency(milestone.amount, currencyCode)}
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              Trong {milestone.dueOffsetDays} ngày kể từ{" "}
-              {getPaymentAnchorLabel(milestone.dueAnchor)}
-              {milestone.dueAnchor === PaymentDueAnchor.ManualDate &&
-                viewOnly &&
-                manualDates[milestone.templatePaymentMilestoneId] && (
-                  <span className="mt-1">
-                    <span>:</span>{" "}
-                    {manualDates[milestone.templatePaymentMilestoneId]}
-                  </span>
-                )}
-            </p>
-            {milestone.conditionVi && (
-              <p className="mt-1 text-muted-foreground">
-                {milestone.conditionVi}
-              </p>
-            )}
-            {milestone.dayCountMode === PaymentDayCountMode.BusinessDays && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ngày làm việc hiện chỉ loại trừ thứ Bảy và Chủ nhật.
-              </p>
-            )}
-            {milestone.dueAnchor === PaymentDueAnchor.ManualDate &&
-              !viewOnly && (
-                <div className="mt-3 space-y-1.5">
-                  <Label
-                    htmlFor={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
-                  >
-                    Ngày bắt đầu tính hạn{" "}
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <DateFilter
-                    id={`manual-payment-date-${milestone.templatePaymentMilestoneId}`}
-                    date={parseDateString(
-                      manualDates[milestone.templatePaymentMilestoneId],
-                    )}
-                    onChange={(date) =>
-                      onManualDateChange(
-                        milestone.templatePaymentMilestoneId,
-                        date ? format(date, "yyyy-MM-dd") : "",
-                      )
-                    }
-                    placeholder="Chọn ngày bắt đầu tính hạn"
-                    className={cn(
-                      "flex-1",
-                      errors[
-                        `manual-date-${milestone.templatePaymentMilestoneId}`
-                      ] && "border-destructive ring-2 ring-destructive/20",
-                    )}
-                  />
-                </div>
-              )}
-          </div>
-        ))}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3 text-sm md:col-span-2">
-          <div>
-            <p className="font-semibold text-foreground">
-              Tổng cộng ({milestones.length} đợt)
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Tổng tỷ lệ và giá trị thanh toán của tất cả các đợt
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant={totalPercent === 100 ? "secondary" : "destructive"}>
-              {totalPercent}%
-            </Badge>
-            <span className="text-base font-bold text-primary">
-              {formatCurrency(totalAmount, currencyCode)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  if (!milestones.length) return null;
+  const total = Math.round(milestones.reduce((sum, row) => sum + row.paymentPercent, 0) * 10000) / 10000;
+  return <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
+    <p className="font-semibold">Theo dõi các đợt thanh toán · Tổng {total}%</p>
+    <p className="text-sm text-muted-foreground">Có thể sửa kế hoạch ở bước điều khoản. Số tiền được tính theo giá trị hợp đồng hiện tại.</p>
+    <div className="grid gap-2 md:grid-cols-2">{milestones.map((row, index) => <div key={index} className="space-y-1 rounded-lg border bg-background p-3 text-sm">
+      <div className="flex justify-between gap-2"><b>{row.titleVi}</b><Badge variant="secondary">{row.paymentPercent}%</Badge></div>
+      <p className="font-semibold text-primary">{formatCurrency(row.amount, currencyCode)}</p>
+      <p className="text-muted-foreground">Trong {row.dueOffsetDays} ngày kể từ {getPaymentAnchorLabel(row.dueAnchor)}
+        {row.dueAnchor === PaymentDueAnchor.ManualDate && row.anchorDate ? ` · ${row.anchorDate.slice(0, 10)}` : ""}</p>
+      {row.conditionVi && <p>{row.conditionVi}</p>}
+      {row.dayCountMode === PaymentDayCountMode.BusinessDays && <p className="text-xs text-muted-foreground">Ngày làm việc chỉ loại trừ thứ Bảy và Chủ nhật.</p>}
+    </div>)}</div>
+    <p className="text-right font-semibold">Tổng cộng: {formatCurrency(milestones.reduce((sum, row) => sum + row.amount, 0), currencyCode)}</p>
+  </div>;
 }
 
 export default function CreateContractPage() {
@@ -411,24 +314,20 @@ export default function CreateContractPage() {
     AvailableTemplateView[]
   >([]);
   const [templateTotalCount, setTemplateTotalCount] = useState(0);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [debouncedTemplateSearch, setDebouncedTemplateSearch] = useState("");
   const [selectedTemplateSnapshot, setSelectedTemplateSnapshot] =
     useState<AvailableTemplateView | null>(null);
   const [contractTerms, setContractTerms] = useState<CreateContractTermDraft[]>(
     [],
   );
-  const [paymentMilestones, setPaymentMilestones] = useState<
-    ContractTemplatePaymentMilestoneResponse[]
-  >([]);
+  const paymentMilestones = useMemo(() => contractTerms.flatMap((term) =>
+    term.termKind === ContractTermKind.Payment ? term.paymentMilestones : []), [contractTerms]);
   const [templateAppendices, setTemplateAppendices] = useState<
     ContractTemplateAppendixResponse[]
   >([]);
-  const [selectedOptionalAppendixIds, setSelectedOptionalAppendixIds] =
-    useState<number[]>([]);
-  const [manualPaymentDates, setManualPaymentDates] = useState<
-    Record<number, string>
-  >({});
+  const [contractAppendices, setContractAppendices] = useState<CreateAppendixDraft[]>([]);
+  const [hasPendingAppendixForm, setHasPendingAppendixForm] = useState(false);
   const [isLoadingTemplateDetail, setIsLoadingTemplateDetail] = useState(false);
   const [templateDetailError, setTemplateDetailError] = useState<string | null>(
     null,
@@ -577,6 +476,8 @@ export default function CreateContractPage() {
     setResponsibleEmployeeId(String(user.employeeId));
     clearFieldError("responsibleEmployeeId");
   };
+  const [contractDirection, setContractDirection] = useState<ContractDirection | null>(null);
+  const counterpartyLabel = contractDirection === null ? "Đối tác" : getContractCounterpartyLabel(contractDirection);
   const [contractType, setContractType] = useState<ContractType>(
     ContractType.SoftwareSupply,
   );
@@ -590,9 +491,7 @@ export default function CreateContractPage() {
   const [templateSearch, setTemplateSearch] = useState("");
   const [templatePage, setTemplatePage] = useState(1);
   const templatePageSize = 3;
-  const [languageMode, setLanguageMode] = useState<ContractLanguageMode>(
-    ContractLanguageMode.Vietnamese,
-  );
+  const [languageMode, setLanguageMode] = useState<ContractLanguageMode | null>(null);
   const [currencyCode, setCurrencyCode] = useState("VND");
   const [contractTitle, setContractTitle] = useState(
     "Triển khai hệ thống quản lý hợp đồng điện tử",
@@ -614,6 +513,12 @@ export default function CreateContractPage() {
   }, [templateSearch]);
 
   useEffect(() => {
+    if (languageMode === null || contractDirection === null) {
+      setAvailableTemplates([]);
+      setTemplateTotalCount(0);
+      setIsLoadingTemplates(false);
+      return;
+    }
     let cancelled = false;
     setIsLoadingTemplates(true);
     contractTemplateApi
@@ -622,6 +527,8 @@ export default function CreateContractPage() {
         pageSize: templatePageSize,
         keyword: debouncedTemplateSearch || undefined,
         documentType: getTemplateDocumentFromContractType(contractType),
+        languageMode,
+        contractDirection,
       })
       .then((response) => {
         if (cancelled) return;
@@ -659,15 +566,17 @@ export default function CreateContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [contractType, debouncedTemplateSearch, templatePage]);
+  }, [contractType, languageMode, contractDirection, debouncedTemplateSearch, templatePage]);
 
   useEffect(() => {
     if (!templateVersionId) {
+      setIsLoadingTemplateDetail(false);
       setContractTerms([]);
-      setPaymentMilestones([]);
+
       setTemplateAppendices([]);
-      setSelectedOptionalAppendixIds([]);
-      setManualPaymentDates({});
+      setContractAppendices([]);
+      setHasPendingAppendixForm(false);
+
       setTemplateDetailError(null);
       return;
     }
@@ -676,13 +585,17 @@ export default function CreateContractPage() {
     setIsLoadingTemplateDetail(true);
     setTemplateDetailError(null);
     setContractTerms([]);
-    setPaymentMilestones([]);
+
     setTemplateAppendices([]);
-    setSelectedOptionalAppendixIds([]);
-    setManualPaymentDates({});
+    setContractAppendices([]);
+    setHasPendingAppendixForm(false);
+
     contractTemplateApi
       .getAvailableByVersionId(Number(templateVersionId))
       .then((detail) => {
+        if (cancelled) return;
+        if (detail.contractDirection !== contractDirection || detail.languageMode !== languageMode)
+          throw new Error("Mẫu không khớp chiều giao dịch hoặc ngôn ngữ đang chọn.");
         if (!cancelled) {
           setContractTerms(
             [...detail.terms]
@@ -691,51 +604,38 @@ export default function CreateContractPage() {
                 clientId: `template-${term.templateTermId}`,
                 sourceTemplateTermId: term.templateTermId,
                 termKind: term.termKind,
+                paymentMilestones: term.paymentMilestones.map((row) => ({ ...row, sourceTemplatePaymentMilestoneId: row.templatePaymentMilestoneId, anchorDate: null })),
                 termCode: term.termCode,
                 termTitle: term.termTitle,
                 termTitleEn: term.termTitleEn,
                 termContent: term.termContent,
                 termContentEn: term.termContentEn,
+                bilingualContentMode: term.bilingualContentMode,
                 isNegotiable: term.isNegotiable,
                 displayOrder: index + 1,
               })),
           );
-          const milestones = detail.terms
-            .filter((term) => term.termKind === ContractTermKind.Payment)
-            .flatMap((term) => term.paymentMilestones)
-            .sort((a, b) => a.displayOrder - b.displayOrder);
-          setPaymentMilestones(milestones);
           const appendices = [...detail.appendices].sort(
             (a, b) => a.displayOrder - b.displayOrder,
           );
           setTemplateAppendices(appendices);
-          setSelectedOptionalAppendixIds(
+          setContractAppendices(
             appendices
-              .filter(
-                (appendix) =>
-                  !appendix.isRequired && appendix.isSelectedByDefault,
-              )
-              .map((appendix) => appendix.templateAppendixId),
+              .filter((appendix) => appendix.isRequired || appendix.isSelectedByDefault)
+              .map(createAppendixFromTemplate),
           );
-          setManualPaymentDates(
-            Object.fromEntries(
-              milestones
-                .filter(
-                  (item) => item.dueAnchor === PaymentDueAnchor.ManualDate,
-                )
-                .map((item) => [item.templatePaymentMilestoneId, ""]),
-            ),
-          );
+
         }
       })
       .catch((error) => {
         if (!cancelled) {
           console.error("Failed to load template terms:", error);
           setContractTerms([]);
-          setPaymentMilestones([]);
+
           setTemplateAppendices([]);
-          setSelectedOptionalAppendixIds([]);
-          setManualPaymentDates({});
+          setContractAppendices([]);
+          setHasPendingAppendixForm(false);
+
           setTemplateDetailError("Không thể tải điều khoản của mẫu hợp đồng.");
         }
       })
@@ -745,38 +645,30 @@ export default function CreateContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [templateVersionId]);
+  }, [templateVersionId, contractDirection, languageMode]);
 
-  // Fetch eligible parent contracts when customer or contractType changes
+  // Keep parent results scoped to the current subject, direction and contract type.
   useEffect(() => {
-    if (
-      (contractType === ContractType.SoftwareMaintenance ||
-        contractType === ContractType.SoftwareUpkeep) &&
-      customerId
-    ) {
-      const fetchEligibleParents = async () => {
-        setIsLoadingEligibleParents(true);
-        try {
-          const res = await contractApi.getEligibleParents({
-            customerId: Number(customerId),
-            targetContractType: contractType,
-            page: 1,
-            pageSize: 100,
-          });
-          setEligibleParents(res.items || []);
-        } catch (error) {
-          console.error("Lỗi khi tải danh sách hợp đồng nguồn:", error);
-          setEligibleParents([]);
-        } finally {
-          setIsLoadingEligibleParents(false);
-        }
-      };
-      fetchEligibleParents();
-    } else {
-      setEligibleParents([]);
-      setParentContractId("");
+    let cancelled = false;
+    setEligibleParents([]);
+    setParentContractId("");
+    if (contractDirection === null || !customerId ||
+        (contractType !== ContractType.SoftwareMaintenance && contractType !== ContractType.SoftwareUpkeep)) {
+      setIsLoadingEligibleParents(false);
+      return;
     }
-  }, [customerId, contractType]);
+    setIsLoadingEligibleParents(true);
+    contractApi.getEligibleParents({
+      customerId: Number(customerId), contractDirection, targetContractType: contractType, page: 1, pageSize: 100,
+    }).then((res) => {
+      if (!cancelled) setEligibleParents(res.items || []);
+    }).catch(() => {
+      if (!cancelled) toast.error("Không thể tải hợp đồng nguồn của đối tác.");
+    }).finally(() => {
+      if (!cancelled) setIsLoadingEligibleParents(false);
+    });
+    return () => { cancelled = true; };
+  }, [customerId, contractType, contractDirection]);
 
   // Step 2: Items, Filter & Pagination
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -837,7 +729,8 @@ export default function CreateContractPage() {
           );
           const fetchedIds = new Set(fetchedItems.map((item) => item.id));
           const mergedFetchedItems = fetchedItems.map(
-            (item) => currentById.get(item.id) ?? item,
+            (item) => ({ ...(currentById.get(item.id) ?? item), itemNameEn: item.itemNameEn,
+              unitName: item.unitName, unitNameEn: item.unitNameEn }),
           );
 
           return [
@@ -981,13 +874,13 @@ export default function CreateContractPage() {
       if (
         languageMode === ContractLanguageMode.Bilingual &&
         term.termContent?.trim() &&
-        !term.termContentEn?.trim()
+        (term.bilingualContentMode === 1 && !term.termContentEn?.trim())
       ) {
         return `Điều khoản '${code}' phải có nội dung tiếng Anh.`;
       }
     }
 
-    return null;
+    return getPaymentDraftError(contractTerms, languageMode === ContractLanguageMode.Bilingual);
   }, [
     contractTerms,
     isLoadingTemplateDetail,
@@ -995,6 +888,9 @@ export default function CreateContractPage() {
     templateDetailError,
   ]);
   // -- COMPUTED VALUES --
+  const appendicesValidationError = hasPendingAppendixForm
+    ? "Hãy hoàn tất hoặc hủy phần thêm điều khoản phụ lục trước khi tiếp tục."
+    : getAppendixDraftError(contractAppendices, languageMode === ContractLanguageMode.Bilingual);
   const selectedCustomer = customers.find(
     (item) => item.customerId === Number(customerId),
   );
@@ -1019,26 +915,12 @@ export default function CreateContractPage() {
   );
   const totalValue = financialTotals.totalPayment;
   const paymentPlan = useMemo(() => {
-    const calculated = paymentMilestones.map((milestone) =>
-      roundContractMoney(
-        (totalValue * milestone.paymentPercent) / 100,
-        currencyCode,
-      ),
-    );
-    const allocatedBeforeLast = calculated
-      .slice(0, -1)
-      .reduce((sum, amount) => sum + amount, 0);
-    return paymentMilestones.map((milestone, index) => ({
-      ...milestone,
-      amount:
-        index === paymentMilestones.length - 1
-          ? totalValue - allocatedBeforeLast
-          : calculated[index],
-    }));
+    const amounts = allocateContractPaymentAmounts(totalValue, paymentMilestones, currencyCode);
+    return paymentMilestones.map((row, index) => ({ ...row, amount: amounts[index] }));
   }, [currencyCode, paymentMilestones, totalValue]);
   const manualPaymentDatesValid = paymentMilestones
     .filter((item) => item.dueAnchor === PaymentDueAnchor.ManualDate)
-    .every((item) => !!manualPaymentDates[item.templatePaymentMilestoneId]);
+    .every((item) => !!item.anchorDate);
 
   const progressValue = ((currentStep + 1) / steps.length) * 100;
 
@@ -1051,6 +933,10 @@ export default function CreateContractPage() {
         !!customerId &&
         !!responsibleEmployeeId &&
         !!templateVersionId &&
+        contractDirection !== null &&
+        selectedTemplate?.contractDirection === contractDirection &&
+        languageMode !== null &&
+        selectedTemplate?.languageMode === languageMode &&
         !!contractTitle.trim() &&
         (languageMode !== ContractLanguageMode.Bilingual ||
           !!contractTitleEn.trim()) &&
@@ -1060,6 +946,8 @@ export default function CreateContractPage() {
     if (stepIdx === 1)
       return (
         selectedItems.length > 0 &&
+        selectedCatalogItems.every((item) => item.unitName.trim() &&
+          (languageMode !== ContractLanguageMode.Bilingual || item.unitNameEn.trim())) &&
         (languageMode !== ContractLanguageMode.Bilingual ||
           selectedCatalogItems.every((item) => item.itemNameEn.trim()))
       );
@@ -1067,6 +955,7 @@ export default function CreateContractPage() {
       return (
         hasValidContractDateRange &&
         !contractTermsValidationError &&
+        !appendicesValidationError &&
         manualPaymentDatesValid
       );
     return false;
@@ -1085,11 +974,15 @@ export default function CreateContractPage() {
     contractTitle,
     contractTitleEn,
     languageMode,
+    selectedTemplate?.languageMode,
+    selectedTemplate?.contractDirection,
+    contractDirection,
     selectedItems.length,
     selectedCatalogItems,
     effectiveDate,
     expiredDate,
     contractTermsValidationError,
+    appendicesValidationError,
     manualPaymentDatesValid,
   ]);
 
@@ -1110,10 +1003,47 @@ export default function CreateContractPage() {
     const template = availableTemplates.find(
       (item) => item.versionId === versionId,
     );
-    if (!template) return;
+    if (!template || template.languageMode !== languageMode || template.contractType !== contractType || template.contractDirection !== contractDirection) return;
 
     setTemplateVersionId(String(versionId));
     setSelectedTemplateSnapshot(template);
+    clearFieldError("templateVersionId");
+  };
+
+  const handleDirectionChange = (value: string) => {
+    const next = Number(value) as ContractDirection;
+    if (next === contractDirection) return;
+    setContractDirection(next);
+    clearFieldError("contractDirection");
+    setParentContractId("");
+    setEligibleParents([]);
+    setTemplatePage(1);
+    setTemplateVersionId("");
+    setSelectedTemplateSnapshot(null);
+    setAvailableTemplates([]);
+    setTemplateTotalCount(0);
+    setContractTerms([]);
+    setTemplateAppendices([]);
+    setContractAppendices([]);
+    setHasPendingAppendixForm(false);
+    toast.info("Đã đổi chiều giao dịch. Vui lòng chọn lại mẫu và nội dung tương thích.");
+  };
+
+  const handleLanguageModeChange = (value: string) => {
+    const nextMode = Number(value) as ContractLanguageMode;
+    if (nextMode === languageMode) return;
+    setLanguageMode(nextMode);
+    setTemplatePage(1);
+    setTemplateVersionId("");
+    setSelectedTemplateSnapshot(null);
+    setAvailableTemplates([]);
+    setTemplateTotalCount(0);
+    setIsLoadingTemplates(true);
+    setContractTerms([]);
+    setTemplateAppendices([]);
+    setContractAppendices([]);
+    setHasPendingAppendixForm(false);
+    clearFieldError("languageMode");
     clearFieldError("templateVersionId");
   };
 
@@ -1133,9 +1063,6 @@ export default function CreateContractPage() {
     setCatalogItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
-    if (patch.itemNameEn && patch.itemNameEn.trim()) {
-      clearFieldError(`item-en-${id}`);
-    }
     clearFieldError(`item-card-${id}`);
   };
 
@@ -1156,7 +1083,21 @@ export default function CreateContractPage() {
 
   // -- SUBMIT ACTION --
   const handleSubmit = async () => {
-    // 1. Validate Step 0: Khách hàng & Mẫu
+    if (contractDirection === null) {
+      toast.error("Vui lòng chọn chiều giao dịch Bán hoặc Mua.");
+      setCurrentStep(0);
+      setFieldErrors({ contractDirection: true });
+      scrollToAndFocus("contract-direction");
+      return;
+    }
+    if (languageMode === null) {
+      toast.error("Vui lòng chọn ngôn ngữ hợp đồng trước khi chọn mẫu.");
+      setCurrentStep(0);
+      setFieldErrors({ languageMode: true });
+      scrollToAndFocus("contract-language-mode");
+      return;
+    }
+    // 1. Validate Step 0: Đối tác & Mẫu
     if (!customerId) {
       toast.error("Vui lòng chọn khách hàng / đối tác.");
       setCurrentStep(0);
@@ -1224,7 +1165,7 @@ export default function CreateContractPage() {
     );
     if (missingEnglishItem) {
       toast.error(
-        `Vui lòng nhập tên tiếng Anh cho “${missingEnglishItem.itemName}”.`,
+        `“${missingEnglishItem.itemName}” thiếu tên tiếng Anh trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi chọn.`,
       );
       setCurrentStep(1);
       ensureCatalogItemVisible(
@@ -1232,6 +1173,16 @@ export default function CreateContractPage() {
         `contract-item-en-${missingEnglishItem.id}`,
       );
       setFieldErrors({ [`item-en-${missingEnglishItem.id}`]: true });
+      return;
+    }
+    const missingUnitItem = selectedCatalogItems.find((item) =>
+      !item.unitName.trim() || (languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn.trim()));
+    if (missingUnitItem) {
+      const english = Boolean(missingUnitItem.unitName.trim());
+      toast.error(`“${missingUnitItem.itemName}” thiếu đơn vị${english ? " tiếng Anh" : ""} trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi chọn.`);
+      setCurrentStep(1);
+      ensureCatalogItemVisible(missingUnitItem.id, `contract-item-card-${missingUnitItem.id}`);
+      setFieldErrors({ [`item-card-${missingUnitItem.id}`]: true });
       return;
     }
     const invalidFinanceItem = selectedCatalogItems.find((item) => {
@@ -1275,26 +1226,20 @@ export default function CreateContractPage() {
       scrollToAndFocus("contract-terms-container");
       return;
     }
+    if (appendicesValidationError) {
+      toast.error(appendicesValidationError);
+      setCurrentStep(2);
+      setFieldErrors({ contractAppendices: true });
+      scrollToAndFocus("contract-appendices-container");
+      return;
+    }
     if (!manualPaymentDatesValid) {
       toast.error(
         "Vui lòng nhập ngày bắt đầu tính hạn cho các đợt dùng Lịch thủ công.",
       );
       setCurrentStep(2);
-      const invalidMilestones = paymentMilestones.filter(
-        (item) =>
-          item.dueAnchor === PaymentDueAnchor.ManualDate &&
-          !manualPaymentDates[item.templatePaymentMilestoneId],
-      );
-      const errors: Record<string, boolean> = {};
-      invalidMilestones.forEach((m) => {
-        errors[`manual-date-${m.templatePaymentMilestoneId}`] = true;
-      });
-      setFieldErrors(errors);
-      if (invalidMilestones[0]) {
-        scrollToAndFocus(
-          `manual-payment-date-${invalidMilestones[0].templatePaymentMilestoneId}`,
-        );
-      }
+      setFieldErrors({ contractTerms: true });
+      scrollToAndFocus("contract-terms-container");
       return;
     }
     setIsSubmitting(true);
@@ -1325,6 +1270,7 @@ export default function CreateContractPage() {
         customerId: Number(customerId),
         responsibleEmployeeId: Number(responsibleEmployeeId),
         contractType: contractType,
+        contractDirection,
         templateVersionId: Number(templateVersionId),
         parentContractId:
           contractType !== ContractType.SoftwareSupply && parentContractId
@@ -1345,23 +1291,18 @@ export default function CreateContractPage() {
         terms: contractTerms.map<CreateContractTermRequest>((term, index) => ({
           sourceTemplateTermId: term.sourceTemplateTermId ?? null,
           termKind: term.termKind,
+          paymentMilestones: term.paymentMilestones,
           termCode: term.termCode.trim().toUpperCase(),
           termTitle: term.termTitle.trim(),
           termTitleEn: term.termTitleEn?.trim() || null,
           termContent: term.termContent?.trim() || null,
           termContentEn: term.termContentEn?.trim() || null,
+          bilingualContentMode: term.bilingualContentMode,
           isNegotiable: term.isNegotiable,
           displayOrder: index + 1,
         })),
-        paymentMilestoneDates: paymentMilestones
-          .filter((item) => item.dueAnchor === PaymentDueAnchor.ManualDate)
-          .map((item) => ({
-            sourceTemplatePaymentMilestoneId: item.templatePaymentMilestoneId,
-            anchorDate: manualPaymentDates[item.templatePaymentMilestoneId],
-          })),
-        ...(selectedOptionalAppendixIds.length > 0
-          ? { selectedOptionalTemplateAppendixIds: selectedOptionalAppendixIds }
-          : {}),
+        paymentMilestoneDates: [],
+        appendices: contractAppendices.map(toCreateAppendixRequest),
       };
 
       const response = await contractApi.create(payload);
@@ -1540,7 +1481,7 @@ export default function CreateContractPage() {
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>
-                      Khách hàng / đối tác{" "}
+                      {counterpartyLabel}{" "}
                       <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -1572,7 +1513,7 @@ export default function CreateContractPage() {
                             placeholder={
                               isLoadingCustomers
                                 ? "Đang tải..."
-                                : "Chọn khách hàng"
+                                : `Chọn ${counterpartyLabel.toLocaleLowerCase()}`
                             }
                           />
                         </SelectTrigger>
@@ -1600,8 +1541,8 @@ export default function CreateContractPage() {
                           size="icon"
                           className="shrink-0"
                           onClick={() => setIsCustomerModalOpen(true)}
-                          aria-label="Tạo nhanh khách hàng"
-                          title="Tạo nhanh khách hàng"
+                          aria-label={`Tạo nhanh ${counterpartyLabel.toLocaleLowerCase()}`}
+                          title={`Tạo nhanh ${counterpartyLabel.toLocaleLowerCase()}`}
                         >
                           <Plus className="size-4" />
                         </Button>
@@ -1707,6 +1648,34 @@ export default function CreateContractPage() {
                     </Select>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="contract-direction">Chiều giao dịch <span className="text-red-500">*</span></Label>
+                    <Select value={contractDirection === null ? "" : String(contractDirection)} onValueChange={handleDirectionChange}>
+                      <SelectTrigger id="contract-direction" className="w-full"><SelectValue placeholder="Chọn Bán hoặc Mua..." /></SelectTrigger>
+                      <SelectContent><SelectItem value="1">Bán — Doanh nghiệp là bên cung cấp</SelectItem><SelectItem value="2">Mua — Doanh nghiệp là bên mua</SelectItem></SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Chiều giao dịch được giữ cố định sau khi tạo hợp đồng.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contract-language-mode">
+                      Ngôn ngữ hợp đồng <span className="text-red-500">*</span>
+                    </Label>
+                    <Select value={languageMode === null ? "" : String(languageMode)} onValueChange={handleLanguageModeChange}>
+                      <SelectTrigger id="contract-language-mode" className={cn("w-full", fieldErrors.languageMode && "border-destructive ring-2 ring-destructive/20")} aria-invalid={!!fieldErrors.languageMode}>
+                        <SelectValue placeholder="Chọn ngôn ngữ hợp đồng..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={String(ContractLanguageMode.Vietnamese)}>
+                          {getContractLanguageModeLabel(ContractLanguageMode.Vietnamese)}
+                        </SelectItem>
+                        <SelectItem value={String(ContractLanguageMode.Bilingual)}>
+                          {getContractLanguageModeLabel(ContractLanguageMode.Bilingual)}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Chọn ngôn ngữ trước để tải các mẫu hợp đồng tương ứng.</p>
+                  </div>
+
                   {/* SELECT HỢP ĐỒNG NGUỒN (CHỈ DÀNH CHO BẢO TRÌ HOẶC DUY TRÌ) */}
                   {contractType !== ContractType.SoftwareSupply && (
                     <div className="space-y-2">
@@ -1734,7 +1703,7 @@ export default function CreateContractPage() {
                           <SelectValue
                             placeholder={
                               !customerId
-                                ? "Vui lòng chọn khách hàng trước"
+                                ? "Vui lòng chọn đối tác trước"
                                 : isLoadingEligibleParents
                                   ? "Đang tải hợp đồng nguồn..."
                                   : eligibleParents.length === 0
@@ -1769,7 +1738,7 @@ export default function CreateContractPage() {
                             Không có hợp đồng nguồn phù hợp
                           </AlertTitle>
                           <AlertDescription>
-                            Khách hàng đã chọn hiện chưa có hợp đồng cung cấp
+                            Đối tác đã chọn hiện chưa có hợp đồng cung cấp
                             phần mềm gốc nào ở trạng thái đủ điều kiện để tạo
                             hợp đồng bảo trì hoặc duy trì.
                           </AlertDescription>
@@ -1834,7 +1803,7 @@ export default function CreateContractPage() {
                           Mẫu hợp đồng <span className="text-red-500">*</span>
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Chọn mẫu phù hợp để nạp sẵn bộ điều khoản.
+                          Chỉ hiển thị mẫu đã phát hành đúng loại và ngôn ngữ hợp đồng đã chọn.
                         </p>
                       </div>
                     </div>
@@ -1843,6 +1812,7 @@ export default function CreateContractPage() {
                       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         value={templateSearch}
+                        disabled={languageMode === null || contractDirection === null}
                         onChange={(event) => {
                           setTemplateSearch(event.target.value);
                           setTemplatePage(1);
@@ -1860,7 +1830,7 @@ export default function CreateContractPage() {
                       </div>
                     )}
 
-                    {!isLoadingTemplates && (
+                    {!isLoadingTemplates && languageMode !== null && (
                       <div
                         id="contract-templates-container"
                         className={cn(
@@ -1873,7 +1843,7 @@ export default function CreateContractPage() {
                           const selected =
                             template.versionId === Number(templateVersionId);
                           const compatible =
-                            template.contractType === contractType;
+                            template.contractDirection === contractDirection && template.contractType === contractType && template.languageMode === languageMode;
 
                           return (
                             <button
@@ -1934,14 +1904,18 @@ export default function CreateContractPage() {
                       </div>
                     )}
 
-                    {!isLoadingTemplates && templateTotalCount === 0 ? (
+                    {languageMode === null || contractDirection === null ? (
+                      <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                        Chọn chiều giao dịch và ngôn ngữ hợp đồng để tải danh sách mẫu phù hợp.
+                      </div>
+                    ) : !isLoadingTemplates && templateTotalCount === 0 ? (
                       <div className="rounded-2xl border border-dashed px-4 py-8 text-center">
                         <LayoutTemplate className="mx-auto size-8 text-muted-foreground/60" />
                         <p className="mt-3 text-sm font-medium">
                           Không tìm thấy mẫu phù hợp
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Thử tìm bằng tên, mã mẫu hoặc loại hợp đồng khác.
+                          Thử tìm bằng tên, mã mẫu hoặc chọn loại/ngôn ngữ hợp đồng khác.
                         </p>
                       </div>
                     ) : !isLoadingTemplates ? (
@@ -1989,35 +1963,6 @@ export default function CreateContractPage() {
                     ) : null}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Ngôn ngữ hợp đồng</Label>
-                    <Select
-                      value={String(languageMode)}
-                      onValueChange={(value) =>
-                        setLanguageMode(Number(value) as ContractLanguageMode)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem
-                          value={String(ContractLanguageMode.Vietnamese)}
-                        >
-                          {getContractLanguageModeLabel(
-                            ContractLanguageMode.Vietnamese,
-                          )}
-                        </SelectItem>
-                        <SelectItem
-                          value={String(ContractLanguageMode.Bilingual)}
-                        >
-                          {getContractLanguageModeLabel(
-                            ContractLanguageMode.Bilingual,
-                          )}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="space-y-2">
                     <Label>Đồng tiền thanh toán</Label>
                     <Select
@@ -2245,30 +2190,30 @@ export default function CreateContractPage() {
 
                           {selected && (
                             <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Đơn vị</Label>
+                                <p className="text-sm">{item.unitName || "Chưa có đơn vị trong danh mục"}</p>
+                              </div>
+                              {languageMode === ContractLanguageMode.Bilingual && (
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">Đơn vị tiếng Anh</Label>
+                                  <p className="text-sm">{item.unitNameEn || "Chưa có đơn vị tiếng Anh trong danh mục"}</p>
+                                </div>
+                              )}
                               {languageMode ===
                                 ContractLanguageMode.Bilingual && (
                                 <div className="space-y-1.5 sm:col-span-2 xl:col-span-4">
                                   <Label className="text-xs text-muted-foreground">
                                     Tên sản phẩm / dịch vụ tiếng Anh
                                   </Label>
-                                  <Input
+                                  <p
                                     id={`contract-item-en-${item.id}`}
-                                    aria-invalid={
-                                      !!fieldErrors[`item-en-${item.id}`]
-                                    }
-                                    value={item.itemNameEn}
-                                    onChange={(event) =>
-                                      updateCatalogItem(item.id, {
-                                        itemNameEn: event.target.value,
-                                      })
-                                    }
                                     className={cn(
-                                      "bg-white",
+                                      "rounded-md border bg-muted/30 px-3 py-2 text-sm",
                                       fieldErrors[`item-en-${item.id}`] &&
-                                        "border-destructive ring-2 ring-destructive/20",
+                                        "border-destructive text-destructive",
                                     )}
-                                    placeholder="Nhập tên sản phẩm/dịch vụ bằng tiếng Anh..."
-                                  />
+                                  >{item.itemNameEn || "Chưa có tên tiếng Anh trong danh mục."}</p>
                                 </div>
                               )}
                               <div className="space-y-1.5">
@@ -2589,97 +2534,14 @@ export default function CreateContractPage() {
                           }}
                         />
                       </div>
-                      <PaymentPlanReview
-                        milestones={paymentPlan}
-                        currencyCode={currencyCode}
-                        manualDates={manualPaymentDates}
-                        errors={fieldErrors}
-                        onManualDateChange={(id, date) => {
-                          setManualPaymentDates((current) => ({
-                            ...current,
-                            [id]: date,
-                          }));
-                          if (date) {
-                            clearFieldError(`manual-date-${id}`);
-                          }
-                        }}
-                      />
-                      {templateAppendices.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-base">
-                              Phụ lục đính kèm
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            {templateAppendices.map((appendix) => {
-                              const checked =
-                                appendix.isRequired ||
-                                selectedOptionalAppendixIds.includes(
-                                  appendix.templateAppendixId,
-                                );
-                              return (
-                                <div
-                                  key={appendix.templateAppendixId}
-                                  className="flex items-start justify-between gap-4 rounded-xl border p-4"
-                                >
-                                  <div className="min-w-0 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="font-medium">
-                                        {appendix.appendixCode} —{" "}
-                                        {appendix.appendixName}
-                                      </p>
-                                      <Badge
-                                        variant={
-                                          appendix.isRequired
-                                            ? "default"
-                                            : "outline"
-                                        }
-                                      >
-                                        {appendix.isRequired
-                                          ? "Bắt buộc"
-                                          : "Tùy chọn"}
-                                      </Badge>
-                                    </div>
-                                    {appendix.appendixDescription && (
-                                      <p className="text-sm text-muted-foreground">
-                                        {appendix.appendixDescription}
-                                      </p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground">
-                                      {appendix.terms.length} điều khoản
-                                    </p>
-                                  </div>
-                                  <Switch
-                                    aria-label={`Chọn phụ lục ${appendix.appendixName}`}
-                                    checked={checked}
-                                    disabled={
-                                      appendix.isRequired || isSubmitting
-                                    }
-                                    onCheckedChange={(nextChecked) =>
-                                      setSelectedOptionalAppendixIds(
-                                        (current) =>
-                                          nextChecked
-                                            ? Array.from(
-                                                new Set([
-                                                  ...current,
-                                                  appendix.templateAppendixId,
-                                                ]),
-                                              )
-                                            : current.filter(
-                                                (id) =>
-                                                  id !==
-                                                  appendix.templateAppendixId,
-                                              ),
-                                      )
-                                    }
-                                  />
-                                </div>
-                              );
-                            })}
-                          </CardContent>
-                        </Card>
-                      )}
+                      <div id="contract-appendices-container" className={cn("rounded-2xl space-y-3", fieldErrors.contractAppendices && "ring-2 ring-destructive/40 p-2")}>
+                        <CreateContractAppendicesEditor key={`appendices-${templateVersionId}`}
+                          appendices={contractAppendices} templates={templateAppendices}
+                          isBilingual={languageMode === ContractLanguageMode.Bilingual}
+                          onChange={(appendices) => { setContractAppendices(appendices); clearFieldError("contractAppendices"); }}
+                          onPendingFormChange={setHasPendingAppendixForm} />
+                        {appendicesValidationError && <Alert variant="destructive"><AlertTitle>Phụ lục chưa hợp lệ</AlertTitle><AlertDescription>{appendicesValidationError}</AlertDescription></Alert>}
+                      </div>
                       {contractTermsValidationError &&
                         contractTerms.length > 0 && (
                           <Alert variant="destructive">
@@ -2821,18 +2683,7 @@ export default function CreateContractPage() {
 
                     <Separator className="my-5" />
 
-                    <PaymentPlanReview
-                      milestones={paymentPlan}
-                      currencyCode={currencyCode}
-                      manualDates={manualPaymentDates}
-                      onManualDateChange={(id, date) =>
-                        setManualPaymentDates((current) => ({
-                          ...current,
-                          [id]: date,
-                        }))
-                      }
-                      viewOnly={true}
-                    />
+                    <PaymentPlanReview milestones={paymentPlan} currencyCode={currencyCode} />
 
                     {paymentPlan.length > 0 && <Separator className="my-5" />}
 
@@ -2853,6 +2704,10 @@ export default function CreateContractPage() {
                             >
                               <div>
                                 <p>{item.itemName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.quantity} {item.unitName}
+                                  {languageMode === ContractLanguageMode.Bilingual && ` · ${item.unitNameEn}`}
+                                </p>
                                 {languageMode ===
                                   ContractLanguageMode.Bilingual && (
                                   <p className="text-xs text-muted-foreground">
@@ -2948,28 +2803,21 @@ export default function CreateContractPage() {
                       </Alert>
                     </div>
 
-                    {templateAppendices.length > 0 && (
+                    {contractAppendices.length > 0 && (
                       <div>
                         <p className="mb-2 text-sm font-semibold">
                           Phụ lục đính kèm
                         </p>
                         <div className="space-y-2 rounded-xl border p-4">
-                          {templateAppendices
-                            .filter(
-                              (appendix) =>
-                                appendix.isRequired ||
-                                selectedOptionalAppendixIds.includes(
-                                  appendix.templateAppendixId,
-                                ),
-                            )
-                            .map((appendix) => (
+                          {contractAppendices.map((appendix) => (
                               <div
-                                key={appendix.templateAppendixId}
+                                key={appendix.clientId}
                                 className="flex items-center justify-between gap-3 text-sm"
                               >
                                 <span>
                                   {appendix.appendixCode} —{" "}
                                   {appendix.appendixName}
+                                  <span className="ml-2 text-muted-foreground">({appendix.terms.length} điều khoản)</span>
                                 </span>
                                 {appendix.isRequired && (
                                   <Badge variant="secondary">Bắt buộc</Badge>
@@ -3036,7 +2884,7 @@ export default function CreateContractPage() {
                   <div>
                     <p className="text-sm font-medium">
                       {selectedCustomer?.customerCompany ||
-                        "Chưa chọn khách hàng"}
+                        "Chưa chọn đối tác"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {selectedCustomer?.customerCode || "Chọn khách ở bước 1"}
@@ -3056,7 +2904,7 @@ export default function CreateContractPage() {
                       {selectedTemplate?.name || "Chưa chọn mẫu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {getContractTypeLabel(contractType)}
+                      {getContractDirectionLabel(contractDirection ?? undefined)} · {getContractTypeLabel(contractType)}
                     </p>
                   </div>
                 </div>
@@ -3068,7 +2916,7 @@ export default function CreateContractPage() {
                   <div>
                     <p className="text-sm font-medium">Theo mẫu đã chọn</p>
                     <p className="text-xs text-muted-foreground">
-                      Chỉnh sửa tại trang chi tiết sau khi tạo
+                      Soạn điều khoản và phụ lục tại bước 3
                     </p>
                   </div>
                 </div>

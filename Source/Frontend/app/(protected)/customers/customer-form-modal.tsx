@@ -1,4 +1,5 @@
 "use client";
+import { CUSTOMER_ENGLISH_FIELDS } from "@/lib/document-english-fields";
 
 import { useState, useEffect } from "react";
 import {
@@ -67,6 +68,7 @@ export function CustomerFormModal({
   const [customerBankAccountNumber, setCustomerBankAccountNumber] =
     useState("");
   const [customerBankName, setCustomerBankName] = useState("");
+  const [englishFields, setEnglishFields] = useState<Record<string, string>>({});
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerCity, setCustomerCity] = useState("");
   const [customerCountry, setCustomerCountry] = useState("");
@@ -96,6 +98,7 @@ export function CustomerFormModal({
         setCustomerContactPersonTitle(item.customerContactPersonTitle || "");
         setCustomerBankAccountNumber(item.customerBankAccountNumber || "");
         setCustomerBankName(item.customerBankName || "");
+        setEnglishFields(Object.fromEntries(CUSTOMER_ENGLISH_FIELDS.map(({ key }) => [key, item[key] ?? ""])));
         setCustomerAddress(item.customerAddress || "");
         setCustomerCity(item.customerCity || "");
         setCustomerCountry(item.customerCountry || "");
@@ -116,6 +119,7 @@ export function CustomerFormModal({
         setCustomerContactPersonTitle("");
         setCustomerBankAccountNumber("");
         setCustomerBankName("");
+        setEnglishFields({});
         setCustomerAddress("");
         setCustomerCity("");
         setCustomerCountry("");
@@ -167,6 +171,7 @@ export function CustomerFormModal({
           customerContactPersonTitle: customerContactPersonTitle.trim() || null,
           customerBankAccountNumber: customerBankAccountNumber.trim() || null,
           customerBankName: customerBankName.trim() || null,
+          ...Object.fromEntries(CUSTOMER_ENGLISH_FIELDS.map(({ key }) => [key, englishFields[key]?.trim() || null])),
           customerAddress: customerAddress.trim() || null,
           customerCity: customerCity.trim() || null,
           customerCountry: customerCountry.trim() || null,
@@ -192,6 +197,7 @@ export function CustomerFormModal({
           customerContactPersonTitle: customerContactPersonTitle.trim() || null,
           customerBankAccountNumber: customerBankAccountNumber.trim() || null,
           customerBankName: customerBankName.trim() || null,
+          ...Object.fromEntries(CUSTOMER_ENGLISH_FIELDS.map(({ key }) => [key, englishFields[key]?.trim() || null])),
           customerAddress: customerAddress.trim() || null,
           customerCity: customerCity.trim() || null,
           customerCountry: customerCountry.trim() || null,
@@ -564,6 +570,20 @@ export function CustomerFormModal({
             </div>
           </div>
 
+
+          <div className="space-y-3 rounded-xl border p-4">
+            <p className="font-medium">Thông tin tiếng Anh (không bắt buộc)</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {CUSTOMER_ENGLISH_FIELDS.map(({ key, label, maxLength }) => (
+                <div key={key} className="space-y-2">
+                  <Label htmlFor={key}>{label}</Label>
+                  <Input id={key} value={englishFields[key] ?? ""} maxLength={maxLength}
+                    disabled={viewOnly || isSaving}
+                    onChange={(e) => setEnglishFields((current) => ({ ...current, [key]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="customerNotes">Ghi chú thêm</Label>
             <Textarea

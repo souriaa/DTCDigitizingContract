@@ -251,6 +251,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<byte>("ContractDirection")
+                        .HasColumnType("tinyint");
+
                     b.Property<string>("ContractName")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -364,6 +367,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("CurrentVerificationPhoneId")
                         .HasDatabaseName("IX_tbl_Contract_CurrentVerificationPhoneId");
 
+                    b.HasIndex("ContractDirection", "Status");
+
                     b.HasIndex(new[] { "CurrentVersionId" }, "IX_tbl_Contract_CurrentVersionId");
 
                     b.HasIndex(new[] { "CustomerId" }, "IX_tbl_Contract_CustomerId");
@@ -380,6 +385,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_Contract", null, t =>
                         {
+                            t.HasCheckConstraint("CK_tbl_Contract_ContractDirection", "[ContractDirection] IN (1, 2)");
+
                             t.HasCheckConstraint("CK_tbl_Contract_ContractType", "[ContractType] IN (1, 2, 3)");
 
                             t.HasCheckConstraint("CK_tbl_Contract_FinancialTotals", "[Subtotal] >= 0 AND [TotalDiscount] >= 0 AND [TotalVat] >= 0 AND [TotalAmount] >= 0");
@@ -413,6 +420,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SignDate")
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
@@ -477,6 +487,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("Fax")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -484,6 +499,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LegalNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<byte>("PartyRole")
@@ -500,6 +520,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("RepresentativeTitle")
                         .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("TaxCode")
@@ -551,6 +576,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("ContractSignDate")
+                        .HasColumnType("date");
+
                     b.Property<int>("ContractVersionId")
                         .HasColumnType("int");
 
@@ -571,6 +599,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LocationEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<byte[]>("RowVersion")
@@ -676,6 +709,37 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         });
                 });
 
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractAcceptanceScopeAllocation", b =>
+                {
+                    b.Property<long>("AcceptanceScopeAllocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AcceptanceScopeAllocationId"));
+
+                    b.Property<int>("AcceptanceRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HandoverLineId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("AcceptanceScopeAllocationId");
+
+                    b.HasIndex("HandoverLineId");
+
+                    b.HasIndex("AcceptanceRecordId", "HandoverLineId")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractAcceptanceScopeAllocation", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AcceptanceScopeAllocation_Quantity", "[Quantity] > 0");
+                        });
+                });
+
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractAcceptanceSection", b =>
                 {
                     b.Property<int>("AcceptanceSectionId")
@@ -686,6 +750,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<int>("AcceptanceRecordId")
                         .HasColumnType("int");
+
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
 
                     b.Property<string>("ContentEn")
                         .HasColumnType("nvarchar(max)");
@@ -727,6 +796,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAcceptanceSection", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractAcceptanceSection_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [ContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractAcceptanceSection_Order", "[DisplayOrder] >= 0");
                         });
                 });
@@ -830,6 +901,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<int>("AppendixId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -889,6 +965,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAppendixTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractAppendixTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractAppendixTerm_Order", "[DisplayOrder] >= 0");
                         });
                 });
@@ -1173,7 +1251,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                             t.HasCheckConstraint("CK_tbl_ContractAudit_Result", "LEN(LTRIM(RTRIM([Result]))) > 0");
 
-                            t.HasCheckConstraint("CK_tbl_ContractAudit_Subject", "([SubjectType] IS NULL AND [SubjectId] IS NULL) OR ([SubjectType] IN ('Contract', 'ContractVersion', 'NegotiationComment', 'CustomerAccessLink', 'CustomerOtpChallenge', 'CustomerAccessSession', 'ApprovalRequest', 'SignedEvidence', 'ContractAppendix', 'AcceptanceRecord', 'AcceptanceEvidence', 'Payment') AND [SubjectId] > 0)");
+                            t.HasCheckConstraint("CK_tbl_ContractAudit_Subject", "([SubjectType] IS NULL AND [SubjectId] IS NULL) OR ([SubjectType] IN ('Contract', 'ContractVersion', 'NegotiationComment', 'CustomerAccessLink', 'CustomerOtpChallenge', 'CustomerAccessSession', 'ApprovalRequest', 'SignedEvidence', 'ContractAppendix', 'HandoverRecord', 'AcceptanceRecord', 'AcceptanceEvidence', 'Payment') AND [SubjectId] > 0)");
 
                             t.HasCheckConstraint("CK_tbl_ContractAudit_TenantId", "[TenantId] > 0");
 
@@ -1235,7 +1313,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractAuditValue", null, t =>
                         {
-                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode", "[FieldCode] BETWEEN 1 AND 99");
+                            t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldCode", "[FieldCode] BETWEEN 1 AND 103");
 
                             t.HasCheckConstraint("CK_tbl_ContractAuditValue_FieldKind", "([ValueKind] = 2 AND [FieldCode] IN (11,12,13,14,55,60,61)) OR ([ValueKind] = 4 AND [FieldCode] IN (8,9,45,54,62,63,64,85,91,92,95,98)) OR ([ValueKind] = 5 AND [FieldCode] IN (27,68)) OR ([ValueKind] = 3 AND [FieldCode] IN (5,6,7,10,17,18,19,20,21,22,32,34,36,43,47,48,56,57,73,74,77,79,80,82,87,90,93)) OR ([ValueKind] = 1 AND [FieldCode] NOT IN (5,6,7,8,9,10,11,12,13,14,17,18,19,20,21,22,27,32,34,36,43,45,47,48,54,55,56,57,60,61,62,63,64,68,73,74,77,79,80,82,85,87,90,91,92,93,95,98))");
 
@@ -1663,6 +1741,464 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                             t.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Reason", "LEN(LTRIM(RTRIM([Reason]))) BETWEEN 1 AND 1000");
 
                             t.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Source", "[PhoneSource] IN ('CustomerMobile', 'CustomerPhone', 'Manual')");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverBaseline", b =>
+                {
+                    b.Property<long>("HandoverBaselineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverBaselineId"));
+
+                    b.Property<DateTime>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ConfirmedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ContractVersionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("HandoverBaselineId");
+
+                    b.HasIndex("ContractId", "ContractVersionId")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverBaseline", (string)null);
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverEvidence", b =>
+                {
+                    b.Property<int>("HandoverEvidenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverEvidenceId"));
+
+                    b.Property<int>("FileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SignDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("HandoverEvidenceId");
+
+                    b.HasIndex("FileId")
+                        .IsUnique();
+
+                    b.HasIndex("HandoverRecordId")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverEvidence", (string)null);
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverLine", b =>
+                {
+                    b.Property<int>("HandoverLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverLineId"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("HandoverScopeItemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("NotesEn")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("NotesVi")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("HandoverLineId");
+
+                    b.HasIndex("HandoverScopeItemId");
+
+                    b.HasIndex("HandoverRecordId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.HasIndex("HandoverRecordId", "HandoverScopeItemId")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverLine", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HandoverLine_Quantity", "[Quantity] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverParty", b =>
+                {
+                    b.Property<int>("HandoverPartyId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverPartyId"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Fax")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegalName")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("LegalNameEn")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RepresentativeName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("RepresentativeTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte>("SubjectKind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("HandoverPartyId");
+
+                    b.HasIndex("HandoverRecordId", "SubjectKind")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverParty", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HandoverParty_Subject", "[SubjectKind] IN (1,2)");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverPlaceholderValue", b =>
+                {
+                    b.Property<long>("HandoverPlaceholderValueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverPlaceholderValueId"));
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlaceholderKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RenderedValue")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceFieldKey")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.HasKey("HandoverPlaceholderValueId");
+
+                    b.HasIndex("HandoverRecordId", "PlaceholderKey")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverPlaceholderValue", (string)null);
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverRecord", b =>
+                {
+                    b.Property<int>("HandoverRecordId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverRecordId"));
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ContractSignDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ContractVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FinalizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("FinalizedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("HandoverBaselineId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HandoverCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("HandoverDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LocationEn")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("SignedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SnapshotHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("TemplateVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedEmployeeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("HandoverRecordId");
+
+                    b.HasIndex("ContractId", "ContractVersionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_HandoverRecord_ActiveVersion")
+                        .HasFilter("[Status] IN (0,1)");
+
+                    b.HasIndex("ContractId", "HandoverCode")
+                        .IsUnique();
+
+                    b.HasIndex("ContractVersionId", "Status");
+
+                    b.ToTable("tbl_ContractHandoverRecord", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HandoverRecord_Hash", "([SnapshotHash] IS NULL OR LEN([SnapshotHash]) = 64) AND ([Status] NOT IN (1,2) OR [SnapshotHash] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_HandoverRecord_Status", "[Status] IN (0,1,2,3)");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverReference", b =>
+                {
+                    b.Property<int>("HandoverReferenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverReferenceId"));
+
+                    b.Property<int?>("AppendixId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.HasKey("HandoverReferenceId");
+
+                    b.HasIndex("HandoverRecordId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverReference", (string)null);
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverScopeItem", b =>
+                {
+                    b.Property<long>("HandoverScopeItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverScopeItemId"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<long>("HandoverBaselineId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("NameVi")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("RequiredQuantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte>("ScopeMode")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("SourceContractItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SourceQuantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("UnitEn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitVi")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("HandoverScopeItemId");
+
+                    b.HasIndex("HandoverBaselineId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.HasIndex("HandoverBaselineId", "SourceContractItemId")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverScopeItem", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HandoverScope_Mode", "[ScopeMode] IN (1,2)");
+
+                            t.HasCheckConstraint("CK_HandoverScope_Quantity", "[SourceQuantity] > 0 AND [RequiredQuantity] > 0 AND (([ScopeMode] = 1 AND [RequiredQuantity] = [SourceQuantity]) OR ([ScopeMode] = 2 AND [RequiredQuantity] = 1))");
+                        });
+                });
+
+            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverSection", b =>
+                {
+                    b.Property<int>("HandoverSectionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverSectionId"));
+
+                    b.Property<byte>("BilingualContentMode")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("ContentEn")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentVi")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HandoverRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SectionCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TitleEn")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("TitleVi")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("HandoverSectionId");
+
+                    b.HasIndex("HandoverRecordId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.HasIndex("HandoverRecordId", "SectionCode")
+                        .IsUnique();
+
+                    b.ToTable("tbl_ContractHandoverSection", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HandoverSection_Mode", "[BilingualContentMode] IN (1,2)");
                         });
                 });
 
@@ -2714,6 +3250,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TemplateAppendixTermId"));
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -2775,6 +3316,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTemplateAppendixTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTemplateAppendixTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTemplateAppendixTerm_Code", "LEN(LTRIM(RTRIM([TermCode]))) > 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplateAppendixTerm_Order", "[DisplayOrder] >= 0");
@@ -3254,6 +3797,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TemplateTermId"));
 
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
+
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -3325,6 +3873,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTemplateTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTemplateTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTemplateTerm_DisplayOrder", "[DisplayOrder] >= 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplateTerm_TemplateVersionId", "[TemplateVersionId] > 0");
@@ -3346,6 +3896,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("ChangeNote")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte>("ContractDirection")
+                        .HasColumnType("tinyint");
 
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
@@ -3454,6 +4007,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasDatabaseName("UX_tbl_ContractTemplateVersion_OneDraftPerTemplate")
                         .HasFilter("[Status] = 0");
 
+                    b.HasIndex("ContractDirection", "Status");
+
                     b.HasIndex("TemplateId", "Status")
                         .HasDatabaseName("IX_tbl_ContractTemplateVersion_TemplateId_Status");
 
@@ -3463,6 +4018,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTemplateVersion", null, t =>
                         {
+                            t.HasCheckConstraint("CK_tbl_ContractTemplateVersion_ContractDirection", "[ContractDirection] IN (1, 2)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTemplateVersion_Document", "([DocumentFileId] IS NULL AND [DocumentHash] IS NULL) OR ([DocumentFileId] > 0 AND [DocumentHash] IS NOT NULL AND LEN([DocumentHash]) = 64)");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplateVersion_Preview", "([PreviewSourceHash] IS NULL AND [PreviewedAt] IS NULL AND [PreviewedByEmployeeId] IS NULL AND [PreviewFileId] IS NULL) OR ([PreviewSourceHash] IS NOT NULL AND LEN([PreviewSourceHash]) = 64 AND [PreviewedAt] IS NOT NULL AND [PreviewedByEmployeeId] > 0 AND ([PreviewFileId] IS NULL OR [PreviewFileId] > 0))");
@@ -3486,6 +4043,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TermId"));
+
+                    b.Property<byte>("BilingualContentMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
 
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
@@ -3567,6 +4129,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractTerm", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TblContractTerm_BilingualContentMode", "[BilingualContentMode] IN (1, 2) AND ([BilingualContentMode] <> 2 OR [TermContentEn] IS NULL)");
+
                             t.HasCheckConstraint("CK_tbl_ContractTerm_ContractId", "[ContractId] > 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractTerm_DisplayOrder", "[DisplayOrder] >= 0");
@@ -3717,6 +4281,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<DateTime>("ContractCreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<byte>("ContractDirection")
+                        .HasColumnType("tinyint");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
@@ -3793,6 +4360,8 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_ContractVersionLegalSnapshot", null, t =>
                         {
+                            t.HasCheckConstraint("CK_tbl_ContractVersionLegalSnapshot_ContractDirection", "[ContractDirection] IN (1, 2)");
+
                             t.HasCheckConstraint("CK_tbl_ContractVersionLegalSnapshot_Financials", "[Subtotal] >= 0 AND [TotalDiscount] >= 0 AND [TotalVat] >= 0 AND [TotalAmount] >= 0");
 
                             t.HasCheckConstraint("CK_tbl_ContractVersionLegalSnapshot_Ids", "[VersionId] > 0 AND [ContractId] > 0 AND [VersionNo] > 0 AND [TemplateVersionId] > 0 AND [CreatedByEmployeeId] > 0");
@@ -3812,6 +4381,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("BankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -3821,18 +4395,83 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("BankNameEn")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CityEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactTitle")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ContactTitleEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<long>("ContractVersionLegalSnapshotId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CountryEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("FaxNumber")
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("FullName")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("LegalNameEn")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<byte>("PartyRole")
                         .HasColumnType("tinyint");
@@ -3852,13 +4491,33 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("SourceCustomerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SubjectCode")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("TaxCode")
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ZipCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("ContractVersionPartySnapshotId");
 
@@ -4034,6 +4693,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("CustomerAddressEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("CustomerBankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -4041,6 +4705,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("CustomerBankName")
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("CustomerBankNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("CustomerBirthday")
@@ -4056,6 +4725,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("CustomerCityEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("CustomerCode")
                         .HasMaxLength(30)
                         .IsUnicode(false)
@@ -4068,6 +4742,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("CustomerCompany")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CustomerCompanyEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("CustomerContactPersonName")
                         .HasMaxLength(200)
@@ -4082,9 +4761,19 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("CustomerContactPersonTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("CustomerCountry")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerCountryEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(50)
@@ -4139,6 +4828,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("CustomerRepresentativeTitle")
                         .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerRepresentativeTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("CustomerSourceId")
@@ -4993,6 +5687,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("ProductNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("ProductOrder")
                         .HasColumnType("int");
 
@@ -5035,12 +5734,25 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitNameEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("ViewTotal")
                         .HasColumnType("int");
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("tbl_Products", (string)null);
+                    b.ToTable("tbl_Products", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_ProductNameEn", "LEN(LTRIM(RTRIM([ProductNameEn]))) > 0");
+                        });
                 });
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblQuotation", b =>
@@ -5199,6 +5911,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("ServiceNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("ServiceOrder")
                         .HasColumnType("int");
 
@@ -5237,6 +5954,16 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitNameEn")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("UserCreated")
                         .HasColumnType("int");
 
@@ -5246,7 +5973,10 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasKey("ServiceId")
                         .HasName("PK__tbl_Serv__C51BB00A20C1E124");
 
-                    b.ToTable("tbl_Services", (string)null);
+                    b.ToTable("tbl_Services", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Services_ServiceNameEn", "LEN(LTRIM(RTRIM([ServiceNameEn]))) > 0");
+                        });
                 });
 
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblServiceType", b =>
@@ -5279,6 +6009,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("AddressEn")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("BankAccountNumber")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -5286,6 +6021,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.Property<string>("BankName")
                         .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BankNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -5304,6 +6044,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("LegalEntityNameEn")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(30)
                         .IsUnicode(false)
@@ -5317,6 +6062,11 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<string>("RepresentativeTitle")
                         .IsRequired()
                         .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RepresentativeTitleEn")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<byte[]>("RowVersion")
@@ -5342,6 +6092,14 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     b.ToTable("tbl_TenantLegalProfile", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TenantLegalProfile_AddressEn", "LEN(LTRIM(RTRIM([AddressEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_BankNameEn", "LEN(LTRIM(RTRIM([BankNameEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_LegalEntityNameEn", "LEN(LTRIM(RTRIM([LegalEntityNameEn]))) > 0");
+
+                            t.HasCheckConstraint("CK_TenantLegalProfile_RepresentativeTitleEn", "LEN(LTRIM(RTRIM([RepresentativeTitleEn]))) > 0");
+
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Employees", "[CreatedByEmployeeId] > 0 AND [UpdatedByEmployeeId] > 0");
 
                             t.HasCheckConstraint("CK_tbl_TenantLegalProfile_Singleton", "[TenantLegalProfileId] = 1");

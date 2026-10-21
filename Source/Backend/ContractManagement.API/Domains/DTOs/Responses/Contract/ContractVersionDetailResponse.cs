@@ -47,6 +47,8 @@
 
         public List<ContractTermDetailResponse> Terms { get; set; } = [];
 
+        public List<ContractLegalBasisResponse> LegalBases { get; set; } = [];
+
         public List<ContractPaymentMilestoneResponse> PaymentMilestones { get; set; } = [];
 
         public List<ContractAppendixResponse> Appendices { get; set; } = [];

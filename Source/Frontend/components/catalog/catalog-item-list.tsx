@@ -324,6 +324,7 @@ export function CatalogItemList({
                               {item.code}
                             </p>
                           )}
+                          {item.unitName && <p className="text-xs text-muted-foreground">Đơn vị: {item.unitName}{item.unitNameEn ? ` / ${item.unitNameEn}` : ""}</p>}
                           {onOpenGroup && (
                             <Button
                               type="button"

@@ -26,6 +26,7 @@ public sealed class ContractAppendixTermResponse
     public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
     public int DisplayOrder { get; set; }
     public string RowVersion { get; set; } = string.Empty;
 }

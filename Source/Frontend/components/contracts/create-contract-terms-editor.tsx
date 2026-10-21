@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
 
-import {
-  ContractTermCard,
-  type ContractTermEditableField,
-} from "@/components/contracts/contract-term-card";
+import { type ContractTermEditableField } from "@/components/contracts/contract-term-card";
+import { TermFields } from "@/components/contract-documents/term-fields";
+import { TermsListEditor } from "@/components/contract-documents/terms-list-editor";
+import { PaymentPlanEditor } from "@/components/contract-documents/payment-plan-editor";
+import type { ContractPaymentMilestoneDraft } from "@/services/contract-api";
 import { Button } from "@/components/ui/button";
-import { CodeInput } from "@/components/ui/custom/code-input";
+
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
-import { ContractRichTextEditor } from "@/components/ui/custom/contract-rich-text-editor";
+
 import {
   Dialog,
   DialogContent,
@@ -19,13 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
 import { toast } from "@/components/ui/sonner";
 import { ContractTermKind } from "@/services/contract-template-api";
 
 export interface CreateContractTermDraft {
   clientId: string;
+  paymentMilestones: ContractPaymentMilestoneDraft[];
   sourceTemplateTermId?: number | null;
   termKind: ContractTermKind;
   termCode: string;
@@ -33,6 +34,7 @@ export interface CreateContractTermDraft {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
 }
@@ -42,6 +44,8 @@ interface CreateContractTermsEditorProps {
   templateName?: string;
   isBilingual: boolean;
   onChange: (terms: CreateContractTermDraft[]) => void;
+  renderTermChildren?: (term: CreateContractTermDraft) => ReactNode;
+  savedRevision?: string;
 }
 
 const reorderTerms = (terms: CreateContractTermDraft[]) =>
@@ -52,16 +56,24 @@ export function CreateContractTermsEditor({
   templateName,
   isBilingual,
   onChange,
+  renderTermChildren,
+  savedRevision,
 }: CreateContractTermsEditorProps) {
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
-  const [deleteTerm, setDeleteTerm] =
-    useState<CreateContractTermDraft | null>(null);
+  const termsRef = useRef(terms);
+  termsRef.current = terms;
+  useEffect(() => setDirtyIds(new Set()), [savedRevision]);
+  const [deleteTerm, setDeleteTerm] = useState<CreateContractTermDraft | null>(
+    null,
+  );
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newTermKind, setNewTermKind] = useState(ContractTermKind.General);
   const [newTermCode, setNewTermCode] = useState("");
   const [newTermTitle, setNewTermTitle] = useState("");
   const [newTermTitleEn, setNewTermTitleEn] = useState("");
   const [newTermContent, setNewTermContent] = useState("");
   const [newTermContentEn, setNewTermContentEn] = useState("");
+  const [newContentMode, setNewContentMode] = useState(1);
 
   const existingCodes = useMemo(
     () => new Set(terms.map((term) => term.termCode.trim().toUpperCase())),
@@ -71,13 +83,12 @@ export function CreateContractTermsEditor({
   const updateTerm = (
     clientId: string,
     field: ContractTermEditableField,
-    value: string | boolean,
+    value: string | boolean | number,
   ) => {
-    onChange(
-      terms.map((term) =>
-        term.clientId === clientId ? { ...term, [field]: value } : term,
-      ),
-    );
+    const next = termsRef.current.map((term) =>
+      term.clientId === clientId ? { ...term, [field]: value } : term);
+    termsRef.current = next;
+    onChange(next);
     setDirtyIds((current) => new Set(current).add(clientId));
   };
 
@@ -89,23 +100,30 @@ export function CreateContractTermsEditor({
     const affectedIds = [next[index].clientId, next[targetIndex].clientId];
     [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
     onChange(reorderTerms(next));
-    setDirtyIds(
-      (current) => new Set([...current, ...affectedIds]),
-    );
+    setDirtyIds((current) => new Set([...current, ...affectedIds]));
   };
 
   const openAddDialog = () => {
     let index = 1;
     while (existingCodes.has(`CUSTOM_${index}`)) index += 1;
+    setNewTermKind(ContractTermKind.General);
     setNewTermCode(`CUSTOM_${index}`);
     setNewTermTitle("");
     setNewTermTitleEn("");
     setNewTermContent("");
     setNewTermContentEn("");
+    setNewContentMode(1);
     setIsAddOpen(true);
   };
 
   const addTerm = () => {
+    if (
+      newTermKind === ContractTermKind.Payment &&
+      terms.some((term) => term.termKind === ContractTermKind.Payment)
+    ) {
+      toast.error("Mỗi hợp đồng chỉ có một điều khoản thanh toán.");
+      return;
+    }
     const termCode = newTermCode.trim().toUpperCase();
     if (!termCode || !newTermTitle.trim()) {
       toast.error("Vui lòng nhập mã và tiêu đề điều khoản.");
@@ -119,11 +137,7 @@ export function CreateContractTermsEditor({
       toast.error("Điều khoản song ngữ phải có tiêu đề tiếng Anh.");
       return;
     }
-    if (
-      isBilingual &&
-      newTermContent.trim() &&
-      !newTermContentEn.trim()
-    ) {
+    if (isBilingual && newContentMode === 1 && newTermContent.trim() && !newTermContentEn.trim()) {
       toast.error("Điều khoản song ngữ phải có nội dung tiếng Anh.");
       return;
     }
@@ -134,12 +148,14 @@ export function CreateContractTermsEditor({
       {
         clientId,
         sourceTemplateTermId: null,
-        termKind: ContractTermKind.General,
+        termKind: newTermKind,
+        paymentMilestones: [],
         termCode,
         termTitle: newTermTitle.trim(),
         termTitleEn: newTermTitleEn.trim() || null,
         termContent: newTermContent.trim() || null,
         termContentEn: newTermContentEn.trim() || null,
+        bilingualContentMode: newContentMode,
         isNegotiable: true,
         displayOrder: terms.length + 1,
       },
@@ -177,50 +193,77 @@ export function CreateContractTermsEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col justify-between gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="font-semibold">Điều khoản hợp đồng ({terms.length})</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {templateName}. Các thay đổi sẽ được lưu cùng hợp đồng nháp.
-          </p>
-        </div>
-        <Button type="button" onClick={openAddDialog}>
-          <Plus className="size-4" /> Thêm điều khoản
-        </Button>
-      </div>
-
-      {terms.map((term, index) => (
-        <ContractTermCard
-          key={term.clientId}
-          term={term}
-          inputId={`create-${term.clientId}`}
-          className={
-            dirtyIds.has(term.clientId)
-              ? "border-destructive ring-1 ring-destructive/40"
-              : undefined
-          }
-          editable
-          isBilingual={isBilingual}
-          canMoveUp={index > 0}
-          canMoveDown={index < terms.length - 1}
-          onChange={(field, value) =>
-            updateTerm(term.clientId, field, value)
-          }
-          onMove={(direction) => moveTerm(index, direction)}
-          onRemove={
-            term.termKind === ContractTermKind.Payment
-              ? undefined
-              : () => setDeleteTerm(term)
-          }
-        />
-      ))}
-
-      {terms.length === 0 && (
-        <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-          Hợp đồng cần ít nhất một điều khoản. Hãy thêm điều khoản mới để tiếp
-          tục.
-        </div>
-      )}
+      <TermsListEditor
+        terms={terms}
+        getKey={(term) => term.clientId}
+        title="Điều khoản hợp đồng"
+        description={`${templateName}. Các thay đổi sẽ được lưu cùng hợp đồng nháp.`}
+        onAdd={openAddDialog}
+        getCardProps={(term, index) => ({
+          inputId: `create-${term.clientId}`,
+          editable: true,
+          isBilingual,
+          className: dirtyIds.has(term.clientId)
+            ? "border-destructive ring-1 ring-destructive/40"
+            : undefined,
+          onChange: (field, value) => updateTerm(term.clientId, field, value),
+          onMove: (direction) => moveTerm(index, direction),
+          onRemove: () => setDeleteTerm(term),
+          onKindChange: (kind) => {
+            if (
+              kind === ContractTermKind.Payment &&
+              terms.some(
+                (other) =>
+                  other.clientId !== term.clientId &&
+                  other.termKind === ContractTermKind.Payment,
+              )
+            ) {
+              toast.error("Mỗi hợp đồng chỉ có một điều khoản thanh toán.");
+              return;
+            }
+            if (
+              kind !== ContractTermKind.Payment &&
+              term.paymentMilestones.length
+            ) {
+              toast.error(
+                "Hãy xóa các đợt thanh toán trước khi đổi loại điều khoản.",
+              );
+              return;
+            }
+            onChange(
+              terms.map((item) =>
+                item.clientId === term.clientId
+                  ? { ...item, termKind: kind }
+                  : item,
+              ),
+            );
+            setDirtyIds((current) => new Set(current).add(term.clientId));
+          },
+          children: (
+            <>
+              {term.termKind === ContractTermKind.Payment && (
+                <PaymentPlanEditor
+                  rows={term.paymentMilestones}
+                  isBilingual={isBilingual}
+                  onChange={(rows) => {
+                    onChange(
+                      terms.map((item) =>
+                        item.clientId === term.clientId
+                          ? { ...item, paymentMilestones: rows }
+                          : item,
+                      ),
+                    );
+                    setDirtyIds((current) =>
+                      new Set(current).add(term.clientId),
+                    );
+                  }}
+                />
+              )}
+              {renderTermChildren?.(term)}
+            </>
+          ),
+        })}
+      />
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -231,62 +274,29 @@ export function CreateContractTermsEditor({
               mẫu gốc.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="create-new-term-code">
-                Mã điều khoản <span className="text-destructive">*</span>
-              </Label>
-              <CodeInput
-                id="create-new-term-code"
-                value={newTermCode}
-                onValueChange={setNewTermCode}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-new-term-title">
-                Tiêu đề <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="create-new-term-title"
-                value={newTermTitle}
-                onChange={(event) => setNewTermTitle(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="create-new-term-content">Nội dung</Label>
-              <ContractRichTextEditor
-                id="create-new-term-content"
-                value={newTermContent}
-                onChange={setNewTermContent}
-              />
-            </div>
-            {isBilingual && (
-              <>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="create-new-term-title-en">
-                    Tiêu đề tiếng Anh{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="create-new-term-title-en"
-                    value={newTermTitleEn}
-                    onChange={(event) => setNewTermTitleEn(event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="create-new-term-content-en">
-                    Nội dung tiếng Anh
-                  </Label>
-                  <ContractRichTextEditor
-                    id="create-new-term-content-en"
-                    value={newTermContentEn}
-                    ariaLabel="Nội dung điều khoản tiếng Anh"
-                    onChange={setNewTermContentEn}
-                  />
-                </div>
-              </>
+          <TermFields
+            id="create-new-term"
+            isBilingual={isBilingual}
+            value={{
+              code: newTermCode,
+              title: newTermTitle,
+              titleEn: newTermTitleEn,
+              content: newTermContent,
+              contentEn: newTermContentEn, bilingualContentMode: newContentMode,
+            }}
+            onChange={(value) => {
+              setNewTermCode(value.code);
+              setNewTermTitle(value.title);
+              setNewTermTitleEn(value.titleEn);
+              setNewTermContent(value.content);
+              setNewTermContentEn(value.contentEn); setNewContentMode(value.bilingualContentMode);
+            }}
+            kind={newTermKind}
+            onKindChange={setNewTermKind}
+            paymentDisabled={terms.some(
+              (term) => term.termKind === ContractTermKind.Payment,
             )}
-          </div>
+          />
           <DialogFooter>
             <Button
               type="button"
@@ -307,7 +317,7 @@ export function CreateContractTermsEditor({
         onClose={() => setDeleteTerm(null)}
         onConfirm={confirmDelete}
         title="Xóa điều khoản?"
-        description={`Điều khoản ${deleteTerm?.termCode ?? ""} sẽ không được đưa vào hợp đồng mới. Mẫu gốc không bị thay đổi.`}
+        description={`Điều khoản ${deleteTerm?.termCode ?? ""}${deleteTerm?.termKind === ContractTermKind.Payment ? " và toàn bộ các đợt thanh toán của điều khoản" : ""} sẽ bị xóa khỏi bản đang soạn. Mẫu gốc không bị thay đổi.`}
         confirmText="Xóa điều khoản"
         variant="destructive"
       />

@@ -19,7 +19,7 @@ using Microsoft.Extensions.Options;
 
 namespace ContractManagement.Tests.Domains.Dashboard;
 
-public sealed class DashboardPhase02Tests
+public sealed partial class DashboardPhase02Tests
 {
     [Fact]
     public async Task EmployeeDashboard_ScopesRowsAndAmountsToResponsibleEmployee()

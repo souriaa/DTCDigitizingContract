@@ -24,6 +24,8 @@ public partial class TblContract
     /// </summary>
     public byte ContractType { get; set; }
 
+    public byte ContractDirection { get; set; }
+
     /// <summary>
     /// Template version dùng để tạo hợp đồng.
     /// </summary>

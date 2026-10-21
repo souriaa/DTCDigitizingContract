@@ -16,6 +16,7 @@ public static class ContractAuditSubjectTypes
     public const string ContractAppendix = "ContractAppendix";
     public const string AcceptanceRecord = "AcceptanceRecord";
     public const string AcceptanceEvidence = "AcceptanceEvidence";
+    public const string HandoverRecord = "HandoverRecord";
     public const string Payment = "Payment";
 }
 
@@ -162,7 +163,11 @@ public enum ContractAuditFieldCode : short
     AcceptanceRecordId,
     AcceptanceKind,
     AcceptanceDate,
-    AcceptanceStatus
+    AcceptanceStatus,
+    HandoverRecordId = 100,
+    HandoverBaselineId = 101,
+    HandoverLineCount = 102,
+    HandoverStatus = 103
 }
 
 public sealed record ContractAuditValueInput(
@@ -275,6 +280,12 @@ public static class ContractAuditActorTypes
 
 public static class ContractAuditActionTypes
 {
+    public const string HandoverScopeConfirmed = "HandoverScopeConfirmed";
+    public const string HandoverCreated = "HandoverCreated";
+    public const string HandoverUpdated = "HandoverUpdated";
+    public const string HandoverFinalized = "HandoverFinalized";
+    public const string HandoverSigned = "HandoverSigned";
+    public const string HandoverCancelled = "HandoverCancelled";
     public const string ContractCreated = "ContractCreated";
     public const string ResponsibleAssigned = "ResponsibleAssigned";
     public const string ResponsibilityTransferred =

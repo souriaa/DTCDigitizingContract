@@ -25,6 +25,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
             var key = f.Keyword.Trim();
             q = q.Where(x => (x.ProductCode != null && x.ProductCode.Contains(key))
                 || (x.ProductName != null && x.ProductName.Contains(key))
+                || (x.ProductNameEn != null && x.ProductNameEn.Contains(key))
                 || (x.ProductShortDesc != null && x.ProductShortDesc.Contains(key)));
         }
         return q;
@@ -42,6 +43,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
         {
             var key = f.Keyword.Trim();
             q = q.Where(x => (x.ServiceName != null && x.ServiceName.Contains(key))
+                || (x.ServiceNameEn != null && x.ServiceNameEn.Contains(key))
                 || (x.ServiceShortDesc != null && x.ServiceShortDesc.Contains(key)));
         }
         return q;
@@ -114,7 +116,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
         var total = await q.CountAsync(ct);
         var rows = await q.OrderByDescending(x => x.ProductId).Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
             .Select(x => new CatalogItemSummaryResponse
-            { Id = x.ProductId, Name = x.ProductName, Code = x.ProductCode, GroupId = x.CategoryId, Price = x.ProductPrice, Status = x.Status, CreatedAt = x.ProductCreatedDate })
+            { Id = x.ProductId, Name = x.ProductName, UnitName = x.UnitName, UnitNameEn = x.UnitNameEn, Code = x.ProductCode, GroupId = x.CategoryId, Price = x.ProductPrice, Status = x.Status, CreatedAt = x.ProductCreatedDate })
             .ToListAsync(ct);
         var map = (await CategoryNodes(ct)).ToDictionary(x => x.Id, x => x.Path);
         foreach (var row in rows)
@@ -128,7 +130,7 @@ public sealed class CatalogWorkspaceService(DbDtctechContext db)
         var total = await q.CountAsync(ct);
         var rows = await q.OrderByDescending(x => x.ServiceId).Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
             .Select(x => new CatalogItemSummaryResponse
-            { Id = x.ServiceId, Name = x.ServiceName, GroupId = x.ServiceTypeId, ParentId = x.ServiceParentId,
+            { Id = x.ServiceId, Name = x.ServiceName, UnitName = x.UnitName, UnitNameEn = x.UnitNameEn, GroupId = x.ServiceTypeId, ParentId = x.ServiceParentId,
                 Price = x.ServicePrice, SetupPrice = x.SetupPrice, MaintainPrice = x.MaintainPrice, Status = x.Status, CreatedAt = x.DateCreated })
             .ToListAsync(ct);
         var typeIds = rows.Where(x => x.GroupId.HasValue).Select(x => x.GroupId!.Value).Distinct().ToArray();

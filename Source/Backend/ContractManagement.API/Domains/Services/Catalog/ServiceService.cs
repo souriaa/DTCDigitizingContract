@@ -8,6 +8,8 @@ using ContractManagement.Infrastructure.Persistence.Application;
 using ContractManagement.Infrastructure.Persistence.Application.Models;
 using Microsoft.EntityFrameworkCore;
 
+using ContractManagement.Domains.Policies.Catalog;
+
 namespace ContractManagement.Domains.Services.Catalog
 {
     /// <summary>
@@ -72,6 +74,7 @@ namespace ContractManagement.Domains.Services.Catalog
 
                 query = query.Where(x =>
                     (x.ServiceName != null && x.ServiceName.Contains(keyword)) ||
+                    (x.ServiceNameEn != null && x.ServiceNameEn.Contains(keyword)) ||
                     (x.ServiceShortDesc != null && x.ServiceShortDesc.Contains(keyword)));
             }
 
@@ -152,9 +155,14 @@ namespace ContractManagement.Domains.Services.Catalog
             await ValidateServiceTypeAsync(request.ServiceTypeId, required: true);
             await ValidateParentServiceAsync(request.ServiceParentId, currentServiceId: null);
 
+            var englishName = CatalogEnglishNamePolicy.Require(request.ServiceNameEn, "Tên dịch vụ tiếng Anh");
+
             var service = new TblService
             {
                 ServiceName = request.ServiceName.Trim(),
+                ServiceNameEn = englishName,
+                UnitName = CatalogUnitPolicy.Require(request.UnitName, "Đơn vị dịch vụ"),
+                UnitNameEn = CatalogUnitPolicy.Require(request.UnitNameEn, "Đơn vị dịch vụ tiếng Anh"),
                 ServiceTypeId = request.ServiceTypeId,
                 ServiceParentId = request.ServiceParentId,
                 ServicePrice = request.ServicePrice,
@@ -207,9 +215,16 @@ namespace ContractManagement.Domains.Services.Catalog
             await ValidateServiceTypeAsync(request.ServiceTypeId, required: true);
             await ValidateParentServiceAsync(request.ServiceParentId, currentServiceId: id);
 
+            var englishName = CatalogEnglishNamePolicy.Require(request.ServiceNameEn, "Tên dịch vụ tiếng Anh");
+
+            var unitName = CatalogUnitPolicy.Require(request.UnitName, "Đơn vị dịch vụ");
+            var unitNameEn = CatalogUnitPolicy.Require(request.UnitNameEn, "Đơn vị dịch vụ tiếng Anh");
             var oldParentId = service.ServiceParentId;
 
             service.ServiceName = request.ServiceName.Trim();
+            service.ServiceNameEn = englishName;
+            service.UnitName = unitName;
+            service.UnitNameEn = unitNameEn;
             service.ServiceTypeId = request.ServiceTypeId;
             service.ServiceParentId = request.ServiceParentId;
             service.ServicePrice = request.ServicePrice;
@@ -413,6 +428,9 @@ namespace ContractManagement.Domains.Services.Catalog
             {
                 ServiceId = service.ServiceId,
                 ServiceName = service.ServiceName,
+                ServiceNameEn = service.ServiceNameEn,
+                UnitName = service.UnitName,
+                UnitNameEn = service.UnitNameEn,
                 ServiceTypeId = service.ServiceTypeId,
                 ServiceTypeName = serviceTypeName,
                 ServiceParentId = service.ServiceParentId,

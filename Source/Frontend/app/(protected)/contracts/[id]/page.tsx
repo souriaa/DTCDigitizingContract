@@ -35,6 +35,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/format-currency";
+import { getPaymentDraftError } from "@/lib/contract-payment-draft";
+import { ContractLegalBases } from "@/components/contracts/contract-legal-bases";
 import { downloadBlob } from "@/components/contract-templates/contract-template-utils";
 
 import {
@@ -47,7 +49,10 @@ import {
   ContractStatus,
   ContractType,
   getContractTypeLabel,
+  getContractDirectionLabel,
+  getContractCounterpartyLabel,
   UpdateContractDraftRequest,
+  ContractTermKind,
 } from "@/services/contract-api";
 import { roundContractMoney } from "@/lib/contract-finance";
 import { useAuthStore } from "@/hooks/use-auth-store";
@@ -83,6 +88,7 @@ import { ContractPaymentDueAnchor } from "@/services/contract-completion-api";
 const CONTRACT_TABS = [
   "overview",
   "terms",
+  "legal-bases",
   "appendices",
   "negotiation",
   "approval",
@@ -111,7 +117,8 @@ const appendixTermMatches = (
   draft.termTitle.trim() === saved.termTitle.trim() &&
   (draft.termTitleEn?.trim() || "") === (saved.termTitleEn?.trim() || "") &&
   (draft.termContent?.trim() || "") === (saved.termContent?.trim() || "") &&
-  (draft.termContentEn?.trim() || "") === (saved.termContentEn?.trim() || "");
+  (draft.termContentEn?.trim() || "") === (saved.termContentEn?.trim() || "") &&
+  draft.bilingualContentMode === saved.bilingualContentMode;
 
 function ContractSaveShortcut({
   enabled,
@@ -377,7 +384,7 @@ export default function ContractDetailPage() {
       if (
         contract.languageMode === ContractLanguageMode.Bilingual &&
         (!draft.termTitleEn?.trim() ||
-          (!!draft.termContent?.trim() && !draft.termContentEn?.trim()))
+          (!!draft.termContent?.trim() && (draft.bilingualContentMode === 1 && !draft.termContentEn?.trim())))
       ) {
         toast.error(
           `Điều khoản phụ lục “${draft.termCode}” chưa đủ nội dung tiếng Anh.`,
@@ -386,12 +393,25 @@ export default function ContractDetailPage() {
       }
     }
 
+    const paymentDraftError = getPaymentDraftError(contract.currentVersion.terms.map((term) => ({
+      termKind: term.termKind,
+      paymentMilestones: term.termKind === ContractTermKind.Payment ? contract.currentVersion.paymentMilestones : [],
+    })), contract.languageMode === ContractLanguageMode.Bilingual);
+    if (hasUnsavedChanges && paymentDraftError) { toast.error(paymentDraftError); return; }
+
     const manualPaymentMilestones =
       contract.currentVersion.paymentMilestones.filter(
         (item) => item.dueAnchor === ContractPaymentDueAnchor.ManualDate,
       );
 
     if (hasUnsavedChanges) {
+      for (const basis of contract.currentVersion.legalBases) {
+        if (!basis.contentVi.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !basis.contentEn?.trim())) {
+          toast.error(`Căn cứ “${basis.basisCode}” chưa đủ nội dung${contract.languageMode === ContractLanguageMode.Bilingual ? " tiếng Việt và tiếng Anh" : " tiếng Việt"}.`);
+          handleTabChange("legal-bases");
+          return;
+        }
+      }
       if (!contract.contractName.trim()) {
         toast.error("Tên hợp đồng không được để trống.");
         return;
@@ -425,6 +445,10 @@ export default function ContractDetailPage() {
       }
 
       for (const item of contract.currentVersion.items) {
+        if (!item.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn?.trim())) {
+          toast.error(`“${item.itemName}” thiếu đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""}. Hãy cập nhật danh mục và thêm lại hạng mục trước khi lưu.`);
+          return;
+        }
         if (
           contract.languageMode === ContractLanguageMode.Bilingual &&
           !item.itemNameEn?.trim()
@@ -482,7 +506,7 @@ export default function ContractDetailPage() {
         if (
           contract.languageMode === ContractLanguageMode.Bilingual &&
           (!term.termTitleEn?.trim() ||
-            (!!term.termContent?.trim() && !term.termContentEn?.trim()))
+            (!!term.termContent?.trim() && (term.bilingualContentMode === 1 && !term.termContentEn?.trim())))
         ) {
           toast.error(
             `Điều khoản “${term.termCode}” chưa đủ nội dung tiếng Anh.`,
@@ -542,21 +566,28 @@ export default function ContractDetailPage() {
           })),
 
           // Map Terms (Bao gồm Id và rowVersion)
+          legalBases: contract.currentVersion.legalBases.map((basis) => ({
+            legalBasisId: basis.legalBasisId,
+            rowVersion: basis.rowVersion,
+            contentVi: basis.contentVi,
+            contentEn: basis.contentEn,
+          })),
           terms: contract.currentVersion.terms.map((term) => ({
             termId: term.termId < 0 ? null : term.termId,
             rowVersion: term.termId < 0 ? null : term.rowVersion,
+            termKind: term.termKind,
+            paymentMilestones: term.termKind === ContractTermKind.Payment ? contract.currentVersion.paymentMilestones.map((row) => ({
+              ...row, paymentMilestoneId: row.paymentMilestoneId > 0 ? row.paymentMilestoneId : null,
+              rowVersion: row.paymentMilestoneId > 0 ? row.rowVersion : null,
+            })) : [],
             termCode: term.termCode,
             termTitle: term.termTitle,
             termTitleEn: term.termTitleEn,
             termContent: term.termContent,
             termContentEn: term.termContentEn,
+            bilingualContentMode: term.bilingualContentMode,
             isNegotiable: term.isNegotiable,
             displayOrder: term.displayOrder,
-          })),
-          paymentMilestoneDates: manualPaymentMilestones.map((item) => ({
-            sourceTemplatePaymentMilestoneId:
-              item.sourceTemplatePaymentMilestoneId!,
-            anchorDate: item.anchorDate!.slice(0, 10),
           })),
         };
 
@@ -608,6 +639,7 @@ export default function ContractDetailPage() {
             termTitleEn: draft.termTitleEn?.trim() || null,
             termContent: draft.termContent?.trim() || null,
             termContentEn: draft.termContentEn?.trim() || null,
+            bilingualContentMode: draft.bilingualContentMode,
             displayOrder: latestTerm.displayOrder,
             rowVersion: latestTerm.rowVersion,
             appendixRowVersion: latestAppendix.rowVersion,
@@ -1017,7 +1049,7 @@ export default function ContractDetailPage() {
         <div className="grid gap-4 md:grid-cols-5">
           <InfoCard
             icon={<Users className="size-4" />}
-            label="Khách hàng"
+            label={getContractCounterpartyLabel(contract.contractDirection)}
             value={
               contract.customer?.customerCompany ||
               contract.customer?.customerFullName
@@ -1026,7 +1058,7 @@ export default function ContractDetailPage() {
           <InfoCard
             icon={<FileSignature className="size-4" />}
             label="Loại hợp đồng"
-            value={getContractTypeLabel(contract.contractType)}
+            value={`${getContractDirectionLabel(contract.contractDirection)} · ${getContractTypeLabel(contract.contractType)}`}
           />
           <InfoCard
             icon={<FileText className="size-4" />}
@@ -1095,9 +1127,46 @@ export default function ContractDetailPage() {
               <AlertDescription>
                 <ul className="list-disc space-y-1 pl-5">
                   {effectiveApprovalBlockers.map((blocker) => (
-                    <li key={blocker.code}>{blocker.message}</li>
+                    <li key={`${blocker.code}:${blocker.message}`}>
+                      {blocker.message}
+                      {blocker.code === "EnglishSourceMissingCustomer" &&
+                        hasPermission(user?.permissions, RBAC_PERMISSIONS.customerManage) && (
+                          <Link href={`/customers/${contract.customer.customerId}`} className="ml-2 font-medium underline">
+                            Bổ sung thông tin khách hàng
+                          </Link>
+                        )}
+                      {blocker.code === "EnglishSourceMissingProvider" &&
+                        hasPermission(user?.permissions, RBAC_PERMISSIONS.tenantLegalProfileManage) && (
+                          <Link href="/admin/legal-profile" className="ml-2 font-medium underline">
+                            Bổ sung hồ sơ pháp lý
+                          </Link>
+                        )}
+                    </li>
                   ))}
                 </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+        {canManageContract && contract.status === ContractStatus.Draft &&
+          effectiveApprovalBlockers.some((item) => item.code.startsWith("EnglishSourceMissing")) && (
+            <Alert>
+              <AlertTitle>Cần bổ sung thông tin tiếng Anh cho tài liệu</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <ul className="list-disc pl-5">
+                  {effectiveApprovalBlockers.filter((item) => item.code.startsWith("EnglishSourceMissing")).map((item) => (
+                    <li key={`${item.code}:${item.message}`}>{item.message}</li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-3">
+                  {hasPermission(currentPermissions, RBAC_PERMISSIONS.customerManage) && (
+                    <Link className="font-medium underline" href={`/customers/${contract.customer.customerId}`}>Thông tin khách hàng</Link>
+                  )}
+                  {hasPermission(currentPermissions, RBAC_PERMISSIONS.tenantLegalProfileManage) && (
+                    <Link className="font-medium underline" href="/admin/legal-profile">Hồ sơ pháp lý</Link>
+                  )}
+                  <span>Nếu không có quyền sửa, hãy nhờ người phụ trách bổ sung rồi tải lại hợp đồng.</span>
+                </div>
               </AlertDescription>
             </Alert>
           )}
@@ -1135,6 +1204,7 @@ export default function ContractDetailPage() {
             <TabsTrigger value="documents">Chứng từ</TabsTrigger>
             <TabsTrigger value="negotiation">Vòng đàm phán</TabsTrigger>
             <TabsTrigger value="terms">Điều khoản - Trao đổi</TabsTrigger>
+            <TabsTrigger value="legal-bases">Căn cứ</TabsTrigger>
             <TabsTrigger value="appendices">
               Phụ lục ({contract.currentVersion.appendices?.length ?? 0})
             </TabsTrigger>
@@ -1166,6 +1236,17 @@ export default function ContractDetailPage() {
               canComment={canCommentOnCurrentVersion}
               onDraftChange={() => setHasUnsavedChanges(true)}
             />
+          </TabsContent>
+
+          <TabsContent value="legal-bases">
+            <ContractLegalBases bases={contract.currentVersion.legalBases}
+              isBilingual={contract.languageMode === ContractLanguageMode.Bilingual}
+              canEdit={canUpdateDraft && !isUpdating && !appendixOperationBusy}
+              onChange={(legalBasisId, field, value) => handleContractChange((current) => !current ? current : ({
+                ...current,
+                currentVersion: { ...current.currentVersion, legalBases: current.currentVersion.legalBases.map((basis) =>
+                  basis.legalBasisId === legalBasisId ? { ...basis, [field]: value } : basis) },
+              }))} />
           </TabsContent>
 
           <TabsContent value="appendices">

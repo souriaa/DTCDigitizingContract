@@ -57,6 +57,7 @@ import { toast } from "@/components/ui/sonner";
 import { getApiErrorMessage, isStaleRowVersion } from "@/lib/api-error";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
+import { TENANT_ENGLISH_FIELDS } from "@/lib/document-english-fields";
 import {
   tenantLegalProfileApi,
   type TenantLegalProfileResponse,
@@ -65,6 +66,10 @@ import {
 
 const EMPTY_FORM: UpsertTenantLegalProfileRequest = {
   legalEntityName: "",
+  legalEntityNameEn: "",
+  addressEn: "",
+  representativeTitleEn: "",
+  bankNameEn: "",
   taxCode: "",
   address: "",
   representativeName: "",
@@ -132,6 +137,7 @@ function LegalProfilePageContent() {
   const isDirty = useMemo(() => {
     return (
       form.legalEntityName !== initialForm.legalEntityName ||
+      TENANT_ENGLISH_FIELDS.some(({ key }) => form[key] !== initialForm[key]) ||
       form.taxCode !== initialForm.taxCode ||
       form.address !== initialForm.address ||
       form.representativeName !== initialForm.representativeName ||
@@ -146,9 +152,14 @@ function LegalProfilePageContent() {
 
   const completeness = useMemo(() => {
     const requiredItems = [
+      ...TENANT_ENGLISH_FIELDS.map(({ key, label }) => ({
+        key,
+        label,
+        isFilled: Boolean(form[key].trim()),
+      })),
       {
         key: "legalEntityName",
-        label: "Tên pháp nhân",
+        label: "Tên doanh nghiệp",
         isFilled: Boolean(form.legalEntityName.trim()),
       },
       {
@@ -199,7 +210,7 @@ function LegalProfilePageContent() {
     const requiredFilledCount = requiredItems.filter((i) => i.isFilled).length;
     const optionalFilledCount = optionalItems.filter((i) => i.isFilled).length;
     const totalFilled = requiredFilledCount + optionalFilledCount;
-    const percentage = Math.round((totalFilled / 9) * 100);
+    const percentage = Math.round((totalFilled / 13) * 100);
     const isFullyReady = requiredFilledCount === requiredItems.length;
 
     return {
@@ -240,8 +251,14 @@ function LegalProfilePageContent() {
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
+    for (const { key, label, maxLength } of TENANT_ENGLISH_FIELDS) {
+      if (!form[key].trim())
+        newErrors[key] = `Vui lòng nhập ${label.toLowerCase()}`;
+      else if (form[key].length > maxLength)
+        newErrors[key] = `Tối đa ${maxLength} ký tự`;
+    }
     if (!form.legalEntityName.trim()) {
-      newErrors.legalEntityName = "Vui lòng nhập tên pháp nhân doanh nghiệp";
+      newErrors.legalEntityName = "Vui lòng nhập tên doanh nghiệp";
     }
     if (!form.taxCode.trim()) {
       newErrors.taxCode = "Vui lòng nhập mã số thuế";
@@ -271,6 +288,10 @@ function LegalProfilePageContent() {
       const saved = await tenantLegalProfileApi.upsert({
         ...form,
         legalEntityName: form.legalEntityName.trim(),
+        legalEntityNameEn: form.legalEntityNameEn.trim(),
+        addressEn: form.addressEn.trim(),
+        representativeTitleEn: form.representativeTitleEn.trim(),
+        bankNameEn: form.bankNameEn.trim(),
         taxCode: form.taxCode.trim(),
         address: form.address.trim(),
         representativeName: form.representativeName.trim(),
@@ -346,7 +367,8 @@ function LegalProfilePageContent() {
                       {isLoading ? (
                         <Skeleton className="h-8 w-64" />
                       ) : (
-                        form.legalEntityName || "Chưa thiết lập tên pháp nhân"
+                        form.legalEntityName ||
+                        "Chưa thiết lập tên doanh nghiệp"
                       )}
                     </h1>
 
@@ -511,10 +533,10 @@ function LegalProfilePageContent() {
                       </div>
                       <div>
                         <CardTitle className="text-base font-semibold">
-                          Thông tin pháp nhân & Thuế
+                          Thông tin doanh nghiệp & Thuế
                         </CardTitle>
                         <CardDescription className="text-xs">
-                          Tên pháp nhân, mã số thuế và trụ sở chính theo ĐKKD
+                          Tên doanh nghiệp, mã số thuế và trụ sở chính theo ĐKKD
                         </CardDescription>
                       </div>
                     </div>
@@ -540,7 +562,7 @@ function LegalProfilePageContent() {
                     <>
                       <FormField
                         id="legalEntityName"
-                        label="Tên pháp nhân doanh nghiệp"
+                        label="Tên doanh nghiệp"
                         required
                         value={form.legalEntityName}
                         onChange={(v) => updateField("legalEntityName", v)}
@@ -773,6 +795,34 @@ function LegalProfilePageContent() {
                   )}
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Thông tin tiếng Anh</CardTitle>
+                  <CardDescription>
+                    Bắt buộc để dùng thống nhất trên tài liệu song ngữ.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  {TENANT_ENGLISH_FIELDS.map(({ key, label, maxLength }) => (
+                    <FormField
+                      key={key}
+                      id={key}
+                      label={label}
+                      value={form[key]}
+                      onChange={(v) => updateField(key, v)}
+                      maxLength={maxLength}
+                      required
+                      disabled={isLoading || isSaving}
+                      error={
+                        errors[key] ||
+                        (!form[key].trim()
+                          ? "Vui lòng nhập thông tin bắt buộc"
+                          : undefined)
+                      }
+                    />
+                  ))}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Right Column: Live Contract Preview & Snapshot Rules */}
@@ -818,7 +868,7 @@ function LegalProfilePageContent() {
                       <div className="space-y-1.5 pl-2.5 border-l-2 border-primary/50 text-[11px] text-muted-foreground leading-relaxed">
                         <div>
                           <span className="font-medium text-foreground">
-                            Tên đơn vị:{" "}
+                            Tên doanh nghiệp:{" "}
                           </span>
                           <span
                             className={cn(
@@ -1061,6 +1111,7 @@ interface FormFieldProps {
   placeholder?: string;
   maxLength?: number;
   required?: boolean;
+  disabled?: boolean;
   error?: string;
   helperText?: string;
   icon?: React.ReactNode;
@@ -1077,6 +1128,7 @@ function FormField({
   placeholder,
   maxLength,
   required = false,
+  disabled = false,
   error,
   helperText,
   icon,
@@ -1101,6 +1153,8 @@ function FormField({
         <Input
           id={id}
           value={value}
+          required={required}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
           maxLength={maxLength}
           placeholder={placeholder}
@@ -1151,6 +1205,10 @@ function toForm(
 ): UpsertTenantLegalProfileRequest {
   return {
     legalEntityName: profile.legalEntityName,
+    legalEntityNameEn: profile.legalEntityNameEn ?? "",
+    addressEn: profile.addressEn ?? "",
+    representativeTitleEn: profile.representativeTitleEn ?? "",
+    bankNameEn: profile.bankNameEn ?? "",
     taxCode: profile.taxCode,
     address: profile.address,
     representativeName: profile.representativeName,

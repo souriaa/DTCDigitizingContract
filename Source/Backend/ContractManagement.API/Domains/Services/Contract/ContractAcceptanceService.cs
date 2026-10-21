@@ -23,7 +23,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Domains.Services.Contract;
 
-public sealed class ContractAcceptanceService : IContractAcceptanceService
+public sealed partial class ContractAcceptanceService : IContractAcceptanceService
 {
     private const string ArtifactObjectType = "ContractAcceptanceArtifact";
     private const string EvidenceObjectType = "ContractAcceptanceEvidence";
@@ -67,12 +67,20 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     {
         await _authorization.EnsureCanReadAsync(
             contractId, employeeId, cancellationToken);
+        var source = await (from contract in _db.TblContracts.AsNoTracking()
+            join legal in _db.TblContractVersionLegalSnapshots.AsNoTracking()
+                on contract.CurrentVersionId equals (int?)legal.VersionId
+            where contract.ContractId == contractId && legal.ContractId == contractId
+            select new { legal.ContractDirection, legal.LanguageMode }).SingleOrDefaultAsync(cancellationToken);
+        if (source is null) return [];
         return await (
             from template in _db.TblContractTemplates.AsNoTracking()
             join version in _db.TblContractTemplateVersions.AsNoTracking()
                 on template.CurrentPublishedVersionId equals
                     version.TemplateVersionId
             where template.IsActive
+                && version.ContractDirection == source.ContractDirection
+                && template.LanguageMode == source.LanguageMode
                 && template.DocumentType ==
                     (byte)TemplateDocumentType.AcceptanceRecord
                 && version.Status == (byte)TemplateVersionStatus.Published
@@ -80,6 +88,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             orderby template.TemplateName, version.VersionNo descending
             select new ContractAcceptanceTemplateOptionResponse
             {
+                ContractDirection = (ContractDirection)version.ContractDirection,
                 TemplateId = template.TemplateId,
                 TemplateVersionId = version.TemplateVersionId,
                 VersionNo = version.VersionNo,
@@ -156,6 +165,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             Match(version.RowVersion, request.VersionRowVersion,
                 "Version hợp đồng");
             await EnsureSignedSourceAsync(contract, version, cancellationToken);
+            ValidateAcceptanceDate(request.AcceptanceDate, contract.SignDate!.Value);
             await EnsureCanStartNewRecordAsync(
                 contractId, version.VersionId, request.AcceptanceKind,
                 cancellationToken);
@@ -164,8 +174,6 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await EnsureAcceptanceCodeAvailableAsync(contractId,
                 acceptanceCode, null, cancellationToken);
 
-            var template = await LoadPublishedTemplateAsync(
-                request.TemplateVersionId, cancellationToken);
             var legal = await _db.TblContractVersionLegalSnapshots
                 .AsNoTracking()
                 .SingleOrDefaultAsync(x => x.ContractId == contractId
@@ -173,6 +181,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ?? throw Rule("AcceptanceSourceSnapshotMissing",
                     "Version đã ký thiếu relational legal snapshot.",
                     StatusCodes.Status409Conflict);
+            if (legal.ContractDirection != contract.ContractDirection || legal.LanguageMode != contract.LanguageMode)
+                throw Rule("AcceptanceSourceChanged", "Hợp đồng không khớp snapshot phiên bản đã ký.", StatusCodes.Status409Conflict);
+            var template = await LoadPublishedTemplateAsync(request.TemplateVersionId,
+                (ContractDirection)legal.ContractDirection, (ContractLanguageMode)legal.LanguageMode, cancellationToken);
+            ValidateLocationLanguage((ContractLanguageMode)legal.LanguageMode, request.LocationEn);
             var sourceParties = await _db.TblContractVersionPartySnapshots
                 .AsNoTracking()
                 .Where(x => x.ContractVersionLegalSnapshotId ==
@@ -182,18 +195,6 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 throw Rule("AcceptancePartySnapshotMissing",
                     "Version đã ký thiếu snapshot hai bên.",
                     StatusCodes.Status409Conflict);
-            var customer = await _db.TblCustomers.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.CustomerId == contract.CustomerId,
-                    cancellationToken)
-                ?? throw new KeyNotFoundException("Không tìm thấy khách hàng.");
-            var customerContactName = Required(
-                customer.CustomerContactPersonName,
-                300,
-                "Người liên lạc của khách hàng");
-            var customerContactTitle = Optional(
-                customer.CustomerContactPersonTitle,
-                300);
-
             var appendices = await ValidateAppendicesAsync(
                 contractId, version.VersionId, request.AppendixIds,
                 cancellationToken);
@@ -205,9 +206,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 .Where(x => x.TemplateVersionId == request.TemplateVersionId)
                 .OrderBy(x => x.DisplayOrder).ThenBy(x => x.TemplateTermId)
                 .ToListAsync(cancellationToken);
-            if (sourceSections.Count == 0)
+            if (sourceSections.Count == 0 && await SupportingDocumentSectionReader.IsRequiredAsync(
+                    _db, request.TemplateVersionId, TemplateDocumentType.AcceptanceRecord, cancellationToken))
                 throw Rule("AcceptanceSectionsMissing",
-                    "Acceptance template phải có ít nhất một section.");
+                    "DOCX có {{ACCEPTANCE_SECTIONS}} nên mẫu phải có ít nhất một mục nghiệm thu.");
 
             var now = DateTime.UtcNow;
             var row = new TblContractAcceptanceRecord
@@ -215,9 +217,11 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ContractId = contractId,
                 ContractVersionId = version.VersionId,
                 TemplateVersionId = template.Version.TemplateVersionId,
+                ContractSignDate = contract.SignDate!.Value.Date,
                 AcceptanceCode = acceptanceCode,
                 AcceptanceDate = request.AcceptanceDate.Date,
                 Location = Required(request.Location, 500, "Địa điểm"),
+                LocationEn = Optional(request.LocationEn, 500),
                 AcceptanceKind = (byte)request.AcceptanceKind,
                 Status = (byte)AcceptanceRecordStatus.Draft,
                 CreatedEmployeeId = employeeId,
@@ -254,15 +258,17 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         AcceptanceRecordId = row.AcceptanceRecordId,
                         PartyRole = partyRole,
                         LegalName = party.LegalName,
+                        LegalNameEn = party.LegalNameEn, AddressEn = party.AddressEn,
+                        RepresentativeTitleEn = isCustomer ? party.ContactTitleEn : party.RepresentativeTitleEn,
                         Address = party.Address,
                         Phone = party.PhoneNumber,
                         Fax = party.FaxNumber,
                         TaxCode = party.TaxCode,
                         RepresentativeName = isCustomer
-                            ? customerContactName
+                            ? Required(party.ContactName, 300, "Người liên lạc trong bản hợp đồng đã khóa")
                             : party.RepresentativeName,
                         RepresentativeTitle = isCustomer
-                            ? customerContactTitle
+                            ? party.ContactTitle
                             : party.RepresentativeTitle
                     };
                 }));
@@ -275,6 +281,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         TitleEn = section.TermTitleEn,
                         ContentVi = section.TermContent,
                         ContentEn = section.TermContentEn,
+                        BilingualContentMode = section.BilingualContentMode,
                         DisplayOrder = section.DisplayOrder
                     }).ToList();
             sections.ForEach(EnsureSyntheticRowVersion);
@@ -292,7 +299,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(contractId, row.AcceptanceRecordId,
                 cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceRecordResponse> UpdateAsync(
@@ -311,15 +318,18 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 request.RowVersion, cancellationToken);
             await EnsureRecordSourceAsync(
                 contractId, row.ContractVersionId, cancellationToken);
+            ValidateAcceptanceDate(request.AcceptanceDate, row.ContractSignDate);
             await EnsurePartialModeAsync(contractId, row.ContractVersionId,
                 request.AcceptanceKind, cancellationToken);
             var acceptanceCode = Required(request.AcceptanceCode, 100,
                 "Mã biên bản").ToUpperInvariant();
             await EnsureAcceptanceCodeAvailableAsync(contractId,
                 acceptanceCode, acceptanceRecordId, cancellationToken);
+            ValidateLocationLanguage(await LoadTemplateLanguageModeAsync(row.TemplateVersionId, cancellationToken), request.LocationEn);
             row.AcceptanceCode = acceptanceCode;
             row.AcceptanceDate = request.AcceptanceDate.Date;
             row.Location = Required(request.Location, 500, "Địa điểm");
+            row.LocationEn = Optional(request.LocationEn, 500);
             row.AcceptanceKind = (byte)request.AcceptanceKind;
             var parties = await _db.TblContractAcceptanceParties
                 .Where(x => x.AcceptanceRecordId == acceptanceRecordId)
@@ -340,7 +350,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(contractId, acceptanceRecordId,
                 cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceRecordResponse> ReplaceReferencesAsync(
@@ -382,7 +392,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(contractId, acceptanceRecordId,
                 cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceRecordResponse> ReplaceSectionsAsync(
@@ -392,14 +402,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     {
         await _authorization.EnsureCanManageAcceptanceAsync(
             contractId, employeeId, cancellationToken);
-        if (request.Sections.Count == 0)
-            throw Rule("AcceptanceSectionsMissing",
-                "Biên bản phải có ít nhất một section.");
         ValidateSections(request.Sections);
         return await ExecuteAsync(async () =>
         {
             var row = await RequireDraftAsync(contractId, acceptanceRecordId,
                 request.RowVersion, cancellationToken);
+            await EnsureSectionsRequiredAsync(row.TemplateVersionId, request.Sections.Count, cancellationToken);
             var languageMode = await LoadTemplateLanguageModeAsync(
                 row.TemplateVersionId, cancellationToken);
             ValidateSectionLanguage(request.Sections, languageMode);
@@ -418,6 +426,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     TitleEn = Optional(section.TitleEn, 1000),
                     ContentVi = NormalizeRichText(section.ContentVi),
                     ContentEn = NormalizeRichText(section.ContentEn),
+                    BilingualContentMode = section.BilingualContentMode,
                     DisplayOrder = section.DisplayOrder
                 }).ToList();
             sections.ForEach(EnsureSyntheticRowVersion);
@@ -430,7 +439,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(contractId, acceptanceRecordId,
                 cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceRecordResponse> ReplaceMilestonesAsync(
@@ -470,7 +479,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(contractId, acceptanceRecordId,
                 cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceDocumentContent> PreviewAsync(
@@ -511,9 +520,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 StringComparison.Ordinal))
             throw Rule("StaleRowVersion", "Biên bản đã thay đổi.",
                 StatusCodes.Status409Conflict);
-        ValidateFinalizable(before);
+        await ValidateFinalizableAsync(before, cancellationToken);
         await EnsureRecordSourceAsync(
             contractId, before.ContractVersionId, cancellationToken);
+        var sourceRow = await _db.TblContractAcceptanceRecords.AsNoTracking().SingleAsync(x => x.AcceptanceRecordId == acceptanceRecordId, cancellationToken);
+        await EnsureRecordSelectionAsync(sourceRow, cancellationToken);
+        await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
         var docx = await RenderDocxAsync(
             contractId, acceptanceRecordId, cancellationToken);
         var pdf = await _pdfRenderer.ConvertPreviewToPdfAsync(
@@ -535,6 +547,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await EnsureRecordSourceAsync(
                     contractId, row.ContractVersionId, cancellationToken);
                 await EnsureRecordSelectionAsync(row, cancellationToken);
+                await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
                 if (await _db.TblFileStorages.AnyAsync(x =>
                         x.ObjectType == ArtifactObjectType
                         && x.ObjectId == acceptanceRecordId,
@@ -543,7 +556,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                         "Biên bản đã có artifact chính thức.",
                         StatusCodes.Status409Conflict);
                 var now = DateTime.UtcNow;
-                var hash = ComputeSnapshotHash(before);
+                var hash = ComputeSnapshotHash(before, docx);
                 var docxFile = CreateFile(stored[0], ArtifactObjectType,
                     acceptanceRecordId, employeeId);
                 var pdfFile = CreateFile(stored[1], ArtifactObjectType,
@@ -568,7 +581,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadAsync(contractId, acceptanceRecordId,
                     cancellationToken);
-            }, cancellationToken);
+            }, cancellationToken, contractId);
         }
         catch
         {
@@ -608,6 +621,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 AcceptanceRecordPolicy.EnsureCanTransition(
                     (AcceptanceRecordStatus)row.Status,
                     AcceptanceRecordStatus.Signed);
+                if (!AcceptanceRecordPolicy.IsSignDateValid(request.SignDate, row.AcceptanceDate, DateTimeOffset.UtcNow))
+                    throw Rule("AcceptanceSignDateInvalid",
+                        "Vui lòng chọn ngày ký thực tế, không trước ngày nghiệm thu và không nằm trong tương lai.");
+                var signDate = request.SignDate!.Value.Date;
                 var contract = await _db.TblContracts.SingleAsync(
                     x => x.ContractId == contractId, cancellationToken);
                 var version = await _db.TblContractVersions.SingleAsync(
@@ -617,6 +634,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await EnsureSignedSourceAsync(contract, version,
                     cancellationToken);
                 await EnsureRecordSelectionAsync(row, cancellationToken);
+                await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
                 var artifactCount = await _db.TblFileStorages.CountAsync(x =>
                     x.ObjectType == ArtifactObjectType
                     && x.ObjectId == acceptanceRecordId
@@ -641,6 +659,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 {
                     AcceptanceRecordId = acceptanceRecordId,
                     FileId = file.FileId,
+                    SignDate = signDate,
                     UploadedByEmployeeId = employeeId,
                     UploadedAt = now
                 };
@@ -654,7 +673,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     row.AcceptanceRecordId,
                     version.VersionId,
                     (AcceptanceKind)row.AcceptanceKind,
-                    now.Date,
+                    signDate,
                     employeeId,
                     cancellationToken);
                 // Materialize the evidence identity before using it as an audit
@@ -669,6 +688,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                     SubjectId: evidence.AcceptanceEvidenceId,
                     NewValues: ContractAuditValues.Create(
                         ("AcceptanceEvidenceId", evidence.AcceptanceEvidenceId),
+                        ("SignDate", evidence.SignDate),
                         ("FileId", file.FileId),
                         ("FileType", file.FileType),
                         ("Sha256", file.Sha256),
@@ -685,10 +705,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                             .Select(x => x.PaymentMilestoneId)
                             .ToListAsync(cancellationToken);
                         var progress = await ContractAcceptanceProgressReader.ReadAsync(
-                            _db, contractId, version.VersionId, milestoneIds,
+                            _db, contractId, version.VersionId, _tenant.GetRequiredTenant().TenantCode, milestoneIds,
                             cancellationToken);
                         acceptanceTitle = progress.Completed
-                            ? "Đã nghiệm thu đủ các đợt thanh toán"
+                            ? "Đã nghiệm thu đủ phạm vi và các đợt thanh toán"
                             : $"Đã ký nghiệm thu một phần ({progress.AcceptedMilestoneCount}/{milestoneIds.Count} đợt)";
                     }
                     await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
@@ -700,7 +720,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadEvidenceAsync(
                     evidence.AcceptanceEvidenceId, cancellationToken);
-            }, cancellationToken);
+            }, cancellationToken, contractId);
         }
         catch
         {
@@ -749,7 +769,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadAsync(
                 contractId, acceptanceRecordId, cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractAcceptanceDocumentContent> DownloadArtifactAsync(
@@ -817,8 +837,6 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         var legal = await _db.TblContractVersionLegalSnapshots.AsNoTracking()
             .SingleAsync(x => x.ContractId == contractId
                 && x.VersionId == header.record.ContractVersionId, ct);
-        var contract = await _db.TblContracts.AsNoTracking()
-            .SingleAsync(x => x.ContractId == contractId, ct);
         var finalizedByEmployeeName = header.record.FinalizedByEmployeeId
             .HasValue
             ? await _db.TblEmployees.AsNoTracking()
@@ -828,8 +846,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 .SingleOrDefaultAsync(ct)
             : null;
         var referenceResponses = references.Select(reference =>
-            FormatReference(reference, legal, contract.SignDate,
+            FormatReference(reference, legal, header.record.ContractSignDate,
                 partyResponses, appendices)).ToList();
+        var handoverSelection = await ReadHandoverSelectionAsync(contractId, header.record, ct);
+        referenceResponses.AddRange(HandoverReferences(handoverSelection.Selected, referenceResponses.Count));
         var sections = await _db.TblContractAcceptanceSections.AsNoTracking()
             .Where(x => x.AcceptanceRecordId == acceptanceRecordId)
             .OrderBy(x => x.DisplayOrder).ThenBy(x => x.AcceptanceSectionId)
@@ -841,6 +861,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 TitleEn = x.TitleEn,
                 ContentVi = x.ContentVi,
                 ContentEn = x.ContentEn,
+                BilingualContentMode = x.BilingualContentMode,
                 DisplayOrder = x.DisplayOrder,
                 RowVersion = Convert.ToBase64String(x.RowVersion)
             }).ToListAsync(ct);
@@ -879,13 +900,16 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         {
             AcceptanceRecordId = acceptanceRecordId,
             ContractId = contractId,
+            ContractDirection = (ContractDirection)legal.ContractDirection,
             ContractVersionId = header.record.ContractVersionId,
             VersionNo = header.VersionNo,
             TemplateVersionId = header.record.TemplateVersionId,
             TemplateName = header.TemplateName,
             AcceptanceCode = header.record.AcceptanceCode,
             AcceptanceDate = header.record.AcceptanceDate,
+            ContractSignDate = header.record.ContractSignDate,
             Location = header.record.Location,
+            LocationEn = header.record.LocationEn,
             AcceptanceKind = (AcceptanceKind)header.record.AcceptanceKind,
             Status = (AcceptanceRecordStatus)header.record.Status,
             SnapshotHash = header.record.SnapshotHash,
@@ -896,6 +920,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             CancelledAt = header.record.CancelledAt,
             CancellationReason = header.record.CancellationReason,
             RowVersion = Convert.ToBase64String(header.record.RowVersion),
+            HandoverScope = handoverSelection.Selected,
+            HandoverBlocker = handoverSelection.Blocker,
             References = referenceResponses,
             Parties = partyResponses,
             Sections = sections,
@@ -910,7 +936,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         int contractId, int acceptanceRecordId, CancellationToken ct)
     {
         var detail = await LoadAsync(contractId, acceptanceRecordId, ct);
-        ValidateFinalizable(detail);
+        await ValidateFinalizableAsync(detail, ct);
         var template = await (
             from version in _db.TblContractTemplateVersions.AsNoTracking()
             join owner in _db.TblContractTemplates.AsNoTracking()
@@ -920,7 +946,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             where version.TemplateVersionId == detail.TemplateVersionId
                 && owner.DocumentType ==
                     (byte)TemplateDocumentType.AcceptanceRecord
-            select new { file, owner.LanguageMode }).SingleAsync(ct);
+            select new { file, owner.LanguageMode, version.ContractDirection, version.Status, version.ValidationStatus }).SingleAsync(ct);
+        if (template.ContractDirection != (byte)detail.ContractDirection ||
+            template.LanguageMode != await _db.TblContractVersionLegalSnapshots.Where(x => x.ContractId == contractId && x.VersionId == detail.ContractVersionId).Select(x => x.LanguageMode).SingleAsync(ct) ||
+            template.Status is not ((byte)TemplateVersionStatus.Published) and not ((byte)TemplateVersionStatus.Retired) ||
+            template.ValidationStatus != (byte)TemplateValidationStatus.Valid)
+            throw Rule("AcceptanceTemplateMismatch", "Mẫu nghiệm thu không khớp chiều giao dịch/ngôn ngữ hoặc chưa hợp lệ.", StatusCodes.Status409Conflict);
         if (string.IsNullOrWhiteSpace(template.file.StorageKey)
             || string.IsNullOrWhiteSpace(template.file.TenantCode))
             throw Rule("AcceptanceTemplateFileInvalid",
@@ -930,10 +961,15 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             template.file.TenantCode, template.file.StorageKey, ct);
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, ct);
+        ValidateLocationLanguage((ContractLanguageMode)template.LanguageMode, detail.LocationEn);
+        foreach (var section in detail.Sections)
+            BilingualContentPolicy.Validate(section.BilingualContentMode, (ContractLanguageMode)template.LanguageMode,
+                section.TitleEn, section.ContentVi, section.ContentEn, section.SectionCode);
         var customValues = await ResolveCustomPlaceholderValuesAsync(
             contractId,
             detail.ContractVersionId,
             detail.TemplateVersionId,
+            acceptanceRecordId,
             ct);
         return _renderer.Render(memory.ToArray(), new(
             detail.AcceptanceCode,
@@ -944,6 +980,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             detail.Parties,
             detail.Sections)
         {
+            ContractDirection = detail.ContractDirection,
+            LocationEn = detail.LocationEn,
             CustomValues = customValues
         });
     }
@@ -953,27 +991,51 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             int contractId,
             int contractVersionId,
             int templateVersionId,
+            int acceptanceRecordId,
             CancellationToken ct)
     {
         var fields = await _db.TblContractTemplateFields.AsNoTracking()
             .Where(field => field.TemplateVersionId == templateVersionId
                 && !field.IsSystem)
             .ToListAsync(ct);
-        if (fields.Count == 0)
-            return new Dictionary<string, string>(StringComparer.Ordinal);
-
         var contract = await _db.TblContracts.AsNoTracking()
             .SingleAsync(item => item.ContractId == contractId, ct);
         var version = await _db.TblContractVersions.AsNoTracking()
             .SingleAsync(item => item.VersionId == contractVersionId
                 && item.ContractId == contractId, ct);
-        var customer = await _db.TblCustomers.AsNoTracking()
-            .SingleAsync(item => item.CustomerId == contract.CustomerId, ct);
-        var tenant = fields.Any(field => field.SourceFieldKey.StartsWith(
-                "provider.", StringComparison.Ordinal))
-            ? await _db.TblTenantLegalProfiles.AsNoTracking()
-                .SingleOrDefaultAsync(ct)
-            : null;
+        var legal = await _db.TblContractVersionLegalSnapshots.AsNoTracking()
+            .SingleAsync(x => x.ContractId == contractId && x.VersionId == contractVersionId, ct);
+        var parties = await _db.TblContractVersionPartySnapshots.AsNoTracking()
+            .Where(x => x.ContractVersionLegalSnapshotId == legal.ContractVersionLegalSnapshotId).ToListAsync(ct);
+        var frozenCustomer = parties.Single(x => x.PartyRole == 2);
+        var frozenTenant = parties.Single(x => x.PartyRole == 1);
+        var customer = FrozenContractPartySources.Counterparty(frozenCustomer);
+        var tenant = FrozenContractPartySources.Tenant(frozenTenant);
+        contract.ContractDirection = legal.ContractDirection;
+        contract.ContractName = legal.ContractName;
+        contract.ContractNameEn = legal.ContractNameEn;
+        contract.ContractCode = legal.ContractCode;
+        contract.CreatedDate = legal.ContractCreatedDate;
+        contract.EffectiveDate = legal.EffectiveDate;
+        contract.ExpireDate = legal.ExpireDate;
+        var record = await _db.TblContractAcceptanceRecords.AsNoTracking()
+            .SingleAsync(x => x.AcceptanceRecordId == acceptanceRecordId && x.ContractId == contractId, ct);
+        contract.SignDate = record.ContractSignDate;
+        var edited = await _db.TblContractAcceptanceParties.AsNoTracking()
+            .Where(x => x.AcceptanceRecordId == acceptanceRecordId).ToListAsync(ct);
+        var external = edited.Single(x => x.PartyRole == (byte)AcceptancePartyRole.Customer);
+        var internalParty = edited.Single(x => x.PartyRole == (byte)AcceptancePartyRole.Tenant);
+        customer.CustomerCompany = external.LegalName; customer.CustomerCompanyEn = external.LegalNameEn;
+        customer.CustomerAddress = external.Address; customer.CustomerAddressEn = external.AddressEn;
+        customer.CustomerPhone = external.Phone; customer.CustomerFaxNumber = external.Fax; customer.CustomerTaxCode = external.TaxCode;
+        customer.CustomerContactPersonName = external.RepresentativeName;
+        customer.CustomerContactPersonTitle = external.RepresentativeTitle;
+        customer.CustomerContactPersonTitleEn = external.RepresentativeTitleEn;
+        tenant.LegalEntityName = internalParty.LegalName; tenant.LegalEntityNameEn = internalParty.LegalNameEn!;
+        tenant.Address = internalParty.Address!; tenant.AddressEn = internalParty.AddressEn!;
+        tenant.PhoneNumber = internalParty.Phone; tenant.FaxNumber = internalParty.Fax; tenant.TaxCode = internalParty.TaxCode!;
+        tenant.RepresentativeName = internalParty.RepresentativeName; tenant.RepresentativeTitle = internalParty.RepresentativeTitle!;
+        tenant.RepresentativeTitleEn = internalParty.RepresentativeTitleEn!;
         TblEmployee? owner = null;
         TblDepartment? department = null;
         if (fields.Any(field =>
@@ -995,19 +1057,22 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
 
         var context = new ContractPlaceholderResolveContext(
             contract, version, customer, tenant, owner, department);
-        return fields.ToDictionary(
-            field => field.PlaceholderKey,
-            field =>
+        var values = DocumentPartyMarkers.Values((ContractDirection)legal.ContractDirection, DocumentParty.From(tenant), DocumentParty.From(customer));
+        foreach (var field in fields)
+        {
+            values[field.PlaceholderKey] = ResolveField(field);
+        }
+        return values;
+
+        string ResolveField(TblContractTemplateField field)
             {
                 var sourceFieldKey = field.SourceFieldKey;
                 var raw = _placeholderSources.Resolve(sourceFieldKey, context);
-                return _placeholderSources.Format(
-                    sourceFieldKey,
-                    raw,
-                    field.FormatString,
-                    field.DefaultValue);
-            },
-            StringComparer.Ordinal);
+                var value = _placeholderSources.Format(sourceFieldKey, raw, field.FormatString, field.DefaultValue);
+                return sourceFieldKey.EndsWith("-en", StringComparison.Ordinal)
+                    && !DocumentEnglishPolicy.IsOptionalPartyEnglish(ContractPlaceholderCatalog.FromSnapshot(field), (ContractDirection)contract.ContractDirection)
+                    ? DocumentEnglishPolicy.Require(value, field.FieldLabel) : value;
+            }
     }
 
     private async Task<ContractAcceptanceDocumentContent> ToDocumentContentAsync(
@@ -1024,7 +1089,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
 
     private async Task<(TblContractTemplate Template,
         TblContractTemplateVersion Version)> LoadPublishedTemplateAsync(
-        int templateVersionId, CancellationToken ct)
+        int templateVersionId, ContractDirection direction, ContractLanguageMode languageMode, CancellationToken ct)
     {
         var result = await (
             from version in _db.TblContractTemplateVersions
@@ -1033,14 +1098,17 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             where version.TemplateVersionId == templateVersionId
                 && template.DocumentType ==
                     (byte)TemplateDocumentType.AcceptanceRecord
+                && version.ContractDirection == (byte)direction
+                && template.LanguageMode == (byte)languageMode
                 && template.IsActive
                 && template.CurrentPublishedVersionId == templateVersionId
                 && version.Status == (byte)TemplateVersionStatus.Published
                 && version.DocumentFileId != null
+                && version.ValidationStatus == (byte)TemplateValidationStatus.Valid
             select new { template, version }).SingleOrDefaultAsync(ct);
         return result is null
             ? throw Rule("AcceptanceTemplateUnavailable",
-                "Acceptance template version không còn khả dụng.",
+                "Mẫu nghiệm thu không khả dụng hoặc không cùng chiều Mua/Bán và ngôn ngữ với hợp đồng.",
                 StatusCodes.Status409Conflict)
             : (result.template, result.version);
     }
@@ -1048,6 +1116,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     private async Task EnsureSignedSourceAsync(
         TblContract contract, TblContractVersion version, CancellationToken ct)
     {
+        if (contract.SignDate is null)
+            throw Rule("ContractSignDateRequired", "Hợp đồng thiếu ngày ký nghiệp vụ.", StatusCodes.Status409Conflict);
         AcceptanceRecordPolicy.EnsureCanCreate(
             contract.Status == (byte)ContractStatus.Signed
                 && contract.CurrentVersionId == version.VersionId
@@ -1099,10 +1169,10 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             .Select(x => x.PaymentMilestoneId)
             .ToListAsync(ct);
         var progress = await ContractAcceptanceProgressReader.ReadAsync(
-            _db, contractId, versionId, milestoneIds, ct);
-        if (progress.Completed)
+            _db, contractId, versionId, _tenant.GetRequiredTenant().TenantCode, milestoneIds, ct);
+        if (progress.RemainingMilestoneIds.Count == 0 && await AcceptanceScopeCompleteAsync(contractId, versionId, ct))
             throw Rule("AcceptanceAlreadyCompleted",
-                "Toàn bộ đợt đã được nghiệm thu. Không thể tạo thêm biên bản.",
+                "Đã nghiệm thu đủ các đợt và toàn bộ phạm vi. Không thể tạo thêm biên bản.",
                 StatusCodes.Status409Conflict);
         if (requestedKind == AcceptanceKind.Final && progress.HasPartialHistory)
             throw PartialFlowLocked();
@@ -1178,7 +1248,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         if (ids.Any(id => id <= 0) || ids.Distinct().Count() != ids.Count)
             throw Rule("AcceptanceMilestoneSelectionInvalid",
                 "Danh sách milestone không hợp lệ hoặc bị trùng.");
-        if (kind == AcceptanceKind.Partial && ids.Count == 0)
+        if (kind == AcceptanceKind.Partial && ids.Count == 0
+            && await HasRemainingAcceptanceMilestonesAsync(contractId, versionId, ct))
             throw Rule("AcceptanceMilestoneRequired",
                 "Nghiệm thu một phần phải chọn ít nhất một milestone.");
         if (kind == AcceptanceKind.Final && ids.Count > 0)
@@ -1232,6 +1303,8 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         AcceptancePartyId = party.AcceptancePartyId,
         PartyRole = (AcceptancePartyRole)party.PartyRole,
         LegalName = party.LegalName,
+        LegalNameEn = party.LegalNameEn, AddressEn = party.AddressEn,
+        RepresentativeTitleEn = party.RepresentativeTitleEn,
         Address = party.Address,
         Phone = party.Phone,
         Fax = party.Fax,
@@ -1264,7 +1337,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 ReferenceType = AcceptanceReferenceType.Contract,
                 DisplayOrder = reference.DisplayOrder,
                 TextVi = $"Căn cứ Hợp đồng số {legal.ContractCode} ký ngày {signDate.Value:dd/MM/yyyy} giữa {tenant.LegalName} và {customer.LegalName} về việc {legal.ContractName}.",
-                TextEn = $"Pursuant to Contract No. {legal.ContractCode} signed on {signDate.Value:dd/MM/yyyy} between {tenant.LegalName} and {customer.LegalName} regarding {legal.ContractNameEn ?? legal.ContractName}."
+                TextEn = !string.IsNullOrWhiteSpace(legal.ContractNameEn) && !string.IsNullOrWhiteSpace(tenant.LegalNameEn)
+                    ? $"Pursuant to Contract No. {legal.ContractCode} signed on {DocumentEnglishPolicy.Date(signDate.Value)} between {tenant.LegalNameEn} and {DocumentEnglishPolicy.OptionalCustomerEnglish(customer.LegalNameEn)} regarding {legal.ContractNameEn}."
+                    : null
             };
         }
         var appendix = appendices[reference.AppendixId!.Value];
@@ -1275,14 +1350,21 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             AppendixId = appendix.AppendixId,
             DisplayOrder = reference.DisplayOrder,
             TextVi = $"Căn cứ Phụ lục {appendix.AppendixCode} - {appendix.AppendixName} thuộc Hợp đồng số {legal.ContractCode}.",
-            TextEn = $"Pursuant to Appendix {appendix.AppendixCode} - {appendix.AppendixNameEn ?? appendix.AppendixName} to Contract No. {legal.ContractCode}."
+            TextEn = string.IsNullOrWhiteSpace(appendix.AppendixNameEn) ? null
+                : $"Pursuant to Appendix {appendix.AppendixCode} - {appendix.AppendixNameEn} to Contract No. {legal.ContractCode}."
         };
     }
 
     private static void ApplyParty(
         TblContractAcceptanceParty target, ContractAcceptancePartyInput input)
     {
+        if (!string.Equals(target.LegalName, Required(input.LegalName, 500, "Tên pháp nhân"), StringComparison.Ordinal) ||
+            !string.Equals(target.LegalNameEn, Optional(input.LegalNameEn, 500), StringComparison.Ordinal))
+            throw Rule("AcceptanceLegalNameImmutable", "Tên pháp nhân hai bên được giữ theo hợp đồng đã ký, không được chỉnh sửa.");
         target.LegalName = Required(input.LegalName, 500, "Tên pháp nhân");
+        target.LegalNameEn = Optional(input.LegalNameEn, 500);
+        target.AddressEn = Optional(input.AddressEn, 2000);
+        target.RepresentativeTitleEn = Optional(input.RepresentativeTitleEn, 300);
         target.Address = Optional(input.Address, 1000);
         target.Phone = Optional(input.Phone, 50);
         target.Fax = Optional(input.Fax, 50);
@@ -1290,6 +1372,12 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         target.RepresentativeName = Required(input.RepresentativeName, 300,
             "Người đại diện");
         target.RepresentativeTitle = Optional(input.RepresentativeTitle, 300);
+    }
+
+    private static void ValidateLocationLanguage(ContractLanguageMode language, string? locationEn)
+    {
+        if (language == ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(locationEn))
+            throw Rule("AcceptanceLocationEnRequired", "Địa điểm tiếng Anh là bắt buộc với hợp đồng song ngữ.");
     }
 
     private static void ValidateMetadata(string code, DateTime date,
@@ -1325,12 +1413,9 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
         IReadOnlyCollection<ContractAcceptanceSectionInput> sections,
         ContractLanguageMode languageMode)
     {
-        if (languageMode != ContractLanguageMode.Bilingual) return;
-        if (sections.Any(section => string.IsNullOrWhiteSpace(section.TitleEn)
-            || (!string.IsNullOrWhiteSpace(section.ContentVi)
-                && string.IsNullOrWhiteSpace(section.ContentEn))))
-            throw Rule("AcceptanceSectionsBilingualInvalid",
-                "Section song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+        foreach (var section in sections)
+            BilingualContentPolicy.Validate(section.BilingualContentMode, languageMode,
+                section.TitleEn, section.ContentVi, section.ContentEn, section.SectionCode);
     }
 
     private async Task<ContractLanguageMode> LoadTemplateLanguageModeAsync(
@@ -1342,22 +1427,26 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             where version.TemplateVersionId == templateVersionId
             select (ContractLanguageMode)template.LanguageMode).SingleAsync(ct);
 
-    private static void ValidateFinalizable(
-        ContractAcceptanceRecordResponse record)
+    private async Task EnsureSectionsRequiredAsync(int templateVersionId, int count, CancellationToken ct)
     {
+        if (count == 0 && await SupportingDocumentSectionReader.IsRequiredAsync(
+                _db, templateVersionId, TemplateDocumentType.AcceptanceRecord, ct))
+            throw Rule("AcceptanceSectionsMissing", "DOCX có {{ACCEPTANCE_SECTIONS}} nên cần ít nhất một mục nghiệm thu.");
+    }
+
+    private async Task ValidateFinalizableAsync(
+        ContractAcceptanceRecordResponse record, CancellationToken ct)
+    {
+        ValidateAcceptanceDate(record.AcceptanceDate, record.ContractSignDate, record.HandoverScope);
         if (record.References.Count == 0
             || record.References[0].ReferenceType !=
                 AcceptanceReferenceType.Contract)
             throw Rule("AcceptanceContractReferenceMissing",
                 "Biên bản thiếu căn cứ hợp đồng bắt buộc.");
-        if (record.Parties.Count != 2
-            || record.Sections.Count == 0)
+        if (record.Parties.Count != 2)
             throw Rule("AcceptanceSnapshotIncomplete",
-                "Biên bản thiếu snapshot hai bên hoặc section.");
-        if (record.AcceptanceKind == AcceptanceKind.Partial
-            && record.Milestones.Count == 0)
-            throw Rule("AcceptanceMilestoneRequired",
-                "Nghiệm thu một phần phải chọn milestone.");
+                "Biên bản thiếu snapshot hai bên.");
+        await EnsureSectionsRequiredAsync(record.TemplateVersionId, record.Sections.Count, ct);
         if (record.AcceptanceKind == AcceptanceKind.Final
             && record.Milestones.Count > 0)
             throw Rule("AcceptanceMilestoneNotAllowed",
@@ -1365,7 +1454,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
     }
 
     private static string ComputeSnapshotHash(
-        ContractAcceptanceRecordResponse record)
+        ContractAcceptanceRecordResponse record, byte[] renderedDocx)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         void Add(object? value)
@@ -1374,16 +1463,19 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             hash.AppendData(BitConverter.GetBytes(bytes.Length));
             hash.AppendData(bytes);
         }
-        Add(record.ContractId); Add(record.ContractVersionId);
+        Add(Convert.ToHexString(SHA256.HashData(renderedDocx)));
+        Add(record.ContractId); Add(record.ContractVersionId); Add((byte)record.ContractDirection);
         Add(record.TemplateVersionId); Add(record.AcceptanceCode);
-        Add(record.AcceptanceDate.ToString("O")); Add(record.Location);
+        Add(record.AcceptanceDate.ToString("O")); Add(record.Location); Add(record.LocationEn);
         Add((byte)record.AcceptanceKind);
         foreach (var reference in record.References.OrderBy(x => x.DisplayOrder))
         { Add((byte)reference.ReferenceType); Add(reference.AppendixId); Add(reference.TextVi); Add(reference.TextEn); }
         foreach (var party in record.Parties.OrderBy(x => x.PartyRole))
-        { Add((byte)party.PartyRole); Add(party.LegalName); Add(party.Address); Add(party.Phone); Add(party.Fax); Add(party.TaxCode); Add(party.RepresentativeName); Add(party.RepresentativeTitle); }
+        { Add((byte)party.PartyRole); Add(party.LegalName); Add(party.Address); Add(party.Phone); Add(party.Fax); Add(party.TaxCode); Add(party.RepresentativeName); Add(party.RepresentativeTitle); Add(party.LegalNameEn); Add(party.AddressEn); Add(party.RepresentativeTitleEn); }
         foreach (var section in record.Sections.OrderBy(x => x.DisplayOrder))
-        { Add(section.SectionCode); Add(section.TitleVi); Add(section.TitleEn); Add(section.ContentVi); Add(section.ContentEn); Add(section.DisplayOrder); }
+        { Add(section.SectionCode); Add(section.TitleVi); Add(section.TitleEn); Add(section.ContentVi); Add(section.ContentEn); Add(section.BilingualContentMode); Add(section.DisplayOrder); }
+        foreach (var scope in record.HandoverScope.OrderBy(x => x.HandoverLineId))
+        { Add(scope.HandoverLineId); Add(scope.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture)); Add(scope.HandoverCode); Add(scope.SignDate.ToString("O")); }
         foreach (var milestone in record.Milestones.OrderBy(x => x.PaymentMilestoneId))
             Add(milestone.PaymentMilestoneId);
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
@@ -1504,6 +1596,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             ContentType = row.file.ContentType ?? string.Empty,
             FileSize = row.file.FileSize ?? 0,
             Sha256 = row.file.Sha256 ?? string.Empty,
+            SignDate = row.evidence.SignDate,
             UploadedByEmployeeId = row.evidence.UploadedByEmployeeId,
             UploadedByEmployeeName = row.EmployeeFullName,
             UploadedAt = row.evidence.UploadedAt,
@@ -1591,7 +1684,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
             StringComparison.OrdinalIgnoreCase);
 
     private async Task<T> ExecuteAsync<T>(Func<Task<T>> action,
-        CancellationToken ct)
+        CancellationToken ct, int contractId)
     {
         var strategy = _db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
@@ -1600,6 +1693,7 @@ public sealed class ContractAcceptanceService : IContractAcceptanceService
                 .BeginTransactionAsync(IsolationLevel.Serializable, ct);
             try
             {
+                await LockHandoverContractAsync(contractId, ct);
                 var result = await action();
                 await transaction.CommitAsync(ct);
                 return result;

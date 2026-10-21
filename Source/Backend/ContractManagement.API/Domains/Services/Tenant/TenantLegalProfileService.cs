@@ -41,6 +41,13 @@ public sealed class TenantLegalProfileService : ITenantLegalProfileService
                 "Không xác định được nhân viên đăng nhập.");
         }
 
+        var english = new
+        {
+            LegalEntityNameEn = NormalizeRequired(request.LegalEntityNameEn, "Tên pháp nhân tiếng Anh", 500),
+            AddressEn = NormalizeRequired(request.AddressEn, "Địa chỉ tiếng Anh", 2000),
+            RepresentativeTitleEn = NormalizeRequired(request.RepresentativeTitleEn, "Chức danh đại diện tiếng Anh", 200),
+            BankNameEn = NormalizeRequired(request.BankNameEn, "Tên ngân hàng tiếng Anh", 500),
+        };
         var profile = await _dbContext.TblTenantLegalProfiles
             .SingleOrDefaultAsync(
                 x => x.TenantLegalProfileId == SingletonProfileId,
@@ -81,6 +88,10 @@ public sealed class TenantLegalProfileService : ITenantLegalProfileService
             profile.UpdatedAt = now;
         }
 
+        profile.LegalEntityNameEn = english.LegalEntityNameEn;
+        profile.AddressEn = english.AddressEn;
+        profile.RepresentativeTitleEn = english.RepresentativeTitleEn;
+        profile.BankNameEn = english.BankNameEn;
         profile.LegalEntityName = NormalizeRequired(
             request.LegalEntityName,
             "Tên pháp nhân");
@@ -111,7 +122,7 @@ public sealed class TenantLegalProfileService : ITenantLegalProfileService
         return Map(profile);
     }
 
-    private static string NormalizeRequired(string value, string fieldName)
+    private static string NormalizeRequired(string value, string fieldName, int maxLength = int.MaxValue)
     {
         var normalized = value?.Trim();
         if (string.IsNullOrWhiteSpace(normalized))
@@ -119,6 +130,8 @@ public sealed class TenantLegalProfileService : ITenantLegalProfileService
             throw new ArgumentException($"{fieldName} không được để trống.");
         }
 
+        if (normalized.Length > maxLength)
+            throw new ArgumentException($"{fieldName} vượt quá {maxLength} ký tự.");
         return normalized;
     }
 
@@ -158,6 +171,10 @@ public sealed class TenantLegalProfileService : ITenantLegalProfileService
         {
             TenantLegalProfileId = profile.TenantLegalProfileId,
             LegalEntityName = profile.LegalEntityName,
+            LegalEntityNameEn = profile.LegalEntityNameEn,
+            AddressEn = profile.AddressEn,
+            RepresentativeTitleEn = profile.RepresentativeTitleEn,
+            BankNameEn = profile.BankNameEn,
             TaxCode = profile.TaxCode,
             Address = profile.Address,
             RepresentativeName = profile.RepresentativeName,

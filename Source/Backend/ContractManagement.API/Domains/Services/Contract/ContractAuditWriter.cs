@@ -30,6 +30,7 @@ public sealed class ContractAuditWriter : IContractAuditWriter
         ContractAuditSubjectTypes.ContractAppendix,
         ContractAuditSubjectTypes.AcceptanceRecord,
         ContractAuditSubjectTypes.AcceptanceEvidence,
+        ContractAuditSubjectTypes.HandoverRecord,
         ContractAuditSubjectTypes.Payment
     ];
 
@@ -56,11 +57,17 @@ public sealed class ContractAuditWriter : IContractAuditWriter
             [ContractAuditActionTypes.SignedEvidenceSuperseded] =
                 SignedEvidenceFields(),
             [ContractAuditActionTypes.AcceptanceEvidenceUploaded] =
-                Fields("AcceptanceEvidenceId", "FileId", "FileType", "Sha256", "CurrentVersionId"),
+                Fields("AcceptanceEvidenceId", "FileId", "FileType", "Sha256", "CurrentVersionId", "SignDate"),
             [ContractAuditActionTypes.AcceptanceRecordCreated] = AcceptanceFields(),
             [ContractAuditActionTypes.AcceptanceRecordUpdated] = AcceptanceFields(),
             [ContractAuditActionTypes.AcceptanceRecordFinalized] = AcceptanceFields(),
             [ContractAuditActionTypes.AcceptanceRecordCancelled] = AcceptanceFields(),
+            [ContractAuditActionTypes.HandoverScopeConfirmed] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
+            [ContractAuditActionTypes.HandoverCreated] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
+            [ContractAuditActionTypes.HandoverUpdated] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
+            [ContractAuditActionTypes.HandoverFinalized] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
+            [ContractAuditActionTypes.HandoverSigned] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
+            [ContractAuditActionTypes.HandoverCancelled] = Fields("HandoverRecordId", "HandoverBaselineId", "HandoverLineCount", "HandoverStatus", "CurrentVersionId", "TemplateVersionId", "SnapshotHash", "SignDate"),
             [ContractAuditActionTypes.PaymentAdded] = PaymentFields(),
             [ContractAuditActionTypes.PaymentVoided] = PaymentFields(),
             [ContractAuditActionTypes.PaymentMilestoneAnchored] =

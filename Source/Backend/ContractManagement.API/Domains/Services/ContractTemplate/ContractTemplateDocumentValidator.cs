@@ -148,19 +148,19 @@ public sealed class ContractTemplateDocumentValidator
             TemplateDocumentType documentType,
             CancellationToken cancellationToken)
     {
-        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        if (SupportingDocumentCatalog.Supports(documentType))
         {
             if (_catalog is null)
             {
-                return AcceptanceRecordPlaceholderCatalog.All;
+                return SupportingDocumentCatalog.Get(documentType);
             }
 
             var tenantCatalog = await _catalog.GetAsync(
                 includeInactive: true,
                 cancellationToken: cancellationToken);
-            return AcceptanceRecordPlaceholderCatalog.All
+            return SupportingDocumentCatalog.Get(documentType)
                 .Concat(tenantCatalog.Where(item => !item.IsSystem
-                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                    && SupportingDocumentCatalog.Get(documentType).All(system =>
                         system.Key != item.Key)))
                 .ToArray();
         }

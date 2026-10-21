@@ -1,3 +1,4 @@
+import type { ContractDirection } from "@/services/contract-api";
 import axiosClient from "@/lib/axios-interceptor";
 
 const BASE_URL = "/api/contracts";
@@ -17,6 +18,7 @@ export enum AcceptanceKind {
 export enum AcceptanceReferenceType {
   Contract = 1,
   Appendix = 2,
+  Handover = 3,
 }
 
 export enum AcceptancePartyRole {
@@ -25,6 +27,7 @@ export enum AcceptancePartyRole {
 }
 
 export interface ContractAcceptanceTemplateOption {
+  contractDirection: ContractDirection;
   templateId: number;
   templateVersionId: number;
   versionNo: number;
@@ -49,6 +52,7 @@ export interface ContractAcceptanceReference {
   acceptanceReferenceId: number;
   referenceType: AcceptanceReferenceType;
   appendixId?: number | null;
+  handoverRecordId?: number | null;
   textVi: string;
   textEn?: string | null;
   displayOrder: number;
@@ -58,6 +62,9 @@ export interface ContractAcceptanceParty {
   acceptancePartyId: number;
   partyRole: AcceptancePartyRole;
   legalName: string;
+  legalNameEn?: string | null;
+  addressEn?: string | null;
+  representativeTitleEn?: string | null;
   address?: string | null;
   phone?: string | null;
   fax?: string | null;
@@ -73,6 +80,7 @@ export interface ContractAcceptanceSection {
   titleEn?: string | null;
   contentVi?: string | null;
   contentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   rowVersion: string;
 }
@@ -95,6 +103,7 @@ export interface ContractAcceptanceArtifact {
 }
 
 export interface ContractAcceptanceSignedEvidence {
+  signDate: string | null;
   acceptanceEvidenceId: number;
   contractId: number;
   versionId: number;
@@ -113,10 +122,13 @@ export interface ContractAcceptanceSignedEvidence {
 
 export interface ContractAcceptanceRecord
   extends ContractAcceptanceRecordSummary {
+  contractSignDate: string;
   contractId: number;
+  contractDirection: ContractDirection;
   templateVersionId: number;
   templateName: string;
   location: string;
+  locationEn?: string | null;
   snapshotHash?: string | null;
   finalizedAt?: string | null;
   finalizedByEmployeeId?: number | null;
@@ -124,6 +136,8 @@ export interface ContractAcceptanceRecord
   signedAt?: string | null;
   cancelledAt?: string | null;
   cancellationReason?: string | null;
+  handoverScope: AcceptanceHandoverScope[];
+  handoverBlocker?: string | null;
   references: ContractAcceptanceReference[];
   parties: ContractAcceptanceParty[];
   sections: ContractAcceptanceSection[];
@@ -134,6 +148,9 @@ export interface ContractAcceptanceRecord
 
 export interface ContractAcceptancePartyInput {
   legalName: string;
+  legalNameEn?: string | null;
+  addressEn?: string | null;
+  representativeTitleEn?: string | null;
   address?: string | null;
   phone?: string | null;
   fax?: string | null;
@@ -142,17 +159,28 @@ export interface ContractAcceptancePartyInput {
   representativeTitle?: string | null;
 }
 
-const multipart = (file: File, rowVersion: string) => {
+const multipart = (file: File, rowVersion: string, signDate: string) => {
   const data = new FormData();
   data.append("file", file);
   data.append("rowVersion", rowVersion);
+  data.append("signDate", signDate);
   return data;
 };
 
 const url = (contractId: number) =>
   `${BASE_URL}/${contractId}/acceptance-records`;
 
+export interface AcceptanceHandoverScope {
+  handoverLineId: number; handoverRecordId: number; handoverScopeItemId: number;
+  handoverCode: string; handoverDate: string; signDate: string; itemCode: string;
+  nameVi: string; nameEn?: string | null; unitVi: string; unitEn?: string | null;
+  deliveredQuantity: number; availableQuantity: number; quantity: number; scopeMode: number;
+}
 export const contractAcceptanceApi = {
+  handoverOptions: (id: number, recordId: number) =>
+    axiosClient.get<unknown, { items: AcceptanceHandoverScope[]; blocker?: string | null }>(`${url(id)}/${recordId}/handover-scope`),
+  replaceHandoverScope: (id: number, recordId: number, items: { handoverLineId: number; quantity: number }[], rowVersion: string) =>
+    axiosClient.put<unknown, ContractAcceptanceRecord>(`${url(id)}/${recordId}/handover-scope`, { items, rowVersion }),
   templates: (contractId: number) =>
     axiosClient.get<unknown, ContractAcceptanceTemplateOption[]>(
       `${url(contractId)}/templates`,
@@ -171,6 +199,7 @@ export const contractAcceptanceApi = {
       acceptanceCode: string;
       acceptanceDate: string;
       location: string;
+  locationEn?: string | null;
       acceptanceKind: AcceptanceKind;
       appendixIds: number[];
       paymentMilestoneIds: number[];
@@ -186,6 +215,7 @@ export const contractAcceptanceApi = {
       acceptanceCode: string;
       acceptanceDate: string;
       location: string;
+  locationEn?: string | null;
       acceptanceKind: AcceptanceKind;
       customerParty: ContractAcceptancePartyInput;
       tenantParty: ContractAcceptancePartyInput;
@@ -215,6 +245,7 @@ export const contractAcceptanceApi = {
       titleEn?: string | null;
       contentVi?: string | null;
       contentEn?: string | null;
+  bilingualContentMode: number;
       displayOrder: number;
     }>,
     rowVersion: string,
@@ -248,10 +279,11 @@ export const contractAcceptanceApi = {
     recordId: number,
     file: File,
     rowVersion: string,
+    signDate: string,
   ) =>
     axiosClient.post<unknown, ContractAcceptanceSignedEvidence>(
       `${url(contractId)}/${recordId}/signed-evidence`,
-      multipart(file, rowVersion),
+      multipart(file, rowVersion, signDate),
       { headers: { "Content-Type": "multipart/form-data" } },
     ),
   cancel: (
@@ -269,4 +301,8 @@ export const contractAcceptanceApi = {
       `${url(contractId)}/${recordId}/artifacts/${format}`,
       { responseType: "blob" },
     ),
+  downloadSignedEvidence: (fileId: number) =>
+    axiosClient.get<unknown, Blob>(`/api/files/${fileId}/download`, {
+      responseType: "blob",
+    }),
 };

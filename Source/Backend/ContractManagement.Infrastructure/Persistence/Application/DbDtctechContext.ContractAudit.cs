@@ -523,6 +523,7 @@ public partial class DbDtctechContext
                         or "CustomerAccessSession"
                         or "ApprovalRequest"
                         or "SignedEvidence"
+                        or "HandoverRecord"
                         or "AcceptanceRecord"
                         or "AcceptanceEvidence"
                         or "Payment"))))

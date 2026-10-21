@@ -30,8 +30,11 @@ export interface ProductFilterParams {
 }
 
 export interface CreateProductRequest {
+  unitName: string;
+  unitNameEn: string;
   productCode?: string | null;
   productName: string;
+  productNameEn: string;
   categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
@@ -49,8 +52,11 @@ export interface CreateProductRequest {
 }
 
 export interface UpdateProductRequest {
+  unitName: string;
+  unitNameEn: string;
   productCode?: string | null;
   productName: string;
+  productNameEn: string;
   categoryId: number;
   productShortDesc?: string | null;
   productDetails?: string | null;
@@ -68,9 +74,12 @@ export interface UpdateProductRequest {
 }
 
 export interface ProductResponse {
+  unitName: string | null;
+  unitNameEn: string | null;
   productId: number;
   productCode?: string;
   productName?: string;
+  productNameEn: string | null;
   categoryId?: number;
   categoryName?: string;
   productShortDesc?: string;

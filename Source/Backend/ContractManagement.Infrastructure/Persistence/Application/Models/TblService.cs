@@ -9,6 +9,10 @@ public partial class TblService
 
     public string? ServiceName { get; set; }
 
+    public string? ServiceNameEn { get; set; }
+    public string? UnitName { get; set; }
+    public string? UnitNameEn { get; set; }
+
     public int? ServiceParentId { get; set; }
 
     public int? Points { get; set; }

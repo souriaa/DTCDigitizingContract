@@ -17,6 +17,8 @@ public sealed class CatalogItemSummaryResponse
     public int Id { get; set; }
     public string? Code { get; set; }
     public string? Name { get; set; }
+    public string? UnitName { get; set; }
+    public string? UnitNameEn { get; set; }
     public int? GroupId { get; set; }
     public string GroupPath { get; set; } = "";
     public int? ParentId { get; set; }

@@ -1,6 +1,9 @@
 namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 public sealed class TblContractAcceptanceParty
 {
+    public string? LegalNameEn { get; set; }
+    public string? AddressEn { get; set; }
+    public string? RepresentativeTitleEn { get; set; }
     public int AcceptancePartyId { get; set; }
     public int AcceptanceRecordId { get; set; }
     public byte PartyRole { get; set; }

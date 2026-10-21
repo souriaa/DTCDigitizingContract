@@ -33,6 +33,14 @@ export const getContractTemplateErrorMessage = (
   }
 
   if (Array.isArray(data?.errors) && data.errors.length > 0) {
+    // Business errors contain machine codes here; the actionable text is in message.
+    // Keep human-readable validation lists unchanged.
+    if (
+      data.message?.trim() &&
+      data.errors.every((item) => /^[A-Z][A-Za-z0-9]*$/.test(item))
+    ) {
+      return data.message;
+    }
     return data.errors.join("; ");
   }
 

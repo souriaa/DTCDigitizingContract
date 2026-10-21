@@ -188,6 +188,8 @@ const FIELD_LABELS: Record<string, string> = {
   ApprovalStatus: "Trạng thái duyệt",
   ResolvedByEmployeeId: "Người xử lý duyệt",
   WorkflowId: "Quy trình duyệt",
+  HandoverLineCount: "Số dòng bàn giao",
+  HandoverStatus: "Trạng thái bàn giao",
   SnapshotHash: "Mã băm bản lưu",
   DocxFileId: "Tệp DOCX trình duyệt",
   DocxHash: "Mã băm DOCX",
@@ -358,6 +360,9 @@ const formatAuditValue = (
   if (key === "Status" && !Number.isNaN(Number(value))) {
     return getContractStatusLabel(Number(value) as ContractStatus);
   }
+  if (key === "HandoverStatus" && !Number.isNaN(Number(value))) {
+    return ({ 0: "Bản nháp", 1: "Chờ bản ký", 2: "Đã ký", 3: "Đã hủy" } as Record<number,string>)[Number(value)] ?? "—";
+  }
   if (key === "ApprovalStatus" && !Number.isNaN(Number(value))) {
     return APPROVAL_STATUS_LABELS[Number(value)] ?? String(value);
   }
@@ -515,6 +520,8 @@ function getAuditSubjectHref(
       return `/contracts/${audit.contractId}#customer-access`;
     case "SignedEvidence":
       return `/contracts/${audit.contractId}#signature`;
+    case "HandoverRecord":
+      return `/contracts/${audit.contractId}?tab=closing&section=handover`;
     case "AcceptanceEvidence":
     case "AcceptanceRecord":
     case "Payment":

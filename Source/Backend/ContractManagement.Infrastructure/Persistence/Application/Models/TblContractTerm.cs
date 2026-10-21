@@ -62,6 +62,8 @@ public partial class TblContractTerm
     /// </summary>
     public string? TermContentEn { get; set; }
 
+    public byte BilingualContentMode { get; set; } = 1;
+
     /// <summary>Loại điều khoản đã snapshot từ template.</summary>
     public byte TermKind { get; set; }
 

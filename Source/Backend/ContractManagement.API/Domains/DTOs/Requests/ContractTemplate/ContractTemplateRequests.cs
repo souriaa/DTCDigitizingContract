@@ -17,6 +17,8 @@ public sealed class ContractTemplateFilterRequest
 
 public sealed class AvailableContractTemplateFilterRequest
 {
+    [EnumDataType(typeof(ContractDirection))]
+    public ContractDirection? ContractDirection { get; set; }
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 20;
@@ -30,6 +32,9 @@ public sealed class AvailableContractTemplateFilterRequest
 
 public sealed class CreateContractTemplateRequest
 {
+    [System.Text.Json.Serialization.JsonRequired]
+    [EnumDataType(typeof(ContractDirection))]
+    public ContractDirection ContractDirection { get; set; }
     [Required]
     public string TemplateCode { get; set; } = string.Empty;
 
@@ -68,6 +73,24 @@ public sealed class CopyContractTemplateVersionRequest
     public string RowVersion { get; set; } = string.Empty;
 
     public string? ChangeNote { get; set; }
+}
+
+public sealed class DeleteContractTemplateRequest
+{
+    [Required]
+    public string RowVersion { get; set; } = string.Empty;
+
+    [Required, MinLength(1)]
+    public List<DeleteContractTemplateVersionRequest> Versions { get; set; } = [];
+}
+
+public sealed class DeleteContractTemplateVersionRequest
+{
+    [Range(1, int.MaxValue)]
+    public int TemplateVersionId { get; set; }
+
+    [Required]
+    public string RowVersion { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -127,6 +150,9 @@ public sealed class CreateContractTemplateTermRequest
     public string? TermContent { get; set; }
 
     public string? TermContentEn { get; set; }
+        [System.Text.Json.Serialization.JsonRequired]
+        [System.ComponentModel.DataAnnotations.Range(1, 2)]
+        public byte BilingualContentMode { get; set; } = 1;
 
     public bool IsNegotiable { get; set; }
 
@@ -152,6 +178,9 @@ public sealed class UpdateContractTemplateTermRequest
     public string? TermContent { get; set; }
 
     public string? TermContentEn { get; set; }
+        [System.Text.Json.Serialization.JsonRequired]
+        [System.ComponentModel.DataAnnotations.Range(1, 2)]
+        public byte BilingualContentMode { get; set; } = 1;
 
     public bool IsNegotiable { get; set; }
 
@@ -246,6 +275,9 @@ public class CreateContractTemplateAppendixTermRequest
     [MaxLength(1000)] public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        [System.Text.Json.Serialization.JsonRequired]
+        [System.ComponentModel.DataAnnotations.Range(1, 2)]
+        public byte BilingualContentMode { get; set; } = 1;
     [Range(0, int.MaxValue)] public int DisplayOrder { get; set; }
     [Required] public string VersionRowVersion { get; set; } = string.Empty;
     [Required] public string AppendixRowVersion { get; set; } = string.Empty;

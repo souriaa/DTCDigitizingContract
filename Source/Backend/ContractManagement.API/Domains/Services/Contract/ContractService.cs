@@ -227,6 +227,12 @@ namespace ContractManagement.Domains.Services.Contract
                     x.Contract.Status == (byte)filter.Status.Value);
             }
 
+            if (filter.ContractDirection.HasValue)
+            {
+                ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(filter.ContractDirection.Value);
+                query = query.Where(x => x.Contract.ContractDirection == (byte)filter.ContractDirection.Value);
+            }
+
             if (filter.ContractType.HasValue)
             {
                 query = query.Where(x =>
@@ -254,6 +260,7 @@ namespace ContractManagement.Domains.Services.Contract
                     ContractName = x.Contract.ContractName,
                     ContractType =
                         (ContractType)x.Contract.ContractType,
+                    ContractDirection = (ContractDirection)x.Contract.ContractDirection,
                     Status =
                         (ContractStatus)x.Contract.Status,
 
@@ -324,6 +331,7 @@ namespace ContractManagement.Domains.Services.Contract
             }
 
             // API này chỉ dùng khi tạo hợp đồng bảo trì hoặc duy trì.
+            ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(filter.ContractDirection);
             if (filter.TargetContractType !=
                     ContractType.SoftwareMaintenance
                 && filter.TargetContractType !=
@@ -365,6 +373,7 @@ namespace ContractManagement.Domains.Services.Contract
                 .Where(x =>
                     (canReadTenant || x.EmployeeId == employeeId)
                     && x.CustomerId == filter.CustomerId
+                    && x.ContractDirection == (byte)filter.ContractDirection
                     && x.ContractType ==
                         (byte)ContractType.SoftwareSupply
                     && x.Status ==
@@ -395,6 +404,7 @@ namespace ContractManagement.Domains.Services.Contract
                     ContractCode = x.ContractCode,
                     ContractName = x.ContractName,
                     ContractType = (ContractType)x.ContractType,
+                    ContractDirection = (ContractDirection)x.ContractDirection,
                     Status = (ContractStatus)x.Status,
                     EffectiveDate = x.EffectiveDate,
                     ExpireDate = x.ExpireDate
@@ -448,13 +458,14 @@ namespace ContractManagement.Domains.Services.Contract
                     await ValidateResponsibleEmployeeAsync(
                         responsibleEmployeeId);
 
+                    ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
                     var customerAudit =
                         await ValidateCustomerAsync(request.CustomerId);
                     await ValidateTemplateAsync(request);
                     await ValidateParentContractAsync(
                         request,
                         createdEmployeeId);
-                    await ValidateCatalogSourcesAsync(request.Items);
+                    await ValidateCatalogSourcesAsync(request.Items, request.LanguageMode);
 
                     // Lấy điều khoản từ đúng template version đã chọn.
                     var templateTerms = await _dbContext
@@ -526,7 +537,7 @@ namespace ContractManagement.Domains.Services.Contract
                         .Where(x => x.IsRequired
                             || requestedAppendixIds.Contains(x.TemplateAppendixId))
                         .ToList();
-                    foreach (var appendix in selectedTemplateAppendices)
+                    foreach (var appendix in request.Appendices is null ? selectedTemplateAppendices : [])
                     {
                         var appendixTerms = templateAppendixTerms
                             .Where(x => x.TemplateAppendixId == appendix.TemplateAppendixId)
@@ -537,6 +548,8 @@ namespace ContractManagement.Domains.Services.Contract
                                 $"Phụ lục {appendix.AppendixCode} chưa có điều khoản.");
                         }
                     }
+
+                    var appendixDrafts = BuildCreateAppendices(request, templateAppendices, templateAppendixTerms);
 
                     var templatePaymentTerms = templateTerms
                         .Where(term => term.TermKind == (byte)ContractTermKind.Payment)
@@ -564,7 +577,7 @@ namespace ContractManagement.Domains.Services.Contract
                     if (paymentMilestoneDates.Keys.Any(id => !manualMilestoneIds.Contains(id)))
                         throw new ArgumentException(
                             "Ngày bắt đầu tính hạn chỉ được nhập cho đợt dùng Lịch thủ công.");
-                    if (manualMilestoneIds.Any(id => !paymentMilestoneDates.TryGetValue(id,
+                    if (request.Terms is null && manualMilestoneIds.Any(id => !paymentMilestoneDates.TryGetValue(id,
                             out var date) || date == default))
                         throw new ArgumentException(
                             "Vui lòng nhập ngày bắt đầu tính hạn cho tất cả đợt dùng Lịch thủ công.");
@@ -595,6 +608,7 @@ namespace ContractManagement.Domains.Services.Contract
                         CreatedEmployeeId = createdEmployeeId,
 
                         ContractType = (byte)request.ContractType,
+                        ContractDirection = (byte)request.ContractDirection,
                         TemplateVersionId = request.TemplateVersionId,
                         ParentContractId = request.ParentContractId,
                         CurrentVersionId = null,
@@ -766,6 +780,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 TermTitleEn = templateTerm.TermTitleEn,
                                 TermContent = templateTerm.TermContent,
                                 TermContentEn = templateTerm.TermContentEn,
+                                BilingualContentMode = templateTerm.BilingualContentMode,
                                 TermKind = templateTerm.TermKind,
                                 IsNegotiable = templateTerm.IsNegotiable,
                                 DisplayOrder = templateTerm.DisplayOrder,
@@ -791,9 +806,8 @@ namespace ContractManagement.Domains.Services.Contract
                                         requestTerm.TermContent),
                                     TermContentEn = NormalizeRichText(
                                         requestTerm.TermContentEn),
-                                    TermKind = requestTerm.SourceTemplateTermId is { } sourceId
-                                        ? templateTerms.Single(item => item.TemplateTermId == sourceId).TermKind
-                                        : (byte)ContractTermKind.General,
+                                    BilingualContentMode = requestTerm.BilingualContentMode,
+                                    TermKind = (byte)requestTerm.TermKind,
                                     IsNegotiable = requestTerm.IsNegotiable,
                                     DisplayOrder = requestTerm.DisplayOrder > 0
                                         ? requestTerm.DisplayOrder
@@ -817,18 +831,18 @@ namespace ContractManagement.Domains.Services.Contract
                             CreatedDate = now
                         }).ToList();
 
-                    var contractAppendices = selectedTemplateAppendices.Select(source =>
+                    var contractAppendices = appendixDrafts.Select((source, index) =>
                         new TblContractAppendix
                         {
                             ContractId = contract.ContractId,
                             VersionId = contractVersion.VersionId,
-                            SourceTemplateAppendixId = source.TemplateAppendixId,
+                            SourceTemplateAppendixId = source.SourceTemplateAppendixId,
                             AppendixCode = source.AppendixCode,
                             AppendixName = source.AppendixName,
                             AppendixNameEn = source.AppendixNameEn,
                             AppendixDescription = source.AppendixDescription,
-                            IsRequired = source.IsRequired,
-                            DisplayOrder = source.DisplayOrder,
+                            IsRequired = templateAppendices.Any(template => template.TemplateAppendixId == source.SourceTemplateAppendixId && template.IsRequired),
+                            DisplayOrder = index + 1,
                             CreatedEmployeeId = createdEmployeeId,
                             CreatedDate = now
                         }).ToList();
@@ -839,27 +853,22 @@ namespace ContractManagement.Domains.Services.Contract
                     _dbContext.TblContractAppendices.AddRange(contractAppendices);
                     await _dbContext.SaveChangesAsync();
 
-                    var contractAppendicesBySource = contractAppendices
-                        .Where(x => x.SourceTemplateAppendixId.HasValue)
-                        .ToDictionary(x => x.SourceTemplateAppendixId!.Value);
-                    var contractAppendixTerms = templateAppendixTerms
-                        .Where(source => contractAppendicesBySource.ContainsKey(
-                            source.TemplateAppendixId))
-                        .Select(source => new TblContractAppendixTerm
+                    var contractAppendixTerms = appendixDrafts.SelectMany((appendix, appendixIndex) =>
+                        appendix.Terms.Select((source, termIndex) => new TblContractAppendixTerm
                         {
-                            AppendixId = contractAppendicesBySource[
-                                source.TemplateAppendixId].AppendixId,
+                            AppendixId = contractAppendices[appendixIndex].AppendixId,
                             SourceTemplateAppendixTermId =
-                                source.TemplateAppendixTermId,
+                                source.SourceTemplateAppendixTermId,
                             TermCode = source.TermCode,
                             TermTitle = source.TermTitle,
                             TermTitleEn = source.TermTitleEn,
                             TermContent = source.TermContent,
                             TermContentEn = source.TermContentEn,
-                            DisplayOrder = source.DisplayOrder,
+                            BilingualContentMode = source.BilingualContentMode,
+                            DisplayOrder = termIndex + 1,
                             CreatedEmployeeId = createdEmployeeId,
                             CreatedDate = now
-                        }).ToList();
+                        })).ToList();
                     _dbContext.TblContractAppendixTerms.AddRange(
                         contractAppendixTerms);
 
@@ -868,7 +877,7 @@ namespace ContractManagement.Domains.Services.Contract
                         .ToDictionary(item => item.SourceTemplateTermId!.Value);
                     var contractPaymentMilestones = new List<TblContractPaymentMilestone>();
                     decimal allocated = 0m;
-                    for (var index = 0; index < templatePaymentMilestones.Count; index++)
+                    for (var index = 0; request.Terms is null && index < templatePaymentMilestones.Count; index++)
                     {
                         var source = templatePaymentMilestones[index];
                         if (!contractTermsBySource.TryGetValue(source.TemplateTermId, out var targetTerm))
@@ -914,6 +923,12 @@ namespace ContractManagement.Domains.Services.Contract
                         });
                     }
                     _dbContext.TblContractPaymentMilestones.AddRange(contractPaymentMilestones);
+                    if (request.Terms is not null)
+                    {
+                        await SavePaymentDraftAsync(contract.ContractId, contractVersion.VersionId,
+                            contractTerms, request.Terms.Select(x => (x.TermCode.Trim(), x.PaymentMilestones)).ToList(),
+                            [], totals.TotalPayment, currencyCode, request.EffectiveDate, createdEmployeeId, now, creating: true);
+                    }
 
                     /*
                      * Contract trỏ trực tiếp đến Version 1 vừa tạo.
@@ -1037,6 +1052,7 @@ namespace ContractManagement.Domains.Services.Contract
                         VersionNo = contractVersion.VersionNo,
                         CustomerId = contract.CustomerId,
                         ContractType = request.ContractType,
+                        ContractDirection = request.ContractDirection,
 
                         TemplateVersionId =
                             request.TemplateVersionId,
@@ -1601,6 +1617,7 @@ namespace ContractManagement.Domains.Services.Contract
                 ContractNameEn = contract.ContractNameEn,
 
                 ContractType = (ContractType)contract.ContractType,
+                ContractDirection = (ContractDirection)contract.ContractDirection,
                 TemplateVersionId = contract.TemplateVersionId,
                 ParentContractId = contract.ParentContractId,
                 Status = (ContractStatus)contract.Status,
@@ -1735,6 +1752,7 @@ namespace ContractManagement.Domains.Services.Contract
                             TermTitleEn = term.TermTitleEn,
                             TermContent = term.TermContent,
                             TermContentEn = term.TermContentEn,
+                            BilingualContentMode = term.BilingualContentMode,
                             TermKind = (ContractTermKind)term.TermKind,
                             IsNegotiable = term.IsNegotiable,
                             DisplayOrder = term.DisplayOrder,
@@ -1747,6 +1765,8 @@ namespace ContractManagement.Domains.Services.Contract
                         .ToList(),
 
                     Appendices = appendices,
+
+                    LegalBases = await LoadLegalBasesAsync(contract.ContractId, version.VersionId),
 
                     AvailableOptionalAppendices =
                         await LoadAvailableOptionalAppendicesAsync(
@@ -1799,6 +1819,8 @@ namespace ContractManagement.Domains.Services.Contract
                                 "Không tìm thấy hợp đồng.");
                         }
 
+                        if (request.ContractDirection.HasValue && (byte)request.ContractDirection.Value != contract.ContractDirection)
+                            throw new ArgumentException("Không được đổi chiều Mua/Bán sau khi tạo hợp đồng.");
                         var currentStatus = (ContractStatus)contract.Status;
 
                         if (!ContractLifecyclePolicy.CanEditContent(currentStatus))
@@ -1898,13 +1920,13 @@ namespace ContractManagement.Domains.Services.Contract
                             contract.ParentContractId,
                             request.CustomerId);
 
-                        ValidateBilingualUpdate(contract, request);
-
                         await ValidateCatalogSourcesAsync(
                             request.Items
                                 .Where(x => !x.ContractItemId.HasValue)
                                 .Cast<CreateContractItemRequest>()
-                                .ToList());
+                                .ToList(), (ContractLanguageMode)contract.LanguageMode);
+
+                        ValidateBilingualUpdate(contract, request);
 
                         var existingItems = await _dbContext.TblContractItems
                             .Where(x =>
@@ -1925,21 +1947,15 @@ namespace ContractManagement.Domains.Services.Contract
                             .ThenBy(x => x.PaymentMilestoneId)
                             .ToListAsync();
 
-                        var paymentMilestoneDates = request.PaymentMilestoneDates
-                            .ToDictionary(x => x.SourceTemplatePaymentMilestoneId,
-                                x => x.AnchorDate.Date);
-                        var manualMilestoneIds = existingPaymentMilestones
-                            .Where(x => x.DueAnchor == (byte)PaymentDueAnchor.ManualDate
-                                && x.SourceTemplatePaymentMilestoneId.HasValue)
-                            .Select(x => x.SourceTemplatePaymentMilestoneId!.Value)
-                            .ToHashSet();
-                        if (paymentMilestoneDates.Keys.Any(id => !manualMilestoneIds.Contains(id)))
-                            throw new ArgumentException(
-                                "Ngày bắt đầu tính hạn không thuộc đợt Lịch thủ công của version hiện tại.");
-                        if (manualMilestoneIds.Any(id => !paymentMilestoneDates.TryGetValue(id,
-                                out var date) || date == default))
-                            throw new ArgumentException(
-                                "Vui lòng nhập ngày bắt đầu tính hạn cho tất cả đợt dùng Lịch thủ công.");
+                        ValidatePaymentDraft(request.Terms.Select(x => (x.TermKind, x.PaymentMilestones)),
+                            contract.LanguageMode == (byte)ContractLanguageMode.Bilingual);
+                        await EnsurePaymentDraftWritableAsync(existingPaymentMilestones);
+                        foreach (var term in request.Terms)
+                        {
+                            if (term.PaymentMilestones.Any(row => row.PaymentMilestoneId.HasValue &&
+                                !existingPaymentMilestones.Any(source => source.PaymentMilestoneId == row.PaymentMilestoneId && source.TermId == term.TermId)))
+                                throw new ArgumentException("Đợt thanh toán không thuộc điều khoản hiện tại.");
+                        }
 
                         var previousAuditValues = ContractAuditValues.Create(
                             ("Status", contract.Status),
@@ -1986,6 +2002,7 @@ namespace ContractManagement.Domains.Services.Contract
                         var currencyCode = NormalizeCurrencyCode(
                             request.CurrencyCode);
                         var totals = ContractFinancialTotals.Zero;
+                        var changedLegalBases = await UpdateLegalBasesAsync(contract, version, request.LegalBases, employeeId, now);
 
                         /*
                          * Thêm mới hoặc cập nhật Items.
@@ -2047,6 +2064,8 @@ namespace ContractManagement.Domains.Services.Contract
                                     || item.SourceServiceId.HasValue)
                                 {
                                     requestItem.ItemCode = item.ItemCode;
+                                    requestItem.UnitName = item.UnitName;
+                                    requestItem.UnitNameEn = item.UnitNameEn;
                                 }
 
                                 var changedFields = GetChangedItemFields(
@@ -2167,6 +2186,9 @@ namespace ContractManagement.Domains.Services.Contract
                                     term,
                                     requestTerm,
                                     displayOrder);
+                                if (HasPaymentDraftChanges(existingPaymentMilestones.Where(x => x.TermId == term.TermId),
+                                        requestTerm.PaymentMilestones))
+                                    changedFields.Add("Kế hoạch thanh toán");
 
                                 if (changedFields.Count > 0)
                                 {
@@ -2215,7 +2237,9 @@ namespace ContractManagement.Domains.Services.Contract
 
                             term.TermContentEn =
                                 NormalizeRichText(requestTerm.TermContentEn);
+                            term.BilingualContentMode = requestTerm.BilingualContentMode;
 
+                            term.TermKind = (byte)requestTerm.TermKind;
                             term.IsNegotiable = requestTerm.IsNegotiable;
 
                             term.DisplayOrder = displayOrder;
@@ -2228,13 +2252,6 @@ namespace ContractManagement.Domains.Services.Contract
                             .Where(x => !requestedTermIds.Contains(x.TermId))
                             .ToList();
 
-                        if (removedTerms.Any(term => existingPaymentMilestones
-                                .Any(milestone => milestone.TermId == term.TermId)))
-                        {
-                            throw new InvalidOperationException(
-                                "Không thể xóa điều khoản thanh toán đã có kế hoạch theo đợt.");
-                        }
-
                         removedTermAudits.AddRange(
                             removedTerms.Select(term =>
                                 BuildTermAuditEntry(
@@ -2242,6 +2259,10 @@ namespace ContractManagement.Domains.Services.Contract
                                     term.TermCode,
                                     term.TermTitle)));
 
+                        // Xóa các đợt cùng điều khoản trước khi thêm điều khoản mới dùng lại mã cũ.
+                        var removedTermIds = removedTerms.Select(x => x.TermId).ToHashSet();
+                        _dbContext.TblContractPaymentMilestones.RemoveRange(existingPaymentMilestones.Where(x => removedTermIds.Contains(x.TermId)));
+                        existingPaymentMilestones.RemoveAll(x => removedTermIds.Contains(x.TermId));
                         _dbContext.TblContractTerms.RemoveRange(removedTerms);
 
                         /*
@@ -2264,38 +2285,14 @@ namespace ContractManagement.Domains.Services.Contract
                             version,
                             currencyCode,
                             totals);
-                        decimal allocatedMilestoneAmount = 0m;
-                        for (var index = 0; index < existingPaymentMilestones.Count; index++)
-                        {
-                            var milestone = existingPaymentMilestones[index];
-                            milestone.Amount = index == existingPaymentMilestones.Count - 1
-                                ? totals.TotalPayment - allocatedMilestoneAmount
-                                : RoundMoney(totals.TotalPayment * milestone.PaymentPercent / 100m,
-                                    currencyCode);
-                            allocatedMilestoneAmount += milestone.Amount;
-                            if (milestone.DueAnchor ==
-                                (byte)PaymentDueAnchor.ContractEffectiveDate)
-                            {
-                                milestone.AnchorDate = request.EffectiveDate?.Date;
-                                milestone.DueDate = milestone.AnchorDate.HasValue
-                                    ? _paymentDueDates.Calculate(milestone.AnchorDate.Value,
-                                        milestone.DueOffsetDays,
-                                        (PaymentDayCountMode)milestone.DayCountMode)
-                                    : null;
-                            }
-                            else if (milestone.DueAnchor ==
-                                     (byte)PaymentDueAnchor.ManualDate
-                                     && milestone.SourceTemplatePaymentMilestoneId is { } sourceId)
-                            {
-                                milestone.AnchorDate = paymentMilestoneDates[sourceId];
-                                milestone.DueDate = _paymentDueDates.Calculate(
-                                    milestone.AnchorDate.Value,
-                                    milestone.DueOffsetDays,
-                                    (PaymentDayCountMode)milestone.DayCountMode);
-                            }
-                            milestone.UpdatedEmployeeId = employeeId;
-                            milestone.UpdatedDate = now;
-                        }
+                        // Cấp ID cho điều khoản mới trước khi lưu các đợt thuộc điều khoản.
+                        await _dbContext.SaveChangesAsync();
+                        var savedTerms = await _dbContext.TblContractTerms
+                            .Where(x => x.VersionId == version.VersionId).ToListAsync();
+                        await SavePaymentDraftAsync(contract.ContractId, version.VersionId, savedTerms,
+                            request.Terms.Select(x => (x.TermCode.Trim(), x.PaymentMilestones)).ToList(),
+                            existingPaymentMilestones, totals.TotalPayment, currencyCode,
+                            request.EffectiveDate, employeeId, now, paymentHistoryChecked: true);
                         contract.UpdatedEmployeeId = employeeId;
                         contract.UpdateDate = now;
 
@@ -2320,6 +2317,8 @@ namespace ContractManagement.Domains.Services.Contract
                             SubjectId: contract.ContractId,
                             PreviousValues:
                                 previousAuditValuesWithRemovedEntries,
+                            Reason: changedLegalBases.Count > 0
+                                ? BuildAuditSafeText("Đã sửa căn cứ: " + string.Join(", ", changedLegalBases)) : null,
                             NewValues: ContractAuditValues.Create(
                                 ("Status", contract.Status),
                                 ("ResponsibleEmployeeId", contract.EmployeeId),
@@ -2863,6 +2862,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 TermTitleEn = source.TermTitleEn,
                                 TermContent = source.TermContent,
                                 TermContentEn = source.TermContentEn,
+                                BilingualContentMode = source.BilingualContentMode,
                                 TermKind = source.TermKind,
                                 IsNegotiable = source.IsNegotiable,
                                 DisplayOrder = source.DisplayOrder,
@@ -2930,6 +2930,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 TermTitleEn = source.TermTitleEn,
                                 TermContent = source.TermContent,
                                 TermContentEn = source.TermContentEn,
+                                BilingualContentMode = source.BilingualContentMode,
                                 DisplayOrder = source.DisplayOrder,
                                 CreatedEmployeeId = employeeId,
                                 CreatedDate = now
@@ -3637,6 +3638,7 @@ namespace ContractManagement.Domains.Services.Contract
                 RowVersion = EncodeRowVersion(version.RowVersion),
                 Items = items.Select(MapItemDetail).ToList(),
                 Terms = terms.Select(MapTermDetail).ToList(),
+                LegalBases = await LoadLegalBasesAsync(contractId, versionId),
                 PaymentMilestones = paymentMilestones
                     .Select(MapPaymentMilestoneDetail).ToList(),
                 Appendices = appendices,
@@ -4186,6 +4188,7 @@ namespace ContractManagement.Domains.Services.Contract
                 TermTitleEn = term.TermTitleEn,
                 TermContent = term.TermContent,
                 TermContentEn = term.TermContentEn,
+                BilingualContentMode = term.BilingualContentMode,
                 TermKind = (ContractTermKind)term.TermKind,
                 IsNegotiable = term.IsNegotiable,
                 DisplayOrder = term.DisplayOrder,
@@ -4793,7 +4796,8 @@ namespace ContractManagement.Domains.Services.Contract
                             contract.ContractId,
                             employeeId);
                         if (rendered.Snapshot.Version.VersionId != version.VersionId
-                            || rendered.Snapshot.Contract.ContractId != contract.ContractId)
+                            || rendered.Snapshot.Contract.ContractId != contract.ContractId
+                            || rendered.Snapshot.Contract.ContractDirection != contract.ContractDirection)
                         {
                             throw new InvalidOperationException(
                                 "Renderer trả snapshot không thuộc contract/version đang gửi duyệt.");
@@ -5122,17 +5126,12 @@ namespace ContractManagement.Domains.Services.Contract
 
             var templateById = templateTerms.ToDictionary(
                 term => term.TemplateTermId);
-            var missingPaymentTerm = templateTerms
-                .Where(term => term.TermKind == (byte)ContractTermKind.Payment)
-                .FirstOrDefault(term => request.Terms.All(requestTerm =>
-                    requestTerm.SourceTemplateTermId != term.TemplateTermId));
-            if (missingPaymentTerm is not null)
-            {
-                throw new ArgumentException(
-                    $"Điều khoản thanh toán '{missingPaymentTerm.TermCode}' phải được giữ trong hợp đồng.");
-            }
+            ValidatePaymentDraft(request.Terms.Select(x => (x.TermKind, x.PaymentMilestones)),
+                request.LanguageMode == ContractLanguageMode.Bilingual);
             foreach (var term in request.Terms)
             {
+                BilingualContentPolicy.Validate(term.BilingualContentMode, request.LanguageMode,
+                    term.TermTitleEn, term.TermContent, term.TermContentEn, term.TermCode);
                 if (string.IsNullOrWhiteSpace(term.TermCode)
                     || string.IsNullOrWhiteSpace(term.TermTitle))
                 {
@@ -5157,34 +5156,9 @@ namespace ContractManagement.Domains.Services.Contract
                             $"Không được thay đổi mã của điều khoản nguồn {sourceId}.");
                     }
 
-                    if (term.TermKind.HasValue
-                        && term.TermKind.Value != (ContractTermKind)source.TermKind)
-                    {
-                        throw new ArgumentException(
-                            $"Không được thay đổi loại của điều khoản nguồn {sourceId}.");
-                    }
-                }
-                else if (term.TermKind is ContractTermKind.Payment)
-                {
-                    throw new ArgumentException(
-                        "Điều khoản thanh toán phải bắt nguồn từ template để có cấu hình các đợt.");
                 }
 
-                if (request.LanguageMode == ContractLanguageMode.Bilingual)
-                {
-                    if (string.IsNullOrWhiteSpace(term.TermTitleEn))
-                    {
-                        throw new ArgumentException(
-                            $"Điều khoản '{term.TermCode}' phải có tiêu đề tiếng Anh.");
-                    }
 
-                    if (!string.IsNullOrWhiteSpace(term.TermContent)
-                        && string.IsNullOrWhiteSpace(term.TermContentEn))
-                    {
-                        throw new ArgumentException(
-                            $"Điều khoản '{term.TermCode}' phải có nội dung tiếng Anh.");
-                    }
-                }
             }
         }
 
@@ -5316,6 +5290,7 @@ namespace ContractManagement.Domains.Services.Contract
                 select new
                 {
                     VersionStatus = version.Status,
+                    version.ContractDirection,
                     template.DocumentType,
                     template.LanguageMode,
                     template.IsActive,
@@ -5359,6 +5334,10 @@ namespace ContractManagement.Domains.Services.Contract
                     "Loại template không khớp với loại hợp đồng.");
             }
 
+            ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
+            if (templateData.ContractDirection != (byte)request.ContractDirection)
+                throw new ArgumentException("Chiều giao dịch của mẫu không khớp với hợp đồng.");
+
             if (templateData.LanguageMode !=
                 (byte)request.LanguageMode)
             {
@@ -5386,6 +5365,7 @@ namespace ContractManagement.Domains.Services.Contract
                     x.CustomerId,
                     x.EmployeeId,
                     x.ContractType,
+                    x.ContractDirection,
                     x.Status
                 })
                 .FirstOrDefaultAsync();
@@ -5395,6 +5375,9 @@ namespace ContractManagement.Domains.Services.Contract
                 throw new KeyNotFoundException(
                     "Không tìm thấy hợp đồng nguồn.");
             }
+
+            if (parentContract.ContractDirection != (byte)request.ContractDirection)
+                throw new ArgumentException("Hợp đồng nguồn phải có cùng chiều Mua/Bán.");
 
             // Người dùng chỉ được chọn hợp đồng mình có quyền xem.
             if (parentContract.EmployeeId != employeeId)
@@ -5426,7 +5409,7 @@ namespace ContractManagement.Domains.Services.Contract
         }
 
         private async Task ValidateCatalogSourcesAsync(
-            List<CreateContractItemRequest> items)
+            List<CreateContractItemRequest> items, ContractLanguageMode languageMode)
         {
             foreach (var item in items)
             {
@@ -5462,7 +5445,10 @@ namespace ContractManagement.Domains.Services.Contract
                         .Select(x => new
                         {
                             x.ProductId,
-                            x.ProductCode
+                            x.ProductCode,
+                            x.ProductNameEn,
+                            x.UnitName,
+                            x.UnitNameEn
                         })
                         .ToDictionaryAsync(x => x.ProductId);
 
@@ -5477,6 +5463,10 @@ namespace ContractManagement.Domains.Services.Contract
                 {
                     item.ItemCode = activeProducts[
                         item.SourceProductId!.Value].ProductCode;
+                    item.ItemNameEn = NormalizeOptional(activeProducts[item.SourceProductId.Value].ProductNameEn);
+                    item.UnitName = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                        activeProducts[item.SourceProductId.Value].UnitName, $"Đơn vị của sản phẩm '{item.ItemName}'");
+                    item.UnitNameEn = NormalizeOptional(activeProducts[item.SourceProductId.Value].UnitNameEn);
                 }
             }
 
@@ -5488,16 +5478,16 @@ namespace ContractManagement.Domains.Services.Contract
 
             if (serviceIds.Count > 0)
             {
-                var activeServiceIds =
+                var activeServices =
                     await _dbContext.TblServices
                         .AsNoTracking()
                         .Where(x =>
                             serviceIds.Contains(x.ServiceId) &&
                             x.Status == 1)
-                        .Select(x => x.ServiceId)
-                        .ToListAsync();
+                        .Select(x => new { x.ServiceId, x.ServiceNameEn, x.UnitName, x.UnitNameEn })
+                        .ToDictionaryAsync(x => x.ServiceId);
 
-                if (activeServiceIds.Count != serviceIds.Count)
+                if (activeServices.Count != serviceIds.Count)
                 {
                     throw new InvalidOperationException(
                         "Có Service nguồn không tồn tại hoặc đang inactive.");
@@ -5507,6 +5497,21 @@ namespace ContractManagement.Domains.Services.Contract
                              x => x.SourceServiceId.HasValue))
                 {
                     item.ItemCode = null;
+                    item.ItemNameEn = NormalizeOptional(activeServices[item.SourceServiceId!.Value].ServiceNameEn);
+                    item.UnitName = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                        activeServices[item.SourceServiceId.Value].UnitName, $"Đơn vị của dịch vụ '{item.ItemName}'");
+                    item.UnitNameEn = NormalizeOptional(activeServices[item.SourceServiceId.Value].UnitNameEn);
+                }
+            }
+            if (languageMode == ContractLanguageMode.Bilingual)
+            {
+                foreach (var item in items)
+                {
+                    item.ItemNameEn = ContractManagement.Domains.Policies.Catalog.CatalogEnglishNamePolicy.Require(
+                        item.ItemNameEn, $"Tên tiếng Anh của sản phẩm/dịch vụ '{item.ItemName}' trong danh mục");
+                    if (item.SourceProductId.HasValue || item.SourceServiceId.HasValue)
+                        item.UnitNameEn = ContractManagement.Domains.Policies.Catalog.CatalogUnitPolicy.Require(
+                            item.UnitNameEn, $"Đơn vị tiếng Anh của sản phẩm/dịch vụ '{item.ItemName}' trong danh mục");
                 }
             }
         }
@@ -5950,6 +5955,8 @@ namespace ContractManagement.Domains.Services.Contract
             AddChangedField(fields, "Cho phép đàm phán",
                 current.IsNegotiable,
                 requested.IsNegotiable);
+            AddChangedField(fields, "Loại điều khoản", current.TermKind, (byte)requested.TermKind);
+            AddChangedField(fields, "Chế độ nội dung", current.BilingualContentMode, requested.BilingualContentMode);
             AddChangedField(fields, "Thứ tự", current.DisplayOrder,
                 displayOrder);
 
@@ -6127,6 +6134,9 @@ namespace ContractManagement.Domains.Services.Contract
             TblContract contract,
             UpdateContractDraftRequest request)
         {
+            foreach (var term in request.Terms)
+                BilingualContentPolicy.Validate(term.BilingualContentMode, (ContractLanguageMode)contract.LanguageMode,
+                    term.TermTitleEn, term.TermContent, term.TermContentEn, term.TermCode);
             if (contract.LanguageMode !=
                 (byte)ContractLanguageMode.Bilingual)
             {
@@ -6151,25 +6161,6 @@ namespace ContractManagement.Domains.Services.Contract
                 }
             }
 
-            for (var index = 0;
-                 index < request.Terms.Count;
-                 index++)
-            {
-                var term = request.Terms[index];
-
-                if (string.IsNullOrWhiteSpace(term.TermTitleEn))
-                {
-                    throw new InvalidOperationException(
-                        $"Term '{term.TermCode}' phải có tiêu đề tiếng Anh.");
-                }
-
-                if (!string.IsNullOrWhiteSpace(term.TermContent)
-                    && string.IsNullOrWhiteSpace(term.TermContentEn))
-                {
-                    throw new InvalidOperationException(
-                        $"Term '{term.TermCode}' phải có nội dung tiếng Anh.");
-                }
-            }
         }
 
         private async Task ValidateParentContractForCustomerAsync(
@@ -6399,9 +6390,29 @@ namespace ContractManagement.Domains.Services.Contract
                     "Hợp đồng phải có ít nhất một điều khoản.");
             }
 
-            if (await _dbContext.TblContractPaymentMilestones.AsNoTracking()
-                .AnyAsync(x => x.VersionId == version.VersionId
-                    && x.DueAnchor == (byte)PaymentDueAnchor.ManualDate
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.UnitName))
+                    AddBlocker(blockers, ContractApprovalReadinessCodes.ContractItemUnitRequired,
+                        $"Hạng mục “{item.ItemName}” thiếu đơn vị. Cần nhập trước khi gửi duyệt để có thể bàn giao theo số lượng đã ký.");
+                if (contract.LanguageMode == (byte)ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(item.UnitNameEn))
+                    AddBlocker(blockers, ContractApprovalReadinessCodes.BilingualItemUnitRequired,
+                        $"Hạng mục “{item.ItemName}” thiếu đơn vị tiếng Anh cho hợp đồng song ngữ.");
+            }
+
+            var readinessMilestones = await _dbContext.TblContractPaymentMilestones.AsNoTracking()
+                .Where(x => x.VersionId == version.VersionId).OrderBy(x => x.DisplayOrder).ToListAsync();
+            var paymentTerms = terms.Where(x => x.TermKind == (byte)ContractTermKind.Payment).ToList();
+            if (paymentTerms.Count > 1 ||
+                paymentTerms.Count == 1 && (readinessMilestones.Count == 0 || readinessMilestones.Sum(x => x.PaymentPercent) != 100m) ||
+                readinessMilestones.Any(x => paymentTerms.All(term => term.TermId != x.TermId)) ||
+                readinessMilestones.FirstOrDefault()?.DueAnchor == (byte)PaymentDueAnchor.PreviousMilestonePaid)
+            {
+                AddBlocker(blockers, "PaymentPlanInvalid",
+                    "Điều khoản thanh toán phải có kế hoạch hợp lệ với tổng tỷ lệ đúng 100% trước khi gửi duyệt.");
+            }
+
+            if (readinessMilestones.Any(x => x.DueAnchor == (byte)PaymentDueAnchor.ManualDate
                     && x.AnchorDate == null))
             {
                 AddBlocker(
@@ -6458,6 +6469,59 @@ namespace ContractManagement.Domains.Services.Contract
                         ContractApprovalReadinessCodes
                             .BilingualTermTitleRequired,
                         "Hợp đồng song ngữ có điều khoản thiếu tiêu đề tiếng Anh.");
+                }
+            }
+
+
+            foreach (var term in terms)
+            {
+                try
+                {
+                    BilingualContentPolicy.Validate(term.BilingualContentMode, (ContractLanguageMode)contract.LanguageMode,
+                        term.TermTitleEn, term.TermContent, term.TermContentEn, term.TermCode);
+                }
+                catch (ArgumentException ex) { AddBlocker(blockers, "BilingualContentInvalid", ex.Message); }
+            }
+            var appendixTerms = await (
+                from term in _dbContext.TblContractAppendixTerms.AsNoTracking()
+                join appendix in _dbContext.TblContractAppendices.AsNoTracking()
+                    on term.AppendixId equals appendix.AppendixId
+                where appendix.ContractId == contract.ContractId && appendix.VersionId == version.VersionId
+                select term).ToListAsync();
+            foreach (var term in appendixTerms)
+            {
+                try
+                {
+                    BilingualContentPolicy.Validate(term.BilingualContentMode, (ContractLanguageMode)contract.LanguageMode,
+                        term.TermTitleEn, term.TermContent, term.TermContentEn, term.TermCode, requireBody: true);
+                }
+                catch (ArgumentException ex) { AddBlocker(blockers, "BilingualContentInvalid", ex.Message); }
+            }
+            if (contract.LanguageMode == (byte)ContractLanguageMode.Bilingual &&
+                readinessMilestones.Any(row => string.IsNullOrWhiteSpace(row.TitleEn)
+                    || (!string.IsNullOrWhiteSpace(row.ConditionVi) && string.IsNullOrWhiteSpace(row.ConditionEn))))
+                AddBlocker(blockers, "BilingualPaymentDataRequired", "Đợt thanh toán song ngữ thiếu tên hoặc điều kiện tiếng Anh.");
+            // Only fields actually present in the DOCX introduce translation dependencies.
+            if (!version.IsLocked && contract.CurrentVersionId == version.VersionId)
+            {
+                var englishFields = await _dbContext.TblContractTemplateFields.AsNoTracking()
+                    .Where(x => x.TemplateVersionId == version.TemplateVersionId).ToListAsync();
+                var needsEnglish = englishFields.Any(x => x.PlaceholderKey.EndsWith("_EN")
+                    || x.SourceFieldKey.EndsWith("-en")
+                    || x.PlaceholderKey == "CONTRACT_APPENDICES" && contract.LanguageMode == (byte)ContractLanguageMode.Bilingual);
+                if (needsEnglish)
+                {
+                    var englishCustomer = await _dbContext.TblCustomers.AsNoTracking()
+                        .SingleAsync(x => x.CustomerId == contract.CustomerId);
+                    var englishTenant = await _dbContext.TblTenantLegalProfiles.AsNoTracking().SingleOrDefaultAsync();
+                    var hasAppendices = await _dbContext.TblContractAppendices.AsNoTracking()
+                        .AnyAsync(x => x.ContractId == contract.ContractId && x.VersionId == version.VersionId);
+                    var context = new ContractPlaceholderResolveContext(contract, version, englishCustomer, englishTenant, null, null);
+                    var registry = new ContractPlaceholderSourceRegistry();
+                    foreach (var missing in ContractEnglishDependencies.FindMissing(englishFields,
+                                 (ContractLanguageMode)contract.LanguageMode, hasAppendices, context, registry))
+                        AddBlocker(blockers, missing.Code,
+                            $"Thiếu {missing.Label}. Bổ sung dữ liệu nguồn rồi tạo lại bản xem trước.");
                 }
             }
 

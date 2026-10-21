@@ -18,6 +18,8 @@ public sealed class SoftwareSupplyPlaceholderCatalogResponse
 /// </summary>
 public class AvailableContractTemplateVersionResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateId { get; set; }
 
     public string TemplateCode { get; set; } = string.Empty;
@@ -51,6 +53,7 @@ public sealed class AvailableContractTemplateTermResponse
     public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
     public bool IsNegotiable { get; set; }
     public int DisplayOrder { get; set; }
     public ContractTermKind TermKind { get; set; }
@@ -77,6 +80,8 @@ public class ContractTemplateResponse
 
     public int? CurrentPublishedVersionNo { get; set; }
 
+    public ContractDirection? CurrentPublishedContractDirection { get; set; }
+
     public bool IsActive { get; set; }
 
     public int CreatedEmployeeId { get; set; }
@@ -97,6 +102,8 @@ public sealed class ContractTemplateDetailResponse : ContractTemplateResponse
 
 public sealed class ContractTemplateVersionSummaryResponse
 {
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateVersionId { get; set; }
 
     public int VersionNo { get; set; }
@@ -120,6 +127,9 @@ public sealed class ContractTemplateVersionSummaryResponse
 
 public sealed class ContractTemplateVersionDetailResponse
 {
+    public bool RequiresSections { get; set; }
+    public ContractDirection ContractDirection { get; set; }
+
     public int TemplateVersionId { get; set; }
 
     public int TemplateId { get; set; }
@@ -195,6 +205,7 @@ public sealed class ContractTemplateAppendixTermResponse
     public string? TermTitleEn { get; set; }
     public string? TermContent { get; set; }
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
     public int DisplayOrder { get; set; }
     public int CreatedEmployeeId { get; set; }
     public DateTime CreatedDate { get; set; }
@@ -244,6 +255,7 @@ public sealed class ContractTemplateTermResponse
     public string? TermContent { get; set; }
 
     public string? TermContentEn { get; set; }
+        public byte BilingualContentMode { get; set; } = 1;
 
     public bool IsNegotiable { get; set; }
 

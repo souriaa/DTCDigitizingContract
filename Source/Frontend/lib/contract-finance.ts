@@ -33,6 +33,22 @@ export const roundContractMoney = (
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
+/** Làm tròn từng đợt, cân phần dư ở đợt cuối khi đủ 100%; không phân bổ vượt tổng tiền. */
+export const allocateContractPaymentAmounts = (
+  total: number, rows: ReadonlyArray<{ paymentPercent: number }>, currencyCode: string,
+) => {
+  let allocated = 0;
+  const balanced = Math.round(rows.reduce((sum, row) => sum + row.paymentPercent, 0) * 10000) === 1000000;
+  return rows.map((row, index) => {
+    const requested = balanced && index === rows.length - 1
+      ? roundContractMoney(total - allocated, currencyCode)
+      : roundContractMoney(total * row.paymentPercent / 100, currencyCode);
+    const amount = Math.max(0, Math.min(requested, roundContractMoney(total - allocated, currencyCode)));
+    allocated = roundContractMoney(allocated + amount, currencyCode);
+    return amount;
+  });
+};
+
 export const calculateContractItemAmounts = (
   item: ContractFinanceItem,
   currencyCode: string,

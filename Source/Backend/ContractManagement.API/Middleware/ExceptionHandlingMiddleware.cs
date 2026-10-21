@@ -80,6 +80,24 @@ namespace ContractManagement.Middleware
                 return;
             }
 
+            if (exception is ContractManagement.Domains.Policies.ContractTemplate.PlaceholderOperationException placeholderException)
+            {
+                context.Response.ContentType = "application/json";
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(new AuthorizationErrorResponse(
+                    placeholderException.Code, placeholderException.Message));
+                return;
+            }
+
+            if (exception is ContractTemplatePreviewException previewException)
+            {
+                context.Response.ContentType = "application/json";
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(new AuthorizationErrorResponse(
+                    previewException.FailureCode, previewException.Message));
+                return;
+            }
+
             if (exception is BusinessRuleException businessRuleException)
             {
                 context.Response.ContentType = "application/json";

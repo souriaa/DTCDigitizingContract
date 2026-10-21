@@ -1,6 +1,14 @@
 import axiosClient from "@/lib/axios-interceptor";
 import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
 
+export enum ContractDirection { Sale = 1, Purchase = 2 }
+
+export const getContractDirectionLabel = (direction?: ContractDirection) =>
+  direction === ContractDirection.Sale ? "Bán" : direction === ContractDirection.Purchase ? "Mua" : "Chưa xác định";
+
+export const getContractCounterpartyLabel = (direction: ContractDirection) =>
+  direction === ContractDirection.Purchase ? "Nhà cung cấp" : "Khách hàng";
+
 export enum ContractType {
   SoftwareSupply = 1,
   SoftwareMaintenance = 2,
@@ -210,6 +218,7 @@ export interface UpdateContractItemRequest extends CreateContractItemRequest {
 export interface CreateContractRequest {
   customerId: number;
   responsibleEmployeeId?: number | null;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   parentContractId?: number | null;
@@ -223,6 +232,26 @@ export interface CreateContractRequest {
   terms?: CreateContractTermRequest[] | null;
   paymentMilestoneDates: ContractPaymentMilestoneDateRequest[];
   selectedOptionalTemplateAppendixIds?: number[];
+  appendices?: CreateContractAppendixDraftRequest[];
+}
+
+export interface CreateContractAppendixDraftRequest {
+  sourceTemplateAppendixId?: number | null;
+  appendixCode: string;
+  appendixName: string;
+  appendixNameEn?: string | null;
+  appendixDescription?: string | null;
+  terms: CreateContractAppendixTermDraftRequest[];
+}
+
+export interface CreateContractAppendixTermDraftRequest {
+  sourceTemplateAppendixTermId?: number | null;
+  termCode: string;
+  termTitle: string;
+  termTitleEn?: string | null;
+  termContent?: string | null;
+  termContentEn?: string | null;
+  bilingualContentMode: number;
 }
 
 export interface ContractAppendixTermResponse {
@@ -234,6 +263,7 @@ export interface ContractAppendixTermResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   rowVersion: string;
 }
@@ -268,6 +298,7 @@ export interface CreateContractAppendixTermRequest {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   displayOrder: number;
   versionRowVersion: string;
   appendixRowVersion: string;
@@ -302,19 +333,40 @@ export interface ContractPaymentMilestoneDateRequest {
   anchorDate: string;
 }
 
+export interface ContractPaymentMilestoneDraft {
+  paymentMilestoneId?: number | null;
+  rowVersion?: string | null;
+  sourceTemplatePaymentMilestoneId?: number | null;
+  milestoneCode: string;
+  titleVi: string;
+  titleEn?: string | null;
+  paymentPercent: number;
+  dueAnchor: number;
+  dueOffsetDays: number;
+  dayCountMode: number;
+  conditionVi?: string | null;
+  conditionEn?: string | null;
+  anchorDate?: string | null;
+  displayOrder: number;
+}
+
 export interface CreateContractTermRequest {
   sourceTemplateTermId?: number | null;
-  termKind?: ContractTermKind;
+  termKind: ContractTermKind;
+  paymentMilestones: ContractPaymentMilestoneDraft[];
   termCode: string;
   termTitle: string;
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
 }
 
 export interface UpdateContractTermRequest {
+  termKind: ContractTermKind;
+  paymentMilestones: ContractPaymentMilestoneDraft[];
   termId?: number | null;
   rowVersion?: string | null;
   termCode: string;
@@ -322,11 +374,13 @@ export interface UpdateContractTermRequest {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   isNegotiable: boolean;
   displayOrder: number;
 }
 
 export interface UpdateContractDraftRequest {
+  legalBases?: UpdateContractLegalBasisRequest[];
   rowVersion: string;
   currentVersionId: number;
   currentVersionRowVersion: string;
@@ -338,7 +392,6 @@ export interface UpdateContractDraftRequest {
   currencyCode: string;
   items: UpdateContractItemRequest[];
   terms: UpdateContractTermRequest[];
-  paymentMilestoneDates: ContractPaymentMilestoneDateRequest[];
 }
 
 export interface StartContractNegotiationRequest {
@@ -431,6 +484,7 @@ export interface ContractTermDetailResponse {
   termTitleEn?: string | null;
   termContent?: string | null;
   termContentEn?: string | null;
+  bilingualContentMode: number;
   termKind: ContractTermKind;
   isNegotiable: boolean;
   displayOrder: number;
@@ -496,6 +550,23 @@ export interface ContractVersionHistoryResponse {
   rowVersion: string;
 }
 
+export interface ContractLegalBasisResponse {
+  legalBasisId: number;
+  sourceTemplateLegalBasisId?: number | null;
+  basisCode: string;
+  contentVi: string;
+  contentEn?: string | null;
+  displayOrder: number;
+  rowVersion: string;
+}
+
+export interface UpdateContractLegalBasisRequest {
+  legalBasisId: number;
+  rowVersion: string;
+  contentVi: string;
+  contentEn?: string | null;
+}
+
 export interface ContractVersionDetailResponse {
   versionId: number;
   versionNo: number;
@@ -516,6 +587,7 @@ export interface ContractVersionDetailResponse {
   rowVersion: string;
   items: ContractItemDetailResponse[];
   terms: ContractTermDetailResponse[];
+  legalBases: ContractLegalBasisResponse[];
   paymentMilestones: ContractPaymentMilestoneResponse[];
   comments: ContractNegotiationCommentResponse[];
   appendices: ContractAppendixResponse[];
@@ -573,6 +645,7 @@ export interface ContractDetailResponse {
   contractCode?: string | null;
   contractName: string;
   contractNameEn?: string | null;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   parentContractId?: number | null;
@@ -605,6 +678,7 @@ export interface CreateContractResponse {
   currentVersionId: number;
   versionNo: number;
   customerId: number;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   totalAmount: number;
@@ -692,6 +766,7 @@ export interface CreateContractNegotiationRoundResponse {
 }
 
 export interface ContractFilterRequest {
+  contractDirection?: ContractDirection;
   page?: number;
   pageSize?: number;
   keyword?: string | null;
@@ -704,6 +779,7 @@ export interface ContractListItemResponse {
   contractId: number;
   contractCode?: string | null;
   contractName: string;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   status: ContractStatus;
   customerId: number;
@@ -724,6 +800,7 @@ export interface ContractListItemResponse {
 }
 
 export interface EligibleParentContractFilterRequest {
+  contractDirection: ContractDirection;
   page?: number;
   pageSize?: number;
   keyword?: string | null;
@@ -735,6 +812,7 @@ export interface EligibleParentContractResponse {
   contractId: number;
   contractCode?: string | null;
   contractName: string;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   status: ContractStatus;
   effectiveDate?: string | null;

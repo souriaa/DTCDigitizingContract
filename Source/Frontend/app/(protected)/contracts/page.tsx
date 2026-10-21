@@ -35,8 +35,10 @@ import {
   ContractListItemResponse,
   ContractStatus,
   ContractType,
+  ContractDirection,
   getContractStatusLabel,
   getContractTypeLabel,
+  getContractDirectionLabel,
   statusClasses,
 } from "@/services/contract-api";
 
@@ -133,6 +135,7 @@ export default function ContractListPage() {
   });
   const [searchValue, setSearchValue] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [filterDirection, setFilterDirection] = useState("All");
   const [filterContractType, setFilterContractType] = useState<string>("All");
 
   const fetchContracts = useCallback(async () => {
@@ -142,6 +145,7 @@ export default function ContractListPage() {
         page: pagination.pageIndex + 1,
         pageSize: pagination.pageSize,
         keyword: searchValue || undefined,
+        contractDirection: filterDirection === "All" ? undefined : Number(filterDirection) as ContractDirection,
         status:
           filterStatus !== "All"
             ? (Number(filterStatus) as ContractStatus)
@@ -174,6 +178,7 @@ export default function ContractListPage() {
     searchValue,
     filterStatus,
     filterContractType,
+    filterDirection,
   ]);
 
   useEffect(() => {
@@ -243,14 +248,14 @@ export default function ContractListPage() {
               {row.original.contractName}
             </p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              {getContractTypeLabel(row.original.contractType)}
+              {getContractDirectionLabel(row.original.contractDirection)} · {getContractTypeLabel(row.original.contractType)}
             </p>
           </div>
         ),
       },
       {
         accessorKey: "customerName",
-        header: "Khách hàng",
+        header: "Đối tác",
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
@@ -396,6 +401,7 @@ export default function ContractListPage() {
 
   const filters = (
     <>
+      <SelectFilter value={filterDirection} onChange={(value) => { setFilterDirection(value); setPagination((prev) => ({ ...prev, pageIndex: 0 })); }} options={[{ value: "All", label: "Tất cả Mua/Bán" }, { value: String(ContractDirection.Sale), label: "Bán" }, { value: String(ContractDirection.Purchase), label: "Mua" }]} placeholder="Chiều giao dịch" />
       <SelectFilter
         value={filterStatus}
         onChange={(val) => {

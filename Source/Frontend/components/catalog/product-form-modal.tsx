@@ -32,6 +32,7 @@ import {
   UpdateProductRequest,
 } from "@/services/catalog/products-api";
 import { categoryApi, CategoryResponse } from "@/services/catalog/category-api";
+import { CatalogUnitFields } from "./catalog-unit-fields";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -62,6 +63,9 @@ export function ProductFormModal({
     null,
   );
   const [productName, setProductName] = useState("");
+  const [productNameEn, setProductNameEn] = useState("");
+  const [unitName, setUnitName] = useState("");
+  const [unitNameEn, setUnitNameEn] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productOrder, setProductOrder] = useState("1");
@@ -169,6 +173,9 @@ export function ProductFormModal({
       if (item) {
         setProductCode(item.productCode || "");
         setProductName(item.productName || "");
+        setProductNameEn(item.productNameEn || "");
+        setUnitName(item.unitName ?? "");
+        setUnitNameEn(item.unitNameEn ?? "");
         setCategoryId(
           item.categoryId !== undefined && item.categoryId !== null
             ? String(item.categoryId)
@@ -202,6 +209,9 @@ export function ProductFormModal({
       } else {
         setProductCode("");
         setProductName("");
+        setProductNameEn("");
+        setUnitName("");
+        setUnitNameEn("");
         setCategoryId(initialCategoryId ? String(initialCategoryId) : "");
         setProductPrice("");
         setProductOrder("1");
@@ -228,9 +238,22 @@ export function ProductFormModal({
     if (!productName.trim()) {
       newErrors.productName = "Vui lòng nhập tên sản phẩm";
     }
+    if (!productNameEn.trim()) {
+      newErrors.productNameEn = "Vui lòng nhập tên sản phẩm tiếng Anh";
+    } else if (productNameEn.trim().length > 500) {
+      newErrors.productNameEn =
+        "Tên sản phẩm tiếng Anh không được vượt quá 500 ký tự";
+    }
     if (productPrice && isNaN(Number(productPrice))) {
       newErrors.productPrice = "Đơn giá phải là số hợp lệ";
     }
+    if (!unitName.trim()) newErrors.unitName = "Vui lòng nhập đơn vị";
+    else if (unitName.trim().length > 100)
+      newErrors.unitName = "Đơn vị tối đa 100 ký tự";
+    if (!unitNameEn.trim())
+      newErrors.unitNameEn = "Vui lòng nhập đơn vị tiếng Anh";
+    else if (unitNameEn.trim().length > 100)
+      newErrors.unitNameEn = "Đơn vị tiếng Anh tối đa 100 ký tự";
     if (!categoryId) {
       newErrors.categoryId = "Vui lòng chọn danh mục sản phẩm";
     } else if (isLoadingCategories || categoriesError) {
@@ -248,6 +271,9 @@ export function ProductFormModal({
     if (
       newErrors.productCode ||
       newErrors.productName ||
+      newErrors.productNameEn ||
+      newErrors.unitName ||
+      newErrors.unitNameEn ||
       newErrors.productPrice ||
       newErrors.categoryId ||
       newErrors.langId
@@ -273,6 +299,9 @@ export function ProductFormModal({
       const commonPayload = {
         productCode: productCode.trim() || null,
         productName: productName.trim(),
+        productNameEn: productNameEn.trim(),
+        unitName: unitName.trim(),
+        unitNameEn: unitNameEn.trim(),
         categoryId: categoryIdVal,
         productShortDesc: productShortDesc.trim() || null,
         productDetails: productDetails.trim() || null,
@@ -298,7 +327,16 @@ export function ProductFormModal({
       }
       onSuccess(
         createdProduct ??
-          (item ? { ...item, categoryId: categoryIdVal } : undefined),
+          (item
+            ? {
+                ...item,
+                productName: commonPayload.productName,
+                productNameEn: commonPayload.productNameEn,
+                unitName: commonPayload.unitName,
+                unitNameEn: commonPayload.unitNameEn,
+                categoryId: categoryIdVal,
+              }
+            : undefined),
       );
       onClose();
     } catch (error: unknown) {
@@ -439,6 +477,41 @@ export function ProductFormModal({
               )}
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="productNameEn">
+                Tên sản phẩm tiếng Anh{" "}
+                {!viewOnly && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                id="productNameEn"
+                value={productNameEn}
+                onChange={(event) => setProductNameEn(event.target.value)}
+                disabled={viewOnly}
+                maxLength={500}
+                aria-invalid={!!errors.productNameEn}
+                placeholder="Nhập tên sản phẩm tiếng Anh..."
+              />
+              {errors.productNameEn && (
+                <p className="text-xs text-destructive">
+                  {errors.productNameEn}
+                </p>
+              )}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CatalogUnitFields
+                idPrefix="product"
+                unitName={unitName}
+                unitNameEn={unitNameEn}
+                disabled={viewOnly}
+                errors={errors}
+                onChange={(field, value) =>
+                  field === "unitName"
+                    ? setUnitName(value)
+                    : setUnitNameEn(value)
+                }
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="productPrice">Đơn giá (VNĐ)</Label>
@@ -520,15 +593,19 @@ export function ProductFormModal({
                           ? "Không thể tải danh mục."
                           : "Chưa có danh mục. Hãy tạo danh mục trước khi lưu sản phẩm."}
                       </p>
-                      <Button asChild variant="link" className="h-auto p-0 text-xs">
-                      <a
-                        href="/catalog/products?tab=products"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline"
+                      <Button
+                        asChild
+                        variant="link"
+                        className="h-auto p-0 text-xs"
                       >
-                        Mở quản lý danh mục
-                      </a>
+                        <a
+                          href="/catalog/products?tab=products"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          Mở quản lý danh mục
+                        </a>
                       </Button>
                       <Button
                         type="button"

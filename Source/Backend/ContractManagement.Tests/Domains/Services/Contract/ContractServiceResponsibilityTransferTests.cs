@@ -23,7 +23,7 @@ using static ContractManagement.Tests.AuditValueTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public class ContractServiceResponsibilityTransferTests
+public partial class ContractServiceResponsibilityTransferTests
 {
     private const int ContractId = 11;
     private const int VersionId = 12;
@@ -38,6 +38,45 @@ public class ContractServiceResponsibilityTransferTests
     private const int TenantId = 601;
     private const string CorrelationId =
         "slice-03-transfer-correlation";
+
+    [Fact]
+    public async Task UpdateDraft_PersistsAndReturnsSignedItemUnits()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        var service = CreateService(context);
+        var request = CreateUpdateRequest();
+        request.Items[0].UnitName = " Giấy phép ";
+        request.Items[0].UnitNameEn = " License ";
+        await service.UpdateDraftAsync(ContractId, request, CurrentResponsibleEmployeeId);
+        context.ChangeTracker.Clear();
+        var detail = await service.GetDetailAsync(ContractId, CurrentResponsibleEmployeeId);
+        var item = Assert.Single(detail.CurrentVersion.Items);
+        Assert.Equal("Giấy phép", item.UnitName);
+        Assert.Equal("License", item.UnitNameEn);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_ExistingCatalogItemKeepsUnitSnapshotDespiteClientOrCatalogChanges()
+    {
+        await using var context = CreateContext();
+        await SeedContractAsync(context);
+        context.TblProducts.Add(new() { ProductId = 501, ProductName = "Sản phẩm", ProductNameEn = "Product",
+            UnitName = "Tháng", UnitNameEn = "Month", Status = 1 });
+        context.TblContractItems.Add(new() { ContractItemId = 41, ContractId = ContractId, VersionId = VersionId,
+            ItemType = (byte)ContractItemType.Product, SourceProductId = 501, ItemName = "Sản phẩm kiểm thử",
+            UnitName = "Giấy phép", UnitNameEn = "License", Quantity = 1, UnitPrice = 100,
+            LineSubtotal = 100, LineTotal = 100, DisplayOrder = 1, RowVersion = InitialRowVersion() });
+        await context.SaveChangesAsync(); context.ChangeTracker.Clear();
+        var request = CreateUpdateRequest();
+        request.Items[0].ContractItemId = 41; request.Items[0].SourceProductId = 501;
+        request.Items[0].RowVersion = Convert.ToBase64String(InitialRowVersion());
+        request.Items[0].UnitName = "Giả mạo"; request.Items[0].UnitNameEn = "Forged";
+        await CreateService(context).UpdateDraftAsync(ContractId, request, CurrentResponsibleEmployeeId);
+        context.ChangeTracker.Clear();
+        var item = Assert.Single(context.TblContractItems);
+        Assert.Equal("Giấy phép", item.UnitName); Assert.Equal("License", item.UnitNameEn);
+    }
 
     [Fact]
     public async Task CurrentResponsible_ShouldTransferSuccessfully()
@@ -807,6 +846,7 @@ public class ContractServiceResponsibilityTransferTests
             VersionId = VersionId,
             ItemType = (byte)ContractItemType.Product,
             ItemName = "Sản phẩm gửi duyệt",
+            UnitName = "Giấy phép",
             Quantity = 1m,
             UnitPrice = 100m,
             LineSubtotal = 100m,
@@ -951,6 +991,7 @@ public class ContractServiceResponsibilityTransferTests
 
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = CustomerId,
             EmployeeId = responsibleEmployeeId,

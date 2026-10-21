@@ -5,6 +5,20 @@ namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 
 public partial class TblCustomer
 {
+        public string? CustomerCompanyEn { get; set; }
+
+        public string? CustomerAddressEn { get; set; }
+
+        public string? CustomerBankNameEn { get; set; }
+
+        public string? CustomerCityEn { get; set; }
+
+        public string? CustomerCountryEn { get; set; }
+
+        public string? CustomerContactPersonTitleEn { get; set; }
+
+        public string? CustomerRepresentativeTitleEn { get; set; }
+
     public int CustomerId { get; set; }
 
     public string? CustomerCode { get; set; }

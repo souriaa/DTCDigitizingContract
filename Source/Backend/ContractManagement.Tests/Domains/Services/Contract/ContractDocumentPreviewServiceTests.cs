@@ -19,8 +19,25 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractDocumentPreviewServiceTests
+public sealed partial class ContractDocumentPreviewServiceTests
 {
+    [Fact]
+    public async Task Render_UsesEditedContractLegalBasesForDocxAndPdf()
+    {
+        await using var db = CreateContext();
+        var source = CreateSourceDocument();
+        await SeedAsync(db, source);
+        var basis = await db.TblContractLegalBases.SingleAsync();
+        basis.ContentVi = RichText("Căn cứ đã sửa trong hợp đồng");
+        await db.SaveChangesAsync();
+        var pdf = new CapturingPdfRenderer();
+        var result = await CreateService(db, source, pdf).RenderAsync(ContractId, OwnerId);
+        Assert.Equal(basis.ContentVi, Assert.Single(result.Snapshot.LegalBases!).ContentVi);
+        using var document = WordprocessingDocument.Open(new MemoryStream(result.DocxContent), false);
+        Assert.Contains("Căn cứ đã sửa trong hợp đồng", document.MainDocumentPart!.Document!.Body!.InnerText);
+        Assert.Equal(result.DocxContent, pdf.InputDocx);
+    }
+
     [Fact]
     public async Task CustomScalar_RendersFromFrozenValues_AndIsIncludedInSubmissionHashPayload()
     {
@@ -40,7 +57,7 @@ public sealed class ContractDocumentPreviewServiceTests
         context.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = TemplateVersionId, PlaceholderKey = "CUSTOM_CONTACT", FieldLabel = "Contact",
-            SourceFieldKey = "customer.contact-name", DataSource = "Khách hàng / Người liên hệ", IsSystem = false,
+            SourceFieldKey = "counterparty.contact-name", DataSource = "Khách hàng / Người liên hệ", IsSystem = false,
             DataKind = 1, Multiplicity = 2
         });
         await context.SaveChangesAsync();
@@ -56,7 +73,7 @@ public sealed class ContractDocumentPreviewServiceTests
         Assert.Equal("Frozen contact",
             submission.Snapshot.PlaceholderValues!["CUSTOM_CONTACT"]);
         Assert.DoesNotContain("Changed later",
-            submission.Snapshot.PlaceholderValues.Values);
+            submission.Snapshot.PlaceholderValues["CUSTOM_CONTACT"]);
         using var submitted = WordprocessingDocument.Open(new MemoryStream(submission.DocxContent), false);
         Assert.Contains("Frozen contact", submitted.MainDocumentPart!.Document!.InnerText);
         Assert.DoesNotContain("{{", submitted.MainDocumentPart!.Document!.InnerText);
@@ -106,12 +123,9 @@ public sealed class ContractDocumentPreviewServiceTests
         var customerSignature = document.MainDocumentPart.Document
             .Descendants<W.Paragraph>()
             .Single(paragraph => paragraph.InnerText.StartsWith(
-                "ĐẠI DIỆN BÊN KHÁCH HÀNG",
+                "CUSTOMER REPRESENTATIVE / ĐẠI DIỆN BÊN KHÁCH HÀNG",
                 StringComparison.Ordinal));
-        Assert.Contains("Lê Đầu mối", customerSignature.InnerText);
-        Assert.Contains("Quản lý dự án", customerSignature.InnerText);
-        Assert.DoesNotContain("Trần Customer", customerSignature.InnerText);
-        Assert.DoesNotContain("Giám đốc", customerSignature.InnerText);
+        Assert.Equal("CUSTOMER REPRESENTATIVE / ĐẠI DIỆN BÊN KHÁCH HÀNG", customerSignature.InnerText);
         Assert.Contains("02473000003", text);
         Assert.Contains("02473000004", text);
         Assert.Contains("012345678901", text);
@@ -129,7 +143,7 @@ public sealed class ContractDocumentPreviewServiceTests
             .RunProperties?.Bold?.Val?.Value);
         Assert.Contains(
             document.MainDocumentPart.Document.Descendants<W.Paragraph>(),
-            paragraph => paragraph.InnerText == "1.080");
+            paragraph => paragraph.InnerText == "1,080.00");
         Assert.Contains("USD", text);
         Assert.DoesNotContain("{{", text);
         Assert.DoesNotContain("DỮ LIỆU MẪU", text);
@@ -158,12 +172,25 @@ public sealed class ContractDocumentPreviewServiceTests
         Assert.Equal(fileCountBefore, await context.TblFileStorages.CountAsync());
     }
 
-    [Fact]
-    public async Task PackagePreview_RendersAppendixIntoSameDocxPassedToPdfConverter()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PackagePreview_RendersAppendixIntoSameDocxPassedToPdfConverter(bool hasCustomerEnglish)
     {
         await using var context = CreateContext();
         var source = CreateSourceDocument();
         await SeedAsync(context, source);
+        if (!hasCustomerEnglish)
+        {
+            var customer = await context.TblCustomers.SingleAsync();
+            customer.CustomerCompanyEn = null;
+            customer.CustomerAddressEn = null;
+            customer.CustomerBankNameEn = null;
+            customer.CustomerCityEn = null;
+            customer.CustomerCountryEn = null;
+            customer.CustomerContactPersonTitleEn = null;
+            customer.CustomerRepresentativeTitleEn = null;
+        }
         context.TblContractAppendices.Add(new TblContractAppendix
         {
             AppendixId = 8501,
@@ -208,6 +235,14 @@ public sealed class ContractDocumentPreviewServiceTests
         Assert.Contains("PHỤ LỤC PL-01: Phạm vi triển khai", text);
         Assert.Contains("Nội dung package phụ lục", text);
         Assert.DoesNotContain("ký ngày", text, StringComparison.OrdinalIgnoreCase);
+        if (!hasCustomerEnglish)
+        {
+            Assert.Null(submission.Snapshot.Customer.LegalNameEn);
+            var englishReference = Assert.Single(document.MainDocumentPart.Document.Body!.Descendants<W.Paragraph>(),
+                paragraph => paragraph.InnerText.StartsWith("Pursuant to Contract No.", StringComparison.Ordinal));
+            Assert.Contains("and  regarding", englishReference.InnerText);
+            Assert.DoesNotContain("CÔNG TY KHÁCH HÀNG", englishReference.InnerText);
+        }
     }
 
     [Fact]
@@ -315,6 +350,7 @@ public sealed class ContractDocumentPreviewServiceTests
     {
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 8201,
             EmployeeId = OwnerId,
@@ -357,6 +393,12 @@ public sealed class ContractDocumentPreviewServiceTests
             CustomerId = 8201,
             CustomerCode = "CUS-8B",
             CustomerFullName = "Nguyễn Người liên hệ",
+            CustomerCompanyEn = "CUSTOMER COMPANY",
+            CustomerAddressEn = "Hanoi",
+            CustomerBankNameEn = "Customer Bank",
+            CustomerCityEn = "Hanoi",
+            CustomerCountryEn = "Vietnam",
+            CustomerContactPersonTitleEn = "Project Manager",
             CustomerCompany = "CÔNG TY KHÁCH HÀNG",
             CustomerTaxCode = "0101234567",
             CustomerAddress = "Hà Nội",
@@ -375,6 +417,10 @@ public sealed class ContractDocumentPreviewServiceTests
         context.TblTenantLegalProfiles.Add(new TblTenantLegalProfile
         {
             TenantLegalProfileId = 1,
+            LegalEntityNameEn = "DTC COMPANY",
+            AddressEn = "Ho Chi Minh City",
+            RepresentativeTitleEn = "General Director",
+            BankNameEn = "DTC Bank",
             LegalEntityName = "CÔNG TY DTC",
             TaxCode = "0107654321",
             Address = "TP. Hồ Chí Minh",
@@ -457,6 +503,7 @@ public sealed class ContractDocumentPreviewServiceTests
         });
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = TemplateVersionId,
             TemplateId = TemplateId,
             VersionNo = 1,
