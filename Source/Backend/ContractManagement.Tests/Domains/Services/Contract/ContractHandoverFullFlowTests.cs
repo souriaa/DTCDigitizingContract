@@ -57,7 +57,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             RowVersion=nt.RowVersion,Items=options.Items.Select(x=>new ContractManagement.API.Domains.DTOs.Requests.Contract.AcceptanceHandoverScopeInput(x.HandoverLineId,x.AvailableQuantity)).ToList()},EmployeeId);
         nt=await acceptance.FinalizeAsync(ContractId,nt.AcceptanceRecordId,new(){RowVersion=nt.RowVersion},EmployeeId);
         Assert.False((await completion.GetReadinessAsync(ContractId,EmployeeId)).AcceptanceCompleted);
-        await acceptance.UploadSignedEvidenceAsync(ContractId,nt.AcceptanceRecordId,new(){RowVersion=nt.RowVersion,File=FormFile("nt-signed.pdf","application/pdf","%PDF-accept")},EmployeeId);
+        await acceptance.UploadSignedEvidenceAsync(ContractId,nt.AcceptanceRecordId,new(){RowVersion=nt.RowVersion,SignDate=new DateTime(2026,9,20),File=FormFile("nt-signed.pdf","application/pdf","%PDF-accept")},EmployeeId);
         Assert.True((await completion.GetReadinessAsync(ContractId,EmployeeId)).AcceptanceCompleted);
         Assert.All(await db.TblContractPaymentMilestones.ToListAsync(),m=>Assert.NotNull(m.AnchorDate));
         foreach(var milestone in await db.TblContractPaymentMilestones.ToListAsync())

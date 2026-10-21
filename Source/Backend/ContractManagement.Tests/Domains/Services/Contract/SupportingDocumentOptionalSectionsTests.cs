@@ -22,7 +22,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var finalized = await service.FinalizeAsync(ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
         await service.UploadSignedEvidenceAsync(ContractId, draft.AcceptanceRecordId,
-            new() { RowVersion = finalized.RowVersion, File = FormFile("signed.pdf", "application/pdf", "%PDF-proof") }, EmployeeId);
+            new() { RowVersion = finalized.RowVersion, SignDate = new DateTime(2026, 9, 20), File = FormFile("signed.pdf", "application/pdf", "%PDF-proof") }, EmployeeId);
         Assert.Equal(AcceptanceRecordStatus.Signed, (await service.GetAsync(ContractId, draft.AcceptanceRecordId, EmployeeId)).Status);
     }
 

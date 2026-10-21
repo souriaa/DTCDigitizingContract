@@ -201,6 +201,7 @@ internal static class AppendixAcceptanceModelConfiguration
 
         modelBuilder.Entity<TblContractAcceptanceEvidence>(entity =>
         {
+            entity.Property(x => x.SignDate).HasColumnType("date");
             entity.HasIndex(x => x.AcceptanceRecordId).IsUnique();
             entity.HasOne<TblContractAcceptanceRecord>().WithMany().HasForeignKey(x => x.AcceptanceRecordId).OnDelete(DeleteBehavior.Restrict);
         });

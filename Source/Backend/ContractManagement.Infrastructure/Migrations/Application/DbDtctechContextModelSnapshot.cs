@@ -421,6 +421,9 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<DateTime?>("SignDate")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
 

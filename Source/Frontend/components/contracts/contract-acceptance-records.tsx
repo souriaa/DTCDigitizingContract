@@ -63,7 +63,7 @@ import {
   ContractTermCard,
   type ContractTermEditableField,
 } from "@/components/contracts/contract-term-card";
-import { getApiErrorMessage } from "@/lib/api-error";
+import { getApiErrorMessage, getBlobApiErrorMessage } from "@/lib/api-error";
 import {
   ContractLanguageMode,
   ContractDirection,
@@ -202,6 +202,24 @@ export function ContractAcceptanceRecords({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [signedFile, setSignedFile] = useState<File>();
+  const [signDate, setSignDate] = useState("");
+  // Business dates use UTC+7; send the date-only string unchanged, not toISOString() on a picker date.
+  const signingToday = new Date(Date.now() + 7 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const signDateError = !signDate
+    ? "Vui lòng chọn ngày ký thực tế."
+    : selected && signDate < selected.acceptanceDate.slice(0, 10)
+      ? "Ngày ký thực tế không được trước ngày nghiệm thu."
+      : signDate > signingToday
+        ? "Ngày ký thực tế không được nằm trong tương lai."
+        : null;
+
+  useEffect(() => {
+    setSignedFile(undefined);
+    setSignDate("");
+    setSignedUploadConfirmOpen(false);
+  }, [selected?.acceptanceRecordId]);
   const {
     page: recordPage,
     pageSize: recordPageSize,
@@ -559,13 +577,22 @@ export function ContractAcceptanceRecords({
     });
   };
 
-  const openDocument = async (format: "docx" | "pdf", official: boolean) => {
-    if (!selected) return;
+  const openDocument = async (format: "docx" | "pdf" | "evidence", official: boolean) => {
+    if (!selected || busy) return;
+    if (format === "evidence" && !selected.signedEvidence) return;
+    const isPdf = format === "pdf" || (format === "evidence" && selected.signedEvidence?.fileType.toLowerCase() === "pdf");
     const previewWindow =
-      format === "pdf" ? window.open("about:blank", "_blank") : null;
+      isPdf ? window.open("about:blank", "_blank") : null;
+    if (isPdf && !previewWindow) {
+      toast.error("Vui lòng cho phép mở cửa sổ bật lên để xem PDF.");
+      return;
+    }
+    if (previewWindow) previewWindow.opener = null;
     try {
       setBusy(true);
-      const blob = official
+      const blob = format === "evidence"
+        ? await contractAcceptanceApi.downloadSignedEvidence(selected.signedEvidence!.fileId)
+        : official
         ? await contractAcceptanceApi.artifact(
             contract.contractId,
             selected.acceptanceRecordId,
@@ -577,18 +604,22 @@ export function ContractAcceptanceRecords({
             format,
           );
       const source = blob instanceof Blob ? blob : new Blob([blob]);
-      const objectUrl = URL.createObjectURL(source);
+      const objectUrl = URL.createObjectURL(
+        isPdf && source.type !== "application/pdf" ? new Blob([source], { type: "application/pdf" }) : source,
+      );
       if (previewWindow) previewWindow.location.replace(objectUrl);
       else {
         const anchor = document.createElement("a");
         anchor.href = objectUrl;
-        anchor.download = `${selected.acceptanceCode}.${format}`;
+        anchor.download = format === "evidence"
+          ? selected.signedEvidence!.fileName
+          : `${selected.acceptanceCode}.${format}`;
         anchor.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       previewWindow?.close();
-      toast.error(getApiErrorMessage(error, "Không thể mở tài liệu."));
+      toast.error(await getBlobApiErrorMessage(error, "Không thể mở tài liệu."));
     } finally {
       setBusy(false);
     }
@@ -605,6 +636,10 @@ export function ContractAcceptanceRecords({
     }
 
     let uploaded = false;
+    if (signDateError) {
+      toast.error(signDateError);
+      return;
+    }
     try {
       setBusy(true);
       const evidence = await contractAcceptanceApi.uploadSignedEvidence(
@@ -612,6 +647,7 @@ export function ContractAcceptanceRecords({
         selected.acceptanceRecordId,
         signedFile,
         selected.rowVersion,
+        signDate,
       );
       uploaded = true;
       setSelected((current) =>
@@ -632,6 +668,7 @@ export function ContractAcceptanceRecords({
       );
       setSignedUploadConfirmOpen(false);
       setSignedFile(undefined);
+      setSignDate("");
       toast.success("Đã lưu bản ký biên bản nghiệm thu.");
       const [record, nextRecords] = await Promise.all([
         contractAcceptanceApi.get(
@@ -1557,7 +1594,18 @@ export function ContractAcceptanceRecords({
                 </div>
                 <div className="space-y-2">
                   {selected.references.map((reference) => (
-                    <p key={reference.acceptanceReferenceId} className="italic">
+                    <p
+                      key={
+                        reference.referenceType ===
+                        AcceptanceReferenceType.Handover
+                          ? `handover:${reference.handoverRecordId}`
+                          : reference.referenceType ===
+                              AcceptanceReferenceType.Appendix
+                            ? `appendix:${reference.appendixId}`
+                            : `contract:${selected.contractVersionId}`
+                      }
+                      className="italic"
+                    >
                       {reference.textVi}
                     </p>
                   ))}
@@ -1618,7 +1666,7 @@ export function ContractAcceptanceRecords({
                   <Label htmlFor="acceptance-signed-file">
                     Tệp bản ký <span className="text-red-500">*</span>
                   </Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div>
                     <Input
                       id="acceptance-signed-file"
                       type="file"
@@ -1630,11 +1678,36 @@ export function ContractAcceptanceRecords({
                       }
                       className="bg-background"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      Ngày ký thực tế <span className="text-red-500">*</span>
+                    </Label>
+                    <DateFilter
+                      date={parseDateString(signDate)}
+                      disabled={busy}
+                      onChange={(date) =>
+                        setSignDate(date ? format(date, "yyyy-MM-dd") : "")
+                      }
+                      limit={{
+                        from: parseDateString(selected.acceptanceDate),
+                        to: parseDateString(signingToday),
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ngày hai bên ký đủ, không trước ngày nghiệm thu. Các đợt
+                      thanh toán gắn với nghiệm thu sẽ tính hạn từ ngày này,
+                      không phải ngày tải tệp lên.
+                    </p>
+                  </div>
+                  <div className="flex justify-end border-t border-amber-200 pt-3 dark:border-amber-900/50">
                     <Button
-                      disabled={!signedFile || busy}
+                      type="button"
+                      className="w-full sm:w-auto"
+                      disabled={!signedFile || !!signDateError || busy}
                       onClick={() => setSignedUploadConfirmOpen(true)}
                     >
-                      <FileSignature className="mr-2 size-4" /> Tải bản ký
+                      <FileSignature className="size-4" /> Tải bản ký
                     </Button>
                   </div>
                 </div>
@@ -1643,11 +1716,30 @@ export function ContractAcceptanceRecords({
               selected.signedEvidence && (
                 <Alert>
                   <CheckCircle2 className="size-4" color="green" />
-                  <AlertDescription>
-                    Đã ký{" "}
-                    {new Date(
-                      selected.signedEvidence.uploadedAt,
-                    ).toLocaleString("vi-VN")}
+                  <AlertDescription className="space-y-1">
+                    <p>
+                      Đã ký · Ngày ký:{" "}
+                      {selected.signedEvidence.signDate
+                        ? parseDateString(
+                            selected.signedEvidence.signDate,
+                          )?.toLocaleDateString("vi-VN")
+                        : "Chưa có dữ liệu"}
+                    </p>
+                    <p>
+                      Tải bởi{" "}
+                      {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
+                      {new Date(
+                        selected.signedEvidence.uploadedAt,
+                      ).toLocaleString("vi-VN")}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      disabled={busy}
+                      onClick={() => void openDocument("evidence", true)}
+                    >
+                      {selected.signedEvidence.fileName}
+                    </Button>
                   </AlertDescription>
                 </Alert>
               )}
@@ -1943,7 +2035,12 @@ export function ContractAcceptanceRecords({
           <>
             Tải tệp <strong>{signedFile?.name}</strong> làm bản ký chính thức
             của biên bản {selected?.acceptanceCode}. Sau khi lưu, biên bản sẽ
-            chuyển sang Đã ký và được tính vào tiến độ nghiệm thu.
+            chuyển sang Đã ký với ngày ký thực tế{" "}
+            <strong>
+              {parseDateString(signDate)?.toLocaleDateString("vi-VN")}
+            </strong>{" "}
+            và được tính vào tiến độ nghiệm thu. Các đợt thanh toán gắn với
+            nghiệm thu sẽ tính hạn từ ngày này.
           </>
         }
         confirmText="Tải bản ký và đánh dấu Đã ký"

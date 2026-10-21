@@ -57,7 +57,7 @@ public sealed class ContractAuditWriter : IContractAuditWriter
             [ContractAuditActionTypes.SignedEvidenceSuperseded] =
                 SignedEvidenceFields(),
             [ContractAuditActionTypes.AcceptanceEvidenceUploaded] =
-                Fields("AcceptanceEvidenceId", "FileId", "FileType", "Sha256", "CurrentVersionId"),
+                Fields("AcceptanceEvidenceId", "FileId", "FileType", "Sha256", "CurrentVersionId", "SignDate"),
             [ContractAuditActionTypes.AcceptanceRecordCreated] = AcceptanceFields(),
             [ContractAuditActionTypes.AcceptanceRecordUpdated] = AcceptanceFields(),
             [ContractAuditActionTypes.AcceptanceRecordFinalized] = AcceptanceFields(),

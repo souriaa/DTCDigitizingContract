@@ -14,6 +14,7 @@ public sealed class ContractAcceptanceEvidenceResponse
     public string ContentType { get; set; } = string.Empty;
     public long FileSize { get; set; }
     public string Sha256 { get; set; } = string.Empty;
+    public DateTime? SignDate { get; set; }
     public int UploadedByEmployeeId { get; set; }
     public string? UploadedByEmployeeName { get; set; }
     public DateTime UploadedAt { get; set; }

@@ -807,7 +807,7 @@ public sealed class ContractCompletionService : IContractCompletionService
         return new() { AcceptanceEvidenceId = id, ContractId = row.a.ContractId, VersionId = row.a.ContractVersionId, VersionNo = row.VersionNo,
             FileId = row.f.FileId, FileName = row.f.FileName, FileType = row.f.FileType ?? "", ContentType = row.f.ContentType ?? "", FileSize = row.f.FileSize ?? 0,
             Sha256 = row.f.Sha256 ?? "", UploadedByEmployeeId = row.e.UploadedByEmployeeId, UploadedByEmployeeName = row.EmployeeFullName,
-            UploadedAt = row.e.UploadedAt, RowVersion = Encode(row.e.RowVersion) };
+            SignDate = row.e.SignDate, UploadedAt = row.e.UploadedAt, RowVersion = Encode(row.e.RowVersion) };
     }
 
     private async Task<ContractPaymentResponse> LoadPaymentAsync(int id, CancellationToken ct)

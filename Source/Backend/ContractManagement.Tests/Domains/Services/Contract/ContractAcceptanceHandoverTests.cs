@@ -22,7 +22,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             new() { RowVersion = draft.RowVersion, Items = [new(10200,1), new(10201,1)] }, EmployeeId);
         var finalized = await service.FinalizeAsync(ContractId, draft.AcceptanceRecordId, new() { RowVersion = draft.RowVersion }, EmployeeId);
         await service.UploadSignedEvidenceAsync(ContractId, draft.AcceptanceRecordId,
-            new() { RowVersion = finalized.RowVersion, File = FormFile("signed.pdf", "application/pdf", "%PDF-signed") }, EmployeeId);
+            new() { RowVersion = finalized.RowVersion, SignDate = new DateTime(2026, 9, 20), File = FormFile("signed.pdf", "application/pdf", "%PDF-signed") }, EmployeeId);
         request.AcceptanceCode = "NT-AFTER";
         Assert.Equal("AcceptanceAlreadyCompleted", (await Assert.ThrowsAsync<BusinessRuleException>(() => service.CreateAsync(ContractId, request, EmployeeId))).Code);
     }
@@ -198,18 +198,20 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var first=await service.CreateAsync(ContractId,CreateRequest(),EmployeeId);
         first=await SelectFixtureHandoverScopeAsync(db,storage,service,first,10200,0.25m);
         var final1=await service.FinalizeAsync(ContractId,first.AcceptanceRecordId,new(){RowVersion=first.RowVersion},EmployeeId);
-        await service.UploadSignedEvidenceAsync(ContractId,first.AcceptanceRecordId,new(){RowVersion=final1.RowVersion,File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
+        await service.UploadSignedEvidenceAsync(ContractId,first.AcceptanceRecordId,new(){RowVersion=final1.RowVersion,SignDate=new DateTime(2026,9,20),File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
         var request=CreateRequest();request.AcceptanceCode="NT-2";request.PaymentMilestoneIds=[MilestoneId+1];
         var second=await service.CreateAsync(ContractId,request,EmployeeId);
         second=await SelectFixtureHandoverScopeAsync(db,storage,service,second,10200,0.75m);
         var final2=await service.FinalizeAsync(ContractId,second.AcceptanceRecordId,new(){RowVersion=second.RowVersion},EmployeeId);
-        await service.UploadSignedEvidenceAsync(ContractId,second.AcceptanceRecordId,new(){RowVersion=final2.RowVersion,File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
+        await service.UploadSignedEvidenceAsync(ContractId,second.AcceptanceRecordId,new(){RowVersion=final2.RowVersion,SignDate=new DateTime(2026,9,21),File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
         request.AcceptanceCode="NT-3";request.PaymentMilestoneIds=[];
         var third=await service.CreateAsync(ContractId,request,EmployeeId);
         third=await SelectFixtureHandoverScopeAsync(db,storage,service,third,10201,1);
         Assert.Empty(third.Milestones);
         var final3=await service.FinalizeAsync(ContractId,third.AcceptanceRecordId,new(){RowVersion=third.RowVersion},EmployeeId);
-        await service.UploadSignedEvidenceAsync(ContractId,third.AcceptanceRecordId,new(){RowVersion=final3.RowVersion,File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
+        await service.UploadSignedEvidenceAsync(ContractId,third.AcceptanceRecordId,new(){RowVersion=final3.RowVersion,SignDate=new DateTime(2026,9,22),File=FormFile("signed.pdf","application/pdf","%PDF-signed")},EmployeeId);
+        Assert.Equal(new DateTime(2026,9,20), (await db.TblContractPaymentMilestones.SingleAsync(x => x.PaymentMilestoneId == MilestoneId)).AnchorDate);
+        Assert.Equal(new DateTime(2026,9,21), (await db.TblContractPaymentMilestones.SingleAsync(x => x.PaymentMilestoneId == MilestoneId + 1)).AnchorDate);
         request.AcceptanceCode="NT-4";
         Assert.Equal("AcceptanceAlreadyCompleted",(await Assert.ThrowsAsync<BusinessRuleException>(()=>service.CreateAsync(ContractId,request,EmployeeId))).Code);
     }

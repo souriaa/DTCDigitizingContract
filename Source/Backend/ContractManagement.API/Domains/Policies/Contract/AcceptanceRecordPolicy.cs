@@ -4,6 +4,11 @@ namespace ContractManagement.Domains.Policies.Contract;
 
 public static class AcceptanceRecordPolicy
 {
+    public static bool IsSignDateValid(DateTime? signDate, DateTime acceptanceDate, DateTimeOffset utcNow) =>
+        signDate is { } date && date != default
+        && date.Date >= acceptanceDate.Date
+        && date.Date <= utcNow.ToOffset(TimeSpan.FromHours(7)).Date;
+
     public static bool CanTransition(
         AcceptanceRecordStatus current,
         AcceptanceRecordStatus target) => current switch
