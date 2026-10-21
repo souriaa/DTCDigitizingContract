@@ -12,6 +12,9 @@ public interface IContractAcceptanceService
     Task<ContractAcceptanceRecordResponse> GetAsync(
         int contractId, int acceptanceRecordId, int employeeId,
         CancellationToken cancellationToken = default);
+    Task<AcceptanceHandoverOptionsResponse> HandoverOptionsAsync(int contractId, int acceptanceRecordId, int employeeId, CancellationToken ct = default);
+    Task<ContractAcceptanceRecordResponse> ReplaceHandoverScopeAsync(int contractId, int acceptanceRecordId,
+        ReplaceAcceptanceHandoverScopeRequest request, int employeeId, CancellationToken ct = default);
     Task<ContractAcceptanceRecordResponse> CreateAsync(
         int contractId, CreateContractAcceptanceRecordRequest request,
         int employeeId, CancellationToken cancellationToken = default);

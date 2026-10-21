@@ -19,6 +19,14 @@ namespace ContractManagement.API.Domains.DTOs.Requests.Catalog
         [MaxLength(500)]
         public string ProductNameEn { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Vui lòng nhập đơn vị.")]
+        [MaxLength(100)]
+        public string UnitName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Vui lòng nhập đơn vị tiếng Anh.")]
+        [MaxLength(100)]
+        public string UnitNameEn { get; set; } = string.Empty;
+
         [Required(ErrorMessage = "Vui lòng chọn danh mục sản phẩm.")]
         [Range(1, 255, ErrorMessage = "Danh mục sản phẩm không hợp lệ.")]
         public int? CategoryId { get; set; }

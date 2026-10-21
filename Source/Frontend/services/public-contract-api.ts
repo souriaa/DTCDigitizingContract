@@ -42,6 +42,7 @@ export interface CustomerPublicContractItemResponse {
   itemDescription?: string | null;
   quantity: number;
   unitName?: string | null;
+  unitNameEn?: string | null;
   lineTotal: number;
   displayOrder: number;
 }

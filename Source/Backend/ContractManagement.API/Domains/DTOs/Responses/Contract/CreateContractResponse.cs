@@ -7,6 +7,8 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract
     /// </summary>
     public class CreateContractResponse
     {
+        public ContractDirection ContractDirection { get; set; }
+
         /// <summary>
         /// ID của hợp đồng vừa tạo.
         /// </summary>

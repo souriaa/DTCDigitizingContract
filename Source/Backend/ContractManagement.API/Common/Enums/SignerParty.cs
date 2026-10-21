@@ -6,12 +6,12 @@
     public enum SignerParty : byte
     {
         /// <summary>
-        /// Khách hàng — Bên A.
+        /// Bên mua theo vai trò tài liệu, không xác định Bên A/B hoặc quyền nội bộ/public.
         /// </summary>
         Customer = 0,
 
         /// <summary>
-        /// Nhà cung cấp/DTC — Bên B.
+        /// Bên cung cấp theo vai trò tài liệu; khi mua là đối tác ngoài hệ thống.
         /// </summary>
         Provider = 1
     }

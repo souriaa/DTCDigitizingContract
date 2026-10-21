@@ -17,6 +17,7 @@ public sealed record ContractAcceptanceDocumentRenderData(
     IReadOnlyList<ContractAcceptancePartyResponse> Parties,
     IReadOnlyList<ContractAcceptanceSectionResponse> Sections)
 {
+    public ContractDirection ContractDirection { get; init; }
     public string? LocationEn { get; init; }
     public IReadOnlyDictionary<string, string> CustomValues { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
@@ -53,32 +54,12 @@ public sealed class ContractAcceptanceDocumentRenderer
             {
                 ["ACCEPTANCE_DATE_EN"] = DocumentEnglishPolicy.Date(data.AcceptanceDate),
                 ["ACCEPTANCE_LOCATION_EN"] = data.LocationEn ?? string.Empty,
-                ["CUSTOMER_LEGAL_NAME_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.LegalNameEn),
-                ["CUSTOMER_ADDRESS_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.AddressEn),
-                ["CUSTOMER_REPRESENTATIVE_TITLE_EN"] = DocumentEnglishPolicy.OptionalCustomerEnglish(customer.RepresentativeTitleEn),
-                ["TENANT_LEGAL_NAME_EN"] = tenant.LegalNameEn ?? string.Empty,
-                ["TENANT_ADDRESS_EN"] = tenant.AddressEn ?? string.Empty,
-                ["TENANT_REPRESENTATIVE_TITLE_EN"] = tenant.RepresentativeTitleEn ?? string.Empty,
                 ["ACCEPTANCE_CODE"] = data.AcceptanceCode,
                 ["ACCEPTANCE_DATE"] = data.AcceptanceDate.ToString("dd/MM/yyyy"),
                 ["ACCEPTANCE_LOCATION"] = data.Location,
-                ["CUSTOMER_LEGAL_NAME"] = customer.LegalName,
-                ["CUSTOMER_ADDRESS"] = customer.Address ?? string.Empty,
-                ["CUSTOMER_PHONE"] = customer.Phone ?? string.Empty,
-                ["CUSTOMER_FAX"] = customer.Fax ?? string.Empty,
-                ["CUSTOMER_TAX_CODE"] = customer.TaxCode ?? string.Empty,
-                ["CUSTOMER_REPRESENTATIVE_NAME"] = customer.RepresentativeName,
-                ["CUSTOMER_REPRESENTATIVE_TITLE"] =
-                    customer.RepresentativeTitle ?? string.Empty,
-                ["TENANT_LEGAL_NAME"] = tenant.LegalName,
-                ["TENANT_ADDRESS"] = tenant.Address ?? string.Empty,
-                ["TENANT_PHONE"] = tenant.Phone ?? string.Empty,
-                ["TENANT_FAX"] = tenant.Fax ?? string.Empty,
-                ["TENANT_TAX_CODE"] = tenant.TaxCode ?? string.Empty,
-                ["TENANT_REPRESENTATIVE_NAME"] = tenant.RepresentativeName,
-                ["TENANT_REPRESENTATIVE_TITLE"] =
-                    tenant.RepresentativeTitle ?? string.Empty
             };
+            foreach (var pair in DocumentPartyMarkers.Values(data.ContractDirection, DocumentParty.From(tenant), DocumentParty.From(customer)))
+                values[pair.Key] = pair.Value;
             foreach (var (key, value) in data.CustomValues)
                 values[key] = value;
 
@@ -94,7 +75,7 @@ public sealed class ContractAcceptanceDocumentRenderer
             foreach (var paragraph in roots.SelectMany(x => x.Descendants<W.Paragraph>()))
             {
                 foreach (var field in AcceptanceRecordPlaceholderCatalog.All.Where(x => x.Key.EndsWith("_EN", StringComparison.Ordinal)
-                             && !DocumentEnglishPolicy.IsOptionalCustomerEnglish(x)))
+                             && !DocumentEnglishPolicy.IsOptionalPartyEnglish(x, data.ContractDirection)))
                     if (paragraph.InnerText.Contains($"{{{{{field.Key}}}}}", StringComparison.Ordinal))
                         DocumentEnglishPolicy.Require(values.GetValueOrDefault(field.Key), field.Label);
                 ReplaceScalarTokens(paragraph, values);

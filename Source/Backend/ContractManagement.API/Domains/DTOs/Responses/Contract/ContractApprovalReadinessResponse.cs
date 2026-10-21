@@ -7,6 +7,8 @@ public static class ContractApprovalReadinessCodes
     public const string ContractCodeRequired = "ContractCodeRequired";
     public const string ContractNameRequired = "ContractNameRequired";
     public const string ContractItemRequired = "ContractItemRequired";
+    public const string ContractItemUnitRequired = "ContractItemUnitRequired";
+    public const string BilingualItemUnitRequired = "BilingualItemUnitRequired";
     public const string ContractTermRequired = "ContractTermRequired";
     public const string InvalidContractDateRange = "InvalidContractDateRange";
     public const string ContractTotalMismatch = "ContractTotalMismatch";

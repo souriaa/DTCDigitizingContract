@@ -11,7 +11,14 @@ public sealed record ContractPlaceholderSourceField(
 
 public sealed record ContractPlaceholderResolveContext(
     TblContract Contract, TblContractVersion Version, TblCustomer Customer,
-    TblTenantLegalProfile? Tenant, TblEmployee? Owner, TblDepartment? Department);
+    TblTenantLegalProfile? Tenant, TblEmployee? Owner, TblDepartment? Department)
+{
+    private ContractManagement.Domains.Policies.Contract.ResolvedContractParties<DocumentParty>? _parties;
+    public ContractManagement.Domains.Policies.Contract.ResolvedContractParties<DocumentParty> Parties =>
+        _parties ??= ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Resolve(
+            (ContractManagement.API.Common.Enums.ContractDirection)Contract.ContractDirection,
+            DocumentParty.From(Tenant), DocumentParty.From(Customer));
+}
 
 public sealed class CustomContractPlaceholderOptions
 {

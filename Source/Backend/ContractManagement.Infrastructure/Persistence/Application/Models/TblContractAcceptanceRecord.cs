@@ -2,6 +2,7 @@ namespace ContractManagement.Infrastructure.Persistence.Application.Models;
 
 public sealed class TblContractAcceptanceRecord
 {
+    public DateTime ContractSignDate { get; set; }
     public int AcceptanceRecordId { get; set; }
     public int ContractId { get; set; }
     public int ContractVersionId { get; set; }

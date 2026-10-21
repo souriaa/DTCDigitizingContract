@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ContractLanguageMode } from "@/services/contract-api";
+import { ContractDirection, ContractLanguageMode } from "@/services/contract-api";
 import {
   contractTemplateApi,
   getTemplateDocumentTypeLabel,
@@ -60,6 +60,7 @@ export function ContractTemplateFormDialog({
   const [languageMode, setLanguageMode] = useState<ContractLanguageMode>(
     ContractLanguageMode.Vietnamese,
   );
+  const [contractDirection, setContractDirection] = useState<ContractDirection | null>(null);
   const [description, setDescription] = useState("");
   const [initialChangeNote, setInitialChangeNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -75,6 +76,7 @@ export function ContractTemplateFormDialog({
     setLanguageMode(template?.languageMode ?? ContractLanguageMode.Vietnamese);
     setDescription(template?.description ?? "");
     setInitialChangeNote("");
+    setContractDirection(template?.versions[0]?.contractDirection ?? null);
   }, [isOpen, template]);
 
   const handleSubmit = async () => {
@@ -101,6 +103,10 @@ export function ContractTemplateFormDialog({
       return;
     }
 
+    if (!isEdit && contractDirection === null) {
+      toast.error("Vui lòng chọn chiều giao dịch Bán hoặc Mua.");
+      return;
+    }
     try {
       setIsSaving(true);
       const result = template
@@ -115,6 +121,7 @@ export function ContractTemplateFormDialog({
             templateName: templateName.trim(),
             templateNameEn: templateNameEn.trim() || null,
             documentType,
+            contractDirection: contractDirection!,
             languageMode,
             description: description.trim() || null,
             initialChangeNote: initialChangeNote.trim() || null,
@@ -147,6 +154,27 @@ export function ContractTemplateFormDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-2 sm:grid-cols-2">
+          {!isEdit && (
+            <div className="space-y-2 col-span-2">
+              <Label>
+                Chiều giao dịch <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={contractDirection === null ? "" : String(contractDirection)}
+                onValueChange={(value) =>
+                  setContractDirection(Number(value) as ContractDirection)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn Bán hoặc Mua" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={String(ContractDirection.Sale)}>Bán</SelectItem>
+                  <SelectItem value={String(ContractDirection.Purchase)}>Mua</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2 col-span-2">
             <Label htmlFor="template-code">
               Mã mẫu <span className="text-destructive">*</span>

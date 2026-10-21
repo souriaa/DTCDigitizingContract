@@ -12,19 +12,35 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import { ConfirmDialog } from "@/components/ui/custom/confirm-dialog";
 
-import { ContractTemplatePaymentMilestonesEditor, paymentMilestoneDraftFromRow, type PaymentMilestoneDraft } from "./contract-template-payment-milestones-editor";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  ContractTemplatePaymentMilestonesEditor,
+  paymentMilestoneDraftFromRow,
+  type PaymentMilestoneDraft,
+} from "./contract-template-payment-milestones-editor";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-
-
-import { contractTemplateApi, ContractTermKind, TemplateVersionStatus, type ContractTemplateTermResponse, type ContractTemplateVersionDetailResponse, type ContractTemplatePaymentMilestoneResponse } from "@/services/contract-template-api";
+import {
+  contractTemplateApi,
+  ContractTermKind,
+  TemplateVersionStatus,
+  type ContractTemplateTermResponse,
+  type ContractTemplateVersionDetailResponse,
+  type ContractTemplatePaymentMilestoneResponse,
+} from "@/services/contract-template-api";
 import { getContractTemplateErrorMessage } from "./contract-template-utils";
 
 interface ContractTemplateTermsEditorProps {
   version: ContractTemplateVersionDetailResponse;
   isBilingual: boolean;
   onRefresh: () => Promise<void>;
-  mode?: "contract" | "acceptance";
+  mode?: "contract" | "acceptance" | "handover";
   openTermIds: ReadonlySet<number>;
   onTermOpenChange: (termId: number, open: boolean) => void;
 }
@@ -66,7 +82,8 @@ export function ContractTemplateTermsEditor({
   onTermOpenChange,
 }: ContractTemplateTermsEditorProps) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
-  const isAcceptance = mode === "acceptance";
+  const isAcceptance = mode !== "contract";
+  const sectionName = mode === "handover" ? "bàn giao" : "nghiệm thu";
   const [terms, setTerms] = useState<ContractTemplateTermResponse[]>(() =>
     [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
   );
@@ -320,7 +337,7 @@ export function ContractTemplateTermsEditor({
           ? "Đã lưu điều khoản và các đợt thanh toán."
           : hasUnsavedPayments
             ? "Đã lưu các đợt thanh toán."
-            : `Đã lưu thay đổi ${isAcceptance ? "mục nghiệm thu" : "điều khoản"}.`,
+            : `Đã lưu thay đổi ${isAcceptance ? `mục ${sectionName}` : "điều khoản"}.`,
       );
     } catch (error) {
       toast.error(getContractTemplateErrorMessage(error));
@@ -375,7 +392,7 @@ export function ContractTemplateTermsEditor({
     }
     if (hasUnsavedChanges) {
       toast.error(
-        `Vui lòng lưu các thay đổi ${isAcceptance ? "section" : "điều khoản"} trước khi thêm mới.`,
+        `Vui lòng lưu các thay đổi ${isAcceptance ? "mục nội dung" : "điều khoản"} trước khi thêm mới.`,
       );
       return;
     }
@@ -420,7 +437,7 @@ export function ContractTemplateTermsEditor({
         displayOrder: getFirstAvailableDisplayOrder(terms),
         versionRowVersion: version.rowVersion,
       });
-      toast.success(`Đã thêm ${isAcceptance ? "section" : "điều khoản"}.`);
+      toast.success(`Đã thêm ${isAcceptance ? "mục nội dung" : "điều khoản"}.`);
       setIsAddOpen(false);
       await onRefresh();
     } catch (error) {
@@ -472,62 +489,142 @@ export function ContractTemplateTermsEditor({
 
   return (
     <div className="space-y-4">
-      <TermsListEditor terms={terms} getKey={(term) => term.templateTermId}
-        title={isAcceptance ? "Nội dung nghiệm thu" : "Điều khoản mềm"}
-        description={isDraft ? "Các thẻ có viền đỏ là những thay đổi chưa được lưu." : "Phiên bản đã khóa và chỉ có thể xem."}
-        onAdd={isDraft ? openAddDialog : undefined} addLabel={isAcceptance ? "Thêm mục nghiệm thu" : "Thêm điều khoản"}
+      <TermsListEditor
+        terms={terms}
+        getKey={(term) => term.templateTermId}
+        title={isAcceptance ? `Nội dung ${sectionName}` : "Điều khoản mềm"}
+        description={
+          isDraft
+            ? "Các thẻ có viền đỏ là những thay đổi chưa được lưu."
+            : "Phiên bản đã khóa và chỉ có thể xem."
+        }
+        onAdd={isDraft ? openAddDialog : undefined}
+        addLabel={isAcceptance ? `Thêm mục ${sectionName}` : "Thêm điều khoản"}
         getCardProps={(term, index) => ({
           inputId: `template-${term.templateTermId}`,
-          className: dirtyIds.has(term.templateTermId) || orderDirtyIds.has(term.templateTermId) ? "border-destructive ring-1 ring-destructive/40" : undefined,
-          editable: isDraft && !isSavingChanges, isBilingual,
+          className:
+            dirtyIds.has(term.templateTermId) ||
+            orderDirtyIds.has(term.templateTermId)
+              ? "border-destructive ring-1 ring-destructive/40"
+              : undefined,
+          editable: isDraft && !isSavingChanges,
+          isBilingual,
           open: openTermIds.has(term.templateTermId),
           onOpenChange: (open) => onTermOpenChange(term.templateTermId, open),
           orderLabel: isAcceptance ? "Mục" : "Điều",
           titleLabel: isAcceptance ? "Tiêu đề mục" : undefined,
           contentLabel: isAcceptance ? "Nội dung mục" : undefined,
           showNegotiation: !isAcceptance,
-          onChange: (field, value) => updateTerm(term.templateTermId, field, value),
-          onKindChange: isAcceptance ? undefined : (value) => {
-            if (!isDraft) return;
-            if (isOrderDirty || isAddingPayment) { toast.error("Hãy lưu thứ tự và hoàn tất form thêm đợt trước khi đổi loại điều khoản."); return; }
-            if (term.termKind === ContractTermKind.Payment && value !== ContractTermKind.Payment && term.paymentMilestones.length > 0) {
-              toast.error("Hãy xóa các đợt thanh toán trước khi đổi loại điều khoản."); return;
-            }
-            if (value === ContractTermKind.Payment && paymentTerm && paymentTerm.templateTermId !== term.templateTermId) {
-              toast.error("Mỗi mẫu hợp đồng chỉ có một điều khoản thanh toán."); return;
-            }
-            setTerms((current) => current.map((item) => item.templateTermId === term.templateTermId ? { ...item, termKind: value } : item));
-            setDirtyIds((current) => new Set(current).add(term.templateTermId));
-          },
-          onMove: (direction) => moveTerm(index, direction), onRemove: () => requestDeleteTerm(term),
-          children: !isAcceptance && term.termKind === ContractTermKind.Payment
-            ? dirtyIds.has(term.templateTermId)
-              ? <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">Lưu loại điều khoản trước khi cấu hình các đợt thanh toán.</p>
-              : <ContractTemplatePaymentMilestonesEditor version={version} term={term} isBilingual={isBilingual}
-                  editable={isDraft && !isSavingChanges} onRefresh={onRefresh} drafts={paymentDrafts}
-                  onDraftChange={(id, draft) => setPaymentDrafts((current) => ({ ...current, [id]: draft }))}
-                  onSaveAll={saveChanges} savingAll={isSavingChanges} hasUnsavedChanges={hasUnsavedChanges} onAddingChange={setIsAddingPayment} />
-            : undefined,
-        })} />
+          onChange: (field, value) =>
+            updateTerm(term.templateTermId, field, value),
+          onKindChange: isAcceptance
+            ? undefined
+            : (value) => {
+                if (!isDraft) return;
+                if (isOrderDirty || isAddingPayment) {
+                  toast.error(
+                    "Hãy lưu thứ tự và hoàn tất form thêm đợt trước khi đổi loại điều khoản.",
+                  );
+                  return;
+                }
+                if (
+                  term.termKind === ContractTermKind.Payment &&
+                  value !== ContractTermKind.Payment &&
+                  term.paymentMilestones.length > 0
+                ) {
+                  toast.error(
+                    "Hãy xóa các đợt thanh toán trước khi đổi loại điều khoản.",
+                  );
+                  return;
+                }
+                if (
+                  value === ContractTermKind.Payment &&
+                  paymentTerm &&
+                  paymentTerm.templateTermId !== term.templateTermId
+                ) {
+                  toast.error(
+                    "Mỗi mẫu hợp đồng chỉ có một điều khoản thanh toán.",
+                  );
+                  return;
+                }
+                setTerms((current) =>
+                  current.map((item) =>
+                    item.templateTermId === term.templateTermId
+                      ? { ...item, termKind: value }
+                      : item,
+                  ),
+                );
+                setDirtyIds((current) =>
+                  new Set(current).add(term.templateTermId),
+                );
+              },
+          onMove: (direction) => moveTerm(index, direction),
+          onRemove: () => requestDeleteTerm(term),
+          children:
+            !isAcceptance && term.termKind === ContractTermKind.Payment ? (
+              dirtyIds.has(term.templateTermId) ? (
+                <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                  Lưu loại điều khoản trước khi cấu hình các đợt thanh toán.
+                </p>
+              ) : (
+                <ContractTemplatePaymentMilestonesEditor
+                  version={version}
+                  term={term}
+                  isBilingual={isBilingual}
+                  editable={isDraft && !isSavingChanges}
+                  onRefresh={onRefresh}
+                  drafts={paymentDrafts}
+                  onDraftChange={(id, draft) =>
+                    setPaymentDrafts((current) => ({ ...current, [id]: draft }))
+                  }
+                  onSaveAll={saveChanges}
+                  savingAll={isSavingChanges}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onAddingChange={setIsAddingPayment}
+                />
+              )
+            ) : undefined,
+        })}
+      />
 
       <Dialog
         open={isAddOpen}
         onOpenChange={(open) => !open && setIsAddOpen(false)}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
-              Thêm {isAcceptance ? "section nghiệm thu" : "điều khoản"}
+              Thêm {isAcceptance ? `mục ${sectionName}` : "điều khoản"}
             </DialogTitle>
             <DialogDescription>
-              {isAcceptance ? "Section" : "Điều khoản"} sẽ được thêm vào cuối
-              danh sách hiện tại.
+              {isAcceptance ? "Mục nội dung" : "Điều khoản"} sẽ được thêm vào
+              cuối danh sách hiện tại.
             </DialogDescription>
           </DialogHeader>
-          <TermFields id="new-term" isBilingual={isBilingual} disabled={isAdding}
-            value={{ code: newTermCode, title: newTermTitle, titleEn: newTermTitleEn, content: newTermContent, contentEn: newTermContentEn, bilingualContentMode: newContentMode }}
-            onChange={(value) => { setNewTermCode(value.code); setNewTermTitle(value.title); setNewTermTitleEn(value.titleEn); setNewTermContent(value.content); setNewTermContentEn(value.contentEn); setNewContentMode(value.bilingualContentMode); }}
-            kind={newTermKind} onKindChange={isAcceptance ? undefined : setNewTermKind} paymentDisabled={Boolean(paymentTerm)} />
+          <TermFields
+            id="new-term"
+            isBilingual={isBilingual}
+            disabled={isAdding}
+            value={{
+              code: newTermCode,
+              title: newTermTitle,
+              titleEn: newTermTitleEn,
+              content: newTermContent,
+              contentEn: newTermContentEn,
+              bilingualContentMode: newContentMode,
+            }}
+            onChange={(value) => {
+              setNewTermCode(value.code);
+              setNewTermTitle(value.title);
+              setNewTermTitleEn(value.titleEn);
+              setNewTermContent(value.content);
+              setNewTermContentEn(value.contentEn);
+              setNewContentMode(value.bilingualContentMode);
+            }}
+            kind={newTermKind}
+            onKindChange={isAcceptance ? undefined : setNewTermKind}
+            paymentDisabled={Boolean(paymentTerm)}
+          />
           <DialogFooter>
             <Button
               variant="outline"
@@ -538,7 +635,7 @@ export function ContractTemplateTermsEditor({
             </Button>
             <Button onClick={addTerm} disabled={isAdding}>
               {isAdding && <Loader2 className="size-4 animate-spin" />} Thêm{" "}
-              {isAcceptance ? "section" : "điều khoản"}
+              {isAcceptance ? "mục nội dung" : "điều khoản"}
             </Button>
           </DialogFooter>
         </DialogContent>

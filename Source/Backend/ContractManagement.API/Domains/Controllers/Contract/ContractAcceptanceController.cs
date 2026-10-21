@@ -17,6 +17,16 @@ public sealed class ContractAcceptanceController : ControllerBase
     public ContractAcceptanceController(IContractAcceptanceService service) =>
         _service = service;
 
+    [HttpGet("{acceptanceRecordId:int}/handover-scope")]
+    public async Task<IActionResult> HandoverScope(int contractId, int acceptanceRecordId, CancellationToken ct) =>
+        Ok(ApiResponse<AcceptanceHandoverOptionsResponse>.Ok(await _service.HandoverOptionsAsync(contractId, acceptanceRecordId, EmployeeId(), ct)));
+
+    [HttpPut("{acceptanceRecordId:int}/handover-scope")]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    public async Task<IActionResult> ReplaceHandoverScope(int contractId, int acceptanceRecordId,
+        ReplaceAcceptanceHandoverScopeRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<ContractAcceptanceRecordResponse>.Ok(await _service.ReplaceHandoverScopeAsync(contractId, acceptanceRecordId, request, EmployeeId(), ct)));
+
     [HttpGet("templates")]
     public async Task<IActionResult> Templates(int contractId,
         CancellationToken ct) => Ok(

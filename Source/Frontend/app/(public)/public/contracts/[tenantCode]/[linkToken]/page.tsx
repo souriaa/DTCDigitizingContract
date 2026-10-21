@@ -545,7 +545,10 @@ export default function PublicContractPage() {
                       <TableCell className="text-right">
                         {item.quantity}
                       </TableCell>
-                      <TableCell>{item.unitName || "—"}</TableCell>
+                      <TableCell>
+                        {item.unitNameEn && <p className="mb-1 text-xs italic text-muted-foreground">{item.unitNameEn}</p>}
+                        <p>{item.unitName || "—"}</p>
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(item.lineTotal, contract.currencyCode)}
                       </TableCell>

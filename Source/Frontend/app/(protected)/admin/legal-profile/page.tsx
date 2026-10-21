@@ -533,7 +533,7 @@ function LegalProfilePageContent() {
                       </div>
                       <div>
                         <CardTitle className="text-base font-semibold">
-                          Thông tin pháp nhân & Thuế
+                          Thông tin doanh nghiệp & Thuế
                         </CardTitle>
                         <CardDescription className="text-xs">
                           Tên doanh nghiệp, mã số thuế và trụ sở chính theo ĐKKD

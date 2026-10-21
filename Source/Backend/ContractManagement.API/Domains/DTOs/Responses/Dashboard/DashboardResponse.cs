@@ -1,3 +1,5 @@
+using ContractManagement.API.Common.Enums;
+
 namespace ContractManagement.API.Domains.DTOs.Responses.Dashboard;
 
 public sealed class DashboardResponse
@@ -30,7 +32,8 @@ public sealed record DashboardSummaryItemResponse(
 
 public sealed record DashboardCurrencyAmountResponse(
     string Currency,
-    decimal Amount);
+    decimal Amount,
+    ContractDirection ContractDirection);
 
 public sealed record DashboardVolumePointResponse(
     string Period,

@@ -1,7 +1,7 @@
 /*
   DEV/TEST ONLY
 
-  Seed dữ liệu catalog cho tenant hungnd theo entity/service hiện tại:
+  Seed dữ liệu catalog cho tenant đã migrate đầy đủ:
     - 10 danh mục (tbl_Categories), gồm danh mục cha và con.
     - 10 loại dịch vụ (tbl_ServiceTypes).
     - 10 sản phẩm active (tbl_Products), liên kết danh mục bằng CategoryId.
@@ -16,41 +16,27 @@
   Các cột identity không được insert trực tiếp.
 */
 
-USE [ContractManagement_Tenant_hungnd];
-GO
-
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
+-- Chọn đúng tenant database trong SSMS và điền lại tên bên dưới trước khi chạy.
+DECLARE @ExpectedDatabase sysname = N'ContractManagement_Tenant_hungnd';
+DECLARE @SourceAdminAccount varchar(50) = 'admin';
 DECLARE @LangId tinyint = 1;
 DECLARE @CreatedByEmployeeId int;
 
-IF DB_NAME() <> 'ContractManagement_Tenant_hungnd'
+IF DB_NAME() <> @ExpectedDatabase OR DB_NAME() IN (N'master', N'model', N'msdb', N'tempdb')
 BEGIN
-    THROW 50020, N'Sai database đích. Hãy kiểm tra lại câu lệnh USE.', 1;
+    THROW 50020, N'Chọn đúng tenant database và đặt @ExpectedDatabase trùng tên DB trước khi chạy.', 1;
 END;
 
--- Ưu tiên tài khoản admin; fallback sang một Manager active.
-SELECT TOP (1)
-    @CreatedByEmployeeId = EmployeeId
-FROM dbo.tbl_Employee
-WHERE EmployeeAccount = 'admin'
-ORDER BY EmployeeId;
-
-IF @CreatedByEmployeeId IS NULL
-BEGIN
-    SELECT TOP (1)
-        @CreatedByEmployeeId = EmployeeId
-    FROM dbo.tbl_Employee
-    WHERE EmployeeType = 6
-      AND Status = 1
-    ORDER BY EmployeeId;
-END;
-
-IF @CreatedByEmployeeId IS NULL
-BEGIN
-    THROW 50021, N'Không tìm thấy admin hoặc Manager active để gán UserCreated cho dịch vụ.', 1;
-END;
+IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
+    THROW 50026, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021025411_CatalogItemUnits')
+    THROW 50027, N'Tenant chưa có migration CatalogItemUnits. Hãy cập nhật schema trước khi seed.', 1;
+IF (SELECT COUNT_BIG(*) FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1) <> 1
+    THROW 50021, N'Đặt @SourceAdminAccount thành tài khoản Manager active được provision cho tenant.', 1;
+SELECT @CreatedByEmployeeId = EmployeeId FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1;
 
 DECLARE @CategorySeed table
 (
@@ -106,6 +92,7 @@ DECLARE @ProductSeed table
 (
     ProductCode varchar(20) NOT NULL PRIMARY KEY,
     ProductName nvarchar(500) NOT NULL,
+    ProductNameEn nvarchar(500) NOT NULL,
     CategoryName nvarchar(500) NOT NULL,
     ProductShortDesc nvarchar(2000) NULL,
     ProductDetails nvarchar(max) NULL,
@@ -120,6 +107,7 @@ INSERT INTO @ProductSeed
 (
     ProductCode,
     ProductName,
+    ProductNameEn,
     CategoryName,
     ProductShortDesc,
     ProductDetails,
@@ -130,20 +118,21 @@ INSERT INTO @ProductSeed
     ProductTags
 )
 VALUES
-    ('DTC-CONTRACT', N'DTC Contract Hub', N'Phần mềm doanh nghiệp', N'Nền tảng quản lý vòng đời hợp đồng điện tử.', N'Quản lý mẫu, hợp đồng, đàm phán, phê duyệt và truy cập khách hàng.', N'RBAC, versioning, audit, OTP và quản lý tài liệu.', N'Giảm thời gian xử lý và tăng khả năng kiểm soát hợp đồng.', 120000000, 1, N'hợp đồng, số hóa, quản trị'),
-    ('DTC-CRM', N'DTC CRM Pro', N'Quản lý khách hàng', N'Giải pháp quản lý khách hàng và lịch sử tương tác.', N'Tập trung dữ liệu khách hàng, cơ hội và hoạt động chăm sóc.', N'Customer 360, interaction timeline và báo cáo.', N'Tăng hiệu quả bán hàng và chăm sóc khách hàng.', 85000000, 2, N'crm, khách hàng, bán hàng'),
-    ('DTC-ERP', N'DTC ERP Business', N'Kế toán và ERP', N'Giải pháp hoạch định nguồn lực cho doanh nghiệp.', N'Kết nối quy trình tài chính, mua hàng, bán hàng và kho.', N'Quy trình liên phòng ban và báo cáo quản trị.', N'Chuẩn hóa dữ liệu và giảm thao tác thủ công.', 250000000, 3, N'erp, kế toán, quản trị'),
-    ('CLOUD-STD', N'Cloud Server Standard', N'Điện toán đám mây', N'Máy chủ cloud tiêu chuẩn cho hệ thống doanh nghiệp.', N'Cấu hình linh hoạt, giám sát tài nguyên và sao lưu định kỳ.', N'4 vCPU, 8 GB RAM, 200 GB SSD.', N'Triển khai nhanh và dễ dàng mở rộng.', 36000000, 4, N'cloud, server, hosting'),
-    ('NETWORK-GW', N'Enterprise Network Gateway', N'Thiết bị mạng', N'Gateway quản lý kết nối mạng doanh nghiệp.', N'Điều phối truy cập và quản lý nhiều đường truyền.', N'VPN, QoS, failover và giám sát băng thông.', N'Tăng độ ổn định và an toàn cho kết nối.', 45000000, 5, N'network, gateway, vpn'),
-    ('ENDPOINT-SEC', N'Endpoint Security Suite', N'Bảo mật thiết bị đầu cuối', N'Giải pháp bảo vệ máy trạm và máy chủ.', N'Phát hiện mã độc, hành vi bất thường và quản lý tập trung.', N'Antivirus, EDR và policy management.', N'Giảm rủi ro tấn công trên thiết bị người dùng.', 28000000, 6, N'endpoint, edr, antivirus'),
-    ('FIREWALL-ENT', N'Enterprise Firewall Appliance', N'An toàn thông tin', N'Thiết bị tường lửa cho hệ thống doanh nghiệp.', N'Kiểm soát lưu lượng và phát hiện truy cập nguy hiểm.', N'IPS, web filtering, application control và VPN.', N'Bảo vệ lớp biên và tăng khả năng giám sát.', 95000000, 7, N'firewall, ips, security'),
-    ('DOC-SCANNER', N'Máy quét tài liệu tốc độ cao', N'Thiết bị văn phòng', N'Thiết bị số hóa hồ sơ và hợp đồng giấy.', N'Hỗ trợ quét hai mặt và xử lý tài liệu theo lô.', N'ADF, duplex, OCR-ready và kết nối mạng.', N'Rút ngắn thời gian số hóa hồ sơ.', 18500000, 8, N'scanner, tài liệu, số hóa'),
-    ('DATA-ANALYTICS', N'Data Analytics Platform', N'Giải pháp dữ liệu', N'Nền tảng tổng hợp và phân tích dữ liệu quản trị.', N'Kết nối nhiều nguồn dữ liệu và xây dựng dashboard.', N'ETL, data model, dashboard và cảnh báo.', N'Hỗ trợ ra quyết định dựa trên dữ liệu.', 175000000, 9, N'analytics, dashboard, dữ liệu'),
-    ('BACKUP-APPLIANCE', N'Backup Storage Appliance', N'Giải pháp dữ liệu', N'Thiết bị lưu trữ và sao lưu dữ liệu tập trung.', N'Sao lưu theo lịch và phục hồi dữ liệu doanh nghiệp.', N'Incremental backup, encryption và replication.', N'Giảm nguy cơ mất dữ liệu và thời gian gián đoạn.', 78000000, 10, N'backup, storage, dữ liệu');
+    ('DTC-CONTRACT', N'DTC Contract Hub', N'DTC Contract Hub', N'Phần mềm doanh nghiệp', N'Nền tảng quản lý vòng đời hợp đồng điện tử.', N'Quản lý mẫu, hợp đồng, đàm phán, phê duyệt và truy cập khách hàng.', N'RBAC, versioning, audit, OTP và quản lý tài liệu.', N'Giảm thời gian xử lý và tăng khả năng kiểm soát hợp đồng.', 120000000, 1, N'hợp đồng, số hóa, quản trị'),
+    ('DTC-CRM', N'DTC CRM Pro', N'DTC CRM Pro', N'Quản lý khách hàng', N'Giải pháp quản lý khách hàng và lịch sử tương tác.', N'Tập trung dữ liệu khách hàng, cơ hội và hoạt động chăm sóc.', N'Customer 360, interaction timeline và báo cáo.', N'Tăng hiệu quả bán hàng và chăm sóc khách hàng.', 85000000, 2, N'crm, khách hàng, bán hàng'),
+    ('DTC-ERP', N'DTC ERP Business', N'DTC ERP Business', N'Kế toán và ERP', N'Giải pháp hoạch định nguồn lực cho doanh nghiệp.', N'Kết nối quy trình tài chính, mua hàng, bán hàng và kho.', N'Quy trình liên phòng ban và báo cáo quản trị.', N'Chuẩn hóa dữ liệu và giảm thao tác thủ công.', 250000000, 3, N'erp, kế toán, quản trị'),
+    ('CLOUD-STD', N'Cloud Server Standard', N'Cloud Server Standard', N'Điện toán đám mây', N'Máy chủ cloud tiêu chuẩn cho hệ thống doanh nghiệp.', N'Cấu hình linh hoạt, giám sát tài nguyên và sao lưu định kỳ.', N'4 vCPU, 8 GB RAM, 200 GB SSD.', N'Triển khai nhanh và dễ dàng mở rộng.', 36000000, 4, N'cloud, server, hosting'),
+    ('NETWORK-GW', N'Enterprise Network Gateway', N'Enterprise Network Gateway', N'Thiết bị mạng', N'Gateway quản lý kết nối mạng doanh nghiệp.', N'Điều phối truy cập và quản lý nhiều đường truyền.', N'VPN, QoS, failover và giám sát băng thông.', N'Tăng độ ổn định và an toàn cho kết nối.', 45000000, 5, N'network, gateway, vpn'),
+    ('ENDPOINT-SEC', N'Endpoint Security Suite', N'Endpoint Security Suite', N'Bảo mật thiết bị đầu cuối', N'Giải pháp bảo vệ máy trạm và máy chủ.', N'Phát hiện mã độc, hành vi bất thường và quản lý tập trung.', N'Antivirus, EDR và policy management.', N'Giảm rủi ro tấn công trên thiết bị người dùng.', 28000000, 6, N'endpoint, edr, antivirus'),
+    ('FIREWALL-ENT', N'Enterprise Firewall Appliance', N'Enterprise Firewall Appliance', N'An toàn thông tin', N'Thiết bị tường lửa cho hệ thống doanh nghiệp.', N'Kiểm soát lưu lượng và phát hiện truy cập nguy hiểm.', N'IPS, web filtering, application control và VPN.', N'Bảo vệ lớp biên và tăng khả năng giám sát.', 95000000, 7, N'firewall, ips, security'),
+    ('DOC-SCANNER', N'Máy quét tài liệu tốc độ cao', N'High-speed Document Scanner', N'Thiết bị văn phòng', N'Thiết bị số hóa hồ sơ và hợp đồng giấy.', N'Hỗ trợ quét hai mặt và xử lý tài liệu theo lô.', N'ADF, duplex, OCR-ready và kết nối mạng.', N'Rút ngắn thời gian số hóa hồ sơ.', 18500000, 8, N'scanner, tài liệu, số hóa'),
+    ('DATA-ANALYTICS', N'Data Analytics Platform', N'Data Analytics Platform', N'Giải pháp dữ liệu', N'Nền tảng tổng hợp và phân tích dữ liệu quản trị.', N'Kết nối nhiều nguồn dữ liệu và xây dựng dashboard.', N'ETL, data model, dashboard và cảnh báo.', N'Hỗ trợ ra quyết định dựa trên dữ liệu.', 175000000, 9, N'analytics, dashboard, dữ liệu'),
+    ('BACKUP-APPLIANCE', N'Backup Storage Appliance', N'Backup Storage Appliance', N'Giải pháp dữ liệu', N'Thiết bị lưu trữ và sao lưu dữ liệu tập trung.', N'Sao lưu theo lịch và phục hồi dữ liệu doanh nghiệp.', N'Incremental backup, encryption và replication.', N'Giảm nguy cơ mất dữ liệu và thời gian gián đoạn.', 78000000, 10, N'backup, storage, dữ liệu');
 
 DECLARE @ServiceSeed table
 (
-    ServiceName nvarchar(2000) NOT NULL PRIMARY KEY,
+    ServiceName nvarchar(200) NOT NULL PRIMARY KEY,
+    ServiceNameEn nvarchar(500) NOT NULL,
     ServiceTypeName nvarchar(200) NOT NULL,
     ServicePrice float NOT NULL,
     SetupPrice float NOT NULL,
@@ -157,6 +146,7 @@ DECLARE @ServiceSeed table
 INSERT INTO @ServiceSeed
 (
     ServiceName,
+    ServiceNameEn,
     ServiceTypeName,
     ServicePrice,
     SetupPrice,
@@ -167,16 +157,43 @@ INSERT INTO @ServiceSeed
     Rewrite
 )
 VALUES
-    (N'Tư vấn quy trình quản lý hợp đồng', N'Tư vấn', 25000000, 0, 0, N'Khảo sát và chuẩn hóa quy trình hợp đồng.', N'Phân tích hiện trạng, đề xuất quy trình và lập kế hoạch triển khai.', 1, 'tu-van-quy-trinh-hop-dong'),
-    (N'Triển khai DTC Contract Hub', N'Triển khai', 60000000, 15000000, 12000000, N'Cài đặt và cấu hình hệ thống quản lý hợp đồng.', N'Triển khai môi trường, cấu hình tenant và hỗ trợ nghiệm thu.', 2, 'trien-khai-dtc-contract-hub'),
-    (N'Tích hợp ERP và CRM', N'Tích hợp hệ thống', 45000000, 10000000, 8000000, N'Tích hợp dữ liệu hợp đồng với ERP và CRM.', N'Phân tích API, xây dựng kết nối và đồng bộ dữ liệu.', 3, 'tich-hop-erp-crm'),
-    (N'Bảo trì phần mềm hàng năm', N'Bảo trì', 30000000, 0, 30000000, N'Bảo trì, cập nhật và xử lý lỗi phần mềm.', N'Bao gồm cập nhật định kỳ, xử lý sự cố và báo cáo bảo trì.', 4, 'bao-tri-phan-mem-hang-nam'),
-    (N'Đào tạo quản trị viên hệ thống', N'Đào tạo', 12000000, 0, 0, N'Đào tạo vận hành và quản trị hệ thống.', N'Đào tạo theo nhóm, tài liệu hướng dẫn và phiên hỏi đáp.', 5, 'dao-tao-quan-tri-vien'),
-    (N'Hỗ trợ kỹ thuật 24/7', N'Hỗ trợ kỹ thuật', 48000000, 0, 48000000, N'Hỗ trợ sự cố kỹ thuật theo SLA.', N'Tiếp nhận 24/7, phân loại mức độ và xử lý theo cam kết.', 6, 'ho-tro-ky-thuat-24-7'),
-    (N'Cloud Hosting Standard', N'Hosting và Cloud', 24000000, 5000000, 6000000, N'Cloud hosting cho ứng dụng doanh nghiệp.', N'Giám sát tài nguyên, sao lưu và hỗ trợ vận hành.', 7, 'cloud-hosting-standard'),
-    (N'Kiểm thử bảo mật ứng dụng', N'Kiểm thử', 35000000, 0, 0, N'Đánh giá lỗ hổng bảo mật ứng dụng.', N'Kiểm thử theo phạm vi, báo cáo phát hiện và đề xuất khắc phục.', 8, 'kiem-thu-bao-mat-ung-dung'),
-    (N'Chuyển đổi dữ liệu hợp đồng', N'Chuyển đổi dữ liệu', 40000000, 10000000, 5000000, N'Chuẩn hóa và nhập dữ liệu hợp đồng cũ.', N'Làm sạch dữ liệu, ánh xạ trường và kiểm tra sau chuyển đổi.', 9, 'chuyen-doi-du-lieu-hop-dong'),
-    (N'Đánh giá an ninh hệ thống', N'An ninh mạng', 55000000, 0, 10000000, N'Đánh giá cấu hình và rủi ro an ninh mạng.', N'Rà soát kiến trúc, kiểm tra cấu hình và lập kế hoạch cải thiện.', 10, 'danh-gia-an-ninh-he-thong');
+    (N'Tư vấn quy trình quản lý hợp đồng', N'Contract Management Process Consulting', N'Tư vấn', 25000000, 0, 0, N'Khảo sát và chuẩn hóa quy trình hợp đồng.', N'Phân tích hiện trạng, đề xuất quy trình và lập kế hoạch triển khai.', 1, 'tu-van-quy-trinh-hop-dong'),
+    (N'Triển khai DTC Contract Hub', N'DTC Contract Hub Implementation', N'Triển khai', 60000000, 15000000, 12000000, N'Cài đặt và cấu hình hệ thống quản lý hợp đồng.', N'Triển khai môi trường, cấu hình tenant và hỗ trợ nghiệm thu.', 2, 'trien-khai-dtc-contract-hub'),
+    (N'Tích hợp ERP và CRM', N'ERP and CRM Integration', N'Tích hợp hệ thống', 45000000, 10000000, 8000000, N'Tích hợp dữ liệu hợp đồng với ERP và CRM.', N'Phân tích API, xây dựng kết nối và đồng bộ dữ liệu.', 3, 'tich-hop-erp-crm'),
+    (N'Bảo trì phần mềm hàng năm', N'Annual Software Maintenance', N'Bảo trì', 30000000, 0, 30000000, N'Bảo trì, cập nhật và xử lý lỗi phần mềm.', N'Bao gồm cập nhật định kỳ, xử lý sự cố và báo cáo bảo trì.', 4, 'bao-tri-phan-mem-hang-nam'),
+    (N'Đào tạo quản trị viên hệ thống', N'System Administrator Training', N'Đào tạo', 12000000, 0, 0, N'Đào tạo vận hành và quản trị hệ thống.', N'Đào tạo theo nhóm, tài liệu hướng dẫn và phiên hỏi đáp.', 5, 'dao-tao-quan-tri-vien'),
+    (N'Hỗ trợ kỹ thuật 24/7', N'24/7 Technical Support', N'Hỗ trợ kỹ thuật', 48000000, 0, 48000000, N'Hỗ trợ sự cố kỹ thuật theo SLA.', N'Tiếp nhận 24/7, phân loại mức độ và xử lý theo cam kết.', 6, 'ho-tro-ky-thuat-24-7'),
+    (N'Cloud Hosting Standard', N'Cloud Hosting Standard', N'Hosting và Cloud', 24000000, 5000000, 6000000, N'Cloud hosting cho ứng dụng doanh nghiệp.', N'Giám sát tài nguyên, sao lưu và hỗ trợ vận hành.', 7, 'cloud-hosting-standard'),
+    (N'Kiểm thử bảo mật ứng dụng', N'Application Security Testing', N'Kiểm thử', 35000000, 0, 0, N'Đánh giá lỗ hổng bảo mật ứng dụng.', N'Kiểm thử theo phạm vi, báo cáo phát hiện và đề xuất khắc phục.', 8, 'kiem-thu-bao-mat-ung-dung'),
+    (N'Chuyển đổi dữ liệu hợp đồng', N'Contract Data Migration', N'Chuyển đổi dữ liệu', 40000000, 10000000, 5000000, N'Chuẩn hóa và nhập dữ liệu hợp đồng cũ.', N'Làm sạch dữ liệu, ánh xạ trường và kiểm tra sau chuyển đổi.', 9, 'chuyen-doi-du-lieu-hop-dong'),
+    (N'Đánh giá an ninh hệ thống', N'System Security Assessment', N'An ninh mạng', 55000000, 0, 10000000, N'Đánh giá cấu hình và rủi ro an ninh mạng.', N'Rà soát kiến trúc, kiểm tra cấu hình và lập kế hoạch cải thiện.', 10, 'danh-gia-an-ninh-he-thong');
+
+-- Đơn vị được khai báo riêng cho dữ liệu test mới, không suy đoán hoặc ghi đè dữ liệu hiện có.
+DECLARE @ProductUnitSeed table (ProductCode varchar(20) PRIMARY KEY, UnitName nvarchar(100) NOT NULL, UnitNameEn nvarchar(100) NOT NULL);
+INSERT INTO @ProductUnitSeed VALUES
+    ('DTC-CONTRACT', N'Giấy phép', N'License'),
+    ('DTC-CRM', N'Giấy phép', N'License'),
+    ('DTC-ERP', N'Giấy phép', N'License'),
+    ('CLOUD-STD', N'Máy chủ', N'Server'),
+    ('NETWORK-GW', N'Thiết bị', N'Device'),
+    ('ENDPOINT-SEC', N'Giấy phép', N'License'),
+    ('FIREWALL-ENT', N'Thiết bị', N'Device'),
+    ('DOC-SCANNER', N'Máy', N'Unit'),
+    ('DATA-ANALYTICS', N'Giấy phép', N'License'),
+    ('BACKUP-APPLIANCE', N'Thiết bị', N'Device');
+
+DECLARE @ServiceUnitSeed table (ServiceName nvarchar(200) PRIMARY KEY, UnitName nvarchar(100) NOT NULL, UnitNameEn nvarchar(100) NOT NULL);
+INSERT INTO @ServiceUnitSeed VALUES
+    (N'Tư vấn quy trình quản lý hợp đồng', N'Gói', N'Package'),
+    (N'Triển khai DTC Contract Hub', N'Gói', N'Package'),
+    (N'Tích hợp ERP và CRM', N'Gói', N'Package'),
+    (N'Bảo trì phần mềm hàng năm', N'Năm', N'Year'),
+    (N'Đào tạo quản trị viên hệ thống', N'Khóa', N'Course'),
+    (N'Hỗ trợ kỹ thuật 24/7', N'Năm', N'Year'),
+    (N'Cloud Hosting Standard', N'Tháng', N'Month'),
+    (N'Kiểm thử bảo mật ứng dụng', N'Gói', N'Package'),
+    (N'Chuyển đổi dữ liệu hợp đồng', N'Gói', N'Package'),
+    (N'Đánh giá an ninh hệ thống', N'Gói', N'Package');
 
 DECLARE @InsertedCategories table
 (
@@ -204,6 +221,17 @@ DECLARE @InsertedServices table
 
 BEGIN TRY
     BEGIN TRANSACTION;
+
+    -- Không có physical FK; mỗi logical lookup phải xác định duy nhất một hàng.
+    IF EXISTS (SELECT 1 FROM @CategorySeed AS source JOIN dbo.tbl_Categories AS category WITH (UPDLOCK, HOLDLOCK)
+        ON category.CategoryName = source.CategoryName GROUP BY source.CategoryName HAVING COUNT_BIG(*) > 1)
+        OR EXISTS (SELECT 1 FROM @ServiceTypeSeed AS source JOIN dbo.tbl_ServiceTypes AS serviceType WITH (UPDLOCK, HOLDLOCK)
+        ON serviceType.ServiceTypeName = source.ServiceTypeName GROUP BY source.ServiceTypeName HAVING COUNT_BIG(*) > 1)
+        OR EXISTS (SELECT 1 FROM @ProductSeed AS source JOIN dbo.tbl_Products AS product WITH (UPDLOCK, HOLDLOCK)
+        ON product.ProductCode = source.ProductCode GROUP BY source.ProductCode HAVING COUNT_BIG(*) > 1)
+        OR EXISTS (SELECT 1 FROM @ServiceSeed AS source JOIN dbo.tbl_Services AS service WITH (UPDLOCK, HOLDLOCK)
+        ON service.ServiceName = source.ServiceName GROUP BY source.ServiceName HAVING COUNT_BIG(*) > 1)
+        THROW 50028, N'Khóa seed catalog bị trùng trong DB. Script không tự chọn một bản ghi.', 1;
 
     -- 1. Danh mục cha.
     INSERT INTO dbo.tbl_Categories
@@ -279,6 +307,12 @@ BEGIN TRY
     END;
 
     -- 3. Loại dịch vụ.
+    IF EXISTS (SELECT 1 FROM @CategorySeed AS source JOIN dbo.tbl_Categories AS category ON category.CategoryName = source.CategoryName
+        LEFT JOIN dbo.tbl_Categories AS parent ON parent.CategoryId = category.CategoryParentId
+        WHERE (source.ParentCategoryName IS NULL AND category.CategoryParentId IS NOT NULL)
+            OR (source.ParentCategoryName IS NOT NULL AND (parent.CategoryName IS NULL OR parent.CategoryName <> source.ParentCategoryName)))
+        THROW 50029, N'Danh mục cùng tên đã có cấu trúc cha/con khác. Script không tự đổi cây danh mục hiện có.', 1;
+
     INSERT INTO dbo.tbl_ServiceTypes
     (
         ServiceTypeName,
@@ -317,6 +351,9 @@ BEGIN TRY
     (
         ProductCode,
         ProductName,
+        ProductNameEn,
+        UnitName,
+        UnitNameEn,
         CategoryId,
         ProductShortDesc,
         ProductDetails,
@@ -335,6 +372,9 @@ BEGIN TRY
     SELECT
         source.ProductCode,
         source.ProductName,
+        source.ProductNameEn,
+        units.UnitName,
+        units.UnitNameEn,
         category.CategoryId,
         source.ProductShortDesc,
         source.ProductDetails,
@@ -348,6 +388,7 @@ BEGIN TRY
         GETDATE(),
         N'Dữ liệu test catalog'
     FROM @ProductSeed AS source
+    INNER JOIN @ProductUnitSeed AS units ON units.ProductCode = source.ProductCode
     INNER JOIN dbo.tbl_Categories AS category
         ON category.CategoryName = source.CategoryName
     WHERE NOT EXISTS
@@ -376,6 +417,9 @@ BEGIN TRY
     INSERT INTO dbo.tbl_Services
     (
         ServiceName,
+        ServiceNameEn,
+        UnitName,
+        UnitNameEn,
         ServiceParentId,
         UserCreated,
         DateCreated,
@@ -399,6 +443,9 @@ BEGIN TRY
     INTO @InsertedServices (ServiceId, ServiceName)
     SELECT
         source.ServiceName,
+        source.ServiceNameEn,
+        units.UnitName,
+        units.UnitNameEn,
         NULL,
         @CreatedByEmployeeId,
         GETDATE(),
@@ -418,6 +465,7 @@ BEGIN TRY
         source.ServiceName,
         source.ServiceShortDesc
     FROM @ServiceSeed AS source
+    INNER JOIN @ServiceUnitSeed AS units ON units.ServiceName = source.ServiceName
     INNER JOIN dbo.tbl_ServiceTypes AS serviceType
         ON serviceType.ServiceTypeName = source.ServiceTypeName
     WHERE NOT EXISTS
@@ -441,6 +489,17 @@ BEGIN TRY
     BEGIN
         THROW 50025, N'Không tạo hoặc tìm thấy đầy đủ dịch vụ.', 1;
     END;
+
+    -- Không ghi đè EN/category/type hoặc tự khôi phục hàng đã khóa/xóa khi chạy lại.
+    IF EXISTS (SELECT 1 FROM @ProductSeed AS source JOIN dbo.tbl_Products AS product ON product.ProductCode = source.ProductCode
+        JOIN dbo.tbl_Categories AS category ON category.CategoryName = source.CategoryName
+        WHERE product.CategoryId IS NULL OR product.CategoryId <> category.CategoryId
+            OR NULLIF(LTRIM(RTRIM(product.ProductNameEn)), N'') IS NULL OR ISNULL(product.Status, 0) <> 1)
+        OR EXISTS (SELECT 1 FROM @ServiceSeed AS source JOIN dbo.tbl_Services AS service ON service.ServiceName = source.ServiceName
+        JOIN dbo.tbl_ServiceTypes AS serviceType ON serviceType.ServiceTypeName = source.ServiceTypeName
+        WHERE service.ServiceTypeId IS NULL OR service.ServiceTypeId <> serviceType.ServiceTypeId
+            OR NULLIF(LTRIM(RTRIM(service.ServiceNameEn)), N'') IS NULL OR ISNULL(service.Status, 0) <> 1)
+        THROW 50040, N'Catalog đã có dữ liệu cùng khóa nhưng thiếu EN, sai nhóm hoặc không active. Script không ghi đè; dùng UI chỉnh sửa/khôi phục.', 1;
 
     COMMIT TRANSACTION;
 END TRY
@@ -485,6 +544,7 @@ SELECT
     product.ProductId,
     product.ProductCode,
     product.ProductName,
+    product.ProductNameEn,
     product.CategoryId,
     category.CategoryName,
     product.ProductPrice,
@@ -504,6 +564,7 @@ ORDER BY product.ProductOrder, product.ProductId;
 SELECT
     service.ServiceId,
     service.ServiceName,
+    service.ServiceNameEn,
     service.ServiceTypeId,
     serviceType.ServiceTypeName,
     service.ServicePrice,

@@ -482,6 +482,7 @@ public sealed class ContractApprovalServicePhase8DTests
             Employee(ManagerBId, "Manager B", EmployeeType.Manager));
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 99,
             EmployeeId = OwnerId,

@@ -26,7 +26,7 @@ public sealed class ContractNotificationResourcePolicy : INotificationResourcePo
     }
     public string SubjectType => NotificationSubjects.Contract;
     private static readonly HashSet<string> AllowedActions =
-    ["overview", "negotiation", "terms", "customer-access", "approval", "signature", "closing", "activity"];
+    ["overview", "negotiation", "terms", "customer-access", "approval", "signature", "closing", "handover", "activity"];
     public bool IsActionKeyAllowed(string? actionKey) =>
         actionKey is null || AllowedActions.Contains(actionKey);
 

@@ -728,6 +728,8 @@ public sealed class ContractAuditQueryService : IContractAuditQueryService
             ContractAuditSubjectTypes.ApprovalRequest,
             ContractAuditSubjectTypes.SignedEvidence,
             ContractAuditSubjectTypes.AcceptanceEvidence,
+            ContractAuditSubjectTypes.AcceptanceRecord,
+            ContractAuditSubjectTypes.HandoverRecord,
             ContractAuditSubjectTypes.Payment];
 
     private static HashSet<string> Results() =>
@@ -737,6 +739,16 @@ public sealed class ContractAuditQueryService : IContractAuditQueryService
 
     private static HashSet<string> ActionTypes() =>
     [
+        ContractAuditActionTypes.HandoverScopeConfirmed,
+        ContractAuditActionTypes.HandoverCreated,
+        ContractAuditActionTypes.HandoverUpdated,
+        ContractAuditActionTypes.HandoverFinalized,
+        ContractAuditActionTypes.HandoverSigned,
+        ContractAuditActionTypes.HandoverCancelled,
+        ContractAuditActionTypes.AcceptanceRecordCreated,
+        ContractAuditActionTypes.AcceptanceRecordUpdated,
+        ContractAuditActionTypes.AcceptanceRecordFinalized,
+        ContractAuditActionTypes.AcceptanceRecordCancelled,
         ContractAuditActionTypes.ContractCreated,
         ContractAuditActionTypes.ResponsibleAssigned,
         ContractAuditActionTypes.ResponsibilityTransferred,

@@ -19,7 +19,7 @@ using static ContractManagement.Tests.ContractRichTextTestData;
 
 namespace ContractManagement.Tests.Domains.Services.Contract;
 
-public sealed class ContractDocumentPreviewServiceTests
+public sealed partial class ContractDocumentPreviewServiceTests
 {
     [Fact]
     public async Task Render_UsesEditedContractLegalBasesForDocxAndPdf()
@@ -57,7 +57,7 @@ public sealed class ContractDocumentPreviewServiceTests
         context.TblContractTemplateFields.Add(new()
         {
             TemplateVersionId = TemplateVersionId, PlaceholderKey = "CUSTOM_CONTACT", FieldLabel = "Contact",
-            SourceFieldKey = "customer.contact-name", DataSource = "Khách hàng / Người liên hệ", IsSystem = false,
+            SourceFieldKey = "counterparty.contact-name", DataSource = "Khách hàng / Người liên hệ", IsSystem = false,
             DataKind = 1, Multiplicity = 2
         });
         await context.SaveChangesAsync();
@@ -73,7 +73,7 @@ public sealed class ContractDocumentPreviewServiceTests
         Assert.Equal("Frozen contact",
             submission.Snapshot.PlaceholderValues!["CUSTOM_CONTACT"]);
         Assert.DoesNotContain("Changed later",
-            submission.Snapshot.PlaceholderValues.Values);
+            submission.Snapshot.PlaceholderValues["CUSTOM_CONTACT"]);
         using var submitted = WordprocessingDocument.Open(new MemoryStream(submission.DocxContent), false);
         Assert.Contains("Frozen contact", submitted.MainDocumentPart!.Document!.InnerText);
         Assert.DoesNotContain("{{", submitted.MainDocumentPart!.Document!.InnerText);
@@ -350,6 +350,7 @@ public sealed class ContractDocumentPreviewServiceTests
     {
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 8201,
             EmployeeId = OwnerId,
@@ -502,6 +503,7 @@ public sealed class ContractDocumentPreviewServiceTests
         });
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = TemplateVersionId,
             TemplateId = TemplateId,
             VersionNo = 1,

@@ -17,7 +17,7 @@ internal static class ContractSnapshotTestData
         new ContractLegalSnapshot(
             contractId, $"HD-{contractId}", "Hợp đồng test", null, 1,
             templateVersionId, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            null, null, null, "VND", 1, 0, 0, 0, 0),
+            null, null, null, "VND", 1, 0, 0, 0, 0) { ContractDirection = 1 },
         new ContractVersionLegalSnapshot(
             versionId, 1, null, templateVersionId, "VND", 0, 0, 0, 0),
         [],

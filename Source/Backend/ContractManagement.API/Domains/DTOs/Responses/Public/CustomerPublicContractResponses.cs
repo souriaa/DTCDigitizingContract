@@ -47,6 +47,7 @@ public sealed class CustomerPublicContractItemResponse
     public decimal Quantity { get; init; }
 
     public string? UnitName { get; init; }
+    public string? UnitNameEn { get; init; }
 
     public decimal LineTotal { get; init; }
 

@@ -90,6 +90,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 TemplateNameEn = template.TemplateNameEn,
                 DocumentType = (TemplateDocumentType)template.DocumentType,
                 LanguageMode = (ContractLanguageMode)template.LanguageMode,
+                ContractDirection = (ContractDirection)version.ContractDirection,
                 TemplateVersionId = version.TemplateVersionId,
                 VersionNo = version.VersionNo
             })
@@ -134,6 +135,12 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 item.template.DocumentType == (byte)filter.DocumentType.Value);
         }
 
+        if (filter.ContractDirection.HasValue)
+        {
+            ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(filter.ContractDirection.Value);
+            query = query.Where(item => item.version.ContractDirection == (byte)filter.ContractDirection.Value);
+        }
+
         if (filter.LanguageMode.HasValue)
         {
             query = query.Where(item =>
@@ -161,6 +168,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 TemplateNameEn = item.template.TemplateNameEn,
                 DocumentType = (TemplateDocumentType)item.template.DocumentType,
                 LanguageMode = (ContractLanguageMode)item.template.LanguageMode,
+                ContractDirection = (ContractDirection)item.version.ContractDirection,
                 TemplateVersionId = item.version.TemplateVersionId,
                 VersionNo = item.version.VersionNo
             })
@@ -201,6 +209,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 TemplateNameEn = template.TemplateNameEn,
                 DocumentType = (TemplateDocumentType)template.DocumentType,
                 LanguageMode = (ContractLanguageMode)template.LanguageMode,
+                ContractDirection = (ContractDirection)version.ContractDirection,
                 TemplateVersionId = version.TemplateVersionId,
                 VersionNo = version.VersionNo
             })
@@ -262,17 +271,17 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         ValidateDocumentType(documentType);
         IReadOnlyList<SoftwareSupplyPlaceholderDefinition> items;
         var customEnabled = false;
-        var catalogVersion = documentType == TemplateDocumentType.AcceptanceRecord
-            ? AcceptanceRecordPlaceholderCatalog.Version
+        var catalogVersion = SupportingDocumentCatalog.Supports(documentType)
+            ? SupportingDocumentCatalog.Version(documentType)
             : SoftwareSupplyPlaceholderCatalog.Version;
-        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        if (SupportingDocumentCatalog.Supports(documentType))
         {
             var tenantCatalog = await _placeholderCatalog.GetAsync(
                 includeInactive: true,
                 cancellationToken: cancellationToken);
-            items = AcceptanceRecordPlaceholderCatalog.All
+            items = SupportingDocumentCatalog.Get(documentType)
                 .Concat(tenantCatalog.Where(item => !item.IsSystem
-                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                    && SupportingDocumentCatalog.Get(documentType).All(system =>
                         system.Key != item.Key)))
                 .ToArray();
             customEnabled = _placeholderCatalog is ContractPlaceholderCatalog
@@ -348,21 +357,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             .Where(template => template.CurrentPublishedVersionId.HasValue)
             .Select(template => template.CurrentPublishedVersionId!.Value)
             .ToArray();
-        var publishedVersionNumbers = publishedVersionIds.Length == 0
-            ? new Dictionary<int, int>()
-            : await _dbContext.TblContractTemplateVersions
-                .AsNoTracking()
-                .Where(version => publishedVersionIds.Contains(
-                    version.TemplateVersionId))
-                .Select(version => new
-                {
-                    version.TemplateVersionId,
-                    version.VersionNo
-                })
-                .ToDictionaryAsync(
-                    version => version.TemplateVersionId,
-                    version => version.VersionNo,
-                    cancellationToken);
+        var publishedVersions = await _dbContext.TblContractTemplateVersions.AsNoTracking()
+            .Where(version => publishedVersionIds.Contains(version.TemplateVersionId))
+            .Select(version => new { version.TemplateVersionId, version.VersionNo, version.ContractDirection })
+            .ToListAsync(cancellationToken);
+        var publishedVersionNumbers = publishedVersions.ToDictionary(x => x.TemplateVersionId);
 
         var items = templates.Select(template =>
         {
@@ -371,7 +370,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 && publishedVersionNumbers.TryGetValue(versionId,
                     out var versionNo))
             {
-                item.CurrentPublishedVersionNo = versionNo;
+                item.CurrentPublishedVersionNo = versionNo.VersionNo;
+                item.CurrentPublishedContractDirection = (ContractDirection)versionNo.ContractDirection;
             }
             return item;
         }).ToList();
@@ -413,6 +413,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var changeNote = NormalizeOptional(request.InitialChangeNote, 2000);
         ValidateDocumentType(request.DocumentType);
         ValidateLanguageMode(request.LanguageMode);
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
 
         try
         {
@@ -451,6 +452,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 {
                     TemplateId = template.TemplateId,
                     VersionNo = 1,
+                    ContractDirection = (byte)request.ContractDirection,
                     ChangeNote = changeNote,
                     Status = (byte)TemplateVersionStatus.Draft,
                     ValidationStatus = (byte)TemplateValidationStatus.NotValidated,
@@ -673,6 +675,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             {
                 TemplateId = template.TemplateId,
                 VersionNo = maxVersionNo + 1,
+                ContractDirection = source.ContractDirection,
                 ChangeNote = changeNote,
                 Status = (byte)TemplateVersionStatus.Draft,
                 ValidationStatus = (byte)TemplateValidationStatus.NotValidated,
@@ -1621,6 +1624,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 null,
                 cancellationToken);
             ValidateTermKind(request.TermKind);
+            await ValidateSupportingTermKindAsync(version.TemplateId, request.TermKind, cancellationToken);
             await EnsureSinglePaymentTermAsync(versionId, request.TermKind, null,
                 cancellationToken);
 
@@ -1706,6 +1710,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 termId,
                 cancellationToken);
             ValidateTermKind(request.TermKind);
+            await ValidateSupportingTermKindAsync(version.TemplateId, request.TermKind, cancellationToken);
             await EnsureSinglePaymentTermAsync(versionId, request.TermKind, termId,
                 cancellationToken);
             if (request.TermKind == ContractTermKind.General
@@ -2989,7 +2994,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         ContractLanguageMode languageMode,
         CancellationToken cancellationToken)
     {
-        if (documentType != TemplateDocumentType.AcceptanceRecord)
+        if (!SupportingDocumentCatalog.Supports(documentType))
         {
             return;
         }
@@ -3002,17 +3007,19 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             .ToListAsync(cancellationToken);
         if (sections.Count == 0)
         {
+            if (!await SupportingDocumentSectionReader.IsRequiredAsync(_dbContext, versionId, documentType, cancellationToken))
+                return;
             throw new ContractTemplatePreviewException(
-                "AcceptanceSectionsMissing",
-                "Template nghiệm thu phải có ít nhất một section trước khi phát hành.");
+                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsMissing" : "AcceptanceSectionsMissing",
+                $"DOCX có {{{{{SupportingDocumentCatalog.SectionsKey(documentType)}}}}} nên phải có ít nhất một mục nội dung trước khi phát hành.");
         }
 
         if (sections.Any(section => section.TermKind !=
                 (byte)ContractTermKind.General))
         {
             throw new ContractTemplatePreviewException(
-                "AcceptanceSectionsInvalid",
-                "Template nghiệm thu chỉ được sử dụng section loại General.");
+                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsInvalid" : "AcceptanceSectionsInvalid",
+                "Mẫu biên bản chỉ được sử dụng mục nội dung thông thường.");
         }
 
         if (languageMode == ContractLanguageMode.Bilingual
@@ -3023,8 +3030,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && string.IsNullOrWhiteSpace(section.TermContentEn))))
         {
             throw new ContractTemplatePreviewException(
-                "AcceptanceSectionsBilingualInvalid",
-                "Section nghiệm thu song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
+                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsBilingualInvalid" : "AcceptanceSectionsBilingualInvalid",
+                "Mục nội dung biên bản song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
         }
     }
 
@@ -3033,13 +3040,13 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             TemplateDocumentType documentType,
             CancellationToken cancellationToken)
     {
-        if (documentType == TemplateDocumentType.AcceptanceRecord)
+        if (SupportingDocumentCatalog.Supports(documentType))
         {
             var tenantCatalog = await _placeholderCatalog.GetAsync(
                 cancellationToken: cancellationToken);
-            return AcceptanceRecordPlaceholderCatalog.All
+            return SupportingDocumentCatalog.Get(documentType)
                 .Concat(tenantCatalog.Where(item => !item.IsSystem
-                    && AcceptanceRecordPlaceholderCatalog.All.All(system =>
+                    && SupportingDocumentCatalog.Get(documentType).All(system =>
                         system.Key != item.Key)))
                 .ToArray();
         }
@@ -3083,6 +3090,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         int versionId,
         CancellationToken cancellationToken)
     {
+        var direction = (ContractDirection)await _dbContext.TblContractTemplateVersions.AsNoTracking()
+            .Where(x => x.TemplateVersionId == versionId).Select(x => x.ContractDirection).SingleAsync(cancellationToken);
         var bases = await _dbContext.TblContractTemplateLegalBases
             .AsNoTracking()
             .Where(item => item.TemplateVersionId == versionId)
@@ -3166,6 +3175,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var canonical = string.Join("\n", new[]
         {
             "ITEM_LAYOUT", itemLayoutCanonical,
+            "DIRECTION", ((byte)direction).ToString(invariant),
             "LEGAL", basisCanonical,
             "TERMS", paymentCanonical,
             "APPENDICES", appendixCanonical
@@ -3176,6 +3186,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         return new TemplatePreviewInput(
             new ContractTemplateAuthoringPreviewData
             {
+                ContractDirection = direction,
                 ItemTableColumnWidthsBps = itemTableWidths,
                 LegalBases = bases.Select((item, index) =>
                     new ContractTemplateRenderLegalBasis(
@@ -3360,6 +3371,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
         var response = MapTemplateDetail(template);
         response.Versions = versions.Select(MapVersionSummary).ToList();
+        response.CurrentPublishedContractDirection = versions.Where(x => x.TemplateVersionId == template.CurrentPublishedVersionId)
+            .Select(x => (ContractDirection?)x.ContractDirection).SingleOrDefault();
         response.CurrentPublishedVersionNo = versions
             .FirstOrDefault(version =>
                 version.TemplateVersionId == template.CurrentPublishedVersionId)
@@ -3408,6 +3421,8 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             cancellationToken);
 
         var response = MapVersionDetail(version, template);
+        response.RequiresSections = await SupportingDocumentSectionReader.IsRequiredAsync(
+            _dbContext, versionId, (TemplateDocumentType)template.DocumentType, cancellationToken);
         if (version.PreviewedByEmployeeId is int previewedByEmployeeId)
         {
             response.PreviewedByEmployeeName =
@@ -3604,6 +3619,15 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 && (item.MilestoneCode == code || item.DisplayOrder == order),
                 cancellationToken))
             throw new ArgumentException("Mã và thứ tự đợt thanh toán phải duy nhất.");
+    }
+
+    private async Task ValidateSupportingTermKindAsync(int templateId, ContractTermKind kind, CancellationToken ct)
+    {
+        if (kind != ContractTermKind.Payment) return;
+        var type = await _dbContext.TblContractTemplates.AsNoTracking().Where(x => x.TemplateId == templateId)
+            .Select(x => (TemplateDocumentType)x.DocumentType).SingleAsync(ct);
+        if (SupportingDocumentCatalog.Supports(type))
+            throw new ArgumentException("Mẫu bàn giao/nghiệm thu chỉ có mục nội dung, không cấu hình điều khoản thanh toán.");
     }
 
     private static void ValidateTermKind(ContractTermKind kind)
@@ -3909,13 +3933,15 @@ public sealed partial class ContractTemplateService : IContractTemplateService
 
     private async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        System.Data.IsolationLevel? isolationLevel = null)
     {
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await _dbContext.Database
-                .BeginTransactionAsync(cancellationToken);
+            await using var transaction = isolationLevel.HasValue && _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(isolationLevel.Value, cancellationToken)
+                : await _dbContext.Database.BeginTransactionAsync(cancellationToken);
             try
             {
                 var result = await operation();
@@ -3995,6 +4021,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         {
             TemplateVersionId = version.TemplateVersionId,
             VersionNo = version.VersionNo,
+            ContractDirection = (ContractDirection)version.ContractDirection,
             ChangeNote = version.ChangeNote,
             Status = (TemplateVersionStatus)version.Status,
             ValidationStatus = (TemplateValidationStatus)version.ValidationStatus,
@@ -4013,6 +4040,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             TemplateId = template.TemplateId,
             TemplateCode = template.TemplateCode,
             VersionNo = version.VersionNo,
+            ContractDirection = (ContractDirection)version.ContractDirection,
             ChangeNote = version.ChangeNote,
             Status = (TemplateVersionStatus)version.Status,
             ValidationStatus = (TemplateValidationStatus)version.ValidationStatus,

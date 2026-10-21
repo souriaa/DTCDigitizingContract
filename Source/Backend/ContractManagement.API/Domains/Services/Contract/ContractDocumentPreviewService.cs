@@ -252,7 +252,7 @@ public sealed class ContractDocumentPreviewService :
                 (int)item.WidthBps)));
         var fields = await _dbContext.TblContractTemplateFields.AsNoTracking()
             .Where(x => x.TemplateVersionId == templateVersionId).ToListAsync(cancellationToken);
-        var renderData = CreateRenderData(snapshot, customer, fields.Any(x => x.PlaceholderKey == "CONTRACT_APPENDICES")) with
+        var renderData = CreateRenderData(snapshot, fields.Any(x => x.PlaceholderKey == "CONTRACT_APPENDICES")) with
         {
             ItemTableColumnWidthsBps = itemTableWidths
         };
@@ -261,10 +261,7 @@ public sealed class ContractDocumentPreviewService :
             .CaptureAsync(contract, version, cancellationToken: cancellationToken,
                 preloadedContext: new ContractPlaceholderResolveContext(contract, version, customer, tenant, null, null));
         var scalars = new Dictionary<string, string>(renderData.ScalarValues, StringComparer.Ordinal);
-        if (definitions.Any(x => x.IsSystem && x.Key == "CUSTOMER_REPRESENTATIVE_TITLE"))
-            scalars["CUSTOMER_REPRESENTATIVE_TITLE"] = snapshot.Customer.RepresentativeTitle;
-        // A former system key may be deliberately reintroduced as a custom
-        // definition. The immutable template binding decides its semantics.
+        // Resolve custom bindings from the version; locked values are never read from master again.
         foreach (var pair in custom) scalars[pair.Key] = pair.Value;
         renderData = renderData with
         {
@@ -330,6 +327,8 @@ public sealed class ContractDocumentPreviewService :
                 "Template của hợp đồng chưa từng được publish.");
         }
 
+        if (version.ContractDirection != contract.ContractDirection)
+            throw new InvalidOperationException("Chiều giao dịch của mẫu không khớp với hợp đồng.");
         if (template.LanguageMode != contract.LanguageMode)
         {
             throw new InvalidOperationException(
@@ -384,18 +383,16 @@ public sealed class ContractDocumentPreviewService :
 
     private static ContractTemplateRenderData CreateRenderData(
         SoftwareSupplyContractSnapshot snapshot,
-        TblCustomer customer, bool renderAppendices)
+        bool renderAppendices)
     {
         var contract = snapshot.Contract;
         var version = snapshot.Version;
         var customerSnapshot = snapshot.Customer;
         var tenant = snapshot.Tenant;
         var currency = version.CurrencyCode;
-        var customerContactName = Required(
-            customer.CustomerContactPersonName,
+        _ = Required(
+            customerSnapshot.ContactName,
             "Người liên lạc khách hàng");
-        var customerContactTitle = Value(
-            customer.CustomerContactPersonTitle);
 
         var scalarValues = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -403,16 +400,6 @@ public sealed class ContractDocumentPreviewService :
             ["EFFECTIVE_DATE_EN"] = contract.EffectiveDate is { } effective ? DocumentEnglishPolicy.Date(effective) : string.Empty,
             ["EXPIRE_DATE_EN"] = contract.ExpireDate is { } expiry ? DocumentEnglishPolicy.Date(expiry) : string.Empty,
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS_EN"] = EnglishMoneyTextFormatter.Format(version.TotalAmount, currency),
-            ["CUSTOMER_COMPANY_EN"] = Value(customerSnapshot.LegalNameEn),
-            ["CUSTOMER_ADDRESS_EN"] = Value(customerSnapshot.AddressEn),
-            ["CUSTOMER_BANK_NAME_EN"] = Value(customerSnapshot.BankNameEn),
-            ["CUSTOMER_CITY_EN"] = Value(customerSnapshot.CityEn),
-            ["CUSTOMER_COUNTRY_EN"] = Value(customerSnapshot.CountryEn),
-            ["CUSTOMER_CONTACT_TITLE_EN"] = Value(customerSnapshot.ContactTitleEn),
-            ["PROVIDER_LEGAL_NAME_EN"] = Value(tenant.LegalNameEn),
-            ["PROVIDER_ADDRESS_EN"] = Value(tenant.AddressEn),
-            ["PROVIDER_REPRESENTATIVE_TITLE_EN"] = Value(tenant.RepresentativeTitleEn),
-            ["PROVIDER_BANK_NAME_EN"] = Value(tenant.BankNameEn),
             ["CONTRACT_CODE"] = Required(contract.ContractCode, "Mã hợp đồng"),
             ["CONTRACT_NAME"] = Required(contract.ContractName, "Tên hợp đồng"),
             ["CONTRACT_NAME_EN"] = Value(contract.ContractNameEn),
@@ -427,37 +414,11 @@ public sealed class ContractDocumentPreviewService :
             ["CONTRACT_TOTAL_AMOUNT"] = FormatAmount(version.TotalAmount, currency),
             ["CONTRACT_TOTAL_AMOUNT_IN_WORDS"] =
                 VietnameseMoneyTextFormatter.Format(version.TotalAmount, currency),
-            ["CUSTOMER_CODE"] = Required(customer.CustomerCode, "Mã khách hàng"),
-            ["CUSTOMER_NAME"] = Required(customer.CustomerFullName, "Tên khách hàng"),
-            ["CUSTOMER_COMPANY"] = Required(
-                customer.CustomerCompany ?? customerSnapshot.LegalName,
-                "Công ty khách hàng"),
-            ["CUSTOMER_TAX_CODE"] = Required(
-                customerSnapshot.TaxCode,
-                "Mã số thuế khách hàng"),
-            ["CUSTOMER_ADDRESS"] = customerSnapshot.Address,
-            ["CUSTOMER_EMAIL"] = Required(customer.CustomerEmail, "Email khách hàng"),
-            ["CUSTOMER_PHONE"] = Required(
-                customerSnapshot.PhoneNumber,
-                "Điện thoại khách hàng"),
-            ["PROVIDER_LEGAL_NAME"] = tenant.LegalEntityName,
-            ["PROVIDER_TAX_CODE"] = tenant.TaxCode,
-            ["PROVIDER_ADDRESS"] = tenant.Address,
-            ["PROVIDER_REPRESENTATIVE_NAME"] = tenant.RepresentativeName,
-            ["PROVIDER_REPRESENTATIVE_TITLE"] = tenant.RepresentativeTitle,
-            ["CUSTOMER_FAX"] = Value(customerSnapshot.FaxNumber),
-            ["CUSTOMER_BANK_ACCOUNT_NUMBER"] =
-                Value(customerSnapshot.BankAccountNumber),
-            ["CUSTOMER_BANK_NAME"] = Value(customerSnapshot.BankName),
-            ["PROVIDER_PHONE"] = Value(snapshot.Tenant.PhoneNumber),
-            ["PROVIDER_FAX"] = Value(snapshot.Tenant.FaxNumber),
-            ["PROVIDER_BANK_ACCOUNT_NUMBER"] =
-                Value(snapshot.Tenant.BankAccountNumber),
-            ["PROVIDER_BANK_NAME"] = Value(snapshot.Tenant.BankName),
-            ["CUSTOMER_WEBSITE"] = Value(customer.CustomerWebsite),
-            ["CUSTOMER_CITY"] = Value(customer.CustomerCity),
-            ["CUSTOMER_COUNTRY"] = Value(customer.CustomerCountry)
         };
+
+        foreach (var pair in DocumentPartyMarkers.Values((ContractDirection)contract.ContractDirection,
+                     DocumentParty.From(tenant), DocumentParty.From(customerSnapshot)))
+            scalarValues[pair.Key] = pair.Value;
 
         var items = snapshot.Items.Select((item, index) =>
             new ContractTemplateRenderItem(
@@ -507,22 +468,12 @@ public sealed class ContractDocumentPreviewService :
             scalarValues,
             items,
             terms,
-            new ContractTemplateRenderSignature(
-                "ĐẠI DIỆN BÊN CUNG CẤP",
-                $"{tenant.LegalEntityName} — MST: {tenant.TaxCode} — "
-                + $"{tenant.Address} — {tenant.RepresentativeName}, "
-                + tenant.RepresentativeTitle),
-            new ContractTemplateRenderSignature(
-                "ĐẠI DIỆN BÊN KHÁCH HÀNG",
-                $"{customerSnapshot.LegalName} — MST: "
-                + $"{Value(customerSnapshot.TaxCode)} — {customerSnapshot.Address} — "
-                + customerContactName
-                + (string.IsNullOrWhiteSpace(customerContactTitle)
-                    ? string.Empty
-                    : $", {customerContactTitle}")),
+            new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN CUNG CẤP", string.Empty),
+            new ContractTemplateRenderSignature("ĐẠI DIỆN BÊN KHÁCH HÀNG", string.Empty),
             string.Empty,
             currency)
         {
+            ContractDirection = (ContractDirection)contract.ContractDirection,
             LegalBases = (snapshot.LegalBases ?? [])
                 .OrderBy(item => item.DisplayOrder)
                 .ThenBy(item => item.LegalBasisId)
@@ -567,7 +518,7 @@ public sealed class ContractDocumentPreviewService :
     private static string BuildAppendixReferenceEn(
         SoftwareSupplyContractSnapshot snapshot) =>
         $"Pursuant to Contract No. {snapshot.Contract.ContractCode} between "
-        + $"{DocumentEnglishPolicy.Require(snapshot.Tenant.LegalNameEn, "tên pháp nhân tiếng Anh bên cung cấp")} and {DocumentEnglishPolicy.OptionalCustomerEnglish(snapshot.Customer.LegalNameEn)} "
+        + $"{DocumentEnglishPolicy.Require(snapshot.Tenant.LegalNameEn, "tên pháp nhân tiếng Anh doanh nghiệp")} and {DocumentEnglishPolicy.OptionalCustomerEnglish(snapshot.Customer.LegalNameEn)} "
         + $"regarding {DocumentEnglishPolicy.Require(snapshot.Contract.ContractNameEn, "tên hợp đồng tiếng Anh")}.";
 
     private static string BuildItemDescription(ContractItemLegalSnapshot item) =>

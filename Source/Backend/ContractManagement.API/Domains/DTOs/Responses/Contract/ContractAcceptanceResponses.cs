@@ -4,6 +4,7 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract;
 
 public sealed class ContractAcceptanceTemplateOptionResponse
 {
+    public ContractDirection ContractDirection { get; set; }
     public int TemplateId { get; set; }
     public int TemplateVersionId { get; set; }
     public int VersionNo { get; set; }
@@ -28,6 +29,8 @@ public class ContractAcceptanceRecordSummaryResponse
 public sealed class ContractAcceptanceRecordResponse
     : ContractAcceptanceRecordSummaryResponse
 {
+    public DateTime ContractSignDate { get; set; }
+    public ContractDirection ContractDirection { get; set; }
     public int ContractId { get; set; }
     public int TemplateVersionId { get; set; }
     public string TemplateName { get; set; } = string.Empty;
@@ -40,6 +43,8 @@ public sealed class ContractAcceptanceRecordResponse
     public DateTime? SignedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancellationReason { get; set; }
+    public IReadOnlyList<AcceptanceHandoverScopeResponse> HandoverScope { get; set; } = [];
+    public string? HandoverBlocker { get; set; }
     public IReadOnlyList<ContractAcceptanceReferenceResponse> References { get; set; } = [];
     public IReadOnlyList<ContractAcceptancePartyResponse> Parties { get; set; } = [];
     public IReadOnlyList<ContractAcceptanceSectionResponse> Sections { get; set; } = [];
@@ -53,6 +58,7 @@ public sealed class ContractAcceptanceReferenceResponse
     public int AcceptanceReferenceId { get; set; }
     public AcceptanceReferenceType ReferenceType { get; set; }
     public int? AppendixId { get; set; }
+    public int? HandoverRecordId { get; set; }
     public string TextVi { get; set; } = string.Empty;
     public string? TextEn { get; set; }
     public int DisplayOrder { get; set; }
@@ -110,3 +116,9 @@ public sealed record ContractAcceptanceDocumentContent(
     byte[] Content,
     string FileName,
     string ContentType);
+public sealed record AcceptanceHandoverScopeResponse(int HandoverLineId, int HandoverRecordId,
+    long HandoverScopeItemId, string HandoverCode, DateTime HandoverDate, DateTime SignDate,
+    string ItemCode, string NameVi, string? NameEn, string UnitVi, string? UnitEn,
+    decimal DeliveredQuantity, decimal AvailableQuantity, decimal Quantity, byte ScopeMode);
+public sealed record AcceptanceHandoverOptionsResponse(IReadOnlyList<AcceptanceHandoverScopeResponse> Items,
+    string? Blocker);

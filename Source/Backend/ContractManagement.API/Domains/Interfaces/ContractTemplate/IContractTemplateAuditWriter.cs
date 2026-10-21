@@ -5,6 +5,7 @@ namespace ContractManagement.Domains.Interfaces.ContractTemplate;
 
 public static class ContractTemplateAuditActionTypes
 {
+    public const string TemplateDeleted = "TemplateDeleted";
     public const string DocumentUploaded = "DocumentUploaded";
     public const string DocumentReplaced = "DocumentReplaced";
     public const string ValidationInvalid = "ValidationInvalid";

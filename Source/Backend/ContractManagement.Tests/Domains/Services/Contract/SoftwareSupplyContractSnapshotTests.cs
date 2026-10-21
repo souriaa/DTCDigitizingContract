@@ -39,6 +39,7 @@ public sealed class SoftwareSupplyContractSnapshotTests
         };
         var contract = new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = 3,
             ContractCode = "HD-001",
             ContractName = "Cung cấp phần mềm",

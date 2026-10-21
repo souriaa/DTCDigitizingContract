@@ -58,6 +58,7 @@ public sealed class DashboardService : IDashboardService
         var currentRows = await periodContracts
             .Select(contract => new ContractMetricRow(
                 contract.Status,
+                contract.ContractDirection,
                 contract.TotalAmount,
                 contract.CurrencyCode,
                 contract.CreatedDate))
@@ -135,11 +136,12 @@ public sealed class DashboardService : IDashboardService
                 expiringCount,
                 pendingApprovalInboxCount),
             AmountByCurrency = currentRows
-                .GroupBy(row => NormalizeCurrency(row.CurrencyCode))
-                .OrderBy(group => group.Key)
+                .GroupBy(row => new { Currency = NormalizeCurrency(row.CurrencyCode), row.ContractDirection })
+                .OrderBy(group => group.Key.Currency).ThenBy(group => group.Key.ContractDirection)
                 .Select(group => new DashboardCurrencyAmountResponse(
-                    group.Key,
-                    group.Sum(row => row.TotalAmount)))
+                    group.Key.Currency,
+                    group.Sum(row => row.TotalAmount),
+                    (ContractDirection)group.Key.ContractDirection))
                 .ToList(),
             VolumeSeries = BuildVolumeSeries(currentRows, range),
             StatusDistribution = currentRows
@@ -290,7 +292,7 @@ public sealed class DashboardService : IDashboardService
 
         if (customerSessionId.HasValue)
         {
-            return "Khách hàng";
+            return "Đối tác";
         }
 
         return string.IsNullOrWhiteSpace(actorType) ? null : actorType;
@@ -298,6 +300,7 @@ public sealed class DashboardService : IDashboardService
 
     private sealed record ContractMetricRow(
         byte Status,
+        byte ContractDirection,
         decimal TotalAmount,
         string CurrencyCode,
         DateTime CreatedDate);

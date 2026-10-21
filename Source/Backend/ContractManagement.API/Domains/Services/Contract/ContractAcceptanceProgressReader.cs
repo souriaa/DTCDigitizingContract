@@ -10,7 +10,8 @@ internal sealed record ContractAcceptanceProgress(
     bool HasSignedFinal,
     bool HasPartialHistory,
     int AcceptedMilestoneCount,
-    IReadOnlyList<int> RemainingMilestoneIds);
+    IReadOnlyList<int> RemainingMilestoneIds,
+    ContractHandoverProgress Scope);
 
 internal static class ContractAcceptanceProgressReader
 {
@@ -20,6 +21,7 @@ internal static class ContractAcceptanceProgressReader
         DbDtctechContext db,
         int contractId,
         int versionId,
+        string tenantCode,
         IReadOnlyList<int> milestoneIds,
         CancellationToken ct)
     {
@@ -33,9 +35,9 @@ internal static class ContractAcceptanceProgressReader
                 && record.ContractVersionId == versionId
                 && record.Status == (byte)AcceptanceRecordStatus.Signed
                 && file.ObjectType == EvidenceObjectType
-                && file.ObjectId == contractId
+                && file.ObjectId == contractId && file.TenantCode == tenantCode
                 && file.StorageKey != null && file.StorageKey != ""
-                && file.Sha256 != null && file.Sha256 != ""
+                && file.Sha256 != null && file.Sha256.Length == 64
                 && file.FileSize > 0
             select new { record.AcceptanceRecordId, record.AcceptanceKind })
             .Distinct()
@@ -61,15 +63,16 @@ internal static class ContractAcceptanceProgressReader
         int[] remaining = hasSignedFinal
             ? []
             : milestoneIds.Where(id => !acceptedSet.Contains(id)).ToArray();
-        var completed = hasSignedFinal
-            || milestoneIds.Count > 0 && remaining.Length == 0
+        var scope = await ContractHandoverProgressReader.ReadAsync(db, contractId, versionId, tenantCode, ct);
+        var milestonesCompleted = hasSignedFinal
+            || remaining.Length == 0
                 && signedPartialIds.Length > 0;
         return new ContractAcceptanceProgress(
-            completed,
+            milestonesCompleted && scope.AcceptedCompleted && scope.DeliveredCompleted && scope.IntegrityError is null,
             signedRecords.Count > 0,
             hasSignedFinal,
             hasPartialHistory,
             milestoneIds.Count - remaining.Length,
-            remaining);
+            remaining, scope);
     }
 }

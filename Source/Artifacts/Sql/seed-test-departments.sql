@@ -1,26 +1,30 @@
 /*
   DEV/TEST ONLY
 
-  Tạo 10 phòng ban active trong tenant hungnd.
+  Tạo 10 phòng ban active trong tenant đã migrate đầy đủ.
   Script có thể chạy lại: DepartmentCode đã tồn tại sẽ được bỏ qua.
 
-  Cột legacy của database là Stutus (không phải Status):
+  Tên cột trong schema hiện tại là Stutus (không phải Status):
     1 = Active
     0 = Inactive
 */
 
-USE [ContractManagement_Tenant_hungnd];
-GO
-
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
+-- Chọn đúng tenant database trong SSMS và điền lại tên bên dưới trước khi chạy.
+DECLARE @ExpectedDatabase sysname = N'ContractManagement_Tenant_hungnd';
 DECLARE @LangId int = 1;
 
-IF DB_NAME() <> 'ContractManagement_Tenant_hungnd'
+IF DB_NAME() <> @ExpectedDatabase OR DB_NAME() IN (N'master', N'model', N'msdb', N'tempdb')
 BEGIN
-    THROW 50010, N'Sai database đích. Hãy kiểm tra lại câu lệnh USE.', 1;
+    THROW 50010, N'Chọn đúng tenant database và đặt @ExpectedDatabase trùng tên DB trước khi chạy.', 1;
 END;
+
+IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
+    THROW 50011, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021025411_CatalogItemUnits')
+    THROW 50012, N'Tenant chưa có migration CatalogItemUnits. Hãy cập nhật schema trước khi seed.', 1;
 
 DECLARE @Departments table
 (

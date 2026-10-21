@@ -197,8 +197,8 @@ public sealed class ContractTemplateDocumentValidatorTests
             CreateFile(CreateDocument([
                     "{{CUSTOMER_REPRESENTATIVE_NAME}}",
                     "{{CUSTOMER_REPRESENTATIVE_NAME}}",
-                    "{{TENANT_REPRESENTATIVE_NAME}}",
-                    "{{TENANT_REPRESENTATIVE_NAME}}"
+                    "{{PROVIDER_REPRESENTATIVE_NAME}}",
+                    "{{PROVIDER_REPRESENTATIVE_NAME}}"
                 ]),
                 "acceptance.docx"),
             TemplateDocumentType.AcceptanceRecord);
@@ -227,8 +227,8 @@ public sealed class ContractTemplateDocumentValidatorTests
             "BIÊN BẢN {{ACCEPTANCE_CODE}}",
             "{{DOCUMENT_REFERENCES}}",
             "Tại {{ACCEPTANCE_LOCATION}} ngày {{ACCEPTANCE_DATE}}",
-            "{{CUSTOMER_LEGAL_NAME}}",
-            "{{TENANT_LEGAL_NAME}}",
+            "{{CUSTOMER_COMPANY_NAME}}",
+            "{{PROVIDER_COMPANY_NAME}}",
             "{{ACCEPTANCE_SECTIONS}}"
         ]);
 
@@ -238,7 +238,7 @@ public sealed class ContractTemplateDocumentValidatorTests
             AcceptanceRecordPlaceholderCatalog.All,
             new Dictionary<string, string>(),
             new ContractTemplateAuthoringPreviewData
-            {
+            { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
                 Terms =
                 [
                     new ContractTemplateRenderTerm(

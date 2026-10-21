@@ -25,8 +25,8 @@ public sealed class CatalogEnglishNameTests
         Assert.Single((await services.GetListAsync(new() { Keyword = "Dịch vụ" })).Items);
         Assert.Empty((await products.GetListAsync(new() { Keyword = "Missing translation" })).Items);
         Assert.Empty((await services.GetListAsync(new() { Keyword = "Missing translation" })).Items);
-        await products.UpdateAsync(1, new() { ProductName = "Sản phẩm", ProductNameEn = "Product", CategoryId = 1 });
-        await services.UpdateAsync(1, new() { ServiceName = "Dịch vụ", ServiceNameEn = "Service", ServiceTypeId = 1 }, 9);
+        await products.UpdateAsync(1, new() { ProductName = "Sản phẩm", ProductNameEn = "Product", UnitName = "Giấy phép", UnitNameEn = "License", CategoryId = 1 });
+        await services.UpdateAsync(1, new() { ServiceName = "Dịch vụ", ServiceNameEn = "Service", UnitName = "Tháng", UnitNameEn = "Month", ServiceTypeId = 1 }, 9);
         Assert.Equal("Product", (await products.GetByIdAsync(1)).ProductNameEn);
         Assert.Equal("Service", (await services.GetByIdAsync(1)).ServiceNameEn);
     }
@@ -90,12 +90,12 @@ public sealed class CatalogEnglishNameTests
         await using var db = await SeedAsync();
         var products = new ProductService(db);
         var services = new ServiceService(db);
-        var product = await products.CreateAsync(new() { ProductName = "Phần mềm", ProductNameEn = "  Software supply  ", CategoryId = 1 });
-        var service = await services.CreateAsync(new() { ServiceName = "Triển khai", ServiceNameEn = "  Implementation  ", ServiceTypeId = 1 }, 9);
+        var product = await products.CreateAsync(new() { ProductName = "Phần mềm", ProductNameEn = "  Software supply  ", UnitName = "Giấy phép", UnitNameEn = "License", CategoryId = 1 });
+        var service = await services.CreateAsync(new() { ServiceName = "Triển khai", ServiceNameEn = "  Implementation  ", UnitName = "Tháng", UnitNameEn = "Month", ServiceTypeId = 1 }, 9);
         Assert.Equal("Software supply", product.ProductNameEn);
         Assert.Equal("Implementation", service.ServiceNameEn);
-        await products.UpdateAsync(product.ProductId, new() { ProductName = "Phần mềm", ProductNameEn = "  Software package  ", CategoryId = 1 });
-        await services.UpdateAsync(service.ServiceId, new() { ServiceName = "Triển khai", ServiceNameEn = "  Deployment service  ", ServiceTypeId = 1 }, 9);
+        await products.UpdateAsync(product.ProductId, new() { ProductName = "Phần mềm", ProductNameEn = "  Software package  ", UnitName = "Giấy phép", UnitNameEn = "License", CategoryId = 1 });
+        await services.UpdateAsync(service.ServiceId, new() { ServiceName = "Triển khai", ServiceNameEn = "  Deployment service  ", UnitName = "Tháng", UnitNameEn = "Month", ServiceTypeId = 1 }, 9);
         Assert.Equal("Software package", (await products.GetByIdAsync(product.ProductId)).ProductNameEn);
         Assert.Equal("Deployment service", (await services.GetByIdAsync(service.ServiceId)).ServiceNameEn);
         Assert.Equal(product.ProductId, Assert.Single((await products.GetListAsync(new() { Keyword = "Software package" })).Items).ProductId);

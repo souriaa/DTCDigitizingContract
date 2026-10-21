@@ -14,6 +14,7 @@ public sealed class ContractPlaceholderSourceRegistry : IContractPlaceholderSour
         new ContractVersionPlaceholderSourceProvider(),
         new CustomerPlaceholderSourceProvider(),
         new TenantLegalProfilePlaceholderSourceProvider(),
+        new ContractRolePlaceholderSourceProvider(),
         new ContractOwnerPlaceholderSourceProvider(),
         new DepartmentPlaceholderSourceProvider(),
     ]) { }

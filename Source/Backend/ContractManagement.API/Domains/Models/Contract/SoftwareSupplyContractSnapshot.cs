@@ -81,6 +81,17 @@ public sealed record CustomerLegalSnapshot(
     string? BankAccountNumber,
     string? BankName)
 {
+    public string? SubjectCode { get; init; }
+    public string? ContactName { get; init; }
+    public string? ContactTitle { get; init; }
+    public string? ContactPhone { get; init; }
+    public string? FullName { get; init; }
+    public string? Email { get; init; }
+    public string? Website { get; init; }
+    public string? City { get; init; }
+    public string? Country { get; init; }
+    public string? Mobile { get; init; }
+    public string? ZipCode { get; init; }
     public string? LegalNameEn { get; init; }
     public string? AddressEn { get; init; }
     public string? RepresentativeTitleEn { get; init; }
@@ -106,7 +117,10 @@ public sealed record ContractLegalSnapshot(
     decimal Subtotal,
     decimal TotalDiscount,
     decimal TotalVat,
-    decimal TotalAmount);
+    decimal TotalAmount)
+{
+    public byte ContractDirection { get; init; }
+}
 
 public sealed record ContractVersionLegalSnapshot(
     int VersionId,
@@ -203,6 +217,8 @@ public static class SoftwareSupplyContractSnapshotFactory
         ArgumentNullException.ThrowIfNull(version);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(terms);
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(
+            (ContractManagement.API.Common.Enums.ContractDirection)contract.ContractDirection);
 
         var customerLegalName = FirstRequired(
             customer.CustomerCompany,
@@ -241,6 +257,11 @@ public static class SoftwareSupplyContractSnapshotFactory
                 Optional(customer.CustomerBankAccountNumber),
                 Optional(customer.CustomerBankName))
             {
+                SubjectCode = customer.CustomerCode, FullName = customer.CustomerFullName,
+                ContactName = customer.CustomerContactPersonName, ContactTitle = customer.CustomerContactPersonTitle,
+                ContactPhone = customer.CustomerContactPersonPhone, Mobile = customer.CustomerMobile,
+                Email = customer.CustomerEmail, Website = customer.CustomerWebsite, City = customer.CustomerCity,
+                Country = customer.CustomerCountry, ZipCode = customer.CustomerZipCode,
                 LegalNameEn = customer.CustomerCompanyEn, AddressEn = customer.CustomerAddressEn,
                 RepresentativeTitleEn = customer.CustomerRepresentativeTitleEn,
                 ContactTitleEn = customer.CustomerContactPersonTitleEn, BankNameEn = customer.CustomerBankNameEn,
@@ -262,7 +283,7 @@ public static class SoftwareSupplyContractSnapshotFactory
                 contract.Subtotal,
                 contract.TotalDiscount,
                 contract.TotalVat,
-                contract.TotalAmount),
+                contract.TotalAmount) { ContractDirection = contract.ContractDirection },
             new ContractVersionLegalSnapshot(
                 version.VersionId,
                 version.VersionNo,
@@ -364,6 +385,7 @@ public static class SoftwareSupplyContractSnapshotFactory
             ContractName = snapshot.Contract.ContractName,
             ContractNameEn = snapshot.Contract.ContractNameEn,
             ContractType = snapshot.Contract.ContractType,
+            ContractDirection = snapshot.Contract.ContractDirection,
             ContractCreatedDate = snapshot.Contract.CreatedDate,
             SignDate = snapshot.Contract.SignDate,
             EffectiveDate = snapshot.Contract.EffectiveDate,
@@ -401,6 +423,17 @@ public static class SoftwareSupplyContractSnapshotFactory
         {
             PartyRole = 2,
             SourceCustomerId = snapshot.Customer.CustomerId,
+            SubjectCode = snapshot.Customer.SubjectCode,
+            ContactName = snapshot.Customer.ContactName,
+            ContactTitle = snapshot.Customer.ContactTitle,
+            ContactPhone = snapshot.Customer.ContactPhone,
+            FullName = snapshot.Customer.FullName,
+            Email = snapshot.Customer.Email,
+            Website = snapshot.Customer.Website,
+            City = snapshot.Customer.City,
+            Country = snapshot.Customer.Country,
+            Mobile = snapshot.Customer.Mobile,
+            ZipCode = snapshot.Customer.ZipCode,
             LegalName = snapshot.Customer.LegalName,
             TaxCode = snapshot.Customer.TaxCode,
             Address = snapshot.Customer.Address,
@@ -455,6 +488,17 @@ public static class SoftwareSupplyContractSnapshotFactory
 
         WriteTenant(writer, snapshot.Tenant);
         WriteCustomer(writer, snapshot.Customer);
+        WriteString(writer, snapshot.Customer.SubjectCode);
+        WriteString(writer, snapshot.Customer.ContactName);
+        WriteString(writer, snapshot.Customer.ContactTitle);
+        WriteString(writer, snapshot.Customer.ContactPhone);
+        WriteString(writer, snapshot.Customer.FullName);
+        WriteString(writer, snapshot.Customer.Email);
+        WriteString(writer, snapshot.Customer.Website);
+        WriteString(writer, snapshot.Customer.City);
+        WriteString(writer, snapshot.Customer.Country);
+        WriteString(writer, snapshot.Customer.Mobile);
+        WriteString(writer, snapshot.Customer.ZipCode);
         WriteString(writer, snapshot.Tenant.LegalNameEn);
         WriteString(writer, snapshot.Tenant.AddressEn);
         WriteString(writer, snapshot.Tenant.RepresentativeTitleEn);
@@ -563,7 +607,7 @@ public static class SoftwareSupplyContractSnapshotFactory
     private static void WriteCustomer(BinaryWriter w, CustomerLegalSnapshot x)
     { w.Write(x.CustomerId); WriteString(w, x.LegalName); WriteString(w, x.TaxCode); WriteString(w, x.Address); WriteString(w, x.RepresentativeName); WriteString(w, x.RepresentativeTitle); WriteString(w, x.PhoneNumber); WriteString(w, x.FaxNumber); WriteString(w, x.BankAccountNumber); WriteString(w, x.BankName); }
     private static void WriteContract(BinaryWriter w, ContractLegalSnapshot x)
-    { w.Write(x.ContractId); WriteString(w, x.ContractCode); WriteString(w, x.ContractName); WriteString(w, x.ContractNameEn); w.Write(x.ContractType); w.Write(x.TemplateVersionId); WriteDate(w, x.CreatedDate); WriteDate(w, x.SignDate); WriteDate(w, x.EffectiveDate); WriteDate(w, x.ExpireDate); WriteString(w, x.CurrencyCode); w.Write(x.LanguageMode); WriteDecimal(w, x.Subtotal); WriteDecimal(w, x.TotalDiscount); WriteDecimal(w, x.TotalVat); WriteDecimal(w, x.TotalAmount); }
+    { w.Write(x.ContractId); WriteString(w, x.ContractCode); WriteString(w, x.ContractName); WriteString(w, x.ContractNameEn); w.Write(x.ContractType); w.Write(x.ContractDirection); w.Write(x.TemplateVersionId); WriteDate(w, x.CreatedDate); WriteDate(w, x.SignDate); WriteDate(w, x.EffectiveDate); WriteDate(w, x.ExpireDate); WriteString(w, x.CurrencyCode); w.Write(x.LanguageMode); WriteDecimal(w, x.Subtotal); WriteDecimal(w, x.TotalDiscount); WriteDecimal(w, x.TotalVat); WriteDecimal(w, x.TotalAmount); }
     private static void WriteVersion(BinaryWriter w, ContractVersionLegalSnapshot x)
     { w.Write(x.VersionId); w.Write(x.VersionNo); WriteNullableInt(w, x.SourceVersionId); w.Write(x.TemplateVersionId); WriteString(w, x.CurrencyCode); WriteDecimal(w, x.Subtotal); WriteDecimal(w, x.TotalDiscount); WriteDecimal(w, x.TotalVat); WriteDecimal(w, x.TotalAmount); }
     private static void WriteString(BinaryWriter w, string? value)

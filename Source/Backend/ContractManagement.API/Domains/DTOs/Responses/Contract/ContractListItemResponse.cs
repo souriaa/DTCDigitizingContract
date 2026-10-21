@@ -8,6 +8,8 @@ namespace ContractManagement.API.Domains.DTOs.Responses.Contract
     /// </summary>
     public class ContractListItemResponse
     {
+        public ContractDirection ContractDirection { get; set; }
+
         public int ContractId { get; set; }
 
         public string? ContractCode { get; set; }

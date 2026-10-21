@@ -1,6 +1,14 @@
 import axiosClient from "@/lib/axios-interceptor";
 import type { ContractPaymentMilestoneResponse } from "@/services/contract-completion-api";
 
+export enum ContractDirection { Sale = 1, Purchase = 2 }
+
+export const getContractDirectionLabel = (direction?: ContractDirection) =>
+  direction === ContractDirection.Sale ? "Bán" : direction === ContractDirection.Purchase ? "Mua" : "Chưa xác định";
+
+export const getContractCounterpartyLabel = (direction: ContractDirection) =>
+  direction === ContractDirection.Purchase ? "Nhà cung cấp" : "Khách hàng";
+
 export enum ContractType {
   SoftwareSupply = 1,
   SoftwareMaintenance = 2,
@@ -210,6 +218,7 @@ export interface UpdateContractItemRequest extends CreateContractItemRequest {
 export interface CreateContractRequest {
   customerId: number;
   responsibleEmployeeId?: number | null;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   parentContractId?: number | null;
@@ -636,6 +645,7 @@ export interface ContractDetailResponse {
   contractCode?: string | null;
   contractName: string;
   contractNameEn?: string | null;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   parentContractId?: number | null;
@@ -668,6 +678,7 @@ export interface CreateContractResponse {
   currentVersionId: number;
   versionNo: number;
   customerId: number;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   templateVersionId: number;
   totalAmount: number;
@@ -755,6 +766,7 @@ export interface CreateContractNegotiationRoundResponse {
 }
 
 export interface ContractFilterRequest {
+  contractDirection?: ContractDirection;
   page?: number;
   pageSize?: number;
   keyword?: string | null;
@@ -767,6 +779,7 @@ export interface ContractListItemResponse {
   contractId: number;
   contractCode?: string | null;
   contractName: string;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   status: ContractStatus;
   customerId: number;
@@ -787,6 +800,7 @@ export interface ContractListItemResponse {
 }
 
 export interface EligibleParentContractFilterRequest {
+  contractDirection: ContractDirection;
   page?: number;
   pageSize?: number;
   keyword?: string | null;
@@ -798,6 +812,7 @@ export interface EligibleParentContractResponse {
   contractId: number;
   contractCode?: string | null;
   contractName: string;
+  contractDirection: ContractDirection;
   contractType: ContractType;
   status: ContractStatus;
   effectiveDate?: string | null;

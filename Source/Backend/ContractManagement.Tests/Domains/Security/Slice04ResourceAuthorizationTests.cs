@@ -21,11 +21,15 @@ public sealed class Slice04ResourceAuthorizationTests
     private const int AccountantEmployeeId = 5;
     private const int ContractId = 100;
 
-    [Fact]
-    public async Task Manager_ReadsTenantContract_ButCannotWriteAnotherEmployeesContract()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task Manager_ReadsTenantContract_ButCannotWriteAnotherEmployeesContract(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
         var service = new ContractResourceAuthorizationService(context);
 
         await service.EnsureCanReadAsync(ContractId, ManagerEmployeeId);
@@ -37,11 +41,15 @@ public sealed class Slice04ResourceAuthorizationTests
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, exception.Code);
     }
 
-    [Fact]
-    public async Task UnrelatedEmployee_CannotDiscoverAnotherEmployeesContract()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task UnrelatedEmployee_CannotDiscoverAnotherEmployeesContract(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
         var service = new ContractResourceAuthorizationService(context);
 
         var exception = await Assert.ThrowsAsync<RbacOperationException>(
@@ -51,11 +59,15 @@ public sealed class Slice04ResourceAuthorizationTests
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, exception.Code);
     }
 
-    [Fact]
-    public async Task ExecutionRoles_ReadAndMutateOnlyTheirAssignedCapabilities()
+    [Theory]
+    [InlineData(ContractDirection.Sale)]
+    [InlineData(ContractDirection.Purchase)]
+    public async Task ExecutionRoles_ReadAndMutateOnlyTheirAssignedCapabilities(ContractDirection direction)
     {
         await using var context = CreateContext();
         await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).ContractDirection = (byte)direction;
+        await context.SaveChangesAsync();
         var contract = await context.TblContracts.SingleAsync();
         contract.Status = (byte)ContractStatus.PendingSignature;
         await context.SaveChangesAsync();
@@ -130,6 +142,7 @@ public sealed class Slice04ResourceAuthorizationTests
         await SeedAsync(context);
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = 101,
             CustomerId = 10,
             EmployeeId = OtherEmployeeId,
@@ -235,6 +248,7 @@ public sealed class Slice04ResourceAuthorizationTests
         });
         context.TblContractTemplateVersions.Add(new TblContractTemplateVersion
         {
+            ContractDirection = (byte)1,
             TemplateVersionId = 500,
             TemplateId = 50,
             VersionNo = 1,
@@ -328,6 +342,7 @@ public sealed class Slice04ResourceAuthorizationTests
         });
         context.TblContracts.Add(new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = ContractId,
             CustomerId = 10,
             EmployeeId = ResponsibleEmployeeId,

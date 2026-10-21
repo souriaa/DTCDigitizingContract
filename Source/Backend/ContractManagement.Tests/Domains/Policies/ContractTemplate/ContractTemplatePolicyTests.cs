@@ -8,16 +8,16 @@ public class ContractTemplatePolicyTests
     private static string ValidSha256Hash => new('a', 64);
 
     [Fact]
-    public void SoftwareSupplyPlaceholderCatalog_V5_HasExpectedShape()
+    public void SoftwareSupplyPlaceholderCatalog_V7_HasExpectedShape()
     {
         var catalog = SoftwareSupplyPlaceholderCatalog.All;
 
-        Assert.Equal("V5", SoftwareSupplyPlaceholderCatalog.Version);
-        Assert.Equal(51, catalog.Count);
+        Assert.Equal("V7", SoftwareSupplyPlaceholderCatalog.Version);
+        Assert.Equal(64, catalog.Count);
         Assert.DoesNotContain(catalog, item => item.IsRequired);
-        Assert.Equal(51, catalog.Count(item => !item.IsRequired));
+        Assert.Equal(64, catalog.Count(item => !item.IsRequired));
         Assert.All(catalog, item =>
-            Assert.Equal(TemplatePlaceholderMultiplicity.ZeroOrOne, item.Multiplicity));
+            Assert.Contains(item.Multiplicity, new[] { TemplatePlaceholderMultiplicity.ZeroOrOne, TemplatePlaceholderMultiplicity.ZeroOrMore }));
         Assert.Equal(
             catalog.Count,
             catalog.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count());
@@ -27,13 +27,13 @@ public class ContractTemplatePolicyTests
             Assert.False(string.IsNullOrWhiteSpace(item.DataSource));
         });
         Assert.Equal(
-            "Customer.CustomerFullName",
+            "CUSTOMER.NAME",
             SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_NAME")?.DataSource);
-        Assert.Null(SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_REPRESENTATIVE_TITLE"));
+        Assert.NotNull(SoftwareSupplyPlaceholderCatalog.Find("CUSTOMER_REPRESENTATIVE_TITLE"));
         Assert.Equal(
-            "TenantLegalProfile.LegalEntityName",
+            "PROVIDER.COMPANY_NAME",
             SoftwareSupplyPlaceholderCatalog.Find(
-                "PROVIDER_LEGAL_NAME")?.DataSource);
+                "PROVIDER_COMPANY_NAME")?.DataSource);
     }
 
     [Theory]

@@ -137,7 +137,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                         "closing", payment.CreatedAt, cancellationToken);
                 await _db.SaveChangesAsync(cancellationToken);
                 return await LoadPaymentAsync(payment.ContractPaymentId, cancellationToken);
-            }, cancellationToken);
+            }, cancellationToken, contractId);
         }
         catch
         {
@@ -303,7 +303,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     Payment = await LoadPaymentAsync(
                         payment.ContractPaymentId, cancellationToken)
                 };
-            }, cancellationToken);
+            }, cancellationToken, contractId);
         }
         catch
         {
@@ -439,7 +439,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                 Payment = await LoadPaymentAsync(payment.ContractPaymentId,
                     cancellationToken)
             };
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractPaymentResponse> VoidPaymentAsync(int contractId,
@@ -483,7 +483,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     "closing", payment.VoidedAt.Value, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadPaymentAsync(paymentId, cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     public async Task<ContractCompletionDetailResponse> CompleteAsync(int contractId,
@@ -518,7 +518,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     "overview", contract.UpdateDate.Value, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return await LoadDetailAsync(contractId, cancellationToken);
-        }, cancellationToken);
+        }, cancellationToken, contractId);
     }
 
     private async Task<ContractCompletionDetailResponse> LoadDetailAsync(int contractId, CancellationToken ct)
@@ -605,7 +605,14 @@ public sealed class ContractCompletionService : IContractCompletionService
 
     private async Task<ContractCompletionReadinessResponse> BuildReadinessAsync(TblContract contract, TblContractVersion version, CancellationToken ct)
     {
-        var signed = await _db.TblContractSignedEvidences.AsNoTracking().AnyAsync(x => x.ContractId == contract.ContractId && x.VersionId == version.VersionId && x.Status == (byte)SignedEvidenceStatus.Active, ct);
+        var tenantCode = _tenant.GetRequiredTenant().TenantCode;
+        var signed = await (from evidence in _db.TblContractSignedEvidences.AsNoTracking()
+            join file in _db.TblFileStorages.AsNoTracking() on evidence.FileId equals file.FileId
+            where evidence.ContractId == contract.ContractId && evidence.VersionId == version.VersionId
+                && evidence.Status == (byte)SignedEvidenceStatus.Active && file.ObjectType == "ContractSignedEvidence"
+                && file.ObjectId == contract.ContractId && file.TenantCode == tenantCode && file.FileSize > 0
+                && file.Sha256 != null && file.Sha256.Length == 64 && file.StorageKey != null && file.StorageKey != ""
+            select evidence.SignedEvidenceId).AnyAsync(ct);
         var milestoneAmounts = await _db.TblContractPaymentMilestones.AsNoTracking()
             .Where(x => x.ContractId == contract.ContractId
                 && x.VersionId == version.VersionId)
@@ -622,6 +629,7 @@ public sealed class ContractCompletionService : IContractCompletionService
             _db,
             contract.ContractId,
             version.VersionId,
+            _tenant.GetRequiredTenant().TenantCode,
             milestoneAmounts.Select(x => x.PaymentMilestoneId).ToArray(),
             ct);
         var structuredPaymentRows = await (
@@ -667,11 +675,37 @@ public sealed class ContractCompletionService : IContractCompletionService
         var evaluation = ContractCompletionPolicy.Evaluate((ContractStatus)contract.Status,
             signed, acceptanceProgress.Completed,
             acceptanceProgress.HasSignedAcceptance,
-            version.TotalAmount, paidForEvaluation);
+            version.TotalAmount, paidForEvaluation, acceptanceProgress.Scope.DeliveredCompleted,
+            acceptanceProgress.Scope.HandoverInProgress || acceptanceProgress.Scope.AcceptanceInProgress);
         var visibleBlockers = evaluation.Blockers.Where(blocker =>
             contract.Status != (byte)ContractStatus.Completed
             || blocker.Code != ContractCompletionBlockerCode.ContractMustBeSigned);
-        return new ContractCompletionReadinessResponse { Signed = signed && contract.Status is (byte)ContractStatus.Signed or (byte)ContractStatus.Completed,
+        var legal = await _db.TblContractVersionLegalSnapshots.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.ContractId == contract.ContractId && x.VersionId == version.VersionId, ct);
+        if (version.IsLocked && legal is null)
+            throw Rule("ContractSnapshotMissing", "Phiên bản đã khóa thiếu snapshot pháp lý.", StatusCodes.Status409Conflict);
+        if (legal is not null && legal.ContractDirection != contract.ContractDirection)
+            throw Rule("ContractDirectionMismatch", "Chiều giao dịch không khớp snapshot đã khóa.", StatusCodes.Status409Conflict);
+        var direction = (ContractDirection)(legal is null ? contract.ContractDirection : legal.ContractDirection);
+        ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(direction);
+        var parties = legal is null ? new List<TblContractVersionPartySnapshot>()
+            : await _db.TblContractVersionPartySnapshots.AsNoTracking()
+                .Where(x => x.ContractVersionLegalSnapshotId == legal.ContractVersionLegalSnapshotId).ToListAsync(ct);
+        var roleParties = ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Resolve(
+            direction, parties.SingleOrDefault(x => x.PartyRole == 1), parties.SingleOrDefault(x => x.PartyRole == 2));
+        return new ContractCompletionReadinessResponse {
+            ContractDirection = direction, TenantReceivesPayment = roleParties.TenantReceivesPayment,
+            PayerName = roleParties.Customer.Value?.LegalName, PayeeName = roleParties.Provider.Value?.LegalName,
+            PayeeBankAccount = roleParties.Provider.Value?.BankAccountNumber, PayeeBankName = roleParties.Provider.Value?.BankName,
+            Signed = signed && contract.Status is (byte)ContractStatus.Signed or (byte)ContractStatus.Completed,
+            PaymentCompleted = allStructuredMilestonesPaid && paid == version.TotalAmount,
+            ScopeIntegrityError = acceptanceProgress.Scope.IntegrityError,
+            HandoverCompleted = acceptanceProgress.Scope.DeliveredCompleted,
+            AcceptanceScopeCompleted = acceptanceProgress.Scope.AcceptedCompleted,
+            TotalScopeItemCount = acceptanceProgress.Scope.Items.Count,
+            DeliveredScopeItemCount = acceptanceProgress.Scope.DeliveredItemCount,
+            AcceptedScopeItemCount = acceptanceProgress.Scope.AcceptedItemCount,
+            ScopeItems = acceptanceProgress.Scope.Items,
             AcceptanceCompleted = acceptanceProgress.Completed,
             AcceptedMilestoneCount = acceptanceProgress.AcceptedMilestoneCount,
             TotalMilestoneCount = milestoneAmounts.Count,
@@ -682,12 +716,17 @@ public sealed class ContractCompletionService : IContractCompletionService
                 ContractCompletionBlockerCode.ContractMustBeSigned => "NOT_SIGNED",
                 ContractCompletionBlockerCode.AcceptanceNotStarted => "ACCEPTANCE_NOT_STARTED",
                 ContractCompletionBlockerCode.AcceptanceIncomplete => "ACCEPTANCE_INCOMPLETE",
+                ContractCompletionBlockerCode.HandoverIncomplete => "HANDOVER_INCOMPLETE",
+                ContractCompletionBlockerCode.ExecutionDocumentInProgress => "EXECUTION_DOCUMENT_IN_PROGRESS",
                 _ => "PAYMENT_NOT_FULLY_PAID" },
                 Message = x.Code switch {
                     ContractCompletionBlockerCode.ContractMustBeSigned => "Hợp đồng chưa có bản ký hợp lệ.",
                     ContractCompletionBlockerCode.AcceptanceNotStarted => "Chưa có biên bản nghiệm thu đã ký hợp lệ.",
                     ContractCompletionBlockerCode.AcceptanceIncomplete =>
-                        $"Còn {acceptanceProgress.RemainingMilestoneIds.Count} đợt chưa được nghiệm thu.",
+                        acceptanceProgress.Scope.IntegrityError ?? $"Chưa nghiệm thu đủ phạm vi ({acceptanceProgress.Scope.AcceptedItemCount}/{acceptanceProgress.Scope.Items.Count} hạng mục) hoặc còn {acceptanceProgress.RemainingMilestoneIds.Count} đợt chưa nghiệm thu.",
+                    ContractCompletionBlockerCode.HandoverIncomplete => acceptanceProgress.Scope.IntegrityError ??
+                        (acceptanceProgress.Scope.BaselineConfirmed ? "Chưa bàn giao đủ phạm vi bằng biên bản có bản ký hợp lệ." : "Chưa xác nhận baseline phạm vi bàn giao từ hợp đồng đã ký."),
+                    ContractCompletionBlockerCode.ExecutionDocumentInProgress => "Còn biên bản bàn giao hoặc nghiệm thu nháp/chờ ký. Hoàn tất hoặc hủy trước khi đóng hợp đồng.",
                     _ => "Hợp đồng chưa được thanh toán đủ." } }).ToList() };
     }
 
@@ -703,7 +742,7 @@ public sealed class ContractCompletionService : IContractCompletionService
 
     private async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int contractId)
     {
         var strategy = _db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
@@ -713,6 +752,8 @@ public sealed class ContractCompletionService : IContractCompletionService
                 cancellationToken);
             try
             {
+                if (_db.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
+                    await _db.TblContracts.FromSqlInterpolated($"SELECT * FROM [tbl_Contract] WITH (UPDLOCK,HOLDLOCK) WHERE [ContractId] = {contractId}").LoadAsync(cancellationToken);
                 var result = await operation();
                 await transaction.CommitAsync(cancellationToken);
                 return result;

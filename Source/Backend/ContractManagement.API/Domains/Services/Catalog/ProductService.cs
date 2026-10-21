@@ -125,6 +125,8 @@ namespace ContractManagement.Domains.Services.Catalog
                 ProductCode = request.ProductCode?.Trim(),
                 ProductName = request.ProductName.Trim(),
                 ProductNameEn = englishName,
+                UnitName = CatalogUnitPolicy.Require(request.UnitName, "Đơn vị sản phẩm"),
+                UnitNameEn = CatalogUnitPolicy.Require(request.UnitNameEn, "Đơn vị sản phẩm tiếng Anh"),
                 CategoryId = request.CategoryId,
                 ProductShortDesc = request.ProductShortDesc?.Trim(),
                 ProductDetails = request.ProductDetails?.Trim(),
@@ -169,9 +171,13 @@ namespace ContractManagement.Domains.Services.Catalog
 
             var englishName = CatalogEnglishNamePolicy.Require(request.ProductNameEn, "Tên sản phẩm tiếng Anh");
 
+            var unitName = CatalogUnitPolicy.Require(request.UnitName, "Đơn vị sản phẩm");
+            var unitNameEn = CatalogUnitPolicy.Require(request.UnitNameEn, "Đơn vị sản phẩm tiếng Anh");
             product.ProductCode = request.ProductCode?.Trim();
             product.ProductName = request.ProductName.Trim();
             product.ProductNameEn = englishName;
+            product.UnitName = unitName;
+            product.UnitNameEn = unitNameEn;
             product.CategoryId = request.CategoryId;
             product.ProductShortDesc = request.ProductShortDesc?.Trim();
             product.ProductDetails = request.ProductDetails?.Trim();
@@ -349,6 +355,8 @@ namespace ContractManagement.Domains.Services.Catalog
                 ProductCode = product.ProductCode,
                 ProductName = product.ProductName,
                 ProductNameEn = product.ProductNameEn,
+                UnitName = product.UnitName,
+                UnitNameEn = product.UnitNameEn,
                 CategoryId = product.CategoryId,
                 CategoryName = categoryName,
                 ProductShortDesc = product.ProductShortDesc,

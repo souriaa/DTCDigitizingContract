@@ -49,6 +49,8 @@ import {
   ContractStatus,
   ContractType,
   getContractTypeLabel,
+  getContractDirectionLabel,
+  getContractCounterpartyLabel,
   UpdateContractDraftRequest,
   ContractTermKind,
 } from "@/services/contract-api";
@@ -443,6 +445,10 @@ export default function ContractDetailPage() {
       }
 
       for (const item of contract.currentVersion.items) {
+        if (!item.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn?.trim())) {
+          toast.error(`“${item.itemName}” thiếu đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""}. Hãy cập nhật danh mục và thêm lại hạng mục trước khi lưu.`);
+          return;
+        }
         if (
           contract.languageMode === ContractLanguageMode.Bilingual &&
           !item.itemNameEn?.trim()
@@ -1043,7 +1049,7 @@ export default function ContractDetailPage() {
         <div className="grid gap-4 md:grid-cols-5">
           <InfoCard
             icon={<Users className="size-4" />}
-            label="Khách hàng"
+            label={getContractCounterpartyLabel(contract.contractDirection)}
             value={
               contract.customer?.customerCompany ||
               contract.customer?.customerFullName
@@ -1052,7 +1058,7 @@ export default function ContractDetailPage() {
           <InfoCard
             icon={<FileSignature className="size-4" />}
             label="Loại hợp đồng"
-            value={getContractTypeLabel(contract.contractType)}
+            value={`${getContractDirectionLabel(contract.contractDirection)} · ${getContractTypeLabel(contract.contractType)}`}
           />
           <InfoCard
             icon={<FileText className="size-4" />}

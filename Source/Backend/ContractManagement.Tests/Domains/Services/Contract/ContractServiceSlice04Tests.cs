@@ -1065,6 +1065,8 @@ public sealed partial class ContractServiceSlice04Tests
             ProductCode = "P-01",
             ProductName = "Product",
             ProductNameEn = "Catalog product",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblServices.Add(new TblService
@@ -1072,6 +1074,8 @@ public sealed partial class ContractServiceSlice04Tests
             ServiceId = ServiceId,
             ServiceName = "Service",
             ServiceNameEn = "Catalog service",
+            UnitName = "Giấy phép",
+            UnitNameEn = "License",
             Status = 1
         });
         context.TblContractTemplates.Add(new TblContractTemplate
@@ -1093,6 +1097,7 @@ public sealed partial class ContractServiceSlice04Tests
         context.TblContractTemplateVersions.Add(
             new TblContractTemplateVersion
             {
+            ContractDirection = (byte)1,
                 TemplateVersionId = TemplateVersionId,
                 TemplateId = TemplateId,
                 VersionNo = 1,
@@ -1196,6 +1201,7 @@ public sealed partial class ContractServiceSlice04Tests
     {
         return new CreateContractRequest
         {
+            ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             CustomerId = CustomerId,
             ContractType = ContractType.SoftwareSupply,
             TemplateVersionId = TemplateVersionId,
@@ -1287,6 +1293,7 @@ public sealed partial class ContractServiceSlice04Tests
 
         var contract = new TblContract
         {
+            ContractDirection = (byte)1,
             ContractId = 100,
             CustomerId = CustomerId,
             EmployeeId = EmployeeId,

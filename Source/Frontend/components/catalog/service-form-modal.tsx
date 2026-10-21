@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Package, DollarSign, Globe } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { CatalogUnitFields } from "./catalog-unit-fields";
 import {
   serviceApi,
   ServiceStatus,
@@ -61,6 +62,8 @@ export function ServiceFormModal({
   // Basic Info
   const [serviceName, setServiceName] = useState("");
   const [serviceNameEn, setServiceNameEn] = useState("");
+  const [unitName, setUnitName] = useState("");
+  const [unitNameEn, setUnitNameEn] = useState("");
   const [serviceTypeId, setServiceTypeId] = useState("");
   const [serviceParentId, setServiceParentId] = useState("");
   const [serviceOrder, setServiceOrder] = useState("1");
@@ -153,6 +156,8 @@ export function ServiceFormModal({
       if (item) {
         setServiceName(item.serviceName || "");
         setServiceNameEn(item.serviceNameEn || "");
+        setUnitName(item.unitName ?? "");
+        setUnitNameEn(item.unitNameEn ?? "");
         setServiceTypeId(
           item.serviceTypeId !== undefined && item.serviceTypeId !== null
             ? String(item.serviceTypeId)
@@ -204,6 +209,8 @@ export function ServiceFormModal({
       } else {
         setServiceName("");
         setServiceNameEn("");
+        setUnitName("");
+        setUnitNameEn("");
         setServiceTypeId(initialServiceTypeId ? String(initialServiceTypeId) : "");
         setServiceParentId("");
         setServiceOrder("1");
@@ -234,6 +241,10 @@ export function ServiceFormModal({
     } else if (serviceNameEn.trim().length > 500) {
       newErrors.serviceNameEn = "Tên dịch vụ tiếng Anh không được vượt quá 500 ký tự";
     }
+    if (!unitName.trim()) newErrors.unitName = "Vui lòng nhập đơn vị";
+    else if (unitName.trim().length > 100) newErrors.unitName = "Đơn vị tối đa 100 ký tự";
+    if (!unitNameEn.trim()) newErrors.unitNameEn = "Vui lòng nhập đơn vị tiếng Anh";
+    else if (unitNameEn.trim().length > 100) newErrors.unitNameEn = "Đơn vị tiếng Anh tối đa 100 ký tự";
     if (!serviceTypeId) {
       newErrors.serviceTypeId = "Vui lòng chọn loại dịch vụ";
     } else if (isLoadingOptions || optionsError) {
@@ -253,7 +264,7 @@ export function ServiceFormModal({
 
     setErrors(newErrors);
 
-    if (newErrors.serviceName || newErrors.serviceNameEn || newErrors.serviceTypeId) {
+    if (newErrors.serviceName || newErrors.serviceNameEn || newErrors.unitName || newErrors.unitNameEn || newErrors.serviceTypeId) {
       setActiveTab("basic");
     } else if (
       newErrors.servicePrice ||
@@ -282,6 +293,8 @@ export function ServiceFormModal({
       const commonPayload = {
         serviceName: serviceName.trim(),
         serviceNameEn: serviceNameEn.trim(),
+        unitName: unitName.trim(),
+        unitNameEn: unitNameEn.trim(),
         serviceTypeId: typeIdVal,
         serviceParentId: parentIdVal,
         servicePrice: priceVal,
@@ -303,7 +316,8 @@ export function ServiceFormModal({
       if (isEditMode && item) {
         await serviceApi.update(item.serviceId, commonPayload);
         toast.success("Cập nhật dịch vụ thành công");
-        onSuccess({ ...item, serviceName: commonPayload.serviceName, serviceNameEn: commonPayload.serviceNameEn, serviceTypeId: typeIdVal });
+        onSuccess({ ...item, serviceName: commonPayload.serviceName, serviceNameEn: commonPayload.serviceNameEn,
+          unitName: commonPayload.unitName, unitNameEn: commonPayload.unitNameEn, serviceTypeId: typeIdVal });
       } else {
         const createdService = await serviceApi.create(commonPayload);
         toast.success("Thêm dịch vụ mới thành công");
@@ -396,6 +410,11 @@ export function ServiceFormModal({
               <Input id="serviceNameEn" value={serviceNameEn} onChange={(event) => setServiceNameEn(event.target.value)}
                 disabled={viewOnly} maxLength={500} aria-invalid={!!errors.serviceNameEn} placeholder="Nhập tên dịch vụ tiếng Anh..." />
               {errors.serviceNameEn && <p className="text-xs text-destructive">{errors.serviceNameEn}</p>}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CatalogUnitFields idPrefix="service" unitName={unitName} unitNameEn={unitNameEn}
+                disabled={viewOnly} errors={errors}
+                onChange={(field, value) => field === "unitName" ? setUnitName(value) : setUnitNameEn(value)} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

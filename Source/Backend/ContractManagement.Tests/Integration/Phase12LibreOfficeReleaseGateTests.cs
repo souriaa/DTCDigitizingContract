@@ -53,7 +53,7 @@ public sealed class Phase12LibreOfficeReleaseGateTests
             new ContractTemplateRenderSignature("BÊN A", "Đại diện A"),
             new ContractTemplateRenderSignature("BÊN B", "Đại diện B"),
             string.Empty)
-        {
+        { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale,
             Definitions = [appendixDefinition],
             Appendices =
             [
@@ -147,7 +147,7 @@ public sealed class Phase12LibreOfficeReleaseGateTests
                         ContentVi = RichText("Hai bên xác nhận đã hoàn thành."),
                         DisplayOrder = 1
                     }
-                ]));
+                ]) { ContractDirection = ContractManagement.API.Common.Enums.ContractDirection.Sale });
 
         using (var document = WordprocessingDocument.Open(
                    new MemoryStream(docx), false))
