@@ -1,13 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, Delete } from "lucide-react";
+import { DatePickerCalendar } from "@/components/ui/custom/date-picker-calendar";
+import { CalendarIcon, Delete } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -37,10 +38,11 @@ export function DateFilter({
   limit,
 }: DateFilterProps) {
   const isMobile = useMediaQuery("(max-width: 767px)");
+  const [open, setOpen] = useState(false);
 
   return (
     <div className={`flex items-center gap-1 ${isMobile ? "w-full" : ""}`}>
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             id={id}
@@ -48,33 +50,25 @@ export function DateFilter({
             variant="outline"
             disabled={disabled}
             className={cn(
-              "justify-start text-left font-normal h-9 bg-background shadow-sm cursor-pointer",
+              "justify-start text-left font-normal",
               isMobile ? "flex-1 w-full" : className,
               !date && "text-muted-foreground",
             )}
           >
-            <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
+            <CalendarIcon className="mr-2 h-4 w-4" />
             <span className="truncate">
               {date ? format(date, "dd/MM/yyyy") : placeholder}
             </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={onChange}
-            startMonth={limit?.from}
-            endMonth={limit?.to}
-            disabled={
-              limit
-                ? [
-                    ...(limit.from ? [{ before: limit.from }] : []),
-                    ...(limit.to ? [{ after: limit.to }] : []),
-                  ]
-                : undefined
-            }
-            initialFocus
+          <DatePickerCalendar
+            date={date}
+            onChange={onChange}
+            onConfirm={() => setOpen(false)}
+            disabled={disabled}
+            minDate={limit?.from}
+            maxDate={limit?.to}
           />
         </PopoverContent>
       </Popover>

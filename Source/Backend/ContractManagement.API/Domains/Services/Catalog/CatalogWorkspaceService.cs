@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ContractManagement.Domains.Services.Catalog;
 
 /// <summary>Read-only tenant-scoped projections. No schema changes or writes.</summary>
-public sealed class CatalogWorkspaceService(DbDtctechContext db)
+public sealed partial class CatalogWorkspaceService(DbDtctechContext db)
 {
     private IQueryable<TblProduct> Products(CatalogWorkspaceFilter f)
     {
