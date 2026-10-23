@@ -186,8 +186,8 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Common/Security/RbacPermissions.cs": {
-    "mtime": 1790000689.1687062,
-    "seen": 1790050649.2765315,
+    "mtime": 1792729159.78136,
+    "seen": 1792730753.5903442,
     "ast_hash": "5c26f8d852528ef0acf5ffe588d8182c",
     "semantic_hash": ""
   },
@@ -204,8 +204,8 @@
     "semantic_hash": "2868a9f23bbf38919658731a08de57bd"
   },
   "Backend/ContractManagement.API/ContractManagement.API.csproj": {
-    "mtime": 1790000689.1707096,
-    "seen": 1790050649.276535,
+    "mtime": 1792729159.7828794,
+    "seen": 1792730753.5903487,
     "ast_hash": "c1f13e52d57771f59dc55289caf2215a",
     "semantic_hash": ""
   },
@@ -1266,8 +1266,8 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/ContractTemplate/ContractTemplateService.cs": {
-    "mtime": 1792475570.5607202,
-    "seen": 1792475842.6469884,
+    "mtime": 1792729159.785913,
+    "seen": 1792730753.5907533,
     "ast_hash": "e4a2c8e090da73938d1c5ee61a5aa2a8",
     "semantic_hash": ""
   },
@@ -2238,8 +2238,8 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Security/EmployeePermissionCatalogTests.cs": {
-    "mtime": 1790000689.4671206,
-    "seen": 1790050649.2771392,
+    "mtime": 1792729159.787434,
+    "seen": 1792730753.5911238,
     "ast_hash": "335be8a59e16fa7325437d1de6e1802a",
     "semantic_hash": ""
   },
@@ -2286,8 +2286,8 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/ContractTemplate/ContractTemplateDocumentUploadServiceTests.cs": {
-    "mtime": 1792383018.6866865,
-    "seen": 1792396196.571237,
+    "mtime": 1792729159.788948,
+    "seen": 1792730753.5911496,
     "ast_hash": "4942cb9ffa8705fc1d6549df1740cbc8",
     "semantic_hash": ""
   },
@@ -2298,14 +2298,14 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/ContractTemplate/ContractTemplatePreviewTests.cs": {
-    "mtime": 1792469224.393011,
-    "seen": 1792469464.2427351,
+    "mtime": 1792729159.7904615,
+    "seen": 1792730753.5911522,
     "ast_hash": "cda7707267dee48035e8764da17237e2",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/ContractTemplate/ContractTemplateServiceTests.cs": {
-    "mtime": 1792383542.3245525,
-    "seen": 1792396196.5712411,
+    "mtime": 1792729159.7914677,
+    "seen": 1792730753.5911531,
     "ast_hash": "ee95baa8e7b6455ace2ddd5b6a87ff8d",
     "semantic_hash": ""
   },
@@ -2454,8 +2454,8 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/page.tsx": {
-    "mtime": 1792727292.7011297,
-    "seen": 1792727412.9448328,
+    "mtime": 1792729159.7919743,
+    "seen": 1792730753.5912566,
     "ast_hash": "1b87d9e208d4f1da348e3c29778439d0",
     "semantic_hash": ""
   },
@@ -2490,9 +2490,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/quotations/page.tsx": {
-    "mtime": 1790000690.198682,
-    "seen": 1790050649.277219,
-    "ast_hash": "3305df8c402e3890d4315648a3dbf771",
+    "mtime": 1792730599.017127,
+    "seen": 1792730753.5912702,
+    "ast_hash": "bb7b6555e3573fd4f44f7be480f0256f",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/security-audits/page.tsx": {
@@ -2520,9 +2520,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/page.tsx": {
-    "mtime": 1791962094.2476623,
-    "seen": 1791962225.8281054,
-    "ast_hash": "34aa30b2faa4004892a9c6f3757e94b1",
+    "mtime": 1792729159.7950063,
+    "seen": 1792730753.5912793,
+    "ast_hash": "cc336bf66fad0fad874ca0d9abf149de",
     "semantic_hash": ""
   },
   "Frontend/components.json": {
@@ -2670,8 +2670,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/sidebar.tsx": {
-    "mtime": 1791973045.9678493,
-    "seen": 1792035043.3626037,
+    "mtime": 1792729159.7974994,
+    "seen": 1792730753.5913863,
     "ast_hash": "320983346a7cf8e421c412f79835c8eb",
     "semantic_hash": ""
   },
@@ -3276,9 +3276,9 @@
     "semantic_hash": ""
   },
   "Frontend/services/contract-api.ts": {
-    "mtime": 1792382728.0568392,
-    "seen": 1792396196.5716136,
-    "ast_hash": "2e12cf7c443a7d15b5018fc6154d26b7",
+    "mtime": 1792729159.798499,
+    "seen": 1792730753.5915337,
+    "ast_hash": "07a6689bd8b79df707782b63fd5cb050",
     "semantic_hash": ""
   },
   "Frontend/services/contract-attachments-api.ts": {
@@ -3330,9 +3330,9 @@
     "semantic_hash": ""
   },
   "Frontend/services/quotations-api.ts": {
-    "mtime": 1790000690.3379278,
-    "seen": 1790050649.2774396,
-    "ast_hash": "959729d91b3cf308f7c704c2bb2bc680",
+    "mtime": 1792730598.5752676,
+    "seen": 1792730753.591556,
+    "ast_hash": "b0cf52bd9c6ec94b28bcd21ea155f696",
     "semantic_hash": ""
   },
   "Frontend/services/security-audits-api.ts": {
@@ -5868,8 +5868,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/dashboard/contract-status-chart.tsx": {
-    "mtime": 1790000690.242933,
-    "seen": 1790050649.277271,
+    "mtime": 1792729159.795992,
+    "seen": 1792730753.5913708,
     "ast_hash": "3833c3f5e8f299aaf36fc78881aeef51",
     "semantic_hash": ""
   },
@@ -5886,8 +5886,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/dashboard/dashboard-summary-cards.tsx": {
-    "mtime": 1790000690.24511,
-    "seen": 1790050649.2772756,
+    "mtime": 1792729159.7964532,
+    "seen": 1792730753.5913763,
     "ast_hash": "ea5a9cde3978a536ce7f1118f7c16e25",
     "semantic_hash": ""
   },
@@ -5982,8 +5982,8 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-approval-decision-dialog.tsx": {
-    "mtime": 1790087977.5589457,
-    "seen": 1790088407.400019,
+    "mtime": 1792729159.7950063,
+    "seen": 1792730753.5913439,
     "ast_hash": "dbf02c621af72b038145f1d4e5063667",
     "semantic_hash": ""
   },
@@ -6102,8 +6102,8 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/ContractTemplate/ContractPlaceholderDefinitionService.cs": {
-    "mtime": 1792469168.8217273,
-    "seen": 1792469464.24233,
+    "mtime": 1792729159.7838871,
+    "seen": 1792730753.5907397,
     "ast_hash": "cc1b1f81516048cffb651e9cf3ff0650",
     "semantic_hash": ""
   },
@@ -7872,9 +7872,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/ContractTemplate/ContractTemplateDeleteTests.cs": {
-    "mtime": 1792475838.7939591,
-    "seen": 1792475842.6473742,
-    "ast_hash": "e7a1cb82009925167ef923737d2452fc",
+    "mtime": 1792729159.7884383,
+    "seen": 1792730753.5911484,
+    "ast_hash": "06f0e8f1223393d36efe68a85cef19ed",
     "semantic_hash": ""
   },
   "Frontend/components/contract-templates/delete-contract-template-button.tsx": {
@@ -8001,6 +8001,18 @@
     "mtime": 1792646560.4165711,
     "seen": 1792646637.2358758,
     "ast_hash": "95352c47a2f9db49c7d75395cae21c92",
+    "semantic_hash": ""
+  },
+  "Frontend/app/(protected)/quotations/[id]/page.tsx": {
+    "mtime": 1792730688.8598616,
+    "seen": 1792730753.5912673,
+    "ast_hash": "5fc56ce2b2c589fe457ef3c985c10de4",
+    "semantic_hash": ""
+  },
+  "Frontend/app/(protected)/quotations/create/page.tsx": {
+    "mtime": 1792730600.6625113,
+    "seen": 1792730753.5912688,
+    "ast_hash": "0d164eede79ed020dde8936e089f91a3",
     "semantic_hash": ""
   }
 }

@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { quotationApi, QuotationResponseDto } from "@/services/quotations-api";
-import { formatDateTime } from "@/lib/format-date-time";
+import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format-currency";
 import { DataTable } from "@/components/ui/custom/data-table";
 import { SelectFilter } from "@/components/ui/custom/select-filter";
@@ -157,7 +157,7 @@ export default function QuotationListPage() {
             </div>
             <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
               <CalendarDays className="w-3 h-3" />
-              {formatDateTime(row.original.quotationDate)}
+              {format(new Date(row.original.quotationDate), "dd/MM/yyyy HH:mm")}
             </span>
           </div>
         ),
@@ -310,7 +310,7 @@ export default function QuotationListPage() {
               Quản lý, theo dõi trạng thái và tạo các báo giá gửi cho đối tác.
             </p>
           </div>
-          <Button className="shadow-sm">
+          <Button className="shadow-sm" onClick={() => router.push("/quotations/create")}>
             <FileText className="w-4 h-4 mr-2" /> Tạo báo giá mới
           </Button>
         </div>
@@ -361,7 +361,7 @@ export default function QuotationListPage() {
                         </span>
                         <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <CalendarDays className="w-3 h-3 shrink-0" />
-                          {formatDateTime(item.quotationDate)}
+                          {format(new Date(item.quotationDate), "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
                       <StatusBadge status={item.quatationStatus} />
