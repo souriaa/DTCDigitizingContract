@@ -99,9 +99,17 @@ export function ContractClosing({
   const [confirmComplete, setConfirmComplete] = useState(false);
   const scrolledHandover = useRef<number | null>(null);
   useEffect(() => {
-    if (scrolledHandover.current === contract.contractId || loading || !detail || new URLSearchParams(window.location.search).get("section") !== "handover") return;
+    if (
+      scrolledHandover.current === contract.contractId ||
+      loading ||
+      !detail ||
+      new URLSearchParams(window.location.search).get("section") !== "handover"
+    )
+      return;
     scrolledHandover.current = contract.contractId;
-    document.getElementById("contract-handover")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById("contract-handover")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [loading, detail, contract.contractId]);
 
   const load = useCallback(
@@ -319,12 +327,32 @@ export function ContractClosing({
             </div>
           ))}
           <div className="rounded-lg border p-3 text-sm space-y-2">
-            {detail.readiness.scopeIntegrityError ? <p className="text-destructive">{detail.readiness.scopeIntegrityError}</p> : <>
-            <p>Đã bàn giao đủ {detail.readiness.deliveredScopeItemCount}/{detail.readiness.totalScopeItemCount} hạng mục · Đã nghiệm thu đủ {detail.readiness.acceptedScopeItemCount}/{detail.readiness.totalScopeItemCount} hạng mục</p>
-            {detail.readiness.scopeItems.filter(x => x.accepted < x.requiredQuantity).map(x => <p key={x.handoverScopeItemId} className="text-muted-foreground">
-              {x.nameVi}: bàn giao {x.delivered}/{x.requiredQuantity} {x.unitVi}, chờ ký {x.reserved}; nghiệm thu {x.accepted}, chờ ký {x.acceptanceReserved}
-            </p>)}
-            </>}
+            {detail.readiness.scopeIntegrityError ? (
+              <p className="text-destructive">
+                {detail.readiness.scopeIntegrityError}
+              </p>
+            ) : (
+              <>
+                <p>
+                  Đã bàn giao đủ {detail.readiness.deliveredScopeItemCount}/
+                  {detail.readiness.totalScopeItemCount} hạng mục · Đã nghiệm
+                  thu đủ {detail.readiness.acceptedScopeItemCount}/
+                  {detail.readiness.totalScopeItemCount} hạng mục
+                </p>
+                {detail.readiness.scopeItems
+                  .filter((x) => x.accepted < x.requiredQuantity)
+                  .map((x) => (
+                    <p
+                      key={x.handoverScopeItemId}
+                      className="text-muted-foreground"
+                    >
+                      {x.nameVi}: bàn giao {x.delivered}/{x.requiredQuantity}{" "}
+                      {x.unitVi}, chờ ký {x.reserved}; nghiệm thu {x.accepted},
+                      chờ ký {x.acceptanceReserved}
+                    </p>
+                  ))}
+              </>
+            )}
           </div>
           {detail.readiness.totalMilestoneCount > 0 && (
             <div className="space-y-2 rounded-lg border p-3 text-sm">
@@ -364,7 +392,7 @@ export function ContractClosing({
             </Alert>
           )}
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg bg-muted p-3">
+            <div className="rounded-lg bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">Giá trị</p>
               <b>
                 {formatCurrency(
@@ -373,7 +401,7 @@ export function ContractClosing({
                 )}
               </b>
             </div>
-            <div className="rounded-lg bg-muted p-3">
+            <div className="rounded-lg bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">Đã thanh toán</p>
               <b className="text-emerald-600">
                 {formatCurrency(
@@ -382,7 +410,7 @@ export function ContractClosing({
                 )}
               </b>
             </div>
-            <div className="rounded-lg bg-muted p-3">
+            <div className="rounded-lg bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">Còn lại</p>
               <b className="text-amber-600">
                 {formatCurrency(
@@ -395,8 +423,15 @@ export function ContractClosing({
         </CardContent>
       </Card>
 
-      <ContractHandoverRecords contract={contract} canManage={canManageAcceptance} revision={handoverRevision}
-        onChanged={async () => { setHandoverRevision(value => value + 1); await load(false); }} />
+      <ContractHandoverRecords
+        contract={contract}
+        canManage={canManageAcceptance}
+        revision={handoverRevision}
+        onChanged={async () => {
+          setHandoverRevision((value) => value + 1);
+          await load(false);
+        }}
+      />
 
       <ContractAcceptanceRecords
         scopeRevision={handoverRevision}
@@ -406,7 +441,7 @@ export function ContractClosing({
         signedActive={detail.readiness.signed}
         canManage={canManageAcceptance}
         onChanged={async () => {
-          setHandoverRevision(value => value + 1);
+          setHandoverRevision((value) => value + 1);
           await load(false);
           await onContractRefetch();
         }}
@@ -416,13 +451,21 @@ export function ContractClosing({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <WalletCards className="size-5" />
-            Thanh toán · {detail.readiness.tenantReceivesPayment ? "Thu vào" : "Chi ra"}
+            Thanh toán ·{" "}
+            {detail.readiness.tenantReceivesPayment ? "Thu vào" : "Chi ra"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
-            <p>Bên trả: {detail.readiness.payerName || "Chưa có bản chốt"} · Bên nhận: {detail.readiness.payeeName || "Chưa có bản chốt"}</p>
-            <p>Tài khoản bên nhận: {detail.readiness.payeeBankAccount || "Chưa có thông tin"} · {detail.readiness.payeeBankName || "Chưa có ngân hàng"}</p>
+          <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-1">
+            <p>
+              Bên trả: {detail.readiness.payerName || "Chưa có bản chốt"} · Bên
+              nhận: {detail.readiness.payeeName || "Chưa có bản chốt"}
+            </p>
+            <p>
+              Tài khoản bên nhận:{" "}
+              {detail.readiness.payeeBankAccount || "Chưa có thông tin"} ·{" "}
+              {detail.readiness.payeeBankName || "Chưa có ngân hàng"}
+            </p>
           </div>
           {hasStructuredPayment ? (
             <div className="grid gap-3 md:grid-cols-2">

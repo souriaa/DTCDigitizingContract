@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   FileSignature,
+  FileSliders,
   Loader2,
   Plus,
   Save,
@@ -573,13 +574,22 @@ export function ContractHandoverRecords({
               contract.status === ContractStatus.Signed &&
               readiness &&
               !readiness.baselineId && (
-                <Button disabled={busy} onClick={() => void openBaseline()}>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void openBaseline()}
+                >
+                  <FileSliders className="mr-2 size-4" />
                   Thiết lập phạm vi
                 </Button>
               )}
             {canManage && readiness?.canCreate && (
-              <Button disabled={busy} onClick={() => void startCreate()}>
-                <Plus className="size-4" />
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => void startCreate()}
+              >
+                <Plus className="mr-2 size-4" />
                 Tạo biên bản
               </Button>
             )}
@@ -1089,15 +1099,47 @@ export function ContractHandoverRecords({
                   ))}
                 </CollapsibleContent>
               </Collapsible>
+              {editable && (
+                <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50/70 via-background to-emerald-50/30 p-5 shadow-sm dark:border-emerald-900/50 dark:from-emerald-950/20 dark:via-background dark:to-emerald-950/10">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                        <CheckCircle2 className="size-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-foreground">
+                            Hoàn tất & Chốt biên bản bàn giao
+                          </h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                          Vui lòng kiểm tra kỹ thông tin các bên, căn cứ và
+                          các hạng mục bàn giao. Khi chốt, hệ thống sẽ tự động
+                          lưu lại toàn bộ thay đổi mới nhất, xuất file chính
+                          thức và khóa nội dung để chuẩn bị ký kết.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 sm:shrink-0">
+                      <Button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setConfirm("finalize")}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
+                      >
+                        {busy ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <FileSignature className="size-4" />
+                        )}
+                        Chốt bàn giao
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
               <div className="flex flex-wrap gap-2">
-                {editable && (
-                  <Button
-                    disabled={busy}
-                    onClick={() => setConfirm("finalize")}
-                  >
-                    Chốt bàn giao
-                  </Button>
-                )}
                 {canManage &&
                   contract.status === ContractStatus.Signed &&
                   [HandoverStatus.Draft, HandoverStatus.Finalized].includes(
@@ -1183,6 +1225,7 @@ export function ContractHandoverRecords({
                         from: day(selected.record.handoverDate),
                         to: new Date(),
                       }}
+                      placeholder="Ngày ký"
                     />
                     <div className="flex justify-end border-t border-amber-200 pt-3 dark:border-amber-900/50">
                       <Button

@@ -86,6 +86,8 @@ import {
   type ContractAcceptanceTemplateOption,
   type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
+import { formatDateTime } from "@/lib/format-date-time";
+import { formatDate } from "@/lib/format-date";
 
 interface Props {
   scopeRevision?: number;
@@ -540,7 +542,7 @@ export function ContractAcceptanceRecords({
                 acceptanceReferenceId: -appendixId,
                 referenceType: AcceptanceReferenceType.Appendix,
                 appendixId,
-                textVi: "Sẽ được backend sinh lại sau khi lưu.",
+                textVi: "Sẽ được tự sinh lại sau khi lưu.",
                 displayOrder: selected.references.length,
               },
             ]
@@ -577,12 +579,17 @@ export function ContractAcceptanceRecords({
     });
   };
 
-  const openDocument = async (format: "docx" | "pdf" | "evidence", official: boolean) => {
+  const openDocument = async (
+    format: "docx" | "pdf" | "evidence",
+    official: boolean,
+  ) => {
     if (!selected || busy) return;
     if (format === "evidence" && !selected.signedEvidence) return;
-    const isPdf = format === "pdf" || (format === "evidence" && selected.signedEvidence?.fileType.toLowerCase() === "pdf");
-    const previewWindow =
-      isPdf ? window.open("about:blank", "_blank") : null;
+    const isPdf =
+      format === "pdf" ||
+      (format === "evidence" &&
+        selected.signedEvidence?.fileType.toLowerCase() === "pdf");
+    const previewWindow = isPdf ? window.open("about:blank", "_blank") : null;
     if (isPdf && !previewWindow) {
       toast.error("Vui lòng cho phép mở cửa sổ bật lên để xem PDF.");
       return;
@@ -590,36 +597,44 @@ export function ContractAcceptanceRecords({
     if (previewWindow) previewWindow.opener = null;
     try {
       setBusy(true);
-      const blob = format === "evidence"
-        ? await contractAcceptanceApi.downloadSignedEvidence(selected.signedEvidence!.fileId)
-        : official
-        ? await contractAcceptanceApi.artifact(
-            contract.contractId,
-            selected.acceptanceRecordId,
-            format,
-          )
-        : await contractAcceptanceApi.preview(
-            contract.contractId,
-            selected.acceptanceRecordId,
-            format,
-          );
+      const blob =
+        format === "evidence"
+          ? await contractAcceptanceApi.downloadSignedEvidence(
+              selected.signedEvidence!.fileId,
+            )
+          : official
+            ? await contractAcceptanceApi.artifact(
+                contract.contractId,
+                selected.acceptanceRecordId,
+                format,
+              )
+            : await contractAcceptanceApi.preview(
+                contract.contractId,
+                selected.acceptanceRecordId,
+                format,
+              );
       const source = blob instanceof Blob ? blob : new Blob([blob]);
       const objectUrl = URL.createObjectURL(
-        isPdf && source.type !== "application/pdf" ? new Blob([source], { type: "application/pdf" }) : source,
+        isPdf && source.type !== "application/pdf"
+          ? new Blob([source], { type: "application/pdf" })
+          : source,
       );
       if (previewWindow) previewWindow.location.replace(objectUrl);
       else {
         const anchor = document.createElement("a");
         anchor.href = objectUrl;
-        anchor.download = format === "evidence"
-          ? selected.signedEvidence!.fileName
-          : `${selected.acceptanceCode}.${format}`;
+        anchor.download =
+          format === "evidence"
+            ? selected.signedEvidence!.fileName
+            : `${selected.acceptanceCode}.${format}`;
         anchor.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       previewWindow?.close();
-      toast.error(await getBlobApiErrorMessage(error, "Không thể mở tài liệu."));
+      toast.error(
+        await getBlobApiErrorMessage(error, "Không thể mở tài liệu."),
+      );
     } finally {
       setBusy(false);
     }
@@ -1093,41 +1108,60 @@ export function ContractAcceptanceRecords({
                       </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 pt-1">
-                      {customer && (
-                        <PartyEditor
-                          title={
-                            contract.contractDirection ===
-                            ContractDirection.Purchase
-                              ? "Đối tác — Bên cung cấp"
-                              : "Đối tác — Bên mua"
-                          }
-                          party={customer}
-                          representativeLabel="Người liên lạc"
-                          onChange={(key, value) =>
-                            updateParty(
-                              AcceptancePartyRole.Customer,
-                              key,
-                              value,
-                            )
-                          }
-                        />
-                      )}
-                      {tenant && (
-                        <PartyEditor
-                          title={
-                            contract.contractDirection ===
-                            ContractDirection.Purchase
-                              ? "Doanh nghiệp — Bên mua"
-                              : "Doanh nghiệp — Bên cung cấp"
-                          }
-                          party={tenant}
-                          onChange={(key, value) =>
-                            updateParty(AcceptancePartyRole.Tenant, key, value)
-                          }
-                        />
-                      )}
-                    </div>
+                    <Collapsible defaultOpen={false}>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="group/acceptance-parties mb-2"
+                        >
+                          Thông tin hai bên
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="size-4 transition-transform duration-200 group-data-[state=open]/acceptance-parties:-rotate-180 motion-reduce:transition-none"
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="grid gap-4 md:grid-cols-2 pt-1">
+                        {customer && (
+                          <PartyEditor
+                            title={
+                              contract.contractDirection ===
+                              ContractDirection.Purchase
+                                ? "Đối tác — Bên cung cấp"
+                                : "Đối tác — Bên mua"
+                            }
+                            party={customer}
+                            representativeLabel="Người liên lạc"
+                            onChange={(key, value) =>
+                              updateParty(
+                                AcceptancePartyRole.Customer,
+                                key,
+                                value,
+                              )
+                            }
+                          />
+                        )}
+                        {tenant && (
+                          <PartyEditor
+                            title={
+                              contract.contractDirection ===
+                              ContractDirection.Purchase
+                                ? "Doanh nghiệp — Bên mua"
+                                : "Doanh nghiệp — Bên cung cấp"
+                            }
+                            party={tenant}
+                            onChange={(key, value) =>
+                              updateParty(
+                                AcceptancePartyRole.Tenant,
+                                key,
+                                value,
+                              )
+                            }
+                          />
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CardContent>
                 </Card>
 
@@ -1532,7 +1566,7 @@ export function ContractAcceptanceRecords({
                           ) : (
                             <FileSignature className="size-4" />
                           )}
-                          Chốt biên bản
+                          Chốt nghiệm thu
                         </Button>
                       </div>
                     </div>
@@ -1546,9 +1580,7 @@ export function ContractAcceptanceRecords({
                     <span className="text-muted-foreground">
                       Ngày nghiệm thu:
                     </span>{" "}
-                    {new Date(selected.acceptanceDate).toLocaleDateString(
-                      "vi-VN",
-                    )}
+                    {formatDate(selected.acceptanceDate)}
                   </div>
                   <div>
                     <span className="text-muted-foreground">Địa điểm:</span>{" "}
@@ -1583,7 +1615,7 @@ export function ContractAcceptanceRecords({
                         <span className="text-muted-foreground">
                           Ngày chốt:
                         </span>{" "}
-                        {new Date(selected.finalizedAt).toLocaleString("vi-VN")}
+                        {formatDateTime(selected.finalizedAt)}
                       </div>
                       <div>
                         <span className="text-muted-foreground">Chốt bởi:</span>{" "}
@@ -1693,6 +1725,7 @@ export function ContractAcceptanceRecords({
                         from: parseDateString(selected.acceptanceDate),
                         to: parseDateString(signingToday),
                       }}
+                      placeholder="Ngày ký"
                     />
                     <p className="text-xs text-muted-foreground">
                       Ngày hai bên ký đủ, không trước ngày nghiệm thu. Các đợt
@@ -1773,8 +1806,7 @@ export function ContractAcceptanceRecords({
               Tạo biên bản nghiệm thu · Bước {createStep}/3
             </DialogTitle>
             <DialogDescription>
-              Hợp đồng gốc luôn là căn cứ bắt buộc; nội dung căn cứ do backend
-              tự sinh.
+              Hợp đồng gốc luôn là căn cứ bắt buộc.
             </DialogDescription>
           </DialogHeader>
           {createStep === 1 && (

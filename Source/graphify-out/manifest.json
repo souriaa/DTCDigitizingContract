@@ -2448,9 +2448,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/create/page.tsx": {
-    "mtime": 1792551209.734668,
-    "seen": 1792551923.1043634,
-    "ast_hash": "b99dfd20ad4d900245519dcfe162e8d8",
+    "mtime": 1792644222.9124334,
+    "seen": 1792644830.6639519,
+    "ast_hash": "fb3d9ba45b3c01657ff8ea0af6b9c90f",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/contracts/page.tsx": {
@@ -2460,9 +2460,9 @@
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/customers/[id]/page.tsx": {
-    "mtime": 1792336628.7047808,
-    "seen": 1792337680.426221,
-    "ast_hash": "d07b8a0a8f89176b2e71cf5f5405307b",
+    "mtime": 1792642007.0429776,
+    "seen": 1792642096.4338038,
+    "ast_hash": "30d4d3cc29f3ab910e6e8a02dbf35acb",
     "semantic_hash": ""
   },
   "Frontend/app/(protected)/customers/customer-form-modal.tsx": {
@@ -2586,9 +2586,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-closing.tsx": {
-    "mtime": 1792417794.28716,
-    "seen": 1792417931.4765007,
-    "ast_hash": "8c583d01cd5803cb9eaa7ad1911243a6",
+    "mtime": 1792643468.194514,
+    "seen": 1792644830.664069,
+    "ast_hash": "ffe38ca63eb7a7c833da6ebd9279a2de",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-helpers.tsx": {
@@ -2604,9 +2604,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-overview.tsx": {
-    "mtime": 1792553280.1390998,
-    "seen": 1792553340.518244,
-    "ast_hash": "824d0958b97975d0a1ec90f7a46a87c3",
+    "mtime": 1792651368.7624512,
+    "seen": 1792651433.3394418,
+    "ast_hash": "283bbe058f2a631f77f60af71911beaf",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-signature.tsx": {
@@ -2826,16 +2826,16 @@
     "semantic_hash": "6d46f600f48b8f728d5063a8b43570d2"
   },
   "Frontend/components/ui/custom/date-filter.tsx": {
-    "mtime": 1790000690.2636836,
-    "seen": 1790050649.2773278,
-    "ast_hash": "d9faf2caffe54d3a5ccecf710ee60f6e",
+    "mtime": 1792646561.1738234,
+    "seen": 1792646637.2358694,
+    "ast_hash": "092b1f3943c8b0e33406623fdd995db2",
     "semantic_hash": ""
   },
   "Frontend/components/ui/custom/date-range-filter.tsx": {
-    "mtime": 1790000690.2647972,
-    "seen": 1790050649.2773292,
-    "ast_hash": "fbca975c89fc3ed2e44a2ff5eb061b0d",
-    "semantic_hash": "fbca975c89fc3ed2e44a2ff5eb061b0d"
+    "mtime": 1792646561.7391605,
+    "seen": 1792646637.2358782,
+    "ast_hash": "03d727c65840ec033755284d58c25cdb",
+    "semantic_hash": ""
   },
   "Frontend/components/ui/custom/decimal-input.tsx": {
     "mtime": 1790000690.2653227,
@@ -2946,9 +2946,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/input.tsx": {
-    "mtime": 1790336971.055677,
-    "seen": 1790337067.4796247,
-    "ast_hash": "f8056b80e75694ae23c5a74ce1add018",
+    "mtime": 1792645454.647077,
+    "seen": 1792645553.3725536,
+    "ast_hash": "5605d7e7aba058e617283daeb1053607",
     "semantic_hash": ""
   },
   "Frontend/components/ui/item.tsx": {
@@ -6054,9 +6054,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/ui/custom/contract-rich-text-editor.tsx": {
-    "mtime": 1790000690.2609456,
-    "seen": 1790050649.2773209,
-    "ast_hash": "73e2278b0b460a15d96b4b848ed7381b",
+    "mtime": 1792643025.5570822,
+    "seen": 1792644830.664173,
+    "ast_hash": "4c90481adb106c73c53c0bdcbbcc25e9",
     "semantic_hash": ""
   },
   "Frontend/lib/contract-rich-text.ts": {
@@ -6546,9 +6546,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-acceptance-records.tsx": {
-    "mtime": 1792561077.5274441,
-    "seen": 1792561140.7889743,
-    "ast_hash": "4f461d911a72ffa05933f3cfe9016dc9",
+    "mtime": 1792650090.1530862,
+    "seen": 1792650112.1301353,
+    "ast_hash": "5520521248c5609bb52da59d84ca2b3f",
     "semantic_hash": ""
   },
   "Frontend/services/contract-acceptance-api.ts": {
@@ -7170,9 +7170,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Controllers/Catalog/CatalogWorkspaceController.cs": {
-    "mtime": 1791965025.1030252,
-    "seen": 1791966863.118868,
-    "ast_hash": "9bedb73f579717bd55ea25069da9a7f0",
+    "mtime": 1792639910.6368113,
+    "seen": 1792640232.8644316,
+    "ast_hash": "9599ee07946910a7ff0b1402e65eed72",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Catalog/CatalogWorkspaceFilter.cs": {
@@ -7188,9 +7188,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Services/Catalog/CatalogWorkspaceService.cs": {
-    "mtime": 1792551399.3806586,
-    "seen": 1792551923.10377,
-    "ast_hash": "c1a448ec5ad07d421f1b3e256b86c4b3",
+    "mtime": 1792639909.7948928,
+    "seen": 1792640232.8648036,
+    "ast_hash": "32e547d743766f3ad662abcf55f31934",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Services/Catalog/CatalogWorkspaceTests.cs": {
@@ -7500,9 +7500,9 @@
     "semantic_hash": ""
   },
   "Frontend/components/contract-documents/term-language-section.tsx": {
-    "mtime": 1792312186.5046997,
-    "seen": 1792312348.67487,
-    "ast_hash": "afa52047dd6357ee94700f09544ebf6d",
+    "mtime": 1792643180.6248024,
+    "seen": 1792644830.664036,
+    "ast_hash": "5fb8aa40a9a2354462b84700a4004337",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/DTOs/Requests/Contract/CreateContractAppendixDraftRequest.cs": {
@@ -7776,15 +7776,15 @@
     "semantic_hash": ""
   },
   "Frontend/components/contracts/acceptance-handover-scope-editor.tsx": {
-    "mtime": 1792420907.5326228,
-    "seen": 1792465256.8676252,
-    "ast_hash": "f443e60f2599b4de4f21cdc1150d12cf",
+    "mtime": 1792650394.7956321,
+    "seen": 1792651433.339425,
+    "ast_hash": "81858fafb0f427da51e921bcf219beec",
     "semantic_hash": ""
   },
   "Frontend/components/contracts/contract-handover-records.tsx": {
-    "mtime": 1792560844.0428555,
-    "seen": 1792561140.7889848,
-    "ast_hash": "2e4f1a70c7756b9bfd686727fc76727e",
+    "mtime": 1792650003.6693325,
+    "seen": 1792650112.1301463,
+    "ast_hash": "fd59a90c3b82b5a21ecdd5d103baf8ba",
     "semantic_hash": ""
   },
   "Frontend/services/contract-handover-api.ts": {
@@ -7965,6 +7965,42 @@
     "mtime": 1792559845.215637,
     "seen": 1792559927.921525,
     "ast_hash": "0879090e099c1b857cdffe246829298a",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/DTOs/Requests/Catalog/CatalogPickerFilter.cs": {
+    "mtime": 1792639908.9006195,
+    "seen": 1792640232.864497,
+    "ast_hash": "f44984cfe591666fe894485f3c3e132c",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/DTOs/Responses/Catalog/CatalogPickerItemResponse.cs": {
+    "mtime": 1792639909.3809416,
+    "seen": 1792640232.864597,
+    "ast_hash": "14c7ec0ed23f44b7af7b110ffbb11c66",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.API/Domains/Services/Catalog/CatalogWorkspaceService.Picker.cs": {
+    "mtime": 1792639910.23899,
+    "seen": 1792640232.8648024,
+    "ast_hash": "0471409338f92e4ae357ae77d5a1b165",
+    "semantic_hash": ""
+  },
+  "Backend/ContractManagement.Tests/Domains/Services/Catalog/CatalogPickerTests.cs": {
+    "mtime": 1792640232.4467368,
+    "seen": 1792640232.8652196,
+    "ast_hash": "46306901d8d663e1ba30f70e86240df9",
+    "semantic_hash": ""
+  },
+  "Frontend/services/catalog/picker-api.ts": {
+    "mtime": 1792639910.9861789,
+    "seen": 1792640232.865632,
+    "ast_hash": "caef3e09455274869d429a94946a0dc4",
+    "semantic_hash": ""
+  },
+  "Frontend/components/ui/custom/date-picker-calendar.tsx": {
+    "mtime": 1792646560.4165711,
+    "seen": 1792646637.2358758,
+    "ast_hash": "95352c47a2f9db49c7d75395cae21c92",
     "semantic_hash": ""
   }
 }

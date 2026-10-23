@@ -12,6 +12,11 @@ namespace ContractManagement.API.Domains.Controllers.Catalog;
 [SessionAuthorize(RbacPermissions.CatalogRead)]
 public sealed class CatalogWorkspaceController(CatalogWorkspaceService service, IProductService products, IServiceService services) : ControllerBase
 {
+    // POST keeps large optional selected-ID lists out of query-string length limits. Read-only search.
+    [HttpPost("items/search")]
+    public async Task<IActionResult> PickerItems([FromBody] CatalogPickerFilter filter, CancellationToken ct) =>
+        Ok(ApiResponse<object>.Ok(await service.GetPickerItemsAsync(filter, ct)));
+
     [HttpGet("categories/tree")]
     public async Task<IActionResult> Categories([FromQuery] CatalogWorkspaceFilter filter, CancellationToken ct) =>
         Ok(ApiResponse<object>.Ok(await service.GetCategoriesAsync(filter, ct)));

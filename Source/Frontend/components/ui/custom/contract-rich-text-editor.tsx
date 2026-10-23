@@ -125,7 +125,10 @@ const runsToTiptapContent = (runs: ContractRichTextRun[]): JSONContent[] => {
     if (run.italic) marks.push({ type: "italic" });
     if (run.underline) marks.push({ type: "underline" });
     if (run.fontSize) {
-      marks.push({ type: "textStyle", attrs: { fontSize: `${run.fontSize}pt` } });
+      marks.push({
+        type: "textStyle",
+        attrs: { fontSize: `${run.fontSize}pt` },
+      });
     }
 
     run.text.split("\n").forEach((part, index) => {
@@ -136,10 +139,7 @@ const runsToTiptapContent = (runs: ContractRichTextRun[]): JSONContent[] => {
   return content;
 };
 
-const cellStartColumns = (
-  rows: ContractRichTextRow[],
-  columnCount: number,
-) => {
+const cellStartColumns = (rows: ContractRichTextRow[], columnCount: number) => {
   const activeRowspans = Array<number>(columnCount).fill(0);
   return rows.map((row) => {
     const occupied = activeRowspans.map((remaining) => remaining > 0);
@@ -246,9 +246,8 @@ const tiptapInlineToRuns = (nodes?: JSONContent[]) => {
     const bold = node.marks?.some((mark) => mark.type === "bold");
     const italic = node.marks?.some((mark) => mark.type === "italic");
     const underline = node.marks?.some((mark) => mark.type === "underline");
-    const fontSizeValue = node.marks?.find(
-      (mark) => mark.type === "textStyle",
-    )?.attrs?.fontSize;
+    const fontSizeValue = node.marks?.find((mark) => mark.type === "textStyle")
+      ?.attrs?.fontSize;
     const fontSize =
       typeof fontSizeValue === "string"
         ? Number(fontSizeValue.replace("pt", ""))
@@ -281,14 +280,10 @@ const cellVerticalAlignment = (
     : undefined;
 
 const tablePixelWidths = (table: JSONContent) => {
-  const firstRow = (table.content ?? []).find(
-    (row) => row.type === "tableRow",
-  );
+  const firstRow = (table.content ?? []).find((row) => row.type === "tableRow");
   const widths: number[] = [];
   (firstRow?.content ?? [])
-    .filter(
-      (cell) => cell.type === "tableCell" || cell.type === "tableHeader",
-    )
+    .filter((cell) => cell.type === "tableCell" || cell.type === "tableHeader")
     .forEach((cell) => {
       const colspan = Math.max(1, Number(cell.attrs?.colspan) || 1);
       const colwidth = Array.isArray(cell.attrs?.colwidth)
@@ -319,8 +314,7 @@ const fromTiptapDocument = (document: JSONContent) => {
       .map((row) => ({
         cells: (row.content ?? [])
           .filter(
-            (cell) =>
-              cell.type === "tableCell" || cell.type === "tableHeader",
+            (cell) => cell.type === "tableCell" || cell.type === "tableHeader",
           )
           .map((cell) => {
             const colspan = Number(cell.attrs?.colspan);
@@ -566,7 +560,12 @@ export function ContractRichTextEditor({
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1"
+            >
               Cỡ chữ <ChevronDown className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -585,15 +584,19 @@ export function ContractRichTextEditor({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        {([
-          ["left", AlignLeft, "Căn trái"],
-          ["center", AlignCenter, "Căn giữa"],
-          ["right", AlignRight, "Căn phải"],
-        ] as const).map(([alignment, Icon, label]) => (
+        {(
+          [
+            ["left", AlignLeft, "Căn trái"],
+            ["center", AlignCenter, "Căn giữa"],
+            ["right", AlignRight, "Căn phải"],
+          ] as const
+        ).map(([alignment, Icon, label]) => (
           <Button
             key={alignment}
             type="button"
-            variant={editor.isActive({ textAlign: alignment }) ? "secondary" : "ghost"}
+            variant={
+              editor.isActive({ textAlign: alignment }) ? "secondary" : "ghost"
+            }
             size="icon"
             className="size-8"
             title={label}
@@ -606,7 +609,12 @@ export function ContractRichTextEditor({
         ))}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1"
+            >
               <Table2 className="size-4" /> Thêm bảng
             </Button>
           </DropdownMenuTrigger>
@@ -620,7 +628,11 @@ export function ContractRichTextEditor({
                   editor
                     .chain()
                     .focus()
-                    .insertTable({ rows: size, cols: size, withHeaderRow: false })
+                    .insertTable({
+                      rows: size,
+                      cols: size,
+                      withHeaderRow: false,
+                    })
                     .run()
                 }
               >
@@ -654,79 +666,81 @@ export function ContractRichTextEditor({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Hàng và cột</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().addRowBefore().run()}
-              >
-                Thêm hàng phía trên
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().addRowAfter().run()}
-              >
-                Thêm hàng phía dưới
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().addColumnBefore().run()}
-              >
-                Thêm cột bên trái
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().addColumnAfter().run()}
-              >
-                Thêm cột bên phải
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().deleteRow().run()}
-              >
-                Xóa hàng hiện tại
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => editor.chain().focus().deleteColumn().run()}
-              >
-                Xóa cột hiện tại
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Ô</DropdownMenuLabel>
-              <DropdownMenuItem
-                disabled={!canMerge}
-                onSelect={() => editor.chain().focus().mergeCells().run()}
-              >
-                Gộp các ô đã chọn
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!editor.can().chain().focus().splitCell().run()}
-                onSelect={() => editor.chain().focus().splitCell().run()}
-              >
-                Tách ô
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Căn dọc nội dung ô</DropdownMenuLabel>
-              {(["top", "center", "bottom"] as const).map((alignment) => (
+                <DropdownMenuLabel>Hàng và cột</DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  key={alignment}
+                  onSelect={() => editor.chain().focus().addRowBefore().run()}
+                >
+                  Thêm hàng phía trên
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => editor.chain().focus().addRowAfter().run()}
+                >
+                  Thêm hàng phía dưới
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onSelect={() =>
-                    editor
-                      .chain()
-                      .focus()
-                      .setCellAttribute("verticalAlign", alignment)
-                      .run()
+                    editor.chain().focus().addColumnBefore().run()
                   }
                 >
-                  {alignment === "top"
-                    ? "Căn trên"
-                    : alignment === "center"
-                      ? "Căn giữa"
-                      : "Căn dưới"}
+                  Thêm cột bên trái
                 </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => editor.chain().focus().deleteTable().run()}
-              >
-                Xóa bảng
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => editor.chain().focus().addColumnAfter().run()}
+                >
+                  Thêm cột bên phải
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => editor.chain().focus().deleteRow().run()}
+                >
+                  Xóa hàng hiện tại
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => editor.chain().focus().deleteColumn().run()}
+                >
+                  Xóa cột hiện tại
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Ô</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={!canMerge}
+                  onSelect={() => editor.chain().focus().mergeCells().run()}
+                >
+                  Gộp các ô đã chọn
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!editor.can().chain().focus().splitCell().run()}
+                  onSelect={() => editor.chain().focus().splitCell().run()}
+                >
+                  Tách ô
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Căn dọc nội dung ô</DropdownMenuLabel>
+                {(["top", "center", "bottom"] as const).map((alignment) => (
+                  <DropdownMenuItem
+                    key={alignment}
+                    onSelect={() =>
+                      editor
+                        .chain()
+                        .focus()
+                        .setCellAttribute("verticalAlign", alignment)
+                        .run()
+                    }
+                  >
+                    {alignment === "top"
+                      ? "Căn trên"
+                      : alignment === "center"
+                        ? "Căn giữa"
+                        : "Căn dưới"}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => editor.chain().focus().deleteTable().run()}
+                >
+                  Xóa bảng
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
@@ -767,7 +781,11 @@ export function ContractRichTextEditor({
             aria-pressed={isFullscreen}
             onClick={() => setIsFullscreen((current) => !current)}
           >
-            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            {isFullscreen ? (
+              <Minimize2 className="size-4" />
+            ) : (
+              <Maximize2 className="size-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -780,8 +798,8 @@ export function ContractRichTextEditor({
             </span>
           ) : (
             <span>
-              Để gộp ô: đặt con trỏ ở ô đầu, giữ Shift rồi bấm ô cuối
-              (hoặc kéo chuột qua các ô).
+              Để gộp ô: đặt con trỏ ở ô đầu, giữ Shift rồi bấm ô cuối (hoặc kéo
+              chuột qua các ô).
             </span>
           )}
         </div>

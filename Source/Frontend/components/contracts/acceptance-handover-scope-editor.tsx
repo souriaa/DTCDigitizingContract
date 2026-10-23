@@ -9,6 +9,7 @@ import {
   type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { RotateCcw } from "lucide-react";
 
 export function AcceptanceHandoverScopeEditor({
   contractId,
@@ -80,6 +81,7 @@ export function AcceptanceHandoverScopeEditor({
           disabled={loading}
           onClick={() => setReload((v) => v + 1)}
         >
+          <RotateCcw className="mr-2" />
           Tải lại phạm vi
         </Button>
         {loading ? (
