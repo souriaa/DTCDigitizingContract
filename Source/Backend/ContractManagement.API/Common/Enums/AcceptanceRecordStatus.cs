@@ -17,7 +17,6 @@ public enum AcceptanceKind : byte
 public enum AcceptanceReferenceType : byte
 {
     Contract = 1,
-    Handover = 3,
     Appendix = 2
 }
 

@@ -34,9 +34,6 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
         var sampleRoles = DocumentPartyMarkers.Values(direction, SampleParty("PROVIDER"), SampleParty("CUSTOMER"));
         var values = new Dictionary<string, string>(data.ScalarValues, StringComparer.Ordinal);
         AddAcceptanceSampleValues(values);
-        values["HANDOVER_CODE"] = "BBBG-SAMPLE-001";
-        values["HANDOVER_DATE"] = "19/09/2026"; values["HANDOVER_DATE_EN"] = "19 September 2026";
-        values["HANDOVER_LOCATION"] = "Hà Nội"; values["HANDOVER_LOCATION_EN"] = "Hanoi";
         foreach (var pair in sampleRoles) values[pair.Key] = pair.Value;
         foreach (var pair in customSamples) values[pair.Key] = pair.Value;
         var terms = authoringData is not null
@@ -48,7 +45,6 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             ScalarValues = values,
             Definitions = definitions,
             DocumentReferences = [new("Căn cứ Hợp đồng số DTC-SAMPLE-001 ký ngày 01/09/2026 giữa Doanh nghiệp mẫu và Đối tác mẫu.", "Pursuant to Contract No. DTC-SAMPLE-001 signed on 01 September 2026 between Sample Tenant and Sample Counterparty.")],
-            HandoverItems = [new(1, "ITEM-1", "Phần mềm mẫu", "Sample software", "Giấy phép", "License", 1)],
             ItemTableColumnWidthsBps = authoringData?.ItemTableColumnWidthsBps
                 ?? data.ItemTableColumnWidthsBps,
             LegalBases = authoringData?.LegalBases ?? data.LegalBases,
@@ -231,8 +227,6 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
                 "CONTRACT_APPENDICES" => CreateAppendixElements(
                     languageMode, renderData, availableWidthDxa),
                 "DOCUMENT_REFERENCES" => CreateDocumentReferenceElements(languageMode, renderData.DocumentReferences),
-                "HANDOVER_ITEM_TABLE" => [CreateHandoverItemTable(languageMode, renderData.HandoverItems, availableWidthDxa)],
-                "HANDOVER_SECTIONS" => CreateAcceptanceSectionElements(languageMode, renderData.Terms, availableWidthDxa),
                 "ACCEPTANCE_SECTIONS" => CreateAcceptanceSectionElements(
                     languageMode, renderData.Terms, availableWidthDxa),
                 "SIGNATURE_PROVIDER" =>
@@ -263,27 +257,6 @@ public sealed class ContractTemplatePreviewRenderer : IContractTemplatePreviewRe
             result.Add(CreateStyledParagraph(reference.TextVi, italic: true));
         }
         return result;
-    }
-
-    private static W.Table CreateHandoverItemTable(ContractLanguageMode language,
-        IReadOnlyList<ContractTemplateRenderHandoverItem> items, int width)
-    {
-        var widths = ContractTableLayoutPolicy.MapToDxa([700, 1500, 4600, 1400, 1800], width);
-        var rows = new List<IEnumerable<string>> { new[] {
-            DocumentEnglishPolicy.Label(language, "No.", "STT"), DocumentEnglishPolicy.Label(language, "Code", "Mã"),
-            DocumentEnglishPolicy.Label(language, "Delivered items", "Hạng mục bàn giao"),
-            DocumentEnglishPolicy.Label(language, "Unit", "Đơn vị"), DocumentEnglishPolicy.Label(language, "Quantity", "Số lượng") } };
-        foreach (var item in items)
-        {
-            var name = language == ContractLanguageMode.Bilingual
-                ? DocumentEnglishPolicy.Require(item.NameEn, "tên hạng mục tiếng Anh") + "\n\n" + item.NameVi : item.NameVi;
-            var unit = language == ContractLanguageMode.Bilingual
-                ? DocumentEnglishPolicy.Require(item.UnitEn, "đơn vị tiếng Anh") + "\n\n" + item.UnitVi : item.UnitVi;
-            if (!string.IsNullOrWhiteSpace(item.NotesVi) || !string.IsNullOrWhiteSpace(item.NotesEn))
-                name += "\n" + (language == ContractLanguageMode.Bilingual ? item.NotesEn + "\n\n" : "") + item.NotesVi;
-            rows.Add(new[] { item.No.ToString(), item.Code, name, unit, item.Quantity.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) });
-        }
-        return CreateTable(rows, true, widths, width);
     }
 
     private static IReadOnlyList<OpenXmlElement> CreateAcceptanceSectionElements(

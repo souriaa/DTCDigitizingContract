@@ -22,6 +22,13 @@ public interface IContractApprovalService
         int employeeId,
         CancellationToken cancellationToken = default);
 
+    Task<ContractApprovalActionResponse> ReviewAsync(
+        int approvalRequestId,
+        ApprovalRequestStatus decision,
+        ContractApprovalDecisionRequest request,
+        int employeeId,
+        CancellationToken cancellationToken = default);
+
     Task<ContractApprovalActionResponse> DecideAsync(
         int approvalRequestId,
         ApprovalRequestStatus decision,

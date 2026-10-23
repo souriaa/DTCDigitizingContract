@@ -80,6 +80,7 @@ export enum ContractStatus {
   Completed = 5,
   Cancelled = 6,
   Rejected = 7,
+  PendingAdministrativeReview = 8,
 }
 
 export const getContractStatusLabel = (status?: ContractStatus) => {
@@ -88,6 +89,8 @@ export const getContractStatusLabel = (status?: ContractStatus) => {
       return "Nháp";
     case ContractStatus.Negotiating:
       return "Đang đàm phán";
+    case ContractStatus.PendingAdministrativeReview:
+      return "Chờ kiểm tra hành chính";
     case ContractStatus.PendingApproval:
       return "Chờ duyệt";
     case ContractStatus.PendingSignature:
@@ -111,12 +114,15 @@ export enum ApprovalRequestStatus {
   Returned = 2,
   Rejected = 3,
   Withdrawn = 4,
+  PendingAdministrativeReview = 5,
 }
 
 export const getApprovalRequestStatusLabel = (
   status?: ApprovalRequestStatus,
 ) => {
   switch (status) {
+    case ApprovalRequestStatus.PendingAdministrativeReview:
+      return "Chờ nhân viên quản trị kiểm tra";
     case ApprovalRequestStatus.Pending:
       return "Chờ xử lý";
     case ApprovalRequestStatus.Approved:
@@ -135,7 +141,6 @@ export const getApprovalRequestStatusLabel = (
 export enum DocumentType {
   QuotationFile = 0,
   AcceptanceRecord = 1,
-  HandoverRecord = 2,
   LiquidationRecord = 3,
   VATInvoice = 4,
   BankGuarantee = 5,
@@ -149,8 +154,6 @@ export const getDocumentTypeLabel = (type?: DocumentType | number) => {
       return "File báo giá";
     case DocumentType.AcceptanceRecord:
       return "Biên bản nghiệm thu";
-    case DocumentType.HandoverRecord:
-      return "Biên bản bàn giao";
     case DocumentType.LiquidationRecord:
       return "Biên bản thanh lý";
     case DocumentType.VATInvoice:
@@ -171,6 +174,8 @@ export const statusClasses: Record<number, string> = {
     "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20",
   [ContractStatus.Negotiating]:
     "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",
+  [ContractStatus.PendingAdministrativeReview]:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20",
   [ContractStatus.PendingApproval]:
     "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20",
   [ContractStatus.PendingSignature]:

@@ -95,7 +95,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             notifications: notifications);
 
         var draft = await service.CreateAsync(ContractId, CreateRequest(), actorId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId,
             draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, actorId);
@@ -130,10 +129,9 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
 
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
 
         Assert.Equal(AcceptanceRecordStatus.Draft, draft.Status);
-        Assert.Equal(3, draft.References.Count);
+        Assert.Equal(2, draft.References.Count);
         Assert.Equal(AcceptanceReferenceType.Contract,
             draft.References[0].ReferenceType);
         Assert.Contains("ký ngày 12/09/2026", draft.References[0].TextVi);
@@ -491,7 +489,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
 
         var draft = await service.CreateAsync(
             ContractId, request, EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId,
             draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -591,7 +588,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
     }
 
     [Fact]
-    public async Task Create_WhenSignedPartialsCoverAllMilestones_StillAllowsRemainingScope()
+    public async Task Create_WhenSignedPartialsCoverAllMilestones_RejectsFurtherRecords()
     {
         await using var db = CreateContext();
         var storage = new TrackingStorage();
@@ -637,10 +634,10 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         request.AcceptanceCode = "BBNT-NEW";
         request.PaymentMilestoneIds = [];
 
-        var next = await CreateService(db, storage).CreateAsync(ContractId, request, EmployeeId);
-        Assert.Equal(AcceptanceKind.Partial, next.AcceptanceKind);
-        Assert.Empty(next.Milestones);
-        Assert.NotNull(next.HandoverBlocker);
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            CreateService(db, storage).CreateAsync(ContractId, request, EmployeeId));
+        Assert.Equal("AcceptanceAlreadyCompleted", exception.Code);
+        Assert.Equal(2, await db.TblContractAcceptanceRecords.CountAsync());
     }
 
     [Fact]
@@ -652,7 +649,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         db.TblContractAcceptanceRecords.Add(AcceptanceRecord(
             900, AcceptanceRecordStatus.Signed, AcceptanceKind.Partial));
         db.TblContractAcceptanceMilestones.Add(new()
@@ -685,7 +681,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(
             ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -743,7 +738,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         storage.FailOnSaveNumber = 2;
 
         await Assert.ThrowsAsync<IOException>(() => service.FinalizeAsync(
@@ -767,7 +761,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var contract = await db.TblContracts.SingleAsync();
         contract.SignDate = null;
         await db.SaveChangesAsync();
@@ -788,7 +781,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(
             ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(
             ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -884,7 +876,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         ContractDirection direction = ContractDirection.Sale, string? counterpartyBank = null,
         ContractLanguageMode language = ContractLanguageMode.Vietnamese,
         TemplateDocumentType documentType = TemplateDocumentType.AcceptanceRecord, byte[]? documentBytes = null,
-        IReadOnlyList<TblContractItem>? handoverItems = null, bool omitMilestones = false, decimal contractTotal = 0m,
+        bool omitMilestones = false, decimal contractTotal = 0m,
         string? counterpartyContactPhone = null, bool omitSections = false)
     {
         var now = new DateTime(2026, 9, 18, 8, 0, 0, DateTimeKind.Utc);
@@ -909,7 +901,7 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             new TblFileStorage
             {
                 FileId = 1,
-                ObjectType = documentType == TemplateDocumentType.HandoverRecord ? "ContractTemplateVersion" : "ContractTemplateDocument",
+                ObjectType = "ContractTemplateDocument",
                 ObjectId = TemplateVersionId,
                 FileName = "acceptance.docx",
                 FilePath = string.Empty,
@@ -969,8 +961,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             TemplateVersionId = TemplateVersionId,
             TermCode = "RESULT",
             TermTitle = "I. KẾT QUẢ THỰC HIỆN",
-            TermTitleEn = documentType == TemplateDocumentType.HandoverRecord ? "Handover results" : null,
-            TermContentEn = documentType == TemplateDocumentType.HandoverRecord ? RichText("Delivered scope") : null,
             TermContent = RichText("Đã hoàn thành công việc."),
             DisplayOrder = 1,
             CreatedEmployeeId = EmployeeId,
@@ -1081,13 +1071,10 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             CreatedDate = now,
             RowVersion = InitialVersion.ToArray()
         });
-        if (handoverItems is not null) db.TblContractItems.AddRange(handoverItems);
         using (var source = WordprocessingDocument.Open(new MemoryStream(templateDocx), false))
         {
             var text = source.MainDocumentPart!.Document!.InnerText;
-            var definitions = documentType == TemplateDocumentType.HandoverRecord
-                ? HandoverRecordPlaceholderCatalog.All
-                : AcceptanceRecordPlaceholderCatalog.All.Where(x => x.Key == "ACCEPTANCE_SECTIONS").ToArray();
+            var definitions = AcceptanceRecordPlaceholderCatalog.All.Where(x => x.Key == "ACCEPTANCE_SECTIONS").ToArray();
             db.TblContractTemplateFields.AddRange(definitions.Where(x => text.Contains("{{" + x.Key + "}}", StringComparison.Ordinal)).Select((x, i) => new TblContractTemplateField {
                 TemplateVersionId = TemplateVersionId, PlaceholderKey = x.Key, FieldLabel = x.Label, SourceFieldKey = x.SourceFieldKey!, DataSource = x.DataSource,
                 DataKind = (byte)x.DataKind, Multiplicity = (byte)x.Multiplicity, IsSystem = true, IsRequired = false, DisplayOrder = i, CreatedEmployeeId = EmployeeId, CreatedDate = now }));

@@ -8,7 +8,6 @@
     {
         QuotationFile = 0,
         AcceptanceRecord = 1,
-        HandoverRecord = 2,
         LiquidationRecord = 3,
         VATInvoice = 4,
         BankGuarantee = 5,

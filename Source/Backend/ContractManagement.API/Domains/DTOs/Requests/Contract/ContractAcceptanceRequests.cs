@@ -17,12 +17,6 @@ public sealed class CreateContractAcceptanceRecordRequest
     [Required] public string ContractRowVersion { get; set; } = string.Empty;
     [Required] public string VersionRowVersion { get; set; } = string.Empty;
 }
-public sealed record AcceptanceHandoverScopeInput(int HandoverLineId, decimal Quantity);
-public sealed class ReplaceAcceptanceHandoverScopeRequest
-{
-    public List<AcceptanceHandoverScopeInput> Items { get; set; } = [];
-    [Required] public string RowVersion { get; set; } = string.Empty;
-}
 
 
 public sealed class UpdateContractAcceptanceRecordRequest

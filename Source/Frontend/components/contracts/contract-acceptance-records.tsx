@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { AcceptanceHandoverScopeEditor } from "@/components/contracts/acceptance-handover-scope-editor";
 import {
   DocumentField as Field,
   DocumentPartyFields as PartyEditor,
@@ -84,13 +83,11 @@ import {
   type ContractAcceptanceRecord,
   type ContractAcceptanceRecordSummary,
   type ContractAcceptanceTemplateOption,
-  type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
 import { formatDateTime } from "@/lib/format-date-time";
 import { formatDate } from "@/lib/format-date";
 
 interface Props {
-  scopeRevision?: number;
   contract: ContractDetailResponse;
   paymentMilestones: ContractPaymentMilestoneResponse[];
   readiness: ContractCompletionReadinessResponse;
@@ -130,7 +127,7 @@ function getAcceptanceMetadataError(
   if (!value.acceptanceCode.trim()) return "Vui lòng nhập mã biên bản.";
   if (!value.acceptanceDate.trim()) return "Vui lòng chọn ngày nghiệm thu.";
   if (minimumDate && value.acceptanceDate.slice(0, 10) < minimumDate)
-    return `Ngày nghiệm thu không được trước ngày ký hợp đồng hoặc ngày bàn giao của các nguồn đã chọn (từ ${formatDate(minimumDate)}).`;
+    return `Ngày nghiệm thu không được trước ngày ký hợp đồng (từ ${formatDate(minimumDate)}).`;
   if (!value.location.trim()) return "Vui lòng nhập địa điểm nghiệm thu.";
   if (isBilingual && !value.locationEn?.trim())
     return "Vui lòng nhập địa điểm tiếng Anh cho hợp đồng song ngữ.";
@@ -144,15 +141,8 @@ const parseDateString = (str?: string) => {
   return new Date(y, m - 1, d);
 };
 
-const getMinimumAcceptanceDate = (
-  signDate?: string | null,
-  scope: AcceptanceHandoverScope[] = [],
-) =>
-  [signDate, ...scope.map((item) => item.handoverDate)]
-    .filter((date): date is string => Boolean(date))
-    .map((date) => date.slice(0, 10))
-    .sort()
-    .at(-1);
+const getMinimumAcceptanceDate = (signDate?: string | null) =>
+  signDate?.slice(0, 10);
 
 const partyInput = (party: ContractAcceptanceParty) => ({
   legalName: party.legalName,
@@ -174,7 +164,6 @@ export function ContractAcceptanceRecords({
   signedActive,
   canManage,
   onChanged,
-  scopeRevision = 0,
 }: Props) {
   const isBilingual = contract.languageMode === ContractLanguageMode.Bilingual;
   const [records, setRecords] = useState<ContractAcceptanceRecordSummary[]>([]);
@@ -186,13 +175,12 @@ export function ContractAcceptanceRecords({
   const minimumCreateDate = getMinimumAcceptanceDate(contract.signDate);
   const minimumDraftDate = getMinimumAcceptanceDate(
     selected?.contractSignDate,
-    selected?.handoverScope,
   );
   const selectedDateError =
     selected &&
     minimumDraftDate &&
     selected.acceptanceDate.slice(0, 10) < minimumDraftDate
-      ? `Ngày nghiệm thu phải từ ${formatDate(minimumDraftDate)} (không trước ngày ký hợp đồng và ngày bàn giao của nguồn đã chọn).`
+      ? `Ngày nghiệm thu phải từ ${formatDate(minimumDraftDate)} (không trước ngày ký hợp đồng).`
       : null;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -252,7 +240,7 @@ export function ContractAcceptanceRecords({
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timeout);
-  }, [load, scopeRevision]);
+  }, [load]);
 
   const appendices = useMemo(
     () =>
@@ -438,15 +426,6 @@ export function ContractAcceptanceRecords({
           : [],
         latest.rowVersion,
       );
-      latest = await contractAcceptanceApi.replaceHandoverScope(
-        contract.contractId,
-        draft.acceptanceRecordId,
-        draft.handoverScope.map((x) => ({
-          handoverLineId: x.handoverLineId,
-          quantity: x.quantity,
-        })),
-        latest.rowVersion,
-      );
       latest = await contractAcceptanceApi.replaceSections(
         contract.contractId,
         draft.acceptanceRecordId,
@@ -492,8 +471,6 @@ export function ContractAcceptanceRecords({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
-        (event.target instanceof Element &&
-          !!event.target.closest('[data-document-save-scope="handover"]')) ||
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
         event.shiftKey ||
@@ -759,7 +736,6 @@ export function ContractAcceptanceRecords({
   );
   const acceptanceFullyCompleted = readiness.acceptanceCompleted;
   const canCreate =
-    !readiness.scopeIntegrityError &&
     canManage &&
     contract.status === ContractStatus.Signed &&
     signedActive &&
@@ -836,7 +812,7 @@ export function ContractAcceptanceRecords({
           acceptanceFullyCompleted && (
             <Alert>
               <AlertDescription>
-                Toàn bộ các đợt và phạm vi đã được nghiệm thu bằng biên bản có
+                Toàn bộ các đợt thanh toán đã được nghiệm thu bằng biên bản có
                 bản ký. Không cần tạo thêm biên bản.
               </AlertDescription>
             </Alert>
@@ -849,9 +825,7 @@ export function ContractAcceptanceRecords({
           availablePaymentMilestones.length === 0 && (
             <Alert>
               <AlertDescription>
-                Đã hết đợt thanh toán khả dụng nhưng còn phạm vi cần nghiệm thu.
-                Bạn có thể tạo biên bản một phần tiếp theo chỉ cho phạm vi còn
-                lại, không chọn lại đợt tiền.
+                Không còn đợt thanh toán khả dụng để nghiệm thu một phần.
               </AlertDescription>
             </Alert>
           )}
@@ -864,7 +838,7 @@ export function ContractAcceptanceRecords({
             <p className="text-muted-foreground">
               {activeRecord?.status === AcceptanceRecordStatus.Finalized
                 ? "Biên bản đang chờ bản ký; các đợt trong đó chưa được tính là đã nghiệm thu."
-                : "Tiếp tục nghiệm thu một phần cho hạng mục còn lại; đợt thanh toán chọn riêng nếu còn."}
+                : "Tiếp tục nghiệm thu một phần cho các đợt thanh toán còn lại."}
             </p>
             <ul className="list-disc pl-5">
               {paymentMilestones
@@ -987,22 +961,6 @@ export function ContractAcceptanceRecords({
                 </Button>
               </div>
             </div>
-
-            {selected.status !== AcceptanceRecordStatus.Draft && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Phạm vi đã chốt nghiệm thu</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {selected.handoverScope.map((x) => (
-                    <p key={x.handoverLineId}>
-                      {x.handoverCode} · {x.nameVi}: {x.quantity} {x.unitVi}
-                    </p>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
             {isDraft ? (
               <div className="space-y-6">
                 <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-primary/30 bg-background/95 p-3 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between">
@@ -1011,7 +969,7 @@ export function ContractAcceptanceRecords({
                       Chỉnh sửa bản nháp nghiệm thu
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Một lần lưu áp dụng cho thông tin, căn cứ, phạm vi và toàn
+                      Một lần lưu áp dụng cho thông tin, căn cứ, đợt thanh toán và toàn
                       bộ nội dung biên bản. Có thể dùng Ctrl+S (hoặc ⌘+S).
                     </p>
                   </div>
@@ -1403,26 +1361,6 @@ export function ContractAcceptanceRecords({
                     )}
                   </CardContent>
                 </Card>
-
-                <AcceptanceHandoverScopeEditor
-                  contractId={contract.contractId}
-                  recordId={selected.acceptanceRecordId}
-                  rowVersion={selected.rowVersion}
-                  revision={scopeRevision}
-                  selected={selected.handoverScope}
-                  blocker={selected.handoverBlocker}
-                  disabled={busy || !canManage}
-                  onChange={(handoverScope) =>
-                    setSelected({
-                      ...selected,
-                      handoverScope,
-                      handoverBlocker: handoverScope.length
-                        ? null
-                        : "Chưa chọn phạm vi bàn giao cần nghiệm thu.",
-                    })
-                  }
-                />
-
                 {/* 4. Nội dung biên bản */}
                 <Collapsible
                   defaultOpen
@@ -1550,12 +1488,7 @@ export function ContractAcceptanceRecords({
                       <div className="flex items-center gap-2.5 sm:shrink-0">
                         <Button
                           type="button"
-                          disabled={
-                            busy ||
-                            selected.handoverScope.length === 0 ||
-                            !!selected.handoverBlocker ||
-                            !!selectedDateError
-                          }
+                          disabled={busy || !!selectedDateError}
                           onClick={() => setFinalizeOpen(true)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
                         >
@@ -1627,9 +1560,6 @@ export function ContractAcceptanceRecords({
                     <p
                       key={
                         reference.referenceType ===
-                        AcceptanceReferenceType.Handover
-                          ? `handover:${reference.handoverRecordId}`
-                          : reference.referenceType ===
                               AcceptanceReferenceType.Appendix
                             ? `appendix:${reference.appendixId}`
                             : `contract:${selected.contractVersionId}`
@@ -1994,7 +1924,7 @@ export function ContractAcceptanceRecords({
                 availablePaymentMilestones.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Không còn đợt thanh toán nào chưa thuộc biên bản đã chốt
-                    hoặc đã ký. Vòng này có thể chỉ nghiệm thu phạm vi còn lại.
+                    hoặc đã ký để tạo biên bản nghiệm thu một phần.
                   </p>
                 )}
               <Alert>
@@ -2040,7 +1970,6 @@ export function ContractAcceptanceRecords({
                 disabled={
                   busy ||
                   (createForm.acceptanceKind === AcceptanceKind.Partial &&
-                    availablePaymentMilestones.length > 0 &&
                     createForm.paymentMilestoneIds.length === 0)
                 }
                 onClick={() => void createRecord()}
@@ -2080,10 +2009,6 @@ export function ContractAcceptanceRecords({
           if (!selected) return;
           const saved = await saveAllDraftChanges(true);
           if (!saved) return;
-          if (saved.handoverBlocker) {
-            toast.error(saved.handoverBlocker);
-            return;
-          }
 
           const finalized = await commit(
             () =>

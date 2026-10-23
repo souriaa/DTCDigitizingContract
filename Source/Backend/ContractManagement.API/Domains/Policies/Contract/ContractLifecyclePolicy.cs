@@ -34,9 +34,16 @@ namespace ContractManagement.API.Domains.Policies.Contract
                 {
                     // Hai bên đã chốt nội dung, gửi duyệt nội bộ.
                     ContractStatus.PendingApproval,
+                    ContractStatus.PendingAdministrativeReview,
 
                     // Khách hàng rút lui hoặc hai bên dừng giao dịch.
                     ContractStatus.Cancelled
+                },
+
+                [ContractStatus.PendingAdministrativeReview] = new()
+                {
+                    ContractStatus.PendingApproval,
+                    ContractStatus.Negotiating
                 },
 
                 [ContractStatus.PendingApproval] = new()

@@ -7,7 +7,7 @@ namespace ContractManagement.API.Common.Security;
 /// </summary>
 public static class RbacPermissions
 {
-    public const string Version = "rbac-v2";
+    public const string Version = "rbac-v3";
 
     public const string EmployeeDirectoryRead = "employee.directory.read";
     public const string EmployeeManage = "employee.manage";
@@ -22,10 +22,13 @@ public static class RbacPermissions
     public const string ContractReadTenant = "contract.read.tenant";
     public const string ContractManageOwn = "contract.manage.own";
     public const string ContractApprovalDecide = "contract.approval.decide";
+    public const string ContractApprovalReview = "contract.approval.review";
     public const string ContractExecutionRead = "contract.execution.read";
     public const string ContractSigningManage = "contract.signing.manage";
     public const string ContractAcceptanceManage = "contract.acceptance.manage";
+    public const string ContractAcceptanceManageOwn = "contract.acceptance.manage.own";
     public const string ContractPaymentManage = "contract.payment.manage";
+    public const string ContractPaymentManageOwn = "contract.payment.manage.own";
     public const string ContractComplete = "contract.complete";
     public const string ContractSupport = "contract.support";
     public const string TemplateAvailableRead = "template.available.read";
@@ -51,6 +54,8 @@ public static class EmployeePermissionCatalog
         RbacPermissions.ContractCreate,
         RbacPermissions.ContractReadOwn,
         RbacPermissions.ContractManageOwn,
+        RbacPermissions.ContractAcceptanceManageOwn,
+        RbacPermissions.ContractPaymentManageOwn,
         RbacPermissions.TemplateAvailableRead,
         RbacPermissions.ContractAuditReadOwn,
         RbacPermissions.FileAccessByResource
@@ -61,35 +66,34 @@ public static class EmployeePermissionCatalog
         {
             [EmployeeType.Sale] = Merge(RbacPermissions.CustomerManage),
             [EmployeeType.Marketing] = Merge(RbacPermissions.CustomerManage),
-            [EmployeeType.AdminOfficer] = Merge(
-                RbacPermissions.CatalogManage,
-                RbacPermissions.ContractSupport,
-                RbacPermissions.TemplateManage,
-                RbacPermissions.ContractAuditReadTenant),
-            [EmployeeType.Technical] = Merge(
-                RbacPermissions.ContractExecutionRead,
-                RbacPermissions.ContractSigningManage,
-                RbacPermissions.ContractAcceptanceManage),
-            [EmployeeType.Accountant] = Merge(
-                RbacPermissions.ContractExecutionRead,
-                RbacPermissions.ContractPaymentManage),
-            [EmployeeType.Manager] = Merge(
+            [EmployeeType.AdminOfficer] = Administration(RbacPermissions.ContractApprovalReview),
+            [EmployeeType.Technical] = Merge(RbacPermissions.ContractExecutionRead),
+            [EmployeeType.Accountant] = Administration().Where(permission =>
+                permission != RbacPermissions.ContractSigningManage).ToArray(),
+            [EmployeeType.Manager] = Administration(RbacPermissions.ContractApprovalDecide)
+        };
+
+    private static IReadOnlyList<string> Administration(params string[] additionalPermissions) =>
+        Merge(new[] {
                 RbacPermissions.EmployeeManage,
                 RbacPermissions.DepartmentManage,
                 RbacPermissions.CatalogManage,
                 RbacPermissions.CustomerManage,
                 RbacPermissions.ContractReadTenant,
-                RbacPermissions.ContractApprovalDecide,
                 RbacPermissions.ContractExecutionRead,
                 RbacPermissions.ContractSigningManage,
                 RbacPermissions.ContractAcceptanceManage,
                 RbacPermissions.ContractPaymentManage,
                 RbacPermissions.ContractComplete,
                 RbacPermissions.ContractSupport,
+                RbacPermissions.TemplateManage,
                 RbacPermissions.ContractAuditReadTenant,
                 RbacPermissions.SecurityAuditReadTenant,
-                RbacPermissions.TenantLegalProfileManage)
-        };
+                RbacPermissions.TenantLegalProfileManage
+            }.Concat(additionalPermissions).ToArray());
+
+    public static bool HasPermission(byte? employeeType, string permission) =>
+        TryGetPermissions(employeeType, out var permissions) && permissions.Contains(permission, StringComparer.Ordinal);
 
     public static bool TryGetPermissions(
         byte? employeeTypeValue,

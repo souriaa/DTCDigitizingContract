@@ -16,6 +16,7 @@ interface ContractStatusChartProps {
 const statusConfig: Record<string, { label: string; color: string }> = {
   Draft: { label: "Bản nháp", color: "#64748b" },
   Negotiating: { label: "Đang đàm phán", color: "#8b5cf6" },
+  PendingAdministrativeReview: { label: "Chờ kiểm tra hành chính", color: "#d97706" },
   PendingApproval: { label: "Chờ phê duyệt", color: "#f59e0b" },
   PendingSignature: { label: "Chờ ký số", color: "#06b6d4" },
   Signed: { label: "Đã ký kết", color: "#10b981" },

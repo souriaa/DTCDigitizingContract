@@ -33,9 +33,6 @@ public static class ContractTemplatePolicy
             TemplateDocumentType.PaymentRequest
                 => TemplateOutputKind.SupportingDocument,
 
-            TemplateDocumentType.HandoverRecord
-                => TemplateOutputKind.SupportingDocument,
-
             TemplateDocumentType.AcceptanceRecord
                 => TemplateOutputKind.SupportingDocument,
 

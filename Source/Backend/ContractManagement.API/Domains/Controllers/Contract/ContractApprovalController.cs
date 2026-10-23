@@ -22,7 +22,8 @@ public sealed class ContractApprovalController : ControllerBase
     }
 
     [HttpGet]
-    [SessionAuthorize(RbacPermissions.ContractApprovalDecide)]
+    [SessionAuthorize(RbacPermissions.ContractApprovalDecide,
+        RbacPermissions.ContractApprovalReview, RequireAnyPermission = true)]
     [ProducesResponseType(
         typeof(ApiResponse<PagedResult<ContractApprovalRequestResponse>>),
         StatusCodes.Status200OK)]
@@ -71,6 +72,30 @@ public sealed class ContractApprovalController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<ContractApprovalRequestResponse>>.Ok(
             result,
             "Lấy lịch sử duyệt hợp đồng thành công."));
+    }
+
+    [HttpPost("{approvalRequestId:int}/review-approve")]
+    [SessionAuthorize(RbacPermissions.ContractApprovalReview)]
+    public Task<IActionResult> ReviewApprove(int approvalRequestId,
+        [FromBody] ContractApprovalDecisionRequest request, CancellationToken cancellationToken) =>
+        Review(approvalRequestId, ApprovalRequestStatus.Approved, request, cancellationToken);
+
+    [HttpPost("{approvalRequestId:int}/review-return")]
+    [SessionAuthorize(RbacPermissions.ContractApprovalReview)]
+    public Task<IActionResult> ReviewReturn(int approvalRequestId,
+        [FromBody] ContractApprovalDecisionRequest request, CancellationToken cancellationToken) =>
+        Review(approvalRequestId, ApprovalRequestStatus.Returned, request, cancellationToken);
+
+    private async Task<IActionResult> Review(int approvalRequestId,
+        ApprovalRequestStatus decision, ContractApprovalDecisionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.ReviewAsync(approvalRequestId, decision,
+            request, GetEmployeeId(), cancellationToken);
+        return Ok(ApiResponse<ContractApprovalActionResponse>.Ok(result,
+            decision == ApprovalRequestStatus.Approved
+                ? "Đã kiểm tra và chuyển quản lý phê duyệt."
+                : "Đã trả hợp đồng về chỉnh sửa."));
     }
 
     [HttpPost("{approvalRequestId:int}/approve")]

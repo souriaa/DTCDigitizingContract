@@ -79,17 +79,17 @@ namespace ContractManagement.Tests.Domains.Policies.Contract
         }
 
         [Fact]
-        public void GetTargetContractStatus_ShouldThrow_WhenStillPending()
+        public void AdministrativeReview_AdvancesOnlyToManagerPendingOrReturns()
         {
             // Act
-            var action = () =>
-            {
-                ApprovalRequestPolicy.GetTargetContractStatus(
-                    ApprovalRequestStatus.Pending);
-            };
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(action);
+            Assert.Equal(ContractStatus.PendingApproval,
+                ApprovalRequestPolicy.GetTargetContractStatus(ApprovalRequestStatus.Pending));
+            Assert.True(ApprovalRequestPolicy.CanTransition(
+                ApprovalRequestStatus.PendingAdministrativeReview, ApprovalRequestStatus.Pending));
+            Assert.True(ApprovalRequestPolicy.CanTransition(
+                ApprovalRequestStatus.PendingAdministrativeReview, ApprovalRequestStatus.Returned));
+            Assert.False(ApprovalRequestPolicy.CanTransition(
+                ApprovalRequestStatus.PendingAdministrativeReview, ApprovalRequestStatus.Approved));
         }
 
 

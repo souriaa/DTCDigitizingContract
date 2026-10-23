@@ -22,7 +22,6 @@ public partial class TblContractAttachment
     /// Ví dụ:
     /// 0 = QuotationFile
     /// 1 = AcceptanceRecord
-    /// 2 = HandoverRecord
     /// 3 = LiquidationRecord
     /// 4 = VATInvoice
     /// 5 = BankGuarantee

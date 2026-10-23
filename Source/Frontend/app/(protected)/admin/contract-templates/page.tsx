@@ -58,10 +58,6 @@ const DOCUMENT_TYPE_FILTER_OPTIONS = [
     value: String(TemplateDocumentType.PaymentRequest),
   },
   {
-    label: getTemplateDocumentTypeLabel(TemplateDocumentType.HandoverRecord),
-    value: String(TemplateDocumentType.HandoverRecord),
-  },
-  {
     label: getTemplateDocumentTypeLabel(TemplateDocumentType.AcceptanceRecord),
     value: String(TemplateDocumentType.AcceptanceRecord),
   },

@@ -47,7 +47,6 @@ const contractTabs = new Set([
   "approval",
   "signature",
   "closing",
-  "handover",
   "activity",
 ]);
 
@@ -60,7 +59,6 @@ export function notificationHref(item: NotificationItem): string | null {
     return null;
   }
   const tab = item.actionKey ?? "overview";
-  if (tab === "handover") return `/contracts/${item.subjectId}?tab=closing&section=handover`;
   if (!contractTabs.has(tab)) return null;
   return `/contracts/${item.subjectId}?tab=${encodeURIComponent(tab)}`;
 }

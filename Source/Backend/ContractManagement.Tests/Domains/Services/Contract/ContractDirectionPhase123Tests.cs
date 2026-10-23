@@ -44,7 +44,7 @@ public sealed class ContractDirectionPhase123Tests
     [Fact]
     public void Catalogs_UseSameOptionalRoleMarkers_AndHaveNoTenantOrCompanyAlias()
     {
-        foreach (var fields in new[] { SoftwareSupplyPlaceholderCatalog.All, AcceptanceRecordPlaceholderCatalog.All, HandoverRecordPlaceholderCatalog.All })
+        foreach (var fields in new[] { SoftwareSupplyPlaceholderCatalog.All, AcceptanceRecordPlaceholderCatalog.All })
         {
             Assert.DoesNotContain(fields, x => x.Key.StartsWith("TENANT_", StringComparison.Ordinal));
             Assert.DoesNotContain(fields, x => x.Key is "CUSTOMER_COMPANY" or "CUSTOMER_COMPANY_EN");

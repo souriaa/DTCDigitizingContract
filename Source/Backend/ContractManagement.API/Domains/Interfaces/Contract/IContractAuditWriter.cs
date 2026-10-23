@@ -292,6 +292,7 @@ public static class ContractAuditActionTypes
         "ResponsibilityTransferred";
     public const string DraftUpdated = "DraftUpdated";
     public const string ApprovalSubmitted = "ApprovalSubmitted";
+    public const string ApprovalReviewed = "ApprovalReviewed";
     public const string ApprovalApproved = "ApprovalApproved";
     public const string ApprovalReturned = "ApprovalReturned";
     public const string ApprovalRejected = "ApprovalRejected";

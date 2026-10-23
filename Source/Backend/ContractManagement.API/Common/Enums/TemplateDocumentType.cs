@@ -11,8 +11,6 @@ public enum TemplateDocumentType : byte
 
     PaymentRequest = 3,
 
-    HandoverRecord = 4,
-
     AcceptanceRecord = 5,
 
     LiquidationRecord = 6,

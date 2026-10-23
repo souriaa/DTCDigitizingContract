@@ -827,18 +827,20 @@ export default function ContractDetailPage() {
   const canViewCustomerAccess =
     isResponsibleEmployee ||
     hasPermission(user?.permissions, RBAC_PERMISSIONS.contractSupport);
-  const canManageSigning = hasPermission(
-    user?.permissions,
-    RBAC_PERMISSIONS.contractSigningManage,
-  );
-  const canManageAcceptance = hasPermission(
-    user?.permissions,
-    RBAC_PERMISSIONS.contractAcceptanceManage,
-  );
-  const canManagePayment = hasPermission(
-    user?.permissions,
-    RBAC_PERMISSIONS.contractPaymentManage,
-  );
+  const canManageSigning =
+    hasPermission(user?.permissions, RBAC_PERMISSIONS.contractSigningManage) &&
+    (!isResponsibleEmployee ||
+      hasPermission(user?.permissions, RBAC_PERMISSIONS.contractReadTenant));
+  const canManageOwnExecution =
+    isResponsibleEmployee && contract.status === ContractStatus.Signed;
+  const canManageAcceptance =
+    hasPermission(user?.permissions, RBAC_PERMISSIONS.contractAcceptanceManage) ||
+    (canManageOwnExecution &&
+      hasPermission(user?.permissions, RBAC_PERMISSIONS.contractAcceptanceManageOwn));
+  const canManagePayment =
+    hasPermission(user?.permissions, RBAC_PERMISSIONS.contractPaymentManage) ||
+    (canManageOwnExecution &&
+      hasPermission(user?.permissions, RBAC_PERMISSIONS.contractPaymentManageOwn));
   const canCompleteContract = hasPermission(
     user?.permissions,
     RBAC_PERMISSIONS.contractComplete,

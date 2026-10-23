@@ -12,7 +12,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: `${APP_NAME} | Quản lý Hợp đồng`,
   description:
-    "Nền tảng số hóa, lưu trữ và quản lý hợp đồng doanh nghiệp (Mua, Bán, Phụ lục, Bàn giao).",
+    "Nền tảng số hóa, lưu trữ và quản lý hợp đồng doanh nghiệp (Mua, Bán, Phụ lục, Nghiệm thu).",
   generator: "Next.js",
   icons: {
     icon: [

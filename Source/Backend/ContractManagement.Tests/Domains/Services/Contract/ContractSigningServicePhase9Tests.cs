@@ -44,7 +44,7 @@ public sealed class ContractSigningServicePhase9Tests
         var response = await service.UploadAsync(
             ContractId,
             CreateUploadRequest("signed.pdf", "application/pdf"),
-            TechnicalId);
+            ManagerId);
 
         var contract = await context.TblContracts.AsNoTracking().SingleAsync();
         var evidence = await context.TblContractSignedEvidences
@@ -63,7 +63,7 @@ public sealed class ContractSigningServicePhase9Tests
         Assert.Equal(ContractId, file.ObjectId);
         Assert.Equal("SignedEvidence", audit.SubjectType);
         Assert.Equal(evidence.SignedEvidenceId, audit.SubjectId);
-        Assert.Equal(TechnicalId, audit.ActorEmployeeId);
+        Assert.Equal(ManagerId, audit.ActorEmployeeId);
         Assert.Single(storage.SavedKeys);
         Assert.Empty(storage.DeletedKeys);
         var notification = await context.TblNotifications.AsNoTracking()
@@ -87,7 +87,7 @@ public sealed class ContractSigningServicePhase9Tests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             CreateService(context, storage).UploadAsync(
-                ContractId, request, TechnicalId));
+                ContractId, request, ManagerId));
 
         Assert.Empty(storage.SavedKeys);
         Assert.Empty(context.TblContractSignedEvidences);
@@ -170,7 +170,7 @@ public sealed class ContractSigningServicePhase9Tests
                 ContractId,
                 920,
                 request,
-                TechnicalId));
+                ManagerId));
 
         Assert.Equal(ContractSigningErrorCodes.SigningStateChanged, exception.Code);
         Assert.Empty(storage.SavedKeys);
@@ -207,6 +207,43 @@ public sealed class ContractSigningServicePhase9Tests
         Assert.Equal(AuthorizationErrorCodes.PermissionDenied, exception.Code);
         Assert.Empty(storage.SavedKeys);
         Assert.Empty(context.TblContractSignedEvidences);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Technical_CannotUploadOrSupersedeEvenWhenOwner(bool ownsContract, bool supersede)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context, supersede ? ContractStatus.Signed : ContractStatus.PendingSignature,
+            includeActiveEvidence: supersede);
+        if (ownsContract)
+        {
+            (await context.TblContracts.SingleAsync()).EmployeeId = TechnicalId;
+            await context.SaveChangesAsync();
+        }
+        var storage = new TrackingPrivateStorage();
+        var service = CreateService(context, storage);
+        Func<Task> operation = supersede
+            ? () => service.SupersedeAsync(ContractId, 920,
+                new() {
+                    File = CreateFile("replacement.pdf", "application/pdf"),
+                    SignDate = new DateTime(2026, 9, 1), CurrentVersionId = VersionId,
+                    ContractRowVersion = Encode(InitialRowVersion), VersionRowVersion = Encode(InitialRowVersion),
+                    EvidenceRowVersion = Encode(InitialRowVersion), Reason = "Thay bản scan."
+                }, TechnicalId)
+            : () => service.UploadAsync(ContractId,
+                CreateUploadRequest("signed.pdf", "application/pdf"), TechnicalId);
+        var error = await Assert.ThrowsAsync<RbacOperationException>(operation);
+        Assert.Equal(StatusCodes.Status403Forbidden, error.StatusCode);
+        Assert.Empty(storage.SavedKeys);
+        Assert.Empty(storage.DeletedKeys);
+        Assert.Equal(supersede ? 1 : 0, await context.TblContractSignedEvidences.CountAsync());
+        Assert.Equal((byte)(supersede ? ContractStatus.Signed : ContractStatus.PendingSignature),
+            (await context.TblContracts.SingleAsync()).Status);
+        Assert.Empty(context.TblContractAudits);
     }
 
     private static ContractSigningService CreateService(

@@ -546,8 +546,6 @@ function getAuditSubjectHref(
       return `/contracts/${audit.contractId}#customer-access`;
     case "SignedEvidence":
       return `/contracts/${audit.contractId}#signature`;
-    case "HandoverRecord":
-      return `/contracts/${audit.contractId}?tab=closing&section=handover`;
     case "AcceptanceEvidence":
     case "AcceptanceRecord":
     case "Payment":

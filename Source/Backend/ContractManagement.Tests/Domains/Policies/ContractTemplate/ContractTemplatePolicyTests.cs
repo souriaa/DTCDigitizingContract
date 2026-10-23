@@ -80,7 +80,6 @@ public class ContractTemplatePolicyTests
     [Theory]
     [InlineData(TemplateDocumentType.Quotation)]
     [InlineData(TemplateDocumentType.PaymentRequest)]
-    [InlineData(TemplateDocumentType.HandoverRecord)]
     [InlineData(TemplateDocumentType.AcceptanceRecord)]
     [InlineData(TemplateDocumentType.LiquidationRecord)]
     [InlineData(TemplateDocumentType.Other)]

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -16,9 +17,10 @@ public sealed class ContractPlaceholderDefinitionService(
 {
     public async Task AuthorizeAsync(int employeeId, CancellationToken ct)
     {
-        if (!await db.TblEmployees.AsNoTracking().AnyAsync(x => x.EmployeeId == employeeId &&
-                x.Status == 1 && x.EmployeeType == (byte)EmployeeType.AdminOfficer, ct))
-            throw new UnauthorizedAccessException("Chỉ AdminOfficer đang hoạt động được quản lý placeholder.");
+        var employeeType = await db.TblEmployees.AsNoTracking().Where(x => x.EmployeeId == employeeId && x.Status == 1)
+            .Select(x => x.EmployeeType).SingleOrDefaultAsync(ct);
+        if (!EmployeePermissionCatalog.HasPermission(employeeType, RbacPermissions.TemplateManage))
+            throw new UnauthorizedAccessException("Nhân viên không có quyền quản lý trường dữ liệu mẫu.");
     }
 
     private void EnsureEnabled()
@@ -40,8 +42,7 @@ public sealed class ContractPlaceholderDefinitionService(
             or "PROVIDER_LEGAL_NAME" or "PROVIDER_LEGAL_NAME_EN" or "CUSTOMER_LEGAL_NAME" or "CUSTOMER_LEGAL_NAME_EN")
             throw new PlaceholderOperationException("PlaceholderKeyRetired", "Marker cũ không được hỗ trợ. Hãy dùng PROVIDER_COMPANY_NAME / CUSTOMER_COMPANY_NAME hoặc bản _EN cho tên công ty/pháp nhân.");
         if (ContractPlaceholderCatalog.SystemDefinitions.Any(x => x.Key == key)
-            || AcceptanceRecordPlaceholderCatalog.All.Any(x => x.Key == key)
-            || HandoverRecordPlaceholderCatalog.All.Any(x => x.Key == key))
+            || AcceptanceRecordPlaceholderCatalog.All.Any(x => x.Key == key))
             throw new PlaceholderOperationException("SystemPlaceholderImmutable", "Không thể thay đổi hoặc dùng trùng key hệ thống.");
         if (string.IsNullOrWhiteSpace(request.FieldLabel) || request.FieldLabel.Length > 300 || request.DefaultValue?.Length > 2000)
             throw new PlaceholderOperationException("PlaceholderKeyInvalid", "Tên hiển thị hoặc giá trị mặc định không hợp lệ.");

@@ -91,9 +91,6 @@ const CONTRACT_DOCUMENT_TYPES = new Set<TemplateDocumentType>([
 const CONTRACT_ONLY_TABS = new Set<WorkspaceTab>(["legal-bases", "appendices"]);
 
 const ACCEPTANCE_SECTION_ERROR_CODES = new Set([
-  "HandoverSectionsMissing",
-  "HandoverSectionsInvalid",
-  "HandoverSectionsBilingualInvalid",
   "AcceptanceSectionsMissing",
   "AcceptanceSectionsInvalid",
   "AcceptanceSectionsBilingualInvalid",
@@ -236,7 +233,7 @@ export default function ContractTemplateVersionWorkspacePage() {
             if (CONTRACT_ONLY_TABS.has(current)) return "overview";
             if (
               current === "terms" &&
-              ![TemplateDocumentType.AcceptanceRecord, TemplateDocumentType.HandoverRecord].includes(templateResponse.documentType)
+              templateResponse.documentType !== TemplateDocumentType.AcceptanceRecord
             ) {
               return "overview";
             }
@@ -529,9 +526,8 @@ export default function ContractTemplateVersionWorkspacePage() {
   const isContractDocument = Boolean(
     template && CONTRACT_DOCUMENT_TYPES.has(template.documentType),
   );
-  const isHandoverDocument = template?.documentType === TemplateDocumentType.HandoverRecord;
-  const documentSectionName = isHandoverDocument ? "bàn giao" : "nghiệm thu";
-  const isSupportingDocument = isHandoverDocument || template?.documentType === TemplateDocumentType.AcceptanceRecord;
+  const documentSectionName = "nghiệm thu";
+  const isSupportingDocument = template?.documentType === TemplateDocumentType.AcceptanceRecord;
   const supportsStructuredContent = isContractDocument || isSupportingDocument;
   const hasTerms = Boolean(version?.terms.length);
   const paymentTerms =
@@ -821,7 +817,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                       isBilingual={
                         template.languageMode === ContractLanguageMode.Bilingual
                       }
-                      mode={isHandoverDocument ? "handover" : isSupportingDocument ? "acceptance" : "contract"}
+                      mode={isSupportingDocument ? "acceptance" : "contract"}
                       openTermIds={openTemplateTermIds}
                       onTermOpenChange={(termId, open) =>
                         setOpenTemplateTermIds((current) => {
@@ -1085,7 +1081,7 @@ export default function ContractTemplateVersionWorkspacePage() {
                               ? `Có ít nhất một mục ${documentSectionName} hợp lệ`
                               : hasTerms
                                 ? `Các mục ${documentSectionName} đã nhập hợp lệ (không bắt buộc)`
-                                : `DOCX không dùng {{${isHandoverDocument ? "HANDOVER_SECTIONS" : "ACCEPTANCE_SECTIONS"}}}: không bắt buộc nội dung ${documentSectionName}`}
+                                : `DOCX không dùng {{ACCEPTANCE_SECTIONS}}: không bắt buộc nội dung ${documentSectionName}`}
                           </RequirementRow>
                         )}
                         <RequirementRow met={hasDocument}>

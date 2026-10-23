@@ -27,7 +27,7 @@ public sealed class ContractPlaceholderCatalog(
         if (!CustomEnabled) return result;
         var custom = await db.TblContractPlaceholderDefinitions.AsNoTracking()
             .Where(x => includeInactive || x.IsActive).OrderBy(x => x.PlaceholderKey).ToListAsync(cancellationToken);
-        var reserved = SystemDefinitions.Concat(AcceptanceRecordPlaceholderCatalog.All).Concat(HandoverRecordPlaceholderCatalog.All)
+        var reserved = SystemDefinitions.Concat(AcceptanceRecordPlaceholderCatalog.All)
             .Select(x => x.Key).ToHashSet(StringComparer.Ordinal);
         var collision = custom.FirstOrDefault(x => reserved.Contains(x.PlaceholderKey));
         if (collision is not null)

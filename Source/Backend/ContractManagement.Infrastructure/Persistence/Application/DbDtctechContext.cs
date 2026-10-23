@@ -176,7 +176,7 @@ public partial class DbDtctechContext : DbContext
             {
                 table.HasCheckConstraint(
                     "CK_tbl_ContractApprovalRequest_Status",
-                    "[Status] IN (0, 1, 2, 3, 4)");
+                    "[Status] IN (0, 1, 2, 3, 4, 5)");
 
                 table.HasCheckConstraint(
                     "CK_tbl_ContractApprovalRequest_ContractId",
@@ -193,7 +193,7 @@ public partial class DbDtctechContext : DbContext
              */
             entity.HasIndex(x => x.ContractId)
                 .IsUnique()
-                .HasFilter("[Status] = 0")
+                .HasFilter("[Status] IN (0, 5)")
                 .HasDatabaseName(
                     "UX_tbl_ContractApprovalRequest_PendingContract");
 
@@ -223,6 +223,9 @@ public partial class DbDtctechContext : DbContext
 
             entity.Property(x => x.ResolvedDate)
                 .HasColumnType("datetime2");
+
+            entity.Property(x => x.AdministrativeReviewComment).HasMaxLength(1000);
+            entity.Property(x => x.AdministrativeReviewedAt).HasColumnType("datetime2");
 
             entity.Property(x => x.DecisionComment)
                 .HasMaxLength(1000);
@@ -295,7 +298,7 @@ public partial class DbDtctechContext : DbContext
                 // Chỉ chấp nhận các trạng thái thuộc lifecycle.
                 table.HasCheckConstraint(
                     "CK_tbl_Contract_Status",
-                    "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7)");
+                    "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7, 8)");
 
                 // ContractType hiện có ba loại hợp đồng hợp lệ.
                 // Không cho phép giá trị 0 vì 0 không mang ý nghĩa nghiệp vụ.
@@ -1286,7 +1289,7 @@ public partial class DbDtctechContext : DbContext
                 // Các giá trị thuộc TemplateDocumentType.
                 table.HasCheckConstraint(
                     "CK_tbl_ContractTemplate_DocumentType",
-                    "[DocumentType] IN (1, 2, 3, 4, 5, 6, 7, 8, 99)");
+                    "[DocumentType] IN (1, 2, 3, 5, 6, 7, 8, 99)");
 
                 // ContractLanguageMode: Vietnamese hoặc Bilingual.
                 table.HasCheckConstraint(
@@ -2737,7 +2740,6 @@ public partial class DbDtctechContext : DbContext
         });
 
         ConfigureCatalogUnits(modelBuilder);
-        ConfigureHandover(modelBuilder);
         ConfigurePlaceholders(modelBuilder);
         ConfigureLegalBases(modelBuilder);
         ConfigureContractVersionSnapshots(modelBuilder);

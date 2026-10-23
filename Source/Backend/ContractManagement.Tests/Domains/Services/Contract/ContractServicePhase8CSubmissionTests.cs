@@ -31,6 +31,31 @@ public sealed class ContractServicePhase8CSubmissionTests
     private static readonly byte[] InitialRowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
     [Theory]
+    [InlineData(EmployeeType.Sale, true)]
+    [InlineData(EmployeeType.Marketing, true)]
+    [InlineData(EmployeeType.Technical, true)]
+    [InlineData(EmployeeType.Accountant, true)]
+    [InlineData(EmployeeType.AdminOfficer, false)]
+    [InlineData(EmployeeType.Manager, false)]
+    public async Task SubmissionStage_IsChosenFromOwnersRole(EmployeeType role, bool requiresReview)
+    {
+        await using var context = CreateContext();
+        await SeedReadyContractAsync(context);
+        (await context.TblEmployees.SingleAsync(x => x.EmployeeId == OwnerId)).EmployeeType = (byte)role;
+        await context.SaveChangesAsync();
+        var response = await CreateService(context, new StubRenderer(), new TrackingPrivateStorage())
+            .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
+        Assert.Equal(requiresReview ? ContractStatus.PendingAdministrativeReview : ContractStatus.PendingApproval,
+            response.ContractStatus);
+        Assert.Equal(requiresReview ? ApprovalRequestStatus.PendingAdministrativeReview : ApprovalRequestStatus.Pending,
+            response.ApprovalStatus);
+        var approval = await context.TblContractApprovalRequests.SingleAsync();
+        Assert.Equal((byte)response.ApprovalStatus, approval.Status);
+        Assert.Null(approval.AdministrativeReviewedAt);
+        Assert.Null(approval.ResolvedDate);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Submit_MissingSignedUnit_IsBlockedBeforeRendering(bool english)
@@ -88,7 +113,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         var session = await context.TblContractCustomerAccessSessions
             .AsNoTracking().SingleAsync();
 
-        Assert.Equal((byte)ContractStatus.PendingApproval, contract.Status);
+        Assert.Equal((byte)ContractStatus.PendingAdministrativeReview, contract.Status);
         Assert.Null(contract.CurrentCustomerAccessLinkId);
         Assert.True(version.IsLocked);
         var legalSnapshot = await context.TblContractVersionLegalSnapshots
@@ -160,11 +185,11 @@ public sealed class ContractServicePhase8CSubmissionTests
         var response = await service
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Equal(
-            (byte)ContractStatus.PendingApproval,
+            (byte)ContractStatus.PendingAdministrativeReview,
             (await context.TblContracts.AsNoTracking().SingleAsync()).Status);
         Assert.True(
             (await context.TblContractVersions.AsNoTracking().SingleAsync())
@@ -195,7 +220,7 @@ public sealed class ContractServicePhase8CSubmissionTests
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
         context.ChangeTracker.Clear();
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Null(
@@ -240,7 +265,7 @@ public sealed class ContractServicePhase8CSubmissionTests
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
         context.ChangeTracker.Clear();
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Equal(

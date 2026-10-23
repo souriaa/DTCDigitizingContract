@@ -214,7 +214,6 @@ export function ContractTemplateFormDialog({
                   TemplateDocumentType.SoftwareUpkeepContract,
                   TemplateDocumentType.Quotation,
                   TemplateDocumentType.PaymentRequest,
-                  TemplateDocumentType.HandoverRecord,
                   TemplateDocumentType.AcceptanceRecord,
                   TemplateDocumentType.LiquidationRecord,
                   TemplateDocumentType.Other,

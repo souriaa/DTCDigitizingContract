@@ -525,7 +525,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             contractId, before.ContractVersionId, cancellationToken);
         var sourceRow = await _db.TblContractAcceptanceRecords.AsNoTracking().SingleAsync(x => x.AcceptanceRecordId == acceptanceRecordId, cancellationToken);
         await EnsureRecordSelectionAsync(sourceRow, cancellationToken);
-        await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
         var docx = await RenderDocxAsync(
             contractId, acceptanceRecordId, cancellationToken);
         var pdf = await _pdfRenderer.ConvertPreviewToPdfAsync(
@@ -547,7 +546,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 await EnsureRecordSourceAsync(
                     contractId, row.ContractVersionId, cancellationToken);
                 await EnsureRecordSelectionAsync(row, cancellationToken);
-                await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
                 if (await _db.TblFileStorages.AnyAsync(x =>
                         x.ObjectType == ArtifactObjectType
                         && x.ObjectId == acceptanceRecordId,
@@ -634,7 +632,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 await EnsureSignedSourceAsync(contract, version,
                     cancellationToken);
                 await EnsureRecordSelectionAsync(row, cancellationToken);
-                await EnsureHandoverCoverageAsync(contractId, acceptanceRecordId, cancellationToken);
                 var artifactCount = await _db.TblFileStorages.CountAsync(x =>
                     x.ObjectType == ArtifactObjectType
                     && x.ObjectId == acceptanceRecordId
@@ -708,7 +705,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                             _db, contractId, version.VersionId, _tenant.GetRequiredTenant().TenantCode, milestoneIds,
                             cancellationToken);
                         acceptanceTitle = progress.Completed
-                            ? "Đã nghiệm thu đủ phạm vi và các đợt thanh toán"
+                            ? "Đã nghiệm thu đủ các đợt thanh toán"
                             : $"Đã ký nghiệm thu một phần ({progress.AcceptedMilestoneCount}/{milestoneIds.Count} đợt)";
                     }
                     await _notifications.StageOwnerAsync(contractId, contract.EmployeeId,
@@ -848,8 +845,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
         var referenceResponses = references.Select(reference =>
             FormatReference(reference, legal, header.record.ContractSignDate,
                 partyResponses, appendices)).ToList();
-        var handoverSelection = await ReadHandoverSelectionAsync(contractId, header.record, ct);
-        referenceResponses.AddRange(HandoverReferences(handoverSelection.Selected, referenceResponses.Count));
         var sections = await _db.TblContractAcceptanceSections.AsNoTracking()
             .Where(x => x.AcceptanceRecordId == acceptanceRecordId)
             .OrderBy(x => x.DisplayOrder).ThenBy(x => x.AcceptanceSectionId)
@@ -920,8 +915,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             CancelledAt = header.record.CancelledAt,
             CancellationReason = header.record.CancellationReason,
             RowVersion = Convert.ToBase64String(header.record.RowVersion),
-            HandoverScope = handoverSelection.Selected,
-            HandoverBlocker = handoverSelection.Blocker,
             References = referenceResponses,
             Parties = partyResponses,
             Sections = sections,
@@ -1170,9 +1163,9 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
             .ToListAsync(ct);
         var progress = await ContractAcceptanceProgressReader.ReadAsync(
             _db, contractId, versionId, _tenant.GetRequiredTenant().TenantCode, milestoneIds, ct);
-        if (progress.RemainingMilestoneIds.Count == 0 && await AcceptanceScopeCompleteAsync(contractId, versionId, ct))
+        if (progress.Completed)
             throw Rule("AcceptanceAlreadyCompleted",
-                "Đã nghiệm thu đủ các đợt và toàn bộ phạm vi. Không thể tạo thêm biên bản.",
+                "Đã nghiệm thu đủ các đợt thanh toán. Không thể tạo thêm biên bản.",
                 StatusCodes.Status409Conflict);
         if (requestedKind == AcceptanceKind.Final && progress.HasPartialHistory)
             throw PartialFlowLocked();
@@ -1248,8 +1241,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
         if (ids.Any(id => id <= 0) || ids.Distinct().Count() != ids.Count)
             throw Rule("AcceptanceMilestoneSelectionInvalid",
                 "Danh sách milestone không hợp lệ hoặc bị trùng.");
-        if (kind == AcceptanceKind.Partial && ids.Count == 0
-            && await HasRemainingAcceptanceMilestonesAsync(contractId, versionId, ct))
+        if (kind == AcceptanceKind.Partial && ids.Count == 0)
             throw Rule("AcceptanceMilestoneRequired",
                 "Nghiệm thu một phần phải chọn ít nhất một milestone.");
         if (kind == AcceptanceKind.Final && ids.Count > 0)
@@ -1437,7 +1429,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
     private async Task ValidateFinalizableAsync(
         ContractAcceptanceRecordResponse record, CancellationToken ct)
     {
-        ValidateAcceptanceDate(record.AcceptanceDate, record.ContractSignDate, record.HandoverScope);
+        ValidateAcceptanceDate(record.AcceptanceDate, record.ContractSignDate);
         if (record.References.Count == 0
             || record.References[0].ReferenceType !=
                 AcceptanceReferenceType.Contract)
@@ -1474,8 +1466,6 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
         { Add((byte)party.PartyRole); Add(party.LegalName); Add(party.Address); Add(party.Phone); Add(party.Fax); Add(party.TaxCode); Add(party.RepresentativeName); Add(party.RepresentativeTitle); Add(party.LegalNameEn); Add(party.AddressEn); Add(party.RepresentativeTitleEn); }
         foreach (var section in record.Sections.OrderBy(x => x.DisplayOrder))
         { Add(section.SectionCode); Add(section.TitleVi); Add(section.TitleEn); Add(section.ContentVi); Add(section.ContentEn); Add(section.BilingualContentMode); Add(section.DisplayOrder); }
-        foreach (var scope in record.HandoverScope.OrderBy(x => x.HandoverLineId))
-        { Add(scope.HandoverLineId); Add(scope.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture)); Add(scope.HandoverCode); Add(scope.SignDate.ToString("O")); }
         foreach (var milestone in record.Milestones.OrderBy(x => x.PaymentMilestoneId))
             Add(milestone.PaymentMilestoneId);
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
@@ -1693,7 +1683,7 @@ public sealed partial class ContractAcceptanceService : IContractAcceptanceServi
                 .BeginTransactionAsync(IsolationLevel.Serializable, ct);
             try
             {
-                await LockHandoverContractAsync(contractId, ct);
+                await LockContractAsync(contractId, ct);
                 var result = await action();
                 await transaction.CommitAsync(ct);
                 return result;

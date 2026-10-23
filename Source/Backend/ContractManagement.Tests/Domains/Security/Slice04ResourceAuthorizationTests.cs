@@ -75,12 +75,10 @@ public sealed class Slice04ResourceAuthorizationTests
         var service = new ContractResourceAuthorizationService(context);
 
         await service.EnsureCanReadAsync(ContractId, OtherEmployeeId);
-        await service.EnsureCanManageSigningAsync(
-            ContractId,
-            OtherEmployeeId);
-        await service.EnsureCanManageAcceptanceAsync(
-            ContractId,
-            OtherEmployeeId);
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanManageSigningAsync(ContractId, OtherEmployeeId));
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanManageAcceptanceAsync(ContractId, OtherEmployeeId));
         await service.EnsureCanReadAsync(ContractId, AccountantEmployeeId);
         await service.EnsureCanManagePaymentAsync(
             ContractId,
@@ -275,8 +273,8 @@ public sealed class Slice04ResourceAuthorizationTests
 
         var deniedContractRead = await Assert.ThrowsAsync<RbacOperationException>(
             () => service.EnsureCanReadFileAsync(1, OtherEmployeeId));
-        var deniedTemplateRead = await Assert.ThrowsAsync<RbacOperationException>(
-            () => service.EnsureCanReadFileAsync(2, ManagerEmployeeId));
+        await service.EnsureCanReadFileAsync(2, ManagerEmployeeId);
+        await service.EnsureCanReadFileAsync(2, AccountantEmployeeId);
         var deniedArtifactRead = await Assert.ThrowsAsync<RbacOperationException>(
             () => service.EnsureCanReadFileAsync(3, OtherEmployeeId));
         var deniedArtifactDelete = await Assert.ThrowsAsync<RbacOperationException>(
@@ -287,8 +285,6 @@ public sealed class Slice04ResourceAuthorizationTests
             () => service.EnsureCanDeleteFileAsync(4, ResponsibleEmployeeId));
 
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, deniedContractRead.Code);
-        Assert.Equal(StatusCodes.Status403Forbidden, deniedTemplateRead.StatusCode);
-        Assert.Equal(AuthorizationErrorCodes.PermissionDenied, deniedTemplateRead.Code);
         Assert.Equal(StatusCodes.Status404NotFound, deniedArtifactRead.StatusCode);
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, deniedArtifactRead.Code);
         Assert.Equal(StatusCodes.Status403Forbidden, deniedArtifactDelete.StatusCode);
@@ -316,6 +312,106 @@ public sealed class Slice04ResourceAuthorizationTests
 
         Assert.Equal(StatusCodes.Status403Forbidden, exception.StatusCode);
         Assert.Equal(AuthorizationErrorCodes.PermissionDenied, exception.Code);
+    }
+
+    [Theory]
+    [InlineData(EmployeeType.Sale, false, false)]
+    [InlineData(EmployeeType.Marketing, false, false)]
+    [InlineData(EmployeeType.Technical, false, false)]
+    [InlineData(EmployeeType.Accountant, false, true)]
+    [InlineData(EmployeeType.AdminOfficer, true, true)]
+    [InlineData(EmployeeType.Manager, true, true)]
+    public async Task Owner_ManagesOwnAcceptanceAndPayment_ButSigningAndCompletionFollowRole(
+        EmployeeType role, bool maySign, bool mayComplete)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).Status = (byte)ContractStatus.Signed;
+        (await context.TblEmployees.SingleAsync(x => x.EmployeeId == ResponsibleEmployeeId))
+            .EmployeeType = (byte)role;
+        await context.SaveChangesAsync();
+        var service = new ContractResourceAuthorizationService(context);
+        await service.EnsureCanManageAcceptanceAsync(ContractId, ResponsibleEmployeeId);
+        await service.EnsureCanManagePaymentAsync(ContractId, ResponsibleEmployeeId);
+        if (maySign)
+        {
+            await service.EnsureCanManageSigningAsync(ContractId, ResponsibleEmployeeId);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<RbacOperationException>(() =>
+                service.EnsureCanManageSigningAsync(ContractId, ResponsibleEmployeeId));
+        }
+        if (mayComplete)
+        {
+            await service.EnsureCanCompleteAsync(ContractId, ResponsibleEmployeeId);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<RbacOperationException>(() =>
+                service.EnsureCanCompleteAsync(ContractId, ResponsibleEmployeeId));
+        }
+    }
+
+    [Fact]
+    public async Task UnrelatedSaleCannotUseOwnPermissions_AccountantCanCompleteButNeverSign()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).Status = (byte)ContractStatus.Signed;
+        (await context.TblEmployees.SingleAsync(x => x.EmployeeId == OtherEmployeeId))
+            .EmployeeType = (byte)EmployeeType.Sale;
+        await context.SaveChangesAsync();
+        var service = new ContractResourceAuthorizationService(context);
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanManageAcceptanceAsync(ContractId, OtherEmployeeId));
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanManagePaymentAsync(ContractId, OtherEmployeeId));
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanManageSigningAsync(ContractId, AccountantEmployeeId));
+        await service.EnsureCanCompleteAsync(ContractId, AccountantEmployeeId);
+        await service.EnsureCanManageAcceptanceAsync(ContractId, AdminOfficerEmployeeId);
+        await service.EnsureCanManagePaymentAsync(ContractId, AdminOfficerEmployeeId);
+        await service.EnsureCanManageSigningAsync(ContractId, AdminOfficerEmployeeId);
+        await service.EnsureCanCompleteAsync(ContractId, AdminOfficerEmployeeId);
+    }
+
+    [Theory]
+    [InlineData("ContractSignedEvidence")]
+    [InlineData("ContractVersionArtifact")]
+    [InlineData("ContractAcceptanceEvidence")]
+    [InlineData("ContractAcceptanceArtifact")]
+    public async Task Technical_CannotBypassWorkflowsThroughGenericEvidenceUpload(string objectType)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        (await context.TblContracts.SingleAsync()).EmployeeId = OtherEmployeeId;
+        await context.SaveChangesAsync();
+        var service = new FileResourceAuthorizationService(context,
+            new ContractResourceAuthorizationService(context));
+        var error = await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.EnsureCanWriteByObjectAsync(objectType, ContractId, OtherEmployeeId));
+        Assert.Equal(403, error.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.Negotiating)]
+    [InlineData(ContractStatus.PendingAdministrativeReview)]
+    [InlineData(ContractStatus.PendingApproval)]
+    [InlineData(ContractStatus.PendingSignature)]
+    [InlineData(ContractStatus.Completed)]
+    public async Task TechnicalOwner_CannotManageAcceptanceOutsideSignedState(ContractStatus status)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var contract = await context.TblContracts.SingleAsync();
+        contract.EmployeeId = OtherEmployeeId;
+        contract.Status = (byte)status;
+        await context.SaveChangesAsync();
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            new ContractResourceAuthorizationService(context)
+                .EnsureCanManageAcceptanceAsync(ContractId, OtherEmployeeId));
     }
 
     private static DbDtctechContext CreateContext()

@@ -393,7 +393,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                             t.HasCheckConstraint("CK_tbl_Contract_LanguageMode", "[LanguageMode] IN (1, 2)");
 
-                            t.HasCheckConstraint("CK_tbl_Contract_Status", "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7)");
+                            t.HasCheckConstraint("CK_tbl_Contract_Status", "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7, 8)");
 
                             t.HasCheckConstraint("CK_tbl_Contract_TemplateVersionId", "[TemplateVersionId] > 0");
 
@@ -709,37 +709,6 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         });
                 });
 
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractAcceptanceScopeAllocation", b =>
-                {
-                    b.Property<long>("AcceptanceScopeAllocationId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AcceptanceScopeAllocationId"));
-
-                    b.Property<int>("AcceptanceRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("HandoverLineId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Quantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.HasKey("AcceptanceScopeAllocationId");
-
-                    b.HasIndex("HandoverLineId");
-
-                    b.HasIndex("AcceptanceRecordId", "HandoverLineId")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractAcceptanceScopeAllocation", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_AcceptanceScopeAllocation_Quantity", "[Quantity] > 0");
-                        });
-                });
-
             modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractAcceptanceSection", b =>
                 {
                     b.Property<int>("AcceptanceSectionId")
@@ -979,6 +948,16 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ApprovalRequestId"));
 
+                    b.Property<int?>("AdministrativeReviewerEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AdministrativeReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AdministrativeReviewComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
@@ -1022,7 +1001,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("ContractId")
                         .IsUnique()
                         .HasDatabaseName("UX_tbl_ContractApprovalRequest_PendingContract")
-                        .HasFilter("[Status] = 0");
+                        .HasFilter("[Status] IN (0, 5)");
 
                     b.HasIndex("VersionId")
                         .HasDatabaseName("IX_tbl_ContractApprovalRequest_VersionId");
@@ -1037,7 +1016,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         {
                             t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_ContractId", "[ContractId] > 0");
 
-                            t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_Status", "[Status] IN (0, 1, 2, 3, 4)");
+                            t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_Status", "[Status] IN (0, 1, 2, 3, 4, 5)");
 
                             t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_VersionId", "[VersionId] > 0");
                         });
@@ -1741,464 +1720,6 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                             t.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Reason", "LEN(LTRIM(RTRIM([Reason]))) BETWEEN 1 AND 1000");
 
                             t.HasCheckConstraint("CK_tbl_ContractCustomerVerificationPhone_Source", "[PhoneSource] IN ('CustomerMobile', 'CustomerPhone', 'Manual')");
-                        });
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverBaseline", b =>
-                {
-                    b.Property<long>("HandoverBaselineId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverBaselineId"));
-
-                    b.Property<DateTime>("ConfirmedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("ConfirmedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ContractId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ContractVersionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("HandoverBaselineId");
-
-                    b.HasIndex("ContractId", "ContractVersionId")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverBaseline", (string)null);
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverEvidence", b =>
-                {
-                    b.Property<int>("HandoverEvidenceId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverEvidenceId"));
-
-                    b.Property<int>("FileId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SignDate")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UploadedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("HandoverEvidenceId");
-
-                    b.HasIndex("FileId")
-                        .IsUnique();
-
-                    b.HasIndex("HandoverRecordId")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverEvidence", (string)null);
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverLine", b =>
-                {
-                    b.Property<int>("HandoverLineId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverLineId"));
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<long>("HandoverScopeItemId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("NotesEn")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("NotesVi")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<decimal>("Quantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.HasKey("HandoverLineId");
-
-                    b.HasIndex("HandoverScopeItemId");
-
-                    b.HasIndex("HandoverRecordId", "DisplayOrder")
-                        .IsUnique();
-
-                    b.HasIndex("HandoverRecordId", "HandoverScopeItemId")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverLine", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HandoverLine_Quantity", "[Quantity] > 0");
-                        });
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverParty", b =>
-                {
-                    b.Property<int>("HandoverPartyId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverPartyId"));
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("AddressEn")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("Fax")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("LegalName")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("LegalNameEn")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("RepresentativeName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("RepresentativeTitle")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("RepresentativeTitleEn")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<byte>("SubjectKind")
-                        .HasColumnType("tinyint");
-
-                    b.Property<string>("TaxCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("HandoverPartyId");
-
-                    b.HasIndex("HandoverRecordId", "SubjectKind")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverParty", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HandoverParty_Subject", "[SubjectKind] IN (1,2)");
-                        });
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverPlaceholderValue", b =>
-                {
-                    b.Property<long>("HandoverPlaceholderValueId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverPlaceholderValueId"));
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PlaceholderKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("RenderedValue")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SourceFieldKey")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.HasKey("HandoverPlaceholderValueId");
-
-                    b.HasIndex("HandoverRecordId", "PlaceholderKey")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverPlaceholderValue", (string)null);
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverRecord", b =>
-                {
-                    b.Property<int>("HandoverRecordId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverRecordId"));
-
-                    b.Property<string>("CancellationReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CancelledByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ContractId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("ContractSignDate")
-                        .HasColumnType("date");
-
-                    b.Property<int>("ContractVersionId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("FinalizedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("FinalizedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<long>("HandoverBaselineId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("HandoverCode")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("HandoverDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("LocationEn")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<DateTime?>("SignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("SignedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SnapshotHash")
-                        .HasMaxLength(64)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(64)");
-
-                    b.Property<byte>("Status")
-                        .HasColumnType("tinyint");
-
-                    b.Property<int>("TemplateVersionId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedEmployeeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("HandoverRecordId");
-
-                    b.HasIndex("ContractId", "ContractVersionId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_HandoverRecord_ActiveVersion")
-                        .HasFilter("[Status] IN (0,1)");
-
-                    b.HasIndex("ContractId", "HandoverCode")
-                        .IsUnique();
-
-                    b.HasIndex("ContractVersionId", "Status");
-
-                    b.ToTable("tbl_ContractHandoverRecord", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HandoverRecord_Hash", "([SnapshotHash] IS NULL OR LEN([SnapshotHash]) = 64) AND ([Status] NOT IN (1,2) OR [SnapshotHash] IS NOT NULL)");
-
-                            t.HasCheckConstraint("CK_HandoverRecord_Status", "[Status] IN (0,1,2,3)");
-                        });
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverReference", b =>
-                {
-                    b.Property<int>("HandoverReferenceId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverReferenceId"));
-
-                    b.Property<int?>("AppendixId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.HasKey("HandoverReferenceId");
-
-                    b.HasIndex("HandoverRecordId", "DisplayOrder")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverReference", (string)null);
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverScopeItem", b =>
-                {
-                    b.Property<long>("HandoverScopeItemId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("HandoverScopeItemId"));
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<long>("HandoverBaselineId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ItemCode")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("NameEn")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("NameVi")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<decimal>("RequiredQuantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<byte>("ScopeMode")
-                        .HasColumnType("tinyint");
-
-                    b.Property<int>("SourceContractItemId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("SourceQuantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("UnitEn")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("UnitVi")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("HandoverScopeItemId");
-
-                    b.HasIndex("HandoverBaselineId", "DisplayOrder")
-                        .IsUnique();
-
-                    b.HasIndex("HandoverBaselineId", "SourceContractItemId")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverScopeItem", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HandoverScope_Mode", "[ScopeMode] IN (1,2)");
-
-                            t.HasCheckConstraint("CK_HandoverScope_Quantity", "[SourceQuantity] > 0 AND [RequiredQuantity] > 0 AND (([ScopeMode] = 1 AND [RequiredQuantity] = [SourceQuantity]) OR ([ScopeMode] = 2 AND [RequiredQuantity] = 1))");
-                        });
-                });
-
-            modelBuilder.Entity("ContractManagement.Infrastructure.Persistence.Application.Models.TblContractHandoverSection", b =>
-                {
-                    b.Property<int>("HandoverSectionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverSectionId"));
-
-                    b.Property<byte>("BilingualContentMode")
-                        .HasColumnType("tinyint");
-
-                    b.Property<string>("ContentEn")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ContentVi")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("HandoverRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SectionCode")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("TitleEn")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("TitleVi")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.HasKey("HandoverSectionId");
-
-                    b.HasIndex("HandoverRecordId", "DisplayOrder")
-                        .IsUnique();
-
-                    b.HasIndex("HandoverRecordId", "SectionCode")
-                        .IsUnique();
-
-                    b.ToTable("tbl_ContractHandoverSection", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HandoverSection_Mode", "[BilingualContentMode] IN (1,2)");
                         });
                 });
 
@@ -3150,7 +2671,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         {
                             t.HasCheckConstraint("CK_tbl_ContractTemplate_CurrentPublishedVersionId", "[CurrentPublishedVersionId] IS NULL OR [CurrentPublishedVersionId] > 0");
 
-                            t.HasCheckConstraint("CK_tbl_ContractTemplate_DocumentType", "[DocumentType] IN (1, 2, 3, 4, 5, 6, 7, 8, 99)");
+                            t.HasCheckConstraint("CK_tbl_ContractTemplate_DocumentType", "[DocumentType] IN (1, 2, 3, 5, 6, 7, 8, 99)");
 
                             t.HasCheckConstraint("CK_tbl_ContractTemplate_LanguageMode", "[LanguageMode] IN (1, 2)");
 

@@ -27,13 +27,19 @@ public class TblContractApprovalRequest
     /// <summary>
     /// Mapping ApprovalRequestStatus:
     /// 0 Pending, 1 Approved, 2 Returned,
-    /// 3 Rejected, 4 Withdrawn.
+    /// 3 Rejected, 4 Withdrawn, 5 PendingAdministrativeReview.
     /// </summary>
     public byte Status { get; set; }
 
     public int SubmittedByEmployeeId { get; set; }
 
     public DateTime SubmittedDate { get; set; }
+
+    public int? AdministrativeReviewerEmployeeId { get; set; }
+
+    public DateTime? AdministrativeReviewedAt { get; set; }
+
+    public string? AdministrativeReviewComment { get; set; }
 
     public int? ResolvedByEmployeeId { get; set; }
 

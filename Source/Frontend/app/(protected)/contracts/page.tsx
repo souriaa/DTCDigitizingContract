@@ -62,6 +62,10 @@ const STATUS_FILTER_OPTIONS = [
     label: getContractStatusLabel(ContractStatus.Negotiating),
   },
   {
+    value: String(ContractStatus.PendingAdministrativeReview),
+    label: getContractStatusLabel(ContractStatus.PendingAdministrativeReview),
+  },
+  {
     value: String(ContractStatus.PendingApproval),
     label: getContractStatusLabel(ContractStatus.PendingApproval),
   },

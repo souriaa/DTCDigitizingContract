@@ -17,7 +17,6 @@ public sealed record ContractTemplateRenderData(
 {
     public ContractDirection ContractDirection { get; init; }
     public IReadOnlyList<ContractTemplateRenderReference> DocumentReferences { get; init; } = [];
-    public IReadOnlyList<ContractTemplateRenderHandoverItem> HandoverItems { get; init; } = [];
 
     public IReadOnlyList<SoftwareSupplyPlaceholderDefinition>? Definitions { get; init; }
 
@@ -29,8 +28,6 @@ public sealed record ContractTemplateRenderData(
 }
 
 public sealed record ContractTemplateRenderReference(string TextVi, string? TextEn);
-public sealed record ContractTemplateRenderHandoverItem(int No, string Code, string NameVi, string? NameEn,
-    string UnitVi, string? UnitEn, decimal Quantity, string? NotesVi = null, string? NotesEn = null);
 
 public sealed record ContractTemplateRenderAppendix(
     int No,

@@ -53,7 +53,6 @@ public sealed partial class ContractTemplateService
                 || await _dbContext.TblContractVersionLegalSnapshots.AnyAsync(x => ids.Contains(x.TemplateVersionId), cancellationToken)
                 || await _dbContext.TblContractVersionPlaceholderValues.AnyAsync(x => ids.Contains(x.TemplateVersionId), cancellationToken)
                 || await _dbContext.TblContractAcceptanceRecords.AnyAsync(x => ids.Contains(x.TemplateVersionId), cancellationToken)
-                || await _dbContext.TblContractHandoverRecords.AnyAsync(x => ids.Contains(x.TemplateVersionId), cancellationToken)
                 || await _dbContext.TblContractTerms.AnyAsync(x => x.SourceTemplateTermId.HasValue && termIds.Contains(x.SourceTemplateTermId.Value), cancellationToken)
                 || await _dbContext.TblContractAppendices.AnyAsync(x => x.SourceTemplateAppendixId.HasValue && appendixIds.Contains(x.SourceTemplateAppendixId.Value), cancellationToken)
                 || await _dbContext.TblContractAppendixTerms.AnyAsync(x => x.SourceTemplateAppendixTermId.HasValue && appendixTermIds.Contains(x.SourceTemplateAppendixTermId.Value), cancellationToken)

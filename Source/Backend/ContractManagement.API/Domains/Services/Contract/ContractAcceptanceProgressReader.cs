@@ -10,8 +10,7 @@ internal sealed record ContractAcceptanceProgress(
     bool HasSignedFinal,
     bool HasPartialHistory,
     int AcceptedMilestoneCount,
-    IReadOnlyList<int> RemainingMilestoneIds,
-    ContractHandoverProgress Scope);
+    IReadOnlyList<int> RemainingMilestoneIds);
 
 internal static class ContractAcceptanceProgressReader
 {
@@ -63,16 +62,16 @@ internal static class ContractAcceptanceProgressReader
         int[] remaining = hasSignedFinal
             ? []
             : milestoneIds.Where(id => !acceptedSet.Contains(id)).ToArray();
-        var scope = await ContractHandoverProgressReader.ReadAsync(db, contractId, versionId, tenantCode, ct);
+        // Only signed acceptance/milestones determine completion.
         var milestonesCompleted = hasSignedFinal
-            || remaining.Length == 0
+            || milestoneIds.Count > 0 && remaining.Length == 0
                 && signedPartialIds.Length > 0;
         return new ContractAcceptanceProgress(
-            milestonesCompleted && scope.AcceptedCompleted && scope.DeliveredCompleted && scope.IntegrityError is null,
+            milestonesCompleted,
             signedRecords.Count > 0,
             hasSignedFinal,
             hasPartialHistory,
             milestoneIds.Count - remaining.Length,
-            remaining, scope);
+            remaining);
     }
 }

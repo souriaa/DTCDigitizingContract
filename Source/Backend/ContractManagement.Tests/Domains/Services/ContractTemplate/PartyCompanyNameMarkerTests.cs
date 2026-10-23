@@ -48,7 +48,6 @@ public sealed class PartyCompanyNameMarkerTests
     [Theory]
     [InlineData(TemplateDocumentType.SoftwareSupplyContract)]
     [InlineData(TemplateDocumentType.AcceptanceRecord)]
-    [InlineData(TemplateDocumentType.HandoverRecord)]
     public async Task NewMarkers_ValidateAndRenderPreviewAcrossDocumentTypes(TemplateDocumentType type)
     {
         var definitions = type == TemplateDocumentType.SoftwareSupplyContract ? SoftwareSupplyPlaceholderCatalog.All : SupportingDocumentCatalog.Get(type);
@@ -74,7 +73,7 @@ public sealed class PartyCompanyNameMarkerTests
     [InlineData("CUSTOMER_LEGAL_NAME_EN")]
     public async Task RenamedMarkers_AreNotAcceptedAsAliases(string key)
     {
-        foreach (var type in new[] { TemplateDocumentType.SoftwareSupplyContract, TemplateDocumentType.AcceptanceRecord, TemplateDocumentType.HandoverRecord })
+        foreach (var type in new[] { TemplateDocumentType.SoftwareSupplyContract, TemplateDocumentType.AcceptanceRecord })
         {
             var validation = await new ContractTemplateDocumentValidator().ValidateAsync(File(Docx("{{" + key + "}}")), type);
             Assert.False(validation.IsCatalogValid);

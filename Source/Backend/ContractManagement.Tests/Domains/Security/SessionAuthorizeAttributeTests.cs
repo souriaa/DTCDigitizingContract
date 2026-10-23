@@ -271,6 +271,30 @@ public sealed class SessionAuthorizeAttributeTests
         return new DbDtctechContext(options);
     }
 
+    [Fact]
+    public async Task TechnicalSession_RejectsSigningAndGlobalAcceptance_ButAllowsOwnerScopedAcceptanceGate()
+    {
+        await using var context = CreateDbContext();
+        context.TblEmployees.Add(NewEmployee(EmployeeType.Technical));
+        await context.SaveChangesAsync();
+        var session = AuthenticatedSession();
+        foreach (var permission in new[] { RbacPermissions.ContractSigningManage,
+            RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractApprovalReview,
+            RbacPermissions.ContractApprovalDecide, RbacPermissions.ContractComplete })
+        {
+            var denied = CreateFilterContext(context, session);
+            await new SessionAuthorizeAttribute(permission).OnAuthorizationAsync(denied);
+            Assert.Equal(403, Assert.IsType<ObjectResult>(denied.Result).StatusCode);
+        }
+        var allowed = CreateFilterContext(context, session);
+        await new SessionAuthorizeAttribute(RbacPermissions.ContractAcceptanceManage,
+            RbacPermissions.ContractAcceptanceManageOwn) { RequireAnyPermission = true }
+            .OnAuthorizationAsync(allowed);
+        Assert.Null(allowed.Result);
+        // The endpoint gate accepts the own permission; the resource service
+        // independently checks actual ownership and Signed state on every mutation.
+    }
+
     private static TblEmployee NewEmployee(
         EmployeeType? employeeType,
         byte status = 1)

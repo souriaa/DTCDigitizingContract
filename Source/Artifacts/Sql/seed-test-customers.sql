@@ -17,8 +17,8 @@ IF DB_NAME() <> @ExpectedDatabase OR DB_NAME() IN (N'master', N'model', N'msdb',
     THROW 50030, N'Chọn đúng tenant database và đặt @ExpectedDatabase trùng tên DB trước khi chạy.', 1;
 IF OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL
     THROW 50031, N'Chưa có schema migration. Hãy provision tenant và chạy migration trước khi seed.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261021045743_AcceptanceEvidenceSignDate')
-    THROW 50032, N'Tenant chưa có migration AcceptanceEvidenceSignDate. Hãy cập nhật schema trước khi seed.', 1;
+IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = N'20261023111646_ContractAdministrativeReviewRbac')
+    THROW 50032, N'Tenant chưa có migration RetireHandoverTemplates. Hãy cập nhật schema trước khi seed.', 1;
 IF (SELECT COUNT_BIG(*) FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1) <> 1
     THROW 50033, N'Đặt @SourceAdminAccount thành tài khoản Manager active được provision cho tenant.', 1;
 SELECT @CreatedByEmployeeId = EmployeeId FROM dbo.tbl_Employee WHERE EmployeeAccount = @SourceAdminAccount AND EmployeeType = 6 AND Status = 1;

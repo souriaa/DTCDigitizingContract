@@ -17,16 +17,6 @@ public sealed class ContractAcceptanceController : ControllerBase
     public ContractAcceptanceController(IContractAcceptanceService service) =>
         _service = service;
 
-    [HttpGet("{acceptanceRecordId:int}/handover-scope")]
-    public async Task<IActionResult> HandoverScope(int contractId, int acceptanceRecordId, CancellationToken ct) =>
-        Ok(ApiResponse<AcceptanceHandoverOptionsResponse>.Ok(await _service.HandoverOptionsAsync(contractId, acceptanceRecordId, EmployeeId(), ct)));
-
-    [HttpPut("{acceptanceRecordId:int}/handover-scope")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
-    public async Task<IActionResult> ReplaceHandoverScope(int contractId, int acceptanceRecordId,
-        ReplaceAcceptanceHandoverScopeRequest request, CancellationToken ct) =>
-        Ok(ApiResponse<ContractAcceptanceRecordResponse>.Ok(await _service.ReplaceHandoverScopeAsync(contractId, acceptanceRecordId, request, EmployeeId(), ct)));
-
     [HttpGet("templates")]
     public async Task<IActionResult> Templates(int contractId,
         CancellationToken ct) => Ok(
@@ -47,7 +37,7 @@ public sealed class ContractAcceptanceController : ControllerBase
                 EmployeeId(), ct)));
 
     [HttpPost]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Create(int contractId,
         [FromBody] CreateContractAcceptanceRecordRequest request,
         CancellationToken ct) => Ok(
@@ -57,7 +47,7 @@ public sealed class ContractAcceptanceController : ControllerBase
             "Đã tạo bản nháp biên bản nghiệm thu."));
 
     [HttpPut("{acceptanceRecordId:int}")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Update(int contractId,
         int acceptanceRecordId,
         [FromBody] UpdateContractAcceptanceRecordRequest request,
@@ -67,7 +57,7 @@ public sealed class ContractAcceptanceController : ControllerBase
                 request, EmployeeId(), ct)));
 
     [HttpPut("{acceptanceRecordId:int}/references")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> References(int contractId,
         int acceptanceRecordId,
         [FromBody] ReplaceContractAcceptanceReferencesRequest request,
@@ -77,7 +67,7 @@ public sealed class ContractAcceptanceController : ControllerBase
                 acceptanceRecordId, request, EmployeeId(), ct)));
 
     [HttpPut("{acceptanceRecordId:int}/sections")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Sections(int contractId,
         int acceptanceRecordId,
         [FromBody] ReplaceContractAcceptanceSectionsRequest request,
@@ -87,7 +77,7 @@ public sealed class ContractAcceptanceController : ControllerBase
                 acceptanceRecordId, request, EmployeeId(), ct)));
 
     [HttpPut("{acceptanceRecordId:int}/milestones")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Milestones(int contractId,
         int acceptanceRecordId,
         [FromBody] ReplaceContractAcceptanceMilestonesRequest request,
@@ -106,7 +96,7 @@ public sealed class ContractAcceptanceController : ControllerBase
     }
 
     [HttpPost("{acceptanceRecordId:int}/finalize")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Finalize(int contractId,
         int acceptanceRecordId,
         [FromBody] FinalizeContractAcceptanceRecordRequest request,
@@ -117,7 +107,7 @@ public sealed class ContractAcceptanceController : ControllerBase
             "Đã chốt biên bản nghiệm thu."));
 
     [HttpPost("{acceptanceRecordId:int}/signed-evidence")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> SignedEvidence(int contractId,
         int acceptanceRecordId,
@@ -129,7 +119,7 @@ public sealed class ContractAcceptanceController : ControllerBase
             "Đã lưu bản ký biên bản nghiệm thu."));
 
     [HttpPost("{acceptanceRecordId:int}/cancel")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Cancel(int contractId,
         int acceptanceRecordId,
         [FromBody] CancelContractAcceptanceRecordRequest request,
