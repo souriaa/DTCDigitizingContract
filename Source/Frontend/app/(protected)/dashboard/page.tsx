@@ -31,6 +31,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { dashboardApi, type DashboardResponse } from "@/services/dashboard-api";
 import { cn } from "@/lib/utils";
+import { formatTime } from "@/lib/format-date-time";
 
 function initialRange(): DateRange {
   const to = new Date();
@@ -54,7 +55,7 @@ function endOfLocalDay(value?: Date) {
 }
 
 function getGreeting() {
-  const hour = new Date().getHours();
+  const hour = Number(formatTime(new Date().toISOString()).slice(0, 2));
   if (hour < 12) return "Chào buổi sáng";
   if (hour < 18) return "Chào buổi chiều";
   return "Chào buổi tối";
@@ -88,13 +89,7 @@ export default function DashboardPage() {
       });
 
       setData(response);
-      setLastUpdated(
-        new Date().toLocaleTimeString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-      );
+      setLastUpdated(formatTime(new Date().toISOString(), true));
     } catch (loadError) {
       setError(
         getApiErrorMessage(loadError, "Không thể tải dữ liệu dashboard."),

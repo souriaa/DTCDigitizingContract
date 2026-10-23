@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date-time";
+
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -134,7 +136,9 @@ export default function ChangePasswordPage() {
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Lần đổi gần nhất:</span>
                       <span className="font-medium text-foreground">
-                        {formatDateTime(user?.passwordChangedAt)}
+                        {user?.passwordChangedAt
+                          ? formatDateTime(user.passwordChangedAt)
+                          : "Chưa có thông tin"}
                       </span>
                     </div>
                   </div>
@@ -190,15 +194,4 @@ export default function ChangePasswordPage() {
       </div>
     </>
   );
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "Chưa có thông tin";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Chưa có thông tin";
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
+
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -124,14 +126,7 @@ export function ExpiringContracts({ items }: ExpiringContractsProps) {
             {items.map((item) => {
               const urgency = getUrgencyMeta(item.expiresAt);
               const UrgencyIcon = urgency.icon;
-              const formattedDate = new Date(item.expiresAt).toLocaleDateString(
-                "vi-VN",
-                {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                },
-              );
+              const formattedDate = formatDate(item.expiresAt);
 
               return (
                 <Link

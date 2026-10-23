@@ -44,7 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/format-currency";
-import { formatDateTime } from "@/lib/format-date-time";
+import { format } from "date-fns";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   workspaceApi,
@@ -364,7 +364,9 @@ export function CatalogItemList({
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
-                          {formatDateTime(item.createdAt ?? undefined)}
+                          {item.createdAt
+                            ? format(new Date(item.createdAt), "dd/MM/yyyy HH:mm")
+                            : "N/A"}
                         </TableCell>
                         <TableCell>{actions(item)}</TableCell>
                       </TableRow>

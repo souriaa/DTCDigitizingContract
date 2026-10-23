@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDateTime } from "@/lib/format-date-time";
 import {
   ArrowRight,
   KeyRound,
@@ -26,7 +27,9 @@ export function AccountSecurityCard({
   mustChangePassword,
   passwordChangedAt,
 }: AccountSecurityCardProps) {
-  const formattedDate = formatDateTime(passwordChangedAt);
+  const formattedDate = passwordChangedAt
+    ? formatDateTime(passwordChangedAt)
+    : "Chưa có thông tin";
 
   return (
     <Card className="border-border/80 shadow-sm transition-all duration-200 hover:shadow-md gap-0">
@@ -109,15 +112,4 @@ export function AccountSecurityCard({
       </CardFooter>
     </Card>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "Chưa có thông tin";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Chưa có thông tin";
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }

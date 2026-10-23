@@ -64,7 +64,11 @@ import {
   type NotificationItem,
 } from "@/services/notification-api";
 import { cn } from "@/lib/utils";
-import { formatDateTime } from "@/lib/format-date-time";
+import {
+  formatDateTime,
+  getVietnamDayNumber,
+  parseApiDate,
+} from "@/lib/format-date-time";
 
 type StatusFilter = "all" | "unread" | "read";
 
@@ -179,21 +183,12 @@ function getCategoryMeta(item: NotificationItem): CategoryMeta {
 type DateGroupKey = "today" | "yesterday" | "week" | "earlier";
 
 function getDateGroupKey(dateString: string): DateGroupKey {
-  const date = new Date(dateString);
-  const now = new Date();
+  const today = getVietnamDayNumber(new Date());
+  const itemDay = getVietnamDayNumber(parseApiDate(dateString));
 
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (itemDay.getTime() >= today.getTime()) return "today";
-  if (itemDay.getTime() >= yesterday.getTime()) return "yesterday";
-  if (itemDay.getTime() >= sevenDaysAgo.getTime()) return "week";
+  if (itemDay >= today) return "today";
+  if (itemDay >= today - 1) return "yesterday";
+  if (itemDay >= today - 7) return "week";
   return "earlier";
 }
 

@@ -39,7 +39,7 @@ import {
   DepartmentStatus,
   getDepartmentStatusLabel,
 } from "@/services/departments-api";
-import { formatDateTime } from "@/lib/format-date-time";
+import { format } from "date-fns";
 import { DataTable } from "@/components/ui/custom/data-table";
 import { SelectFilter } from "@/components/ui/custom/select-filter";
 import { DateRangeFilter } from "@/components/ui/custom/date-range-filter";
@@ -241,7 +241,7 @@ function DepartmentListPageContent() {
           <div className="text-sm text-muted-foreground flex items-center gap-1.5">
             <CalendarDays className="w-3.5 h-3.5" />
             {row.original.modifiedDate
-              ? formatDateTime(row.original.modifiedDate)
+              ? format(new Date(row.original.modifiedDate), "dd/MM/yyyy HH:mm")
               : "Chưa cập nhật"}
           </div>
         ),
@@ -435,7 +435,10 @@ function DepartmentListPageContent() {
                         <span className="truncate">
                           Cập nhật:{" "}
                           {item.modifiedDate
-                            ? formatDateTime(item.modifiedDate)
+                            ? format(
+                                new Date(item.modifiedDate),
+                                "dd/MM/yyyy HH:mm",
+                              )
                             : "N/A"}
                         </span>
                       </div>

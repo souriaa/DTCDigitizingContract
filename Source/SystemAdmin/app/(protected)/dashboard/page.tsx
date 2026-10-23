@@ -35,6 +35,7 @@ import {
   type AdminDashboardResponse,
 } from "@/services/admin-dashboard-api";
 import { cn } from "@/lib/utils";
+import { formatDateTime, formatTime } from "@/lib/format-date-time";
 
 function initialRange(): DateRange {
   const to = new Date();
@@ -56,7 +57,7 @@ function toIso(value: Date | undefined, endOfDay: boolean) {
 }
 
 function getGreeting() {
-  const hour = new Date().getHours();
+  const hour = Number(formatTime(new Date().toISOString()).slice(0, 2));
   if (hour < 12) return "Chào buổi sáng";
   if (hour < 18) return "Chào buổi chiều";
   return "Chào buổi tối";
@@ -109,13 +110,7 @@ export default function DashboardPage() {
         to: toIso(dateRange.to, true),
       });
       setData(response);
-      setLastUpdated(
-        new Date().toLocaleTimeString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-      );
+      setLastUpdated(formatTime(new Date().toISOString(), true));
     } catch (loadError) {
       setError(
         getApiErrorMessage(
@@ -422,16 +417,7 @@ export default function DashboardPage() {
                                 </span>
                                 <span>•</span>
                                 <span>
-                                  {new Date(tenant.createdAt).toLocaleString(
-                                    "vi-VN",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    },
-                                  )}
+                                  {formatDateTime(tenant.createdAt)}
                                 </span>
                               </div>
                             </div>
@@ -491,9 +477,7 @@ export default function DashboardPage() {
                           </div>
                           <p className="text-xs text-muted-foreground">
                             Xảy ra lúc:{" "}
-                            {new Date(failure.occurredAt).toLocaleString(
-                              "vi-VN",
-                            )}
+                            {formatDateTime(failure.occurredAt)}
                           </p>
                         </div>
                         <Badge
@@ -594,16 +578,7 @@ export default function DashboardPage() {
                               {audit.result}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(audit.occurredAt).toLocaleString(
-                                "vi-VN",
-                                {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                },
-                              )}
+                              {formatDateTime(audit.occurredAt)}
                             </span>
                             <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary hidden sm:block" />
                           </div>
