@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/application-branding";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
   ChevronLeft,
+  ChevronDown,
   ClipboardCheck,
+  ListFilter,
   FileBadge,
   FileSignature,
   FileText,
-  LayoutDashboard,
   LibraryBig,
   LogOut,
   Menu,
@@ -40,16 +41,18 @@ import {
 } from "@/lib/rbac";
 import { useSidebar } from "./sidebar-context";
 import { resolveProfileImageUrl } from "@/services/profile-api";
+import { EmployeeType } from "@/services/employees-api";
+import { ContractStatus } from "@/services/contract-api";
 
 interface NavItem {
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof FileText;
   href: string;
   requiredPermissions?: RbacPermission[];
 }
 
 const navItems: NavItem[] = [
-  { label: "Tổng quan", icon: LayoutDashboard, href: "/dashboard" },
+  // Dashboard is retained at /dashboard; restore its navigation entry when needed.
   {
     label: "Hợp đồng",
     icon: FileText,
@@ -121,72 +124,108 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function Sidebar() {
+const contractStatusItems = [
+  { label: "Tất cả", status: "All" },
+  { label: "Đã ký kết", status: String(ContractStatus.Signed) },
+  { label: "Đang đàm phán", status: String(ContractStatus.Negotiating) },
+  { label: "Chờ duyệt", status: String(ContractStatus.PendingApproval) },
+  { label: "Đã duyệt, đang chờ ký", status: String(ContractStatus.PendingSignature) },
+  { label: "Dừng gia hạn", status: "stopped-renewal" },
+  { label: "Thất bại", status: "failed" },
+  { label: "Thành công", status: String(ContractStatus.Completed) },
+];
+
+function SidebarContent() {
   const { isExpanded, setIsExpanded } = useSidebar();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isContractsOpen, setIsContractsOpen] = useState(true);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedStatus = searchParams.get("status") || "All";
+  const canBrowseStatuses = !!user && [EmployeeType.Manager, EmployeeType.AdminOfficer, EmployeeType.Sale, EmployeeType.Technical].includes(user.employeeType)
+    && hasAnyPermission(user.permissions, [RBAC_PERMISSIONS.contractReadOwn, RBAC_PERMISSIONS.contractReadTenant]);
 
   useEffect(() => {
     setIsMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, selectedStatus]);
 
   const handleLogout = () => {
     logout();
     router.push("/");
   };
 
+  const visibleItems = navItems.filter((item) =>
+    !item.requiredPermissions || hasAnyPermission(user?.permissions, item.requiredPermissions),
+  );
+  const contractItems = visibleItems.filter((item) =>
+    !["/quotations", "/catalog/products"].includes(item.href),
+  );
+  const isItemActive = (item: NavItem) =>
+    pathname === item.href || pathname.startsWith(`${item.href}/`) ||
+    (item.href === "/catalog/products" && pathname.startsWith("/catalog/"));
+  const renderNavLink = (item: NavItem, nested = false) => {
+    const Icon = item.icon;
+    const active = isItemActive(item);
+    return (
+      <Link key={item.href} href={item.href} title={item.label}
+        aria-current={active ? "page" : undefined}
+        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${nested ? "ml-4" : ""} ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className={isExpanded || isMobileOpen ? "" : "lg:hidden"}>{item.label}</span>
+      </Link>
+    );
+  };
+
   const renderNavItems = () => (
     <nav className="flex-1 px-3 py-4 space-y-1.5 flex flex-col items-stretch overflow-y-auto">
-      {navItems
-        .filter(
-          (item) =>
-            !item.requiredPermissions ||
-            hasAnyPermission(user?.permissions, item.requiredPermissions),
-        )
-        .map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname?.startsWith(item.href);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center py-2.5 rounded-xl transition-all duration-200 group relative ${
-                isExpanded ? "gap-3 px-3" : "justify-center px-0 lg:px-0 px-3"
-              } ${
-                isActive
-                  ? "bg-primary/10 text-primary font-semibold shadow-sm"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              } ${isMobileOpen && "justify-start gap-5"}`}
-            >
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full" />
-              )}
-
-              <Icon
-                className={`h-5 w-5 flex-shrink-0 transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground/70 group-hover:text-foreground"
-                }`}
-              />
-              <span
-                className={`text-sm whitespace-nowrap transition-all duration-300 lg:block ${
-                  isExpanded
-                    ? "opacity-100 translate-x-0"
-                    : "lg:opacity-0 lg:-translate-x-2 lg:hidden lg:w-0"
-                } opacity-100 translate-x-0 block`}
-              >
+      {contractItems.length > 0 && (
+        <div>
+          <button type="button" title="Hợp đồng" aria-expanded={isContractsOpen && (isExpanded || isMobileOpen)}
+            aria-label="Mở hoặc thu gọn menu Hợp đồng"
+            onClick={() => {
+              if (!isExpanded && !isMobileOpen) {
+                setIsExpanded(true);
+                setIsContractsOpen(true);
+              } else setIsContractsOpen(!isContractsOpen);
+            }}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${contractItems.some(isItemActive) ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
+            <FileText className="h-5 w-5 shrink-0" />
+            <span className={`flex-1 text-left ${isExpanded || isMobileOpen ? "" : "lg:hidden"}`}>Hợp đồng</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${isContractsOpen ? "rotate-180" : ""} ${isExpanded || isMobileOpen ? "" : "lg:hidden"}`} />
+          </button>
+          {isContractsOpen && (isExpanded || isMobileOpen) && (
+            <div className="mt-1 space-y-1 border-l border-border ml-5">
+              {contractItems.map((item) => renderNavLink(
+                item.href === "/contracts" ? { ...item, label: "Danh sách hợp đồng" } : item, true,
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {canBrowseStatuses && <div>
+        <button type="button" title="Trạng thái hợp đồng" aria-label="Mở hoặc thu gọn Trạng thái hợp đồng"
+          aria-expanded={isStatusOpen && (isExpanded || isMobileOpen)}
+          onClick={() => {
+            if (!isExpanded && !isMobileOpen) { setIsExpanded(true); setIsStatusOpen(true); }
+            else setIsStatusOpen(!isStatusOpen);
+          }}
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${pathname === "/contracts" && searchParams.has("status") ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
+          <ListFilter className="h-5 w-5 shrink-0" />
+          <span className={`flex-1 text-left ${isExpanded || isMobileOpen ? "" : "lg:hidden"}`}>Trạng thái hợp đồng</span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isStatusOpen ? "rotate-180" : ""} ${isExpanded || isMobileOpen ? "" : "lg:hidden"}`} />
+        </button>
+        {isStatusOpen && (isExpanded || isMobileOpen) && <div className="mt-1 space-y-1 border-l border-border ml-5">
+          {contractStatusItems.map((item) => <Link key={item.status} href={item.status === "All" ? "/contracts" : `/contracts?status=${item.status}`}
+                aria-current={pathname === "/contracts" && selectedStatus === item.status ? "page" : undefined}
+                className={`ml-4 block rounded-xl px-3 py-2.5 text-sm transition-colors ${pathname === "/contracts" && selectedStatus === item.status ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
                 {item.label}
-              </span>
-            </Link>
-          );
-        })}
+              </Link>)}
+        </div>}
+      </div>}
+      {visibleItems.filter((item) => ["/quotations", "/catalog/products"].includes(item.href)).map((item) => renderNavLink(item))}
     </nav>
   );
 
@@ -338,4 +377,8 @@ export function Sidebar() {
       )}
     </>
   );
+}
+
+export function Sidebar() {
+  return <Suspense fallback={null}><SidebarContent /></Suspense>;
 }

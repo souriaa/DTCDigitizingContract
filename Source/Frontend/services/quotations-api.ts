@@ -19,29 +19,26 @@ export interface QuotationResponseDto {
 }
 
 export interface CreateQuotationRequestDto {
-  quotationNo: string;
   customerId: number;
-  quotationDate: string;
-  quatationStatus: string;
-  items: Omit<QuotationItemResponse, "amount" | "productName">[];
+  quotationItems: Omit<QuotationItemResponse, "amount" | "productName">[];
 }
 
 const BASE_URL = "/api/Quotation";
 
 export const quotationApi = {
   getAll: () => {
-    return axiosClient.get<any, QuotationResponseDto[]>(BASE_URL);
+    return axiosClient.get<unknown, QuotationResponseDto[]>(BASE_URL);
   },
 
   getById: (id: number) => {
-    return axiosClient.get<any, QuotationResponseDto>(`${BASE_URL}/${id}`);
+    return axiosClient.get<unknown, QuotationResponseDto>(`${BASE_URL}/${id}`);
   },
 
   create: (data: CreateQuotationRequestDto) => {
-    return axiosClient.post<any, QuotationResponseDto>(BASE_URL, data);
+    return axiosClient.post<unknown, QuotationResponseDto>(BASE_URL, data);
   },
 
   delete: (id: number) => {
-    return axiosClient.delete<any, void>(`${BASE_URL}/${id}`);
+    return axiosClient.delete<unknown, void>(`${BASE_URL}/${id}`);
   },
 };

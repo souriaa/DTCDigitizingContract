@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef, PaginationState, Row } from "@tanstack/react-table";
 import {
   CalendarDays,
@@ -45,7 +45,7 @@ import {
 function ContractStatusBadge({ status }: { status: ContractStatus }) {
   return (
     <Badge variant="outline" className={statusClasses[status] || ""}>
-      {getContractStatusLabel(status)}
+      {status === ContractStatus.Signed ? "Đã ký kết" : status === ContractStatus.Completed ? "Thành công" : getContractStatusLabel(status)}
     </Badge>
   );
 }
@@ -79,11 +79,11 @@ const STATUS_FILTER_OPTIONS = [
   },
   {
     value: String(ContractStatus.Signed),
-    label: getContractStatusLabel(ContractStatus.Signed),
+    label: "Đã ký kết",
   },
   {
     value: String(ContractStatus.Completed),
-    label: getContractStatusLabel(ContractStatus.Completed),
+    label: "Thành công",
   },
   {
     value: String(ContractStatus.Cancelled),
@@ -93,6 +93,8 @@ const STATUS_FILTER_OPTIONS = [
     value: String(ContractStatus.Rejected),
     label: getContractStatusLabel(ContractStatus.Rejected),
   },
+  { value: "stopped-renewal", label: "Dừng gia hạn" },
+  { value: "failed", label: "Thất bại" },
 ];
 
 const CONTRACT_TYPE_FILTER_OPTIONS = [
@@ -111,8 +113,12 @@ const CONTRACT_TYPE_FILTER_OPTIONS = [
   },
 ];
 
-export default function ContractListPage() {
+function ContractListPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedStatus = searchParams.get("status") || "All";
+  const filterStatus = STATUS_FILTER_OPTIONS.some((option) => option.value === requestedStatus) ? requestedStatus : "All";
+  const pendingWorkflow = filterStatus === "stopped-renewal" || filterStatus === "failed";
   const user = useAuthStore((state) => state.user);
   const canCreate = hasPermission(
     user?.permissions,
@@ -134,11 +140,17 @@ export default function ContractListPage() {
     pageSize: 10,
   });
   const [searchValue, setSearchValue] = useState<string>("");
-  const [filterStatus, setFilterStatus] = useState<string>("All");
   const [filterDirection, setFilterDirection] = useState("All");
   const [filterContractType, setFilterContractType] = useState<string>("All");
 
   const fetchContracts = useCallback(async () => {
+    if (pendingWorkflow) {
+      setData([]);
+      setRowCount(0);
+      setPageCount(0);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const params: ContractFilterRequest = {
@@ -179,19 +191,26 @@ export default function ContractListPage() {
     filterStatus,
     filterContractType,
     filterDirection,
+    pendingWorkflow,
   ]);
 
   useEffect(() => {
     fetchContracts();
   }, [fetchContracts]);
 
-  const handleView = (id: number) => {
+  const handleView = useCallback((id: number) => {
     setLoadingId(id);
     router.push(`/contracts/${id}`);
-  };
+  }, [router]);
 
   const columns = useMemo<ColumnDef<ContractListItemResponse>[]>(
     () => [
+      {
+        id: "rowNumber",
+        header: "STT",
+        cell: ({ row }) => pagination.pageIndex * pagination.pageSize + row.index + 1,
+        enableSorting: false,
+      },
       {
         id: "select",
         header: ({ table }) => (
@@ -240,6 +259,15 @@ export default function ContractListPage() {
         ),
       },
       {
+        accessorKey: "status",
+        header: () => <div className="text-center">Trạng thái</div>,
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            <ContractStatusBadge status={row.original.status} />
+          </div>
+        ),
+      },
+      {
         accessorKey: "contractName",
         header: "Thông tin hợp đồng",
         cell: ({ row }) => (
@@ -255,7 +283,7 @@ export default function ContractListPage() {
       },
       {
         accessorKey: "customerName",
-        header: "Đối tác",
+        header: "Tên khách hàng",
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
@@ -278,7 +306,7 @@ export default function ContractListPage() {
       },
       {
         accessorKey: "responsibleEmployeeName",
-        header: "Người phụ trách",
+        header: "Nhân viên phụ trách",
         cell: ({ row }) => {
           const isMine =
             row.original.responsibleEmployeeId === user?.employeeId;
@@ -316,15 +344,6 @@ export default function ContractListPage() {
         ),
       },
       {
-        accessorKey: "status",
-        header: () => <div className="text-center">Trạng thái</div>,
-        cell: ({ row }) => (
-          <div className="flex justify-center">
-            <ContractStatusBadge status={row.original.status} />
-          </div>
-        ),
-      },
-      {
         id: "action",
         header: () => <div className="text-right pr-4">Thao tác</div>,
         cell: ({ row }) => {
@@ -348,7 +367,7 @@ export default function ContractListPage() {
         },
       },
     ],
-    [canExecuteContracts, loadingId, user?.employeeId],
+    [canExecuteContracts, loadingId, user?.employeeId, pagination.pageIndex, pagination.pageSize, handleView],
   );
 
   const totalValue = useMemo(
@@ -405,7 +424,10 @@ export default function ContractListPage() {
       <SelectFilter
         value={filterStatus}
         onChange={(val) => {
-          setFilterStatus(val);
+          const params = new URLSearchParams(searchParams.toString());
+          if (val === "All") params.delete("status");
+          else params.set("status", val);
+          router.push(`/contracts${params.size ? `?${params}` : ""}`, { scroll: false });
           setPagination((prev) => ({ ...prev, pageIndex: 0 }));
         }}
         options={STATUS_FILTER_OPTIONS}
@@ -449,6 +471,11 @@ export default function ContractListPage() {
         </div>
 
         <SummaryCards items={summaryItems} />
+        {pendingWorkflow && <p role="status" className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+          {filterStatus === "stopped-renewal"
+            ? "Dừng gia hạn: hợp đồng hết hạn và không tiếp tục gia hạn. Mục này sẽ có dữ liệu khi bổ sung nghiệp vụ xác nhận dừng gia hạn."
+            : "Thất bại là trạng thái riêng. Mục này sẽ có dữ liệu khi bổ sung nghiệp vụ đánh dấu hợp đồng thất bại."}
+        </p>}
 
         <Card className="border-border shadow-sm bg-card min-h-[500px] flex flex-col gap-0 p-0">
           <CardContent className="p-4 flex flex-col justify-between flex-1 pb-0">
@@ -483,6 +510,7 @@ export default function ContractListPage() {
                   >
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">STT {pagination.pageIndex * pagination.pageSize + row.index + 1}</p>
                         <p className="font-semibold text-foreground">
                           {item.contractCode || "Chưa cấp mã"}
                         </p>
@@ -496,7 +524,7 @@ export default function ContractListPage() {
                     <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-2.5 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Khách hàng
+                          Tên khách hàng
                         </p>
                         <p className="truncate font-medium">
                           {item.customerName ||
@@ -512,7 +540,7 @@ export default function ContractListPage() {
                       </div>
                       <div className="col-span-2 border-t pt-2">
                         <p className="text-xs text-muted-foreground">
-                          Người phụ trách
+                          Nhân viên phụ trách
                         </p>
                         <div className="flex items-center gap-2">
                           <p className="truncate font-medium">
@@ -534,4 +562,13 @@ export default function ContractListPage() {
       </div>
     </>
   );
+}
+
+function ContractListRoute() {
+  const params = useSearchParams();
+  return <ContractListPageContent key={params.get("status") || "All"} />;
+}
+
+export default function ContractListPage() {
+  return <Suspense fallback={<p className="p-6">Đang tải danh sách hợp đồng...</p>}><ContractListRoute /></Suspense>;
 }

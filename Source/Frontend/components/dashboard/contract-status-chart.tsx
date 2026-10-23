@@ -17,7 +17,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   Draft: { label: "Bản nháp", color: "#64748b" },
   Negotiating: { label: "Đang đàm phán", color: "#8b5cf6" },
   PendingApproval: { label: "Chờ phê duyệt", color: "#f59e0b" },
-  PendingSignature: { label: "Chờ ký số", color: "#06b6d4" },
+  PendingSignature: { label: "Đã duyệt, đang chờ ký", color: "#06b6d4" },
   Signed: { label: "Đã ký kết", color: "#10b981" },
   Completed: { label: "Đã hoàn thành", color: "#3b82f6" },
   Rejected: { label: "Bị từ chối", color: "#ef4444" },

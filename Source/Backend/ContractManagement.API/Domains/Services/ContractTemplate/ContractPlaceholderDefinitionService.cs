@@ -17,8 +17,9 @@ public sealed class ContractPlaceholderDefinitionService(
     public async Task AuthorizeAsync(int employeeId, CancellationToken ct)
     {
         if (!await db.TblEmployees.AsNoTracking().AnyAsync(x => x.EmployeeId == employeeId &&
-                x.Status == 1 && x.EmployeeType == (byte)EmployeeType.AdminOfficer, ct))
-            throw new UnauthorizedAccessException("Chỉ AdminOfficer đang hoạt động được quản lý placeholder.");
+                x.Status == 1 && (x.EmployeeType == (byte)EmployeeType.AdminOfficer
+                    || x.EmployeeType == (byte)EmployeeType.Manager), ct))
+            throw new UnauthorizedAccessException("Chỉ AdminOfficer hoặc Manager đang hoạt động được quản lý placeholder.");
     }
 
     private void EnsureEnabled()

@@ -19,6 +19,19 @@ public sealed partial class ContractTemplateServiceTests
     private const int AdminOfficerId = 101;
     private const int OtherEmployeeId = 102;
     private const int InactiveAdminOfficerId = 103;
+    private const int ManagerId = 104;
+
+    [Fact]
+    public async Task ActiveManager_CanCreateAndReadTemplate()
+    {
+        await using var context = CreateContext();
+        await SeedEmployeesAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateAsync(CreateRequest("MANAGER-TEMPLATE"), ManagerId);
+        var detail = await service.GetAsync(created.TemplateId, ManagerId);
+        Assert.Equal(created.TemplateId, detail.TemplateId);
+        Assert.Single(detail.Versions);
+    }
 
     [Fact]
     public async Task AdminOfficerActive_CanCreateTemplateAndDraftV1()
@@ -1214,6 +1227,13 @@ public sealed partial class ContractTemplateServiceTests
             new TblEmployee
             {
                 EmployeeId = OtherEmployeeId,
+                EmployeeType = (byte)EmployeeType.Sale,
+                Status = 1,
+                EmployeeFullName = "Sale"
+            },
+            new TblEmployee
+            {
+                EmployeeId = ManagerId,
                 EmployeeType = (byte)EmployeeType.Manager,
                 Status = 1,
                 EmployeeFullName = "Manager"

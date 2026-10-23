@@ -49,7 +49,7 @@ const definitions: Record<string, Definition> = {
     accentGradient: "from-amber-500/5 to-transparent",
   },
   pendingSignature: {
-    label: "Chờ ký",
+    label: "Đã duyệt, đang chờ ký",
     icon: Send,
     badgeClass: "text-cyan-600 bg-cyan-500/10 border-cyan-500/20 dark:text-cyan-400 dark:bg-cyan-500/15",
     cardBorderClass: "hover:border-cyan-500/40",

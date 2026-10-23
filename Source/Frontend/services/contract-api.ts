@@ -91,7 +91,7 @@ export const getContractStatusLabel = (status?: ContractStatus) => {
     case ContractStatus.PendingApproval:
       return "Chờ duyệt";
     case ContractStatus.PendingSignature:
-      return "Chờ ký";
+      return "Đã duyệt, đang chờ ký";
     case ContractStatus.Signed:
       return "Đã ký";
     case ContractStatus.Completed:

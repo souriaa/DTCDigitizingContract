@@ -36,6 +36,7 @@ public sealed class EmployeePermissionCatalogTests
             RbacPermissions.ContractAuditReadTenant,
             RbacPermissions.ContractApprovalDecide,
             RbacPermissions.SecurityAuditReadTenant,
+            RbacPermissions.TemplateManage,
             RbacPermissions.TenantLegalProfileManage)]
     ];
 
@@ -115,7 +116,7 @@ public sealed class EmployeePermissionCatalogTests
         Assert.Contains(RbacPermissions.ContractComplete, permissions);
         Assert.Contains(RbacPermissions.SecurityAuditReadTenant, permissions);
         Assert.Contains(RbacPermissions.TenantLegalProfileManage, permissions);
-        Assert.DoesNotContain(RbacPermissions.TemplateManage, permissions);
+        Assert.Contains(RbacPermissions.TemplateManage, permissions);
     }
 
     [Fact]

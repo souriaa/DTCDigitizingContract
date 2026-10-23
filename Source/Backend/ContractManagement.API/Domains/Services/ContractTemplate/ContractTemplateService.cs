@@ -2278,10 +2278,11 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && employee.Status == ActiveEmployeeStatus,
                 cancellationToken);
         if (actor is null
-            || actor.EmployeeType != (byte)EmployeeType.AdminOfficer)
+            || (actor.EmployeeType != (byte)EmployeeType.AdminOfficer
+                && actor.EmployeeType != (byte)EmployeeType.Manager))
         {
             throw new UnauthorizedAccessException(
-                "Chỉ AdminOfficer active được quản trị template.");
+                "Chỉ AdminOfficer hoặc Manager đang hoạt động được quản trị mẫu hợp đồng.");
         }
     }
 

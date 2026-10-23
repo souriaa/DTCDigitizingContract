@@ -71,7 +71,6 @@ public sealed partial class ContractTemplatePreviewTests
     }
 
     [Theory]
-    [InlineData(ManagerId)]
     [InlineData(InactiveAdminOfficerId)]
     public async Task Delete_RequiresActiveAdminOfficer(int actor)
     {

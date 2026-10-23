@@ -88,6 +88,7 @@ public static class EmployeePermissionCatalog
                 RbacPermissions.ContractSupport,
                 RbacPermissions.ContractAuditReadTenant,
                 RbacPermissions.SecurityAuditReadTenant,
+                RbacPermissions.TemplateManage,
                 RbacPermissions.TenantLegalProfileManage)
         };
 

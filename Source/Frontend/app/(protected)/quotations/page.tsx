@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { isAxiosError } from "axios";
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/ui/custom/header";
 import {
@@ -34,13 +37,13 @@ import {
   SummaryCardItem,
   SummaryCards,
 } from "@/components/ui/custom/summary-cards";
-import { PageHeaderSkeleton } from "@/components/ui/custom/table-skeleton";
 
-export default function QuotationListPage() {
+function QuotationListPageContent() {
   const router = useRouter();
 
   const [quotations, setQuotations] = useState<QuotationResponseDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -57,9 +60,10 @@ export default function QuotationListPage() {
       setIsLoading(true);
       try {
         const data = await quotationApi.getAll();
-        setQuotations(Array.isArray(data) ? data : (data as any)?.data || []);
+        setQuotations(data);
       } catch (error) {
-        toast.error("Lỗi khi tải danh sách báo giá");
+        const message = isAxiosError(error) ? error.response?.data?.message : null;
+        setLoadError(message || "Không thể tải danh sách báo giá. Vui lòng tải lại trang.");
       } finally {
         setIsLoading(false);
       }
@@ -77,10 +81,10 @@ export default function QuotationListPage() {
     });
   }, [quotations, filterStatus, dateRange]);
 
-  const handleView = (id: number) => {
+  const handleView = useCallback((id: number) => {
     setLoadingId(id);
     router.push(`/quotations/${id}`);
-  };
+  }, [router]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteId) return;
@@ -91,7 +95,7 @@ export default function QuotationListPage() {
       setQuotations(quotations.filter((q) => q.quotationId !== deleteId));
       setDeleteId(null);
     } catch (error) {
-      toast.error("Không thể xóa báo giá này");
+      toast.error(isAxiosError(error) ? error.response?.data?.message || "Không thể xóa báo giá này" : "Không thể xóa báo giá này");
     } finally {
       setIsDeleting(false);
     }
@@ -172,7 +176,7 @@ export default function QuotationListPage() {
             </div>
             <div className="flex flex-col">
               <span className="font-medium text-foreground text-sm">
-                KH-{row.original.customerId}
+                  KH-{row.original.customerId}
               </span>
               <span className="text-xs text-muted-foreground">
                 ID Khách hàng
@@ -208,7 +212,6 @@ export default function QuotationListPage() {
         accessorKey: "quatationStatus",
         header: () => <div className="text-center">Trạng thái</div>,
         cell: ({ row }) => {
-          const status = row.original.quatationStatus;
           return (
             <div className="text-center">
               <StatusBadge status={row.original.quatationStatus} />
@@ -227,24 +230,25 @@ export default function QuotationListPage() {
               primaryIcon={<Eye className="w-4 h-4" />}
               onPrimaryClick={() => handleView(item.quotationId)}
               isLoading={loadingId === item.quotationId}
-              menuItems={[
+              menuItems={item.quatationStatus === "Draft" ? [
                 {
                   label: "Xóa báo giá",
                   icon: <Trash2 className="w-4 h-4" />,
                   isDestructive: true,
                   onClick: () => setDeleteId(item.quotationId),
                 },
-              ]}
+              ] : []}
             />
           );
         },
       },
     ],
-    [loadingId],
+    [loadingId, handleView],
   );
 
   const QUOTATION_STATUS_OPTIONS = [
     { label: "Tất cả trạng thái", value: "All" },
+    { label: "Chờ phê duyệt", value: "Pending" },
     { label: "Đã duyệt", value: "Approved" },
     { label: "Từ chối", value: "Rejected" },
     { label: "Bản nháp", value: "Draft" },
@@ -310,11 +314,12 @@ export default function QuotationListPage() {
               Quản lý, theo dõi trạng thái và tạo các báo giá gửi cho đối tác.
             </p>
           </div>
-          <Button className="shadow-sm">
+          <Button className="shadow-sm" onClick={() => router.push("/quotations/create")}>
             <FileText className="w-4 h-4 mr-2" /> Tạo báo giá mới
           </Button>
         </div>
         <SummaryCards items={summaryItems} isLoading={isLoading} />
+        {loadError && <p role="alert" className="rounded-xl border border-destructive p-4 text-destructive">{loadError}</p>}
         <Card className="border-border shadow-sm bg-card min-h-[500px] flex flex-col gap-0 p-0">
           <CardContent className="p-4 flex flex-col justify-between flex-1 pb-0">
             <DataTable
@@ -324,21 +329,6 @@ export default function QuotationListPage() {
               searchKey="quotationNo"
               searchPlaceholder="Tìm mã báo giá..."
               filterSlot={CustomFilters}
-              bulkActions={(selectedRows, resetSelection) => (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-8 text-xs shadow-sm"
-                  onClick={() => {
-                    toast.info(
-                      `Đang gọi API xóa ${selectedRows.length} báo giá...`,
-                    );
-                    resetSelection();
-                  }}
-                >
-                  Xóa tất cả
-                </Button>
-              )}
               onRowClick={(row) => handleView(row.quotationId)}
               mobileCardRenderer={(
                 row: Row<QuotationResponseDto>,
@@ -404,4 +394,8 @@ export default function QuotationListPage() {
       </div>
     </>
   );
+}
+
+export default function QuotationListPage() {
+  return <PermissionGuard permission={RBAC_PERMISSIONS.quotationManage}><QuotationListPageContent /></PermissionGuard>;
 }

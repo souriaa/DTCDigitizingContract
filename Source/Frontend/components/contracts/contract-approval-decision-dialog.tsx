@@ -34,7 +34,7 @@ export type ApprovalDecision = "approve" | "return";
 export const APPROVAL_DECISION_CONFIG = {
   approve: {
     label: "Duyệt hợp đồng",
-    description: "Hợp đồng sẽ chuyển sang trạng thái Chờ ký.",
+    description: "Hợp đồng sẽ chuyển sang trạng thái Đã duyệt, đang chờ ký.",
     buttonClass: "bg-emerald-600 text-white hover:bg-emerald-700",
     icon: CheckCircle2,
   },
