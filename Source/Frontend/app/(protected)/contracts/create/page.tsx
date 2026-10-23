@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 // Các import UI component
 import { CreateContractAppendicesEditor } from "@/components/contracts/create-contract-appendices-editor";
@@ -308,7 +309,7 @@ function PaymentPlanReview({
               Trong {row.dueOffsetDays} ngày kể từ{" "}
               {getPaymentAnchorLabel(row.dueAnchor)}
               {row.dueAnchor === PaymentDueAnchor.ManualDate && row.anchorDate
-                ? ` · ${row.anchorDate.slice(0, 10)}`
+                ? ` · ${formatDate(row.anchorDate)}`
                 : ""}
             </p>
             {row.conditionVi && <p>{row.conditionVi}</p>}
@@ -620,7 +621,7 @@ export default function CreateContractPage() {
                   versionId: template.templateVersionId,
                   name: template.templateName,
                   version: String(template.versionNo),
-                  description: "Phiên bản đã phát hành, sẵn sàng tạo hợp đồng.",
+                  description: `Phiên bản ${template.versionNo}`,
                   contractType: mappedContractType,
                 },
               ];
@@ -1572,7 +1573,7 @@ export default function CreateContractPage() {
                   Bước {currentStep + 1}/{steps.length}:{" "}
                   {steps[currentStep].title}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-md text-muted-foreground">
                   {steps[currentStep].description}
                 </p>
               </div>
@@ -1877,9 +1878,6 @@ export default function CreateContractPage() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Chọn ngôn ngữ trước để tải các mẫu hợp đồng tương ứng.
-                      </p>
                     </div>
                   </div>
 
@@ -2007,7 +2005,7 @@ export default function CreateContractPage() {
                           Mẫu hợp đồng <span className="text-red-500">*</span>
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Chỉ hiển thị mẫu đã phát hành đúng loại và ngôn ngữ
+                          Chỉ hiển thị mẫu đã phát hành đúng loại và cấu hình
                           hợp đồng đã chọn.
                         </p>
                       </div>
@@ -2708,7 +2706,7 @@ export default function CreateContractPage() {
                     )}
                   >
                     <div className="space-y-2">
-                      <Label>
+                      <Label className="text-md">
                         Thời hạn hiệu lực{" "}
                         <span className="text-red-500">*</span>
                       </Label>
@@ -2743,10 +2741,6 @@ export default function CreateContractPage() {
                           }
                         }}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Thời hạn này được dùng cho bản hợp đồng nháp khi khởi
-                        tạo.
-                      </p>
                     </div>
                   </div>
 

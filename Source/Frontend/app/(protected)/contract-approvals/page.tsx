@@ -50,6 +50,7 @@ import {
   isStaleRowVersion,
 } from "@/lib/api-error";
 import { formatDateTime, parseApiDate } from "@/lib/format-date-time";
+import { formatDate } from "@/lib/format-date";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import {
   contractApprovalApi,
@@ -63,14 +64,6 @@ import {
 
 const pendingStatusClassName =
   "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-
-function formatShortDate(value: string) {
-  return parseApiDate(value).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 function formatFilterDate(value?: Date) {
   if (!value) return undefined;
@@ -246,7 +239,7 @@ export default function ContractApprovalsPage() {
             </p>
             <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               <CalendarDays className="size-3" />
-              {formatShortDate(row.original.submittedDate)}
+              {formatDate(row.original.submittedDate)}
             </span>
           </div>
         ),

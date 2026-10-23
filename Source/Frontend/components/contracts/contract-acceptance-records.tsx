@@ -130,7 +130,7 @@ function getAcceptanceMetadataError(
   if (!value.acceptanceCode.trim()) return "Vui lòng nhập mã biên bản.";
   if (!value.acceptanceDate.trim()) return "Vui lòng chọn ngày nghiệm thu.";
   if (minimumDate && value.acceptanceDate.slice(0, 10) < minimumDate)
-    return `Ngày nghiệm thu không được trước ngày ký hợp đồng hoặc ngày bàn giao của các nguồn đã chọn (từ ${minimumDate.split("-").reverse().join("/")}).`;
+    return `Ngày nghiệm thu không được trước ngày ký hợp đồng hoặc ngày bàn giao của các nguồn đã chọn (từ ${formatDate(minimumDate)}).`;
   if (!value.location.trim()) return "Vui lòng nhập địa điểm nghiệm thu.";
   if (isBilingual && !value.locationEn?.trim())
     return "Vui lòng nhập địa điểm tiếng Anh cho hợp đồng song ngữ.";
@@ -192,7 +192,7 @@ export function ContractAcceptanceRecords({
     selected &&
     minimumDraftDate &&
     selected.acceptanceDate.slice(0, 10) < minimumDraftDate
-      ? `Ngày nghiệm thu phải từ ${minimumDraftDate.split("-").reverse().join("/")} (không trước ngày ký hợp đồng và ngày bàn giao của nguồn đã chọn).`
+      ? `Ngày nghiệm thu phải từ ${formatDate(minimumDraftDate)} (không trước ngày ký hợp đồng và ngày bàn giao của nguồn đã chọn).`
       : null;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -938,9 +938,7 @@ export function ContractAcceptanceRecords({
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(record.acceptanceDate).toLocaleDateString(
-                      "vi-VN",
-                    )}{" "}
+                    {formatDate(record.acceptanceDate)}{" "}
                     · Phiên bản {record.versionNo}
                   </p>
                 </button>
@@ -1716,6 +1714,7 @@ export function ContractAcceptanceRecords({
                       Ngày ký thực tế <span className="text-red-500">*</span>
                     </Label>
                     <DateFilter
+                      className="bg-background flex-1"
                       date={parseDateString(signDate)}
                       disabled={busy}
                       onChange={(date) =>
@@ -1753,17 +1752,13 @@ export function ContractAcceptanceRecords({
                     <p>
                       Đã ký · Ngày ký:{" "}
                       {selected.signedEvidence.signDate
-                        ? parseDateString(
-                            selected.signedEvidence.signDate,
-                          )?.toLocaleDateString("vi-VN")
+                        ? formatDate(selected.signedEvidence.signDate)
                         : "Chưa có dữ liệu"}
                     </p>
                     <p>
                       Tải bởi{" "}
                       {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
-                      {new Date(
-                        selected.signedEvidence.uploadedAt,
-                      ).toLocaleString("vi-VN")}
+                      {formatDateTime(selected.signedEvidence.uploadedAt)}
                     </p>
                     <Button
                       type="button"
@@ -2069,7 +2064,7 @@ export function ContractAcceptanceRecords({
             của biên bản {selected?.acceptanceCode}. Sau khi lưu, biên bản sẽ
             chuyển sang Đã ký với ngày ký thực tế{" "}
             <strong>
-              {parseDateString(signDate)?.toLocaleDateString("vi-VN")}
+              {formatDate(signDate)}
             </strong>{" "}
             và được tính vào tiến độ nghiệm thu. Các đợt thanh toán gắn với
             nghiệm thu sẽ tính hạn từ ngày này.

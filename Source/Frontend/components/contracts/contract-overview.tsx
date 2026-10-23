@@ -449,7 +449,7 @@ export function ContractOverview({
 
           <div className="grid gap-4 sm:grid-cols-2">
             {isEditable ? (
-              <div className="rounded-xl border bg-muted/10 p-4">
+              <div className="rounded-xl border bg-muted/20 p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 font-semibold">
                   <Users className="size-4" />{" "}
                   {getContractCounterpartyLabel(contract.contractDirection)}
@@ -507,7 +507,7 @@ export function ContractOverview({
             )}
 
             {/* SỬA NGÀY THÁNG */}
-            <div className="rounded-xl border bg-muted/10 p-4">
+            <div className="rounded-xl border bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <CalendarDays className="size-4" /> Hiệu lực
               </div>

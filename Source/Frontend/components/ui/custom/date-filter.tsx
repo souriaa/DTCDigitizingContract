@@ -50,7 +50,7 @@ export function DateFilter({
             variant="outline"
             disabled={disabled}
             className={cn(
-              "justify-start text-left font-normal",
+              "justify-start text-left font-normal bg-transparent",
               isMobile ? "flex-1 w-full" : className,
               !date && "text-muted-foreground",
             )}

@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format-date-time";
+import { formatDate } from "@/lib/format-date";
 import { usePermission } from "@/hooks/use-permission";
 import { RBAC_PERMISSIONS } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
@@ -336,13 +337,37 @@ const resolveAuditVersionNo = (
   return undefined;
 };
 
+const AUDIT_DATE_FIELDS = new Set([
+  "EffectiveDate",
+  "ExpireDate",
+  "SignDate",
+  "AcceptanceDate",
+  "HandoverDate",
+  "PaymentDate",
+  "AnchorDate",
+  "DueDate",
+]);
+
+const AUDIT_DATE_TIME_FIELDS = new Set([
+  "UploadDate",
+  "ExpiresAt",
+  "IdleExpiresAt",
+  "HardExpiresAt",
+  "PaidAt",
+]);
+
 const formatAuditValue = (
   key: string,
   value: unknown,
   audit?: ContractAuditResponse,
   side: AuditValueSide = "new",
+  formatDates = true,
 ): string => {
   if (value === null || value === undefined || value === "") return "—";
+  if (formatDates && typeof value === "string") {
+    if (AUDIT_DATE_FIELDS.has(key)) return formatDate(value);
+    if (AUDIT_DATE_TIME_FIELDS.has(key)) return formatDateTime(value);
+  }
   if (key === "CurrentVersionId" && audit) {
     const versionNo = resolveAuditVersionNo(audit, value, side);
     return versionNo ? `Phiên bản ${versionNo}` : "—";
@@ -413,8 +438,9 @@ function AuditChanges({ audit }: { audit: ContractAuditResponse }) {
         key === "CurrentVersionId" ||
         key === "SourceVersionId" ||
         key === "NewVersionId") &&
-      formatAuditValue(key, previousValues[key], audit, "previous") !==
-        formatAuditValue(key, newValues[key], audit, "new"),
+      // Compare original date values so minute-only display cannot hide a change.
+      formatAuditValue(key, previousValues[key], audit, "previous", false) !==
+        formatAuditValue(key, newValues[key], audit, "new", false),
   );
 
   if (changedKeys.length === 0) return null;

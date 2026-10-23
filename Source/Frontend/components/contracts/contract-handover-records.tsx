@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/format-date";
+import { formatDateTime } from "@/lib/format-date-time";
 import {
   CheckCircle2,
   ChevronDown,
@@ -82,8 +84,6 @@ const statusText = {
 };
 const day = (value?: string) =>
   value ? new Date(value.slice(0, 10) + "T00:00:00") : undefined;
-const dateText = (value?: string | null) =>
-  value ? new Date(value).toLocaleString("vi-VN") : "—";
 const emptyForm = (): HandoverMetadata => ({
   handoverCode: "",
   handoverDate: format(new Date(), "yyyy-MM-dd"),
@@ -680,7 +680,7 @@ export function ContractHandoverRecords({
                         </Badge>
                       </div>
                       <p className="text-xs font-normal text-muted-foreground">
-                        {day(x.handoverDate)?.toLocaleDateString("vi-VN")}
+                        {formatDate(x.handoverDate)}
                         {detailsOpen &&
                           selected?.record.handoverRecordId ===
                             x.handoverRecordId &&
@@ -886,7 +886,7 @@ export function ContractHandoverRecords({
               ) : (
                 <div className="space-y-2 text-sm">
                   <p>
-                    Ngày bàn giao: {selected.record.handoverDate.slice(0, 10)} ·{" "}
+                    Ngày bàn giao: {formatDate(selected.record.handoverDate)} ·{" "}
                     {selected.location}
                   </p>
                   {isBilingual && <p>{selected.locationEn}</p>}
@@ -1113,10 +1113,10 @@ export function ContractHandoverRecords({
                           </h4>
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
-                          Vui lòng kiểm tra kỹ thông tin các bên, căn cứ và
-                          các hạng mục bàn giao. Khi chốt, hệ thống sẽ tự động
-                          lưu lại toàn bộ thay đổi mới nhất, xuất file chính
-                          thức và khóa nội dung để chuẩn bị ký kết.
+                          Vui lòng kiểm tra kỹ thông tin các bên, căn cứ và các
+                          hạng mục bàn giao. Khi chốt, hệ thống sẽ tự động lưu
+                          lại toàn bộ thay đổi mới nhất, xuất file chính thức và
+                          khóa nội dung để chuẩn bị ký kết.
                         </p>
                       </div>
                     </div>
@@ -1160,18 +1160,18 @@ export function ContractHandoverRecords({
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>
                   Tạo bởi {selected.createdByEmployeeName ?? "—"} ·{" "}
-                  {dateText(selected.createdAt)}
+                  {formatDateTime(selected.createdAt)}
                 </p>
                 {selected.finalizedAt && (
                   <p>
                     Chốt bởi {selected.finalizedByEmployeeName ?? "—"} ·{" "}
-                    {dateText(selected.finalizedAt)}
+                    {formatDateTime(selected.finalizedAt)}
                   </p>
                 )}
                 {selected.cancelledAt && (
                   <p>
                     Hủy bởi {selected.cancelledByEmployeeName ?? "—"} ·{" "}
-                    {dateText(selected.cancelledAt)} ·{" "}
+                    {formatDateTime(selected.cancelledAt)} ·{" "}
                     {selected.cancellationReason}
                   </p>
                 )}
@@ -1216,6 +1216,7 @@ export function ContractHandoverRecords({
                       Ngày ký thực tế <span className="text-red-500">*</span>
                     </Label>
                     <DateFilter
+                      className="bg-background flex-1"
                       disabled={busy}
                       date={day(signDate)}
                       onChange={(v) =>
@@ -1245,12 +1246,12 @@ export function ContractHandoverRecords({
                   <AlertDescription className="space-y-1">
                     <p>
                       Đã ký · Ngày ký:{" "}
-                      {selected.signedEvidence.signDate.slice(0, 10)}
+                      {formatDate(selected.signedEvidence.signDate)}
                     </p>
                     <p>
                       Tải bởi{" "}
                       {selected.signedEvidence.uploadedByEmployeeName ?? "—"} ·{" "}
-                      {dateText(selected.signedEvidence.uploadedAt)}
+                      {formatDateTime(selected.signedEvidence.uploadedAt)}
                     </p>
                     <Button
                       type="button"
@@ -1357,7 +1358,7 @@ export function ContractHandoverRecords({
                 value={templateId ? templateId.toString() : ""}
                 onValueChange={(v) => setTemplateId(Number(v))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Chọn mẫu" />
                 </SelectTrigger>
                 <SelectContent>

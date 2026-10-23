@@ -159,7 +159,8 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState<ContractDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [errorKind, setErrorKind] = useState<ResourceAccessErrorKind>("not-found");
+  const [errorKind, setErrorKind] =
+    useState<ResourceAccessErrorKind>("not-found");
   const [isUpdating, setIsUpdating] = useState(false);
   const saveInFlightRef = useRef(false);
   const [isStartingNegotiation, setIsStartingNegotiation] = useState(false);
@@ -384,7 +385,9 @@ export default function ContractDetailPage() {
       if (
         contract.languageMode === ContractLanguageMode.Bilingual &&
         (!draft.termTitleEn?.trim() ||
-          (!!draft.termContent?.trim() && (draft.bilingualContentMode === 1 && !draft.termContentEn?.trim())))
+          (!!draft.termContent?.trim() &&
+            draft.bilingualContentMode === 1 &&
+            !draft.termContentEn?.trim()))
       ) {
         toast.error(
           `Điều khoản phụ lục “${draft.termCode}” chưa đủ nội dung tiếng Anh.`,
@@ -393,11 +396,20 @@ export default function ContractDetailPage() {
       }
     }
 
-    const paymentDraftError = getPaymentDraftError(contract.currentVersion.terms.map((term) => ({
-      termKind: term.termKind,
-      paymentMilestones: term.termKind === ContractTermKind.Payment ? contract.currentVersion.paymentMilestones : [],
-    })), contract.languageMode === ContractLanguageMode.Bilingual);
-    if (hasUnsavedChanges && paymentDraftError) { toast.error(paymentDraftError); return; }
+    const paymentDraftError = getPaymentDraftError(
+      contract.currentVersion.terms.map((term) => ({
+        termKind: term.termKind,
+        paymentMilestones:
+          term.termKind === ContractTermKind.Payment
+            ? contract.currentVersion.paymentMilestones
+            : [],
+      })),
+      contract.languageMode === ContractLanguageMode.Bilingual,
+    );
+    if (hasUnsavedChanges && paymentDraftError) {
+      toast.error(paymentDraftError);
+      return;
+    }
 
     const manualPaymentMilestones =
       contract.currentVersion.paymentMilestones.filter(
@@ -406,8 +418,14 @@ export default function ContractDetailPage() {
 
     if (hasUnsavedChanges) {
       for (const basis of contract.currentVersion.legalBases) {
-        if (!basis.contentVi.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !basis.contentEn?.trim())) {
-          toast.error(`Căn cứ “${basis.basisCode}” chưa đủ nội dung${contract.languageMode === ContractLanguageMode.Bilingual ? " tiếng Việt và tiếng Anh" : " tiếng Việt"}.`);
+        if (
+          !basis.contentVi.trim() ||
+          (contract.languageMode === ContractLanguageMode.Bilingual &&
+            !basis.contentEn?.trim())
+        ) {
+          toast.error(
+            `Căn cứ “${basis.basisCode}” chưa đủ nội dung${contract.languageMode === ContractLanguageMode.Bilingual ? " tiếng Việt và tiếng Anh" : " tiếng Việt"}.`,
+          );
           handleTabChange("legal-bases");
           return;
         }
@@ -445,8 +463,14 @@ export default function ContractDetailPage() {
       }
 
       for (const item of contract.currentVersion.items) {
-        if (!item.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !item.unitNameEn?.trim())) {
-          toast.error(`“${item.itemName}” thiếu đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""}. Hãy cập nhật danh mục và thêm lại hạng mục trước khi lưu.`);
+        if (
+          !item.unitName?.trim() ||
+          (contract.languageMode === ContractLanguageMode.Bilingual &&
+            !item.unitNameEn?.trim())
+        ) {
+          toast.error(
+            `“${item.itemName}” thiếu đơn vị${item.unitName?.trim() ? " tiếng Anh" : ""}. Hãy cập nhật danh mục và thêm lại hạng mục trước khi lưu.`,
+          );
           return;
         }
         if (
@@ -506,7 +530,9 @@ export default function ContractDetailPage() {
         if (
           contract.languageMode === ContractLanguageMode.Bilingual &&
           (!term.termTitleEn?.trim() ||
-            (!!term.termContent?.trim() && (term.bilingualContentMode === 1 && !term.termContentEn?.trim())))
+            (!!term.termContent?.trim() &&
+              term.bilingualContentMode === 1 &&
+              !term.termContentEn?.trim()))
         ) {
           toast.error(
             `Điều khoản “${term.termCode}” chưa đủ nội dung tiếng Anh.`,
@@ -576,10 +602,18 @@ export default function ContractDetailPage() {
             termId: term.termId < 0 ? null : term.termId,
             rowVersion: term.termId < 0 ? null : term.rowVersion,
             termKind: term.termKind,
-            paymentMilestones: term.termKind === ContractTermKind.Payment ? contract.currentVersion.paymentMilestones.map((row) => ({
-              ...row, paymentMilestoneId: row.paymentMilestoneId > 0 ? row.paymentMilestoneId : null,
-              rowVersion: row.paymentMilestoneId > 0 ? row.rowVersion : null,
-            })) : [],
+            paymentMilestones:
+              term.termKind === ContractTermKind.Payment
+                ? contract.currentVersion.paymentMilestones.map((row) => ({
+                    ...row,
+                    paymentMilestoneId:
+                      row.paymentMilestoneId > 0
+                        ? row.paymentMilestoneId
+                        : null,
+                    rowVersion:
+                      row.paymentMilestoneId > 0 ? row.rowVersion : null,
+                  }))
+                : [],
             termCode: term.termCode,
             termTitle: term.termTitle,
             termTitleEn: term.termTitleEn,
@@ -1077,7 +1111,7 @@ export default function ContractDetailPage() {
               </span>
             }
           />
-          <div className="rounded-xl border bg-muted/30 p-4 flex flex-col justify-between">
+          <div className="rounded-xl border bg-muted/20 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="size-4" />
@@ -1130,14 +1164,26 @@ export default function ContractDetailPage() {
                     <li key={`${blocker.code}:${blocker.message}`}>
                       {blocker.message}
                       {blocker.code === "EnglishSourceMissingCustomer" &&
-                        hasPermission(user?.permissions, RBAC_PERMISSIONS.customerManage) && (
-                          <Link href={`/customers/${contract.customer.customerId}`} className="ml-2 font-medium underline">
+                        hasPermission(
+                          user?.permissions,
+                          RBAC_PERMISSIONS.customerManage,
+                        ) && (
+                          <Link
+                            href={`/customers/${contract.customer.customerId}`}
+                            className="ml-2 font-medium underline"
+                          >
                             Bổ sung thông tin khách hàng
                           </Link>
                         )}
                       {blocker.code === "EnglishSourceMissingProvider" &&
-                        hasPermission(user?.permissions, RBAC_PERMISSIONS.tenantLegalProfileManage) && (
-                          <Link href="/admin/legal-profile" className="ml-2 font-medium underline">
+                        hasPermission(
+                          user?.permissions,
+                          RBAC_PERMISSIONS.tenantLegalProfileManage,
+                        ) && (
+                          <Link
+                            href="/admin/legal-profile"
+                            className="ml-2 font-medium underline"
+                          >
                             Bổ sung hồ sơ pháp lý
                           </Link>
                         )}
@@ -1148,24 +1194,54 @@ export default function ContractDetailPage() {
             </Alert>
           )}
 
-        {canManageContract && contract.status === ContractStatus.Draft &&
-          effectiveApprovalBlockers.some((item) => item.code.startsWith("EnglishSourceMissing")) && (
+        {canManageContract &&
+          contract.status === ContractStatus.Draft &&
+          effectiveApprovalBlockers.some((item) =>
+            item.code.startsWith("EnglishSourceMissing"),
+          ) && (
             <Alert>
-              <AlertTitle>Cần bổ sung thông tin tiếng Anh cho tài liệu</AlertTitle>
+              <AlertTitle>
+                Cần bổ sung thông tin tiếng Anh cho tài liệu
+              </AlertTitle>
               <AlertDescription className="space-y-2">
                 <ul className="list-disc pl-5">
-                  {effectiveApprovalBlockers.filter((item) => item.code.startsWith("EnglishSourceMissing")).map((item) => (
-                    <li key={`${item.code}:${item.message}`}>{item.message}</li>
-                  ))}
+                  {effectiveApprovalBlockers
+                    .filter((item) =>
+                      item.code.startsWith("EnglishSourceMissing"),
+                    )
+                    .map((item) => (
+                      <li key={`${item.code}:${item.message}`}>
+                        {item.message}
+                      </li>
+                    ))}
                 </ul>
                 <div className="flex flex-wrap gap-3">
-                  {hasPermission(currentPermissions, RBAC_PERMISSIONS.customerManage) && (
-                    <Link className="font-medium underline" href={`/customers/${contract.customer.customerId}`}>Thông tin khách hàng</Link>
+                  {hasPermission(
+                    currentPermissions,
+                    RBAC_PERMISSIONS.customerManage,
+                  ) && (
+                    <Link
+                      className="font-medium underline"
+                      href={`/customers/${contract.customer.customerId}`}
+                    >
+                      Thông tin khách hàng
+                    </Link>
                   )}
-                  {hasPermission(currentPermissions, RBAC_PERMISSIONS.tenantLegalProfileManage) && (
-                    <Link className="font-medium underline" href="/admin/legal-profile">Hồ sơ pháp lý</Link>
+                  {hasPermission(
+                    currentPermissions,
+                    RBAC_PERMISSIONS.tenantLegalProfileManage,
+                  ) && (
+                    <Link
+                      className="font-medium underline"
+                      href="/admin/legal-profile"
+                    >
+                      Hồ sơ pháp lý
+                    </Link>
                   )}
-                  <span>Nếu không có quyền sửa, hãy nhờ người phụ trách bổ sung rồi tải lại hợp đồng.</span>
+                  <span>
+                    Nếu không có quyền sửa, hãy nhờ người phụ trách bổ sung rồi
+                    tải lại hợp đồng.
+                  </span>
                 </div>
               </AlertDescription>
             </Alert>
@@ -1239,14 +1315,31 @@ export default function ContractDetailPage() {
           </TabsContent>
 
           <TabsContent value="legal-bases">
-            <ContractLegalBases bases={contract.currentVersion.legalBases}
-              isBilingual={contract.languageMode === ContractLanguageMode.Bilingual}
+            <ContractLegalBases
+              bases={contract.currentVersion.legalBases}
+              isBilingual={
+                contract.languageMode === ContractLanguageMode.Bilingual
+              }
               canEdit={canUpdateDraft && !isUpdating && !appendixOperationBusy}
-              onChange={(legalBasisId, field, value) => handleContractChange((current) => !current ? current : ({
-                ...current,
-                currentVersion: { ...current.currentVersion, legalBases: current.currentVersion.legalBases.map((basis) =>
-                  basis.legalBasisId === legalBasisId ? { ...basis, [field]: value } : basis) },
-              }))} />
+              onChange={(legalBasisId, field, value) =>
+                handleContractChange((current) =>
+                  !current
+                    ? current
+                    : {
+                        ...current,
+                        currentVersion: {
+                          ...current.currentVersion,
+                          legalBases: current.currentVersion.legalBases.map(
+                            (basis) =>
+                              basis.legalBasisId === legalBasisId
+                                ? { ...basis, [field]: value }
+                                : basis,
+                          ),
+                        },
+                      },
+                )
+              }
+            />
           </TabsContent>
 
           <TabsContent value="appendices">

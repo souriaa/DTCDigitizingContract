@@ -45,6 +45,7 @@ import {
   ContractPaymentStatus,
 } from "@/services/contract-completion-api";
 import { formatDateTime } from "@/lib/format-date-time";
+import { formatDate } from "@/lib/format-date";
 import { ContractHandoverRecords } from "@/components/contracts/contract-handover-records";
 import { ContractAcceptanceRecords } from "@/components/contracts/contract-acceptance-records";
 
@@ -516,7 +517,7 @@ export function ContractClosing({
                       </p>
                       <p className="flex items-center gap-2">
                         {milestone.dueDate
-                          ? `Hạn ${new Date(milestone.dueDate).toLocaleDateString("vi-VN")}`
+                          ? `Hạn ${formatDate(milestone.dueDate)}`
                           : "Chưa phát sinh mốc tính hạn"}
                         {milestone.dayCountMode ===
                           ContractPaymentDayCountMode.BusinessDays && (
@@ -530,9 +531,7 @@ export function ContractClosing({
                         <div className="mt-3 space-y-1 rounded-md border bg-muted/40 p-3 text-xs">
                           <p>
                             Thanh toán ngày{" "}
-                            {new Date(
-                              milestone.activePayment.paymentDate,
-                            ).toLocaleDateString("vi-VN")}
+                            {formatDate(milestone.activePayment.paymentDate)}
                           </p>
                           <p>
                             {milestone.activePayment.paymentMethod} ·{" "}
@@ -725,9 +724,7 @@ export function ContractClosing({
                             )}
                           </b>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(payment.paymentDate).toLocaleDateString(
-                              "vi-VN",
-                            )}{" "}
+                            {formatDate(payment.paymentDate)}{" "}
                             · {payment.paymentMethod} · {payment.referenceCode}
                           </p>
                         </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date-time";
+
 import {
   ChangeEvent,
   DragEvent,
@@ -424,9 +426,7 @@ export function ContractAttachments({
                             <>
                               <span>•</span>
                               <span>
-                                {new Date(attachment.uploadedAt).toLocaleString(
-                                  "vi-VN",
-                                )}
+                                {formatDateTime(attachment.uploadedAt)}
                               </span>
                             </>
                           )}

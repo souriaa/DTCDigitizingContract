@@ -9,6 +9,7 @@ import {
   type AcceptanceHandoverScope,
 } from "@/services/contract-acceptance-api";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { formatDate } from "@/lib/format-date";
 import { RotateCcw } from "lucide-react";
 
 export function AcceptanceHandoverScopeEditor({
@@ -94,7 +95,7 @@ export function AcceptanceHandoverScopeEditor({
               name: x.nameVi,
               unit: x.unitVi,
               available: x.availableQuantity,
-              description: `${x.handoverCode} · ký ngày ${x.signDate.slice(0, 10)} · ${x.itemCode}`,
+              description: `${x.handoverCode} · ký ngày ${formatDate(x.signDate)} · ${x.itemCode}`,
               wholePackage: x.scopeMode === 2,
               quantity: selected.find(
                 (s) => s.handoverLineId === x.handoverLineId,

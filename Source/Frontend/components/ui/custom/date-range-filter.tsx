@@ -41,7 +41,7 @@ export function DateRangeFilter({
             type="button"
             variant="outline"
             className={cn(
-              "justify-start text-left font-normal flex-1",
+              "justify-start text-left font-normal flex-1 bg-transparent",
               buttonClassName,
               !dateRange.from && "text-muted-foreground",
             )}
