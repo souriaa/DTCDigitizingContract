@@ -33,11 +33,10 @@ public sealed class TenantSecurityAuditQueryService
         ArgumentNullException.ThrowIfNull(filter);
         Validate(filter);
 
-        var canRead = await _dbContext.TblEmployees.AsNoTracking()
-            .AnyAsync(employee => employee.EmployeeId == employeeId
-                && employee.Status == 1
-                && employee.EmployeeType == (byte)EmployeeType.Manager,
-                cancellationToken);
+        var type = await _dbContext.TblEmployees.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.Status == 1).Select(x => x.EmployeeType)
+            .SingleOrDefaultAsync(cancellationToken);
+        var canRead = EmployeePermissionCatalog.HasPermission(type, RbacPermissions.SecurityAuditReadTenant);
         if (!canRead)
         {
             throw new RbacOperationException(

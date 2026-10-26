@@ -45,6 +45,10 @@ export interface ContractApprovalRequestResponse {
   submittedByEmployeeId: number;
   submittedByEmployeeName?: string | null;
   submittedDate: string;
+  administrativeReviewerEmployeeId?: number | null;
+  administrativeReviewerEmployeeName?: string | null;
+  administrativeReviewedAt?: string | null;
+  administrativeReviewComment?: string | null;
   resolvedByEmployeeId?: number | null;
   resolvedByEmployeeName?: string | null;
   resolvedDate?: string | null;
@@ -64,8 +68,8 @@ export interface ContractApprovalActionResponse {
   versionId: number;
   approvalStatus: ApprovalRequestStatus;
   contractStatus: ContractStatus;
-  resolvedByEmployeeId: number;
-  resolvedDate: string;
+  resolvedByEmployeeId: number | null;
+  resolvedDate: string | null;
   decisionComment?: string | null;
   approvalRequestRowVersion: string;
   contractRowVersion: string;
@@ -122,6 +126,10 @@ export const contractApprovalApi = {
     axiosClient.get<unknown, ContractApprovalRequestResponse[]>(
       `${BASE_URL}/contracts/${contractId}/history`,
     ),
+  reviewApprove: (id: number, data: ContractApprovalDecisionRequest) =>
+    axiosClient.post<unknown, ContractApprovalActionResponse>(`${BASE_URL}/${id}/review-approve`, data),
+  reviewReturn: (id: number, data: ContractApprovalDecisionRequest) =>
+    axiosClient.post<unknown, ContractApprovalActionResponse>(`${BASE_URL}/${id}/review-return`, data),
   approve: (
     approvalRequestId: number,
     data: ContractApprovalDecisionRequest,

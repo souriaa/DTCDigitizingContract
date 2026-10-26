@@ -75,12 +75,8 @@ public sealed class Slice04ResourceAuthorizationTests
         var service = new ContractResourceAuthorizationService(context);
 
         await service.EnsureCanReadAsync(ContractId, OtherEmployeeId);
-        await service.EnsureCanManageSigningAsync(
-            ContractId,
-            OtherEmployeeId);
-        await service.EnsureCanManageAcceptanceAsync(
-            ContractId,
-            OtherEmployeeId);
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.EnsureCanManageSigningAsync(ContractId, OtherEmployeeId));
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.EnsureCanManageAcceptanceAsync(ContractId, OtherEmployeeId));
         await service.EnsureCanReadAsync(ContractId, AccountantEmployeeId);
         await service.EnsureCanManagePaymentAsync(
             ContractId,
@@ -275,8 +271,7 @@ public sealed class Slice04ResourceAuthorizationTests
 
         var deniedContractRead = await Assert.ThrowsAsync<RbacOperationException>(
             () => service.EnsureCanReadFileAsync(1, OtherEmployeeId));
-        var deniedTemplateRead = await Assert.ThrowsAsync<RbacOperationException>(
-            () => service.EnsureCanReadFileAsync(2, ManagerEmployeeId));
+        await service.EnsureCanReadFileAsync(2, ManagerEmployeeId);
         var deniedArtifactRead = await Assert.ThrowsAsync<RbacOperationException>(
             () => service.EnsureCanReadFileAsync(3, OtherEmployeeId));
         var deniedArtifactDelete = await Assert.ThrowsAsync<RbacOperationException>(
@@ -287,8 +282,6 @@ public sealed class Slice04ResourceAuthorizationTests
             () => service.EnsureCanDeleteFileAsync(4, ResponsibleEmployeeId));
 
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, deniedContractRead.Code);
-        Assert.Equal(StatusCodes.Status403Forbidden, deniedTemplateRead.StatusCode);
-        Assert.Equal(AuthorizationErrorCodes.PermissionDenied, deniedTemplateRead.Code);
         Assert.Equal(StatusCodes.Status404NotFound, deniedArtifactRead.StatusCode);
         Assert.Equal(AuthorizationErrorCodes.ResourceNotFound, deniedArtifactRead.Code);
         Assert.Equal(StatusCodes.Status403Forbidden, deniedArtifactDelete.StatusCode);

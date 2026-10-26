@@ -44,7 +44,7 @@ public sealed class DashboardService : IDashboardService
                 AuthorizationErrorCodes.EmployeeInactive,
                 "Employee account is inactive or no longer exists.");
 
-        var isManager = employee.EmployeeType == (byte)EmployeeType.Manager;
+        var isManager = EmployeePermissionCatalog.HasPermission(employee.EmployeeType, RbacPermissions.ContractReadTenant);
         var scopedContracts = _dbContext.TblContracts
             .AsNoTracking()
             .Where(contract => isManager || contract.EmployeeId == employeeId);
@@ -68,7 +68,8 @@ public sealed class DashboardService : IDashboardService
             .ToListAsync(cancellationToken);
 
         int? pendingApprovalInboxCount = null;
-        if (isManager)
+        if (EmployeePermissionCatalog.HasPermission(employee.EmployeeType, RbacPermissions.ContractApprovalDecide)
+            || EmployeePermissionCatalog.HasPermission(employee.EmployeeType, RbacPermissions.ContractApprovalReview))
         {
             var approvalInbox = await ContractApprovalInboxQuery.CreateAsync(
                 _dbContext,
@@ -211,7 +212,7 @@ public sealed class DashboardService : IDashboardService
                     "pendingApproval",
                     pendingApprovalInboxCount.Value)
                 : Summary("pendingApproval", currentStatuses, previousStatuses,
-                    status => status == (byte)ContractStatus.PendingApproval),
+                    status => status == (byte)ContractStatus.PendingApproval || status == (byte)ContractStatus.PendingAdministrativeReview),
             Summary("pendingSignature", currentStatuses, previousStatuses,
                 status => status == (byte)ContractStatus.PendingSignature),
             Summary("signed", currentStatuses, previousStatuses,

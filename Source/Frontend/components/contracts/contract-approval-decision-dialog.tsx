@@ -50,6 +50,7 @@ export const APPROVAL_DECISION_CONFIG = {
 interface ContractApprovalDecisionDialogProps {
   open: boolean;
   mode: "single" | "bulk";
+  administrativeReview?: boolean;
   requests: ContractApprovalRequestResponse[];
   detail?: ContractApprovalDetailResponse | null;
   initialDecision?: ApprovalDecision;
@@ -72,6 +73,7 @@ export function ContractApprovalDecisionDialog({
   mode,
   requests,
   detail,
+  administrativeReview = false,
   initialDecision = "approve",
   isLoadingDetail = false,
   isSubmitting = false,
@@ -90,7 +92,13 @@ export function ContractApprovalDecisionDialog({
     !isLoadingDetail &&
     !isSubmitting &&
     (!requiresReason || normalizedComment.length > 0);
-  const config = APPROVAL_DECISION_CONFIG[decision];
+  const configs = { ...APPROVAL_DECISION_CONFIG,
+    approve: { ...APPROVAL_DECISION_CONFIG.approve,
+      label: administrativeReview ? "Thông qua và trình quản lý" : APPROVAL_DECISION_CONFIG.approve.label,
+      description: administrativeReview ? "Hồ sơ chuyển chờ quản lý duyệt; chưa được ký hợp đồng." : APPROVAL_DECISION_CONFIG.approve.description
+    }
+  };
+  const config = configs[decision];
 
   return (
     <Dialog
@@ -233,7 +241,7 @@ export function ContractApprovalDecisionDialog({
                 {(
                   Object.keys(APPROVAL_DECISION_CONFIG) as ApprovalDecision[]
                 ).map((value) => {
-                  const itemConfig = APPROVAL_DECISION_CONFIG[value];
+                  const itemConfig = configs[value];
                   const Icon = itemConfig.icon;
                   return (
                     <Button

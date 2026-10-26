@@ -115,6 +115,9 @@ public sealed partial class ContractServiceSlice04Tests
         request.ContractType = ContractType.SoftwareMaintenance;
         request.ContractDirection = ContractDirection.Purchase;
         request.ParentContractId = source.ContractId;
+        db.TblContractTemplateFields.Add(new() { TemplateVersionId = TemplateVersionId,
+            PlaceholderKey = "CONTRACT_LEGAL_BASES", FieldLabel = "Căn cứ", DataSource = "Contract.LegalBases" });
+        await db.SaveChangesAsync();
         var error = await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(request, EmployeeId));
         Assert.Contains("cùng chiều Mua/Bán", error.Message);
         Assert.Single(db.TblContracts);

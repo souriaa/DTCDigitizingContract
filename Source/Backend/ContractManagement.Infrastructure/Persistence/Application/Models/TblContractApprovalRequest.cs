@@ -35,6 +35,10 @@ public class TblContractApprovalRequest
 
     public DateTime SubmittedDate { get; set; }
 
+    public int? AdministrativeReviewerEmployeeId { get; set; }
+    public DateTime? AdministrativeReviewedAt { get; set; }
+    public string? AdministrativeReviewComment { get; set; }
+
     public int? ResolvedByEmployeeId { get; set; }
 
     public DateTime? ResolvedDate { get; set; }

@@ -889,7 +889,7 @@ public partial class ContractServiceResponsibilityTransferTests
             (byte)ContractStatus.Negotiating,
             audit.PreviousContractStatus);
         Assert.Equal(
-            (byte)ContractStatus.PendingApproval,
+            (byte)ContractStatus.PendingAdministrativeReview,
             audit.NewContractStatus);
 
         Assert.False(ContractValue(audit, AuditValueSide.Previous,
@@ -901,7 +901,7 @@ public partial class ContractServiceResponsibilityTransferTests
             ContractValue(audit, AuditValueSide.New,
                 ContractAuditFieldCode.ApprovalRequestId).IntegerValue);
         Assert.Equal(
-            (byte)ApprovalRequestStatus.Pending,
+            (byte)ApprovalRequestStatus.PendingAdministrativeReview,
             ContractValue(audit, AuditValueSide.New,
                 ContractAuditFieldCode.ApprovalStatus).IntegerValue);
         Assert.Equal(

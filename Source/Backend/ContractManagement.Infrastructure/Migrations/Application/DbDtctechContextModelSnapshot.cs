@@ -393,7 +393,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                             t.HasCheckConstraint("CK_tbl_Contract_LanguageMode", "[LanguageMode] IN (1, 2)");
 
-                            t.HasCheckConstraint("CK_tbl_Contract_Status", "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7)");
+                            t.HasCheckConstraint("CK_tbl_Contract_Status", "[Status] IN (0, 1, 2, 3, 4, 5, 6, 7, 8)");
 
                             t.HasCheckConstraint("CK_tbl_Contract_TemplateVersionId", "[TemplateVersionId] > 0");
 
@@ -979,6 +979,10 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ApprovalRequestId"));
 
+                    b.Property<int?>("AdministrativeReviewerEmployeeId").HasColumnType("int");
+                    b.Property<DateTime?>("AdministrativeReviewedAt").HasColumnType("datetime2");
+                    b.Property<string>("AdministrativeReviewComment").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
@@ -1022,7 +1026,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("ContractId")
                         .IsUnique()
                         .HasDatabaseName("UX_tbl_ContractApprovalRequest_PendingContract")
-                        .HasFilter("[Status] = 0");
+                        .HasFilter("[Status] IN (0, 5)");
 
                     b.HasIndex("VersionId")
                         .HasDatabaseName("IX_tbl_ContractApprovalRequest_VersionId");
@@ -1037,7 +1041,7 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                         {
                             t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_ContractId", "[ContractId] > 0");
 
-                            t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_Status", "[Status] IN (0, 1, 2, 3, 4)");
+                            t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_Status", "[Status] IN (0, 1, 2, 3, 4, 5)");
 
                             t.HasCheckConstraint("CK_tbl_ContractApprovalRequest_VersionId", "[VersionId] > 0");
                         });

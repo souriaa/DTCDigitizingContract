@@ -32,13 +32,13 @@ public sealed class ContractCompletionController : ControllerBase
             await _service.GetPaymentMilestonesAsync(contractId, versionId, EmployeeId(), ct)));
 
     [HttpPost("payments")]
-    [SessionAuthorize(RbacPermissions.ContractPaymentManage)]
+    [SessionAuthorize(RbacPermissions.ContractPaymentManage, RbacPermissions.ContractPaymentManageOwn, RequireAnyPermission = true)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> AddPayment(int contractId, [FromForm] AddContractPaymentRequest request, CancellationToken ct) =>
         Ok(ApiResponse<ContractPaymentResponse>.Ok(await _service.AddPaymentAsync(contractId, request, EmployeeId(), ct), "Đã ghi nhận khoản thanh toán."));
 
     [HttpPost("versions/{versionId:int}/payment-milestones/{milestoneId:int}/complete")]
-    [SessionAuthorize(RbacPermissions.ContractPaymentManage)]
+    [SessionAuthorize(RbacPermissions.ContractPaymentManage, RbacPermissions.ContractPaymentManageOwn, RequireAnyPermission = true)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> CompletePaymentMilestone(
         int contractId, int versionId, int milestoneId,
@@ -50,7 +50,7 @@ public sealed class ContractCompletionController : ControllerBase
             "Đã hoàn tất đợt thanh toán và lưu chứng từ."));
 
     [HttpPost("versions/{versionId:int}/payment-milestones/{milestoneId:int}/reopen")]
-    [SessionAuthorize(RbacPermissions.ContractPaymentManage)]
+    [SessionAuthorize(RbacPermissions.ContractPaymentManage, RbacPermissions.ContractPaymentManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> ReopenPaymentMilestone(
         int contractId, int versionId, int milestoneId,
         [FromBody] ReopenContractPaymentMilestoneRequest request,
@@ -61,7 +61,7 @@ public sealed class ContractCompletionController : ControllerBase
             "Đã chuyển đợt thanh toán về chưa nộp và lưu lịch sử chứng từ."));
 
     [HttpPost("payments/{paymentId:int}/void")]
-    [SessionAuthorize(RbacPermissions.ContractPaymentManage)]
+    [SessionAuthorize(RbacPermissions.ContractPaymentManage, RbacPermissions.ContractPaymentManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> VoidPayment(int contractId, int paymentId, [FromBody] VoidContractPaymentRequest request, CancellationToken ct) =>
         Ok(ApiResponse<ContractPaymentResponse>.Ok(await _service.VoidPaymentAsync(contractId, paymentId, request, EmployeeId(), ct), "Đã hủy khoản thanh toán."));
 

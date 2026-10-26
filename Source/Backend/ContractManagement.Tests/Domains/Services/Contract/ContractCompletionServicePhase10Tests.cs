@@ -222,10 +222,10 @@ public sealed partial class ContractCompletionServicePhase10Tests
                 candidate.ActionType == ContractAuditActionTypes.PaymentAdded
                 && candidate.ActorEmployeeId == AccountantId));
         var notification = await context.TblNotifications.AsNoTracking()
-            .Include(x => x.Recipients).SingleAsync();
+            .Include(x => x.Recipients).SingleAsync(x => x.EventCode == "PaymentsCompleted");
         Assert.Equal("PaymentsCompleted", notification.EventCode);
         Assert.Equal($"contract:{ContractId}:payments-complete:{final.ContractPaymentId}", notification.EventKey);
-        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal(new[] { OwnerId, ManagerId }.Order(), notification.Recipients.Select(x => x.EmployeeId).Order());
 
         await service.VoidPaymentAsync(ContractId, final.ContractPaymentId,
             VoidRequest(Convert.FromBase64String(final.RowVersion),
@@ -494,7 +494,7 @@ public sealed partial class ContractCompletionServicePhase10Tests
             CreateService(context, storage)
                 .CompletePaymentMilestoneAsync(
                     ContractId, VersionId, milestone.PaymentMilestoneId,
-                    CompleteMilestoneRequest("UNAUTHORIZED-001"), OwnerId));
+                    CompleteMilestoneRequest("UNAUTHORIZED-001"), OtherEmployeeId));
 
         Assert.Equal(AuthorizationErrorCodes.PermissionDenied, exception.Code);
         var stored = await context.TblContractPaymentMilestones.AsNoTracking()
@@ -801,23 +801,14 @@ public sealed partial class ContractCompletionServicePhase10Tests
     }
 
     [Fact]
-    public async Task OwnerCannotMutateAcceptanceOrPaymentData()
+    public async Task OwnerCanRecordPayment_ButCannotCompleteContract()
     {
-        await using var context = CreateContext();
-        await SeedAsync(context, ContractStatus.Signed);
-        var storage = new TrackingPrivateStorage();
-        var service = CreateService(context, storage);
-
-        var payment = await Assert.ThrowsAsync<RbacOperationException>(() =>
-            service.AddPaymentAsync(
-                ContractId,
-                PaymentRequest(100m, "unauthorized"),
-                OwnerId));
-
-        Assert.Equal(AuthorizationErrorCodes.PermissionDenied, payment.Code);
-        Assert.Empty(storage.SavedKeys);
-        Assert.Empty(context.TblContractAcceptanceEvidences);
-        Assert.Empty(context.TblContractPaymentLedgers);
+        await using var db = CreateContext();
+        await SeedAsync(db, ContractStatus.Signed);
+        var service = CreateService(db, new TrackingPrivateStorage());
+        var payment = await service.AddPaymentAsync(ContractId, PaymentRequest(100m, "OWNER"), OwnerId);
+        Assert.Equal(100m, payment.Amount);
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.CompleteAsync(ContractId, CompleteRequest(), OwnerId));
     }
 
     private static DbDtctechContext CreateContext()

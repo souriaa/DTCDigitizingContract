@@ -21,28 +21,28 @@ public sealed class ContractHandoverController(IContractHandoverService service)
     [HttpGet("scope/candidates")]
     public async Task<IActionResult> ScopeCandidates(int contractId, CancellationToken ct) => Ok(ApiResponse<IReadOnlyList<HandoverScopeCandidateResponse>>.Ok(await service.ScopeCandidatesAsync(contractId, EmployeeId, ct)));
     [HttpPost("scope/confirm")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> ConfirmScope(int contractId, ConfirmHandoverScopeRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverReadinessResponse>.Ok(await service.ConfirmScopeAsync(contractId, request, EmployeeId, ct)));
     [HttpGet("{recordId:int}")]
     public async Task<IActionResult> Get(int contractId, int recordId, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.GetAsync(contractId, recordId, EmployeeId, ct)));
     [HttpPost]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Create(int contractId, CreateContractHandoverRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.CreateAsync(contractId, request, EmployeeId, ct)));
     [HttpPut("{recordId:int}")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Update(int contractId, int recordId, UpdateContractHandoverRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.UpdateAsync(contractId, recordId, request, EmployeeId, ct)));
     [HttpGet("{recordId:int}/preview/{format}")]
     public async Task<IActionResult> Preview(int contractId, int recordId, string format, CancellationToken ct)
     { var file = await service.PreviewAsync(contractId, recordId, format, EmployeeId, ct); return File(file.Content, file.ContentType, file.FileName); }
     [HttpPost("{recordId:int}/finalize")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Finalize(int contractId, int recordId, HandoverRowVersionRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.FinalizeAsync(contractId, recordId, request, EmployeeId, ct)));
     [HttpPost("{recordId:int}/signed-evidence")]
     [Consumes("multipart/form-data")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Sign(int contractId, int recordId, [FromForm] UploadHandoverSignedRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.SignAsync(contractId, recordId, request, EmployeeId, ct)));
     [HttpPost("{recordId:int}/cancel")]
-    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage)]
+    [SessionAuthorize(RbacPermissions.ContractAcceptanceManage, RbacPermissions.ContractAcceptanceManageOwn, RequireAnyPermission = true)]
     public async Task<IActionResult> Cancel(int contractId, int recordId, CancelContractHandoverRequest request, CancellationToken ct) => Ok(ApiResponse<HandoverDetailResponse>.Ok(await service.CancelAsync(contractId, recordId, request, EmployeeId, ct)));
     [HttpGet("{recordId:int}/artifacts/{format}")]
     public async Task<IActionResult> Artifact(int contractId, int recordId, string format, CancellationToken ct)

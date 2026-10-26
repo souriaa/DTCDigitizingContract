@@ -32,22 +32,31 @@ public sealed class ContractNotificationProducer
             eventKey, eventCode, title, actionKey, occurredAtUtc, cancellationToken);
     }
 
-    public Task<bool> StageAsync(int contractId, int? actorEmployeeId,
+    public async Task<bool> StageAsync(int contractId, int? actorEmployeeId,
         string eventKey, string eventCode, string title, string actionKey,
         IEnumerable<int> recipients, DateTime occurredAtUtc,
-        CancellationToken cancellationToken = default) =>
-        _publisher.StageAsync(new NotificationEvent(eventKey, "Contract", eventCode,
-            NotificationSubjects.Contract, contractId, actorEmployeeId,
-            title, null, occurredAtUtc, actionKey), recipients, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var owner = await _db.TblContracts.AsNoTracking().Where(x => x.ContractId == contractId)
+            .Select(x => x.EmployeeId).SingleAsync(cancellationToken);
+        var followers = await _db.TblEmployees.AsNoTracking().Where(x => x.Status == 1
+            && (x.EmployeeType == (byte)EmployeeType.AdminOfficer || x.EmployeeType == (byte)EmployeeType.Manager))
+            .Select(x => x.EmployeeId).ToListAsync(cancellationToken);
+        return await _publisher.StageAsync(new NotificationEvent(eventKey, "Contract", eventCode,
+            NotificationSubjects.Contract, contractId, actorEmployeeId, title, null, occurredAtUtc, actionKey),
+            recipients.Concat(followers).Append(owner).Distinct().Where(x => x != actorEmployeeId), cancellationToken);
+    }
 
     public async Task<bool> StageApprovalRequestedAsync(int contractId, int requestId,
         int submitterEmployeeId, int? workflowId, DateTime occurredAtUtc,
         CancellationToken cancellationToken = default)
     {
         var managers = await GetEligibleManagersAsync(workflowId, cancellationToken);
+        var review = await _db.TblContractApprovalRequests.AsNoTracking().AnyAsync(x =>
+            x.ApprovalRequestId == requestId && x.Status == (byte)ApprovalRequestStatus.PendingAdministrativeReview, cancellationToken);
         return await StageAsync(contractId, submitterEmployeeId,
             $"contract:{contractId}:approval-request:{requestId}:submitted",
-            "ApprovalSubmitted", "Hợp đồng đang chờ bạn phê duyệt", "approval",
+            "ApprovalSubmitted", review ? "Hợp đồng chờ nhân viên quản trị kiểm tra" : "Hợp đồng chờ quản lý phê duyệt", "approval",
             managers, occurredAtUtc, cancellationToken);
     }
 

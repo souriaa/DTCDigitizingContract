@@ -1952,6 +1952,11 @@ export default function CreateContractPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Chọn hợp đồng cung cấp đã hoàn tất, cùng đối tác và chiều Mua/Bán.
+                        Hệ thống sẽ tự tạo căn cứ từ mã, ngày ký và tên hợp đồng gốc đã khóa.
+                        Mẫu duy trì/bảo trì cần có marker {"{{CONTRACT_LEGAL_BASES}}"} để hiện căn cứ trong DOCX/PDF.
+                      </p>
                     </div>
                   )}
 

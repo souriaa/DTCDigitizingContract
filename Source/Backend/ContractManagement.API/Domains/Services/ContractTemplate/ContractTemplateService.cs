@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
@@ -2278,10 +2279,10 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && employee.Status == ActiveEmployeeStatus,
                 cancellationToken);
         if (actor is null
-            || actor.EmployeeType != (byte)EmployeeType.AdminOfficer)
+            || !EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.TemplateManage))
         {
             throw new UnauthorizedAccessException(
-                "Chỉ AdminOfficer active được quản trị template.");
+                "Bạn không có quyền quản trị mẫu hợp đồng.");
         }
     }
 
@@ -3068,10 +3069,14 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             .AsNoTracking()
             .AnyAsync(item => item.TemplateVersionId == versionId,
                 cancellationToken);
-        if (!hasLegalBases)
-        {
-            return;
-        }
+        var isFollowUp = await (from version in _dbContext.TblContractTemplateVersions.AsNoTracking()
+            join template in _dbContext.TblContractTemplates.AsNoTracking()
+                on version.TemplateId equals template.TemplateId
+            where version.TemplateVersionId == versionId
+            select template.DocumentType).AnyAsync(type =>
+                type == (byte)TemplateDocumentType.SoftwareMaintenanceContract
+                || type == (byte)TemplateDocumentType.SoftwareUpkeepContract, cancellationToken);
+        if (!hasLegalBases && !isFollowUp) return;
 
         var hasMarker = await _dbContext.TblContractTemplateFields
             .AsNoTracking()

@@ -88,7 +88,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         var session = await context.TblContractCustomerAccessSessions
             .AsNoTracking().SingleAsync();
 
-        Assert.Equal((byte)ContractStatus.PendingApproval, contract.Status);
+        Assert.Equal((byte)ContractStatus.PendingAdministrativeReview, contract.Status);
         Assert.Null(contract.CurrentCustomerAccessLinkId);
         Assert.True(version.IsLocked);
         var legalSnapshot = await context.TblContractVersionLegalSnapshots
@@ -160,11 +160,11 @@ public sealed class ContractServicePhase8CSubmissionTests
         var response = await service
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Equal(
-            (byte)ContractStatus.PendingApproval,
+            (byte)ContractStatus.PendingAdministrativeReview,
             (await context.TblContracts.AsNoTracking().SingleAsync()).Status);
         Assert.True(
             (await context.TblContractVersions.AsNoTracking().SingleAsync())
@@ -195,7 +195,7 @@ public sealed class ContractServicePhase8CSubmissionTests
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
         context.ChangeTracker.Clear();
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Null(
@@ -240,7 +240,7 @@ public sealed class ContractServicePhase8CSubmissionTests
             .SubmitForApprovalAsync(ContractId, CreateRequest(), OwnerId);
 
         context.ChangeTracker.Clear();
-        Assert.Equal(ContractStatus.PendingApproval, response.ContractStatus);
+        Assert.Equal(ContractStatus.PendingAdministrativeReview, response.ContractStatus);
         Assert.Equal(1, renderer.CallCount);
         Assert.Equal(2, storage.SavedKeys.Count);
         Assert.Equal(
@@ -325,7 +325,7 @@ public sealed class ContractServicePhase8CSubmissionTests
         await using var context = CreateContext();
         await SeedReadyContractAsync(context);
         var contract = await context.TblContracts.SingleAsync();
-        contract.ContractType = (byte)ContractType.SoftwareMaintenance;
+        contract.ContractType = 99;
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
         var renderer = new StubRenderer();

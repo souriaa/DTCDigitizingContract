@@ -123,20 +123,19 @@ public sealed class ContractResourceAuthorizationService
         var permissions = await GetActiveEmployeePermissionsAsync(
             employeeId,
             cancellationToken);
-        if (!permissions.Contains(requiredPermission, StringComparer.Ordinal))
-        {
-            throw PermissionDenied();
-        }
-
-        var contractExists = await _dbContext.TblContracts
-            .AsNoTracking()
-            .AnyAsync(contract => contract.ContractId == contractId,
-                cancellationToken);
-
-        if (!contractExists)
-        {
-            throw ResourceNotFound();
-        }
+        var contract = await _dbContext.TblContracts.AsNoTracking()
+            .Where(x => x.ContractId == contractId).Select(x => new { x.EmployeeId, x.Status })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (contract is null) throw ResourceNotFound();
+        var ownerPermission = requiredPermission switch {
+            RbacPermissions.ContractAcceptanceManage => RbacPermissions.ContractAcceptanceManageOwn,
+            RbacPermissions.ContractPaymentManage => RbacPermissions.ContractPaymentManageOwn,
+            _ => null
+        };
+        var canManageOwn = contract.EmployeeId == employeeId
+            && contract.Status == (byte)ContractStatus.Signed
+            && ownerPermission is not null && permissions.Contains(ownerPermission);
+        if (!permissions.Contains(requiredPermission) && !canManageOwn) throw PermissionDenied();
     }
 
     private async Task<IReadOnlyList<string>> GetActiveEmployeePermissionsAsync(

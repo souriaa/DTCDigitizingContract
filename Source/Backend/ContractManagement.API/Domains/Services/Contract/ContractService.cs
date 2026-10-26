@@ -1,5 +1,6 @@
 ﻿using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
@@ -831,6 +832,8 @@ namespace ContractManagement.Domains.Services.Contract
                             CreatedDate = now
                         }).ToList();
 
+                    await AddParentContractLegalBasisAsync(contract, contractVersion,
+                        contractLegalBases, createdEmployeeId, now);
                     var contractAppendices = appendixDrafts.Select((source, index) =>
                         new TblContractAppendix
                         {
@@ -1033,7 +1036,7 @@ namespace ContractManagement.Domains.Services.Contract
                         await _notifications.StageOwnerAsync(contract.ContractId,
                             responsibleEmployeeId, createdEmployeeId,
                             $"contract:{contract.ContractId}:created", "DraftAssigned",
-                            "Bạn được giao phụ trách hợp đồng mới", "overview", now);
+                            "Hợp đồng mới đã được tạo và phân công", "overview", now);
                     await _dbContext.SaveChangesAsync();
 
                     // Chỉ commit khi toàn bộ Contract, Version, Item và Term thành công.
@@ -1205,10 +1208,7 @@ namespace ContractManagement.Domains.Services.Contract
 
                         var canTransfer =
                             contract.EmployeeId == actorEmployeeId
-                            || actor.EmployeeType ==
-                                (byte)EmployeeType.Manager
-                            || actor.EmployeeType ==
-                                (byte)EmployeeType.AdminOfficer;
+                            || EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.ContractSupport);
 
                         if (!canTransfer)
                         {
@@ -2511,6 +2511,10 @@ namespace ContractManagement.Domains.Services.Contract
                             ("CurrentVersionId", contract.CurrentVersionId)))
                 ]);
 
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contract.ContractId, contract.EmployeeId, employeeId,
+                        $"contract:{contract.ContractId}:negotiation-started:{Convert.ToHexString(expectedRowVersion)}",
+                        "NegotiationStarted", "Hợp đồng đã chuyển sang đàm phán", "negotiation", now);
                 await _dbContext.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException exception)
@@ -3082,6 +3086,10 @@ namespace ContractManagement.Domains.Services.Contract
                                 ("TotalAmount", newVersion.TotalAmount)))
                         ]);
 
+                        if (_notifications is not null)
+                            await _notifications.StageOwnerAsync(contract.ContractId, contract.EmployeeId, employeeId,
+                                $"contract:{contract.ContractId}:negotiation-round:{newVersion.VersionId}",
+                                "NegotiationRoundCreated", "Hợp đồng đã tạo vòng đàm phán mới", "negotiation", now);
                         await _dbContext.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -4653,23 +4661,27 @@ namespace ContractManagement.Domains.Services.Contract
                                 "Không tìm thấy hợp đồng.");
                         }
 
-                        if (contract.ContractType !=
-                            (byte)ContractType.SoftwareSupply)
+                        if (!Enum.IsDefined((ContractType)contract.ContractType))
                         {
                             throw new InvalidOperationException(
-                                "Phase 8C chỉ hỗ trợ gửi duyệt hợp đồng cung cấp phần mềm.");
+                                "Loại hợp đồng không hỗ trợ gửi duyệt.");
                         }
 
                         var currentStatus =
                             (ContractStatus)contract.Status;
 
-                        /*
-                         * Policy chỉ cho:
-                         * Negotiating → PendingApproval.
-                         */
+                        var submitterType = await _dbContext.TblEmployees
+                            .Where(x => x.EmployeeId == employeeId && x.Status == 1)
+                            .Select(x => x.EmployeeType).SingleAsync();
+                        var requiresAdministrativeReview = submitterType is not
+                            ((byte)EmployeeType.AdminOfficer or (byte)EmployeeType.Manager);
+                        var submittedContractStatus = requiresAdministrativeReview
+                            ? ContractStatus.PendingAdministrativeReview : ContractStatus.PendingApproval;
+                        var submittedApprovalStatus = requiresAdministrativeReview
+                            ? ApprovalRequestStatus.PendingAdministrativeReview : ApprovalRequestStatus.Pending;
                         ContractLifecyclePolicy.EnsureCanTransition(
                             currentStatus,
-                            ContractStatus.PendingApproval);
+                            submittedContractStatus);
 
                         if (!contract.CurrentVersionId.HasValue
                             || contract.CurrentVersionId.Value !=
@@ -4723,8 +4735,8 @@ namespace ContractManagement.Domains.Services.Contract
                             .TblContractApprovalRequests
                             .AnyAsync(x =>
                                 x.ContractId == contract.ContractId
-                                && x.Status ==
-                                (byte)ApprovalRequestStatus.Pending);
+                                && (x.Status == (byte)ApprovalRequestStatus.Pending
+                                    || x.Status == (byte)ApprovalRequestStatus.PendingAdministrativeReview));
 
                         if (hasPendingRequest)
                         {
@@ -4897,7 +4909,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 now);
 
                         contract.Status =
-                            (byte)ContractStatus.PendingApproval;
+                            (byte)submittedContractStatus;
 
                         contract.UpdatedEmployeeId = employeeId;
                         contract.UpdateDate = now;
@@ -4910,7 +4922,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 WorkflowId = request.WorkflowId,
 
                                 Status =
-                                    (byte)ApprovalRequestStatus.Pending,
+                                    (byte)submittedApprovalStatus,
 
                                 SubmittedByEmployeeId = employeeId,
                                 SubmittedDate = now
@@ -4980,10 +4992,10 @@ namespace ContractManagement.Domains.Services.Contract
                             VersionId = version.VersionId,
 
                             ContractStatus =
-                                ContractStatus.PendingApproval,
+                                submittedContractStatus,
 
                             ApprovalStatus =
-                                ApprovalRequestStatus.Pending,
+                                submittedApprovalStatus,
 
                             SubmittedDate = now,
                             SnapshotHash = snapshotHash,
@@ -5334,6 +5346,11 @@ namespace ContractManagement.Domains.Services.Contract
                     "Loại template không khớp với loại hợp đồng.");
             }
 
+            if (request.ContractType != ContractType.SoftwareSupply
+                && !await _dbContext.TblContractTemplateFields.AsNoTracking().AnyAsync(x =>
+                    x.TemplateVersionId == request.TemplateVersionId && x.PlaceholderKey == "CONTRACT_LEGAL_BASES"))
+                throw new InvalidOperationException("Mẫu duy trì/bảo trì cần marker {{CONTRACT_LEGAL_BASES}} để kết xuất căn cứ hợp đồng gốc. Hãy cập nhật DOCX và phát hành lại mẫu.");
+
             ContractManagement.Domains.Policies.Contract.ContractPartyRoleResolver.Validate(request.ContractDirection);
             if (templateData.ContractDirection != (byte)request.ContractDirection)
                 throw new ArgumentException("Chiều giao dịch của mẫu không khớp với hợp đồng.");
@@ -5380,7 +5397,11 @@ namespace ContractManagement.Domains.Services.Contract
                 throw new ArgumentException("Hợp đồng nguồn phải có cùng chiều Mua/Bán.");
 
             // Người dùng chỉ được chọn hợp đồng mình có quyền xem.
-            if (parentContract.EmployeeId != employeeId)
+            var actorType = await _dbContext.TblEmployees.AsNoTracking()
+                .Where(x => x.EmployeeId == employeeId && x.Status == 1)
+                .Select(x => x.EmployeeType).SingleOrDefaultAsync();
+            if (parentContract.EmployeeId != employeeId
+                && !EmployeePermissionCatalog.HasPermission(actorType, RbacPermissions.ContractReadTenant))
             {
                 throw new KeyNotFoundException(
                     "Không tìm thấy hợp đồng nguồn hoặc bạn không có quyền xem.");

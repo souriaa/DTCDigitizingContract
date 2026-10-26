@@ -125,7 +125,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     ContractAuditActionTypes.PaymentAdded, ContractAuditResults.Succeeded, payment.CreatedAt,
                     SubjectType: ContractAuditSubjectTypes.Payment, SubjectId: payment.ContractPaymentId,
                     NewValues: PaymentAudit(payment, paid + payment.Amount, version.TotalAmount - paid - payment.Amount))]);
-                if (_notifications is not null && fileId.HasValue)
+                if (_notifications is not null)
                     await _notifications.StageOwnerAsync(contractId, contract.EmployeeId, employeeId,
                         $"contract:{contractId}:payment:{payment.ContractPaymentId}:recorded",
                         "PaymentRecorded", "Hợp đồng đã ghi nhận khoản thanh toán",

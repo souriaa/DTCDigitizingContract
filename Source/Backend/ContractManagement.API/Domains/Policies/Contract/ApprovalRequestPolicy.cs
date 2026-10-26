@@ -26,6 +26,11 @@ namespace ContractManagement.API.Domains.Policies.Contract
                 ApprovalRequestStatus,
                 HashSet<ApprovalRequestStatus>>
             {
+                [ApprovalRequestStatus.PendingAdministrativeReview] = new()
+                {
+                    ApprovalRequestStatus.Pending, ApprovalRequestStatus.Returned,
+                    ApprovalRequestStatus.Withdrawn
+                },
                 [ApprovalRequestStatus.Pending] = new()
                 {
                     ApprovalRequestStatus.Approved,
@@ -94,6 +99,7 @@ namespace ContractManagement.API.Domains.Policies.Contract
         {
             return approvalResult switch
             {
+                ApprovalRequestStatus.Pending => ContractStatus.PendingApproval,
                 /*
                  * Sếp duyệt hợp đồng:
                  * chuyển sang giai đoạn chờ các bên ký.

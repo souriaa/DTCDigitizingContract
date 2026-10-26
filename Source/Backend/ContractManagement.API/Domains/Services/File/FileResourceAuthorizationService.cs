@@ -251,19 +251,17 @@ public sealed class FileResourceAuthorizationService
         int employeeId,
         CancellationToken cancellationToken)
     {
-        var allowed = await _dbContext.TblEmployees
-            .AsNoTracking()
-            .AnyAsync(employee => employee.EmployeeId == employeeId
-                && employee.Status == 1
-                && employee.EmployeeType == (byte)EmployeeType.AdminOfficer,
-                cancellationToken);
+        var type = await _dbContext.TblEmployees.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.Status == 1).Select(x => x.EmployeeType)
+            .SingleOrDefaultAsync(cancellationToken);
+        var allowed = EmployeePermissionCatalog.HasPermission(type, RbacPermissions.TemplateManage);
 
         if (!allowed)
         {
             throw new RbacOperationException(
                 StatusCodes.Status403Forbidden,
                 AuthorizationErrorCodes.PermissionDenied,
-                "Only Admin Officer may access template files.");
+                "Employee does not have permission to access template files.");
         }
     }
 

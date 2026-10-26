@@ -259,7 +259,6 @@ public sealed partial class ContractTemplateServiceTests
     }
 
     [Theory]
-    [InlineData(OtherEmployeeId)]
     [InlineData(InactiveAdminOfficerId)]
     public async Task NonAdminOfficerOrInactiveActor_IsRejected(int employeeId)
     {

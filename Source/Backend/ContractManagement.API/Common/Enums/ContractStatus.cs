@@ -65,6 +65,8 @@
         /// Nếu chỉ yêu cầu sửa lại thì dùng action Returned
         /// để đưa hợp đồng về Negotiating.
         /// </summary>
-        Rejected = 7
+        Rejected = 7,
+
+        PendingAdministrativeReview = 8
     }
 }

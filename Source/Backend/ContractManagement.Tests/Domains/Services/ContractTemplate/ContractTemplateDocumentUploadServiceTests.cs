@@ -265,7 +265,6 @@ public sealed class ContractTemplateDocumentUploadServiceTests
     }
 
     [Theory]
-    [InlineData(ManagerId)]
     [InlineData(InactiveAdminOfficerId)]
     public async Task NonAdminOfficer_CannotUpload(int employeeId)
     {

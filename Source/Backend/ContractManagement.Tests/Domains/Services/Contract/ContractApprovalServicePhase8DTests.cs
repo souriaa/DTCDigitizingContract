@@ -428,6 +428,35 @@ public sealed class ContractApprovalServicePhase8DTests
                 .SingleAsync()).Status);
     }
 
+    [Fact]
+    public async Task AdministrativeReview_MustPrecedeManagerDecision_AndAccountantCannotReview()
+    {
+        await using var db = CreateContext();
+        var storage = await SeedPendingApprovalAsync(db);
+        db.TblEmployees.AddRange(Employee(9190, "Reviewer", EmployeeType.AdminOfficer),
+            Employee(9191, "Accountant", EmployeeType.Accountant));
+        (await db.TblContracts.SingleAsync()).Status = (byte)ContractStatus.PendingAdministrativeReview;
+        (await db.TblContractApprovalRequests.SingleAsync()).Status = (byte)ApprovalRequestStatus.PendingAdministrativeReview;
+        await db.SaveChangesAsync();
+        var service = CreateService(db, storage, CreateAuditWriter(db));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.DecideAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), ManagerAId));
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.ReviewAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), 9191));
+        var reviewed = await service.ReviewAsync(ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest("Đã kiểm tra."), 9190);
+        Assert.Equal(ApprovalRequestStatus.Pending, reviewed.ApprovalStatus);
+        Assert.Equal(ContractStatus.PendingApproval, reviewed.ContractStatus);
+        Assert.Null(reviewed.ResolvedDate);
+        var detail = await service.GetDetailAsync(ApprovalRequestId, OwnerId);
+        Assert.Equal("Reviewer", detail.AdministrativeReviewerEmployeeName);
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.DecideAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), 9190));
+        var approved = await service.DecideAsync(ApprovalRequestId, ApprovalRequestStatus.Approved,
+            new() { RowVersion = reviewed.ApprovalRequestRowVersion }, ManagerAId);
+        Assert.Equal(ContractStatus.PendingSignature, approved.ContractStatus);
+        Assert.Equal(2, await db.TblApprovalHistories.CountAsync());
+    }
+
     private static DbDtctechContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<DbDtctechContext>()

@@ -96,7 +96,7 @@ public sealed class NotificationInboxTests
         await db.SaveChangesAsync();
         var notification = Assert.Single(await db.TblNotifications.Include(x => x.Recipients).ToListAsync());
         Assert.Equal("contract:10:approval-request:42:submitted", notification.EventKey);
-        Assert.Equal(21, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal(new[] { 21, 22 }, notification.Recipients.Select(x => x.EmployeeId).Order());
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class NotificationInboxTests
 
         var withdrawn = await db.TblNotifications.Include(x => x.Recipients)
             .SingleAsync(x => x.EventCode == "ApprovalWithdrawn");
-        Assert.Equal(21, Assert.Single(withdrawn.Recipients).EmployeeId);
+        Assert.Equal(new[] { 21, 22 }, withdrawn.Recipients.Select(x => x.EmployeeId).Order());
     }
 
     [Fact]

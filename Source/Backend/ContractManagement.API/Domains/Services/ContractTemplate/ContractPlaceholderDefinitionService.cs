@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
 using ContractManagement.Common.Enums;
 using ContractManagement.Domains.Interfaces.ContractTemplate;
@@ -16,9 +17,10 @@ public sealed class ContractPlaceholderDefinitionService(
 {
     public async Task AuthorizeAsync(int employeeId, CancellationToken ct)
     {
-        if (!await db.TblEmployees.AsNoTracking().AnyAsync(x => x.EmployeeId == employeeId &&
-                x.Status == 1 && x.EmployeeType == (byte)EmployeeType.AdminOfficer, ct))
-            throw new UnauthorizedAccessException("Chỉ AdminOfficer đang hoạt động được quản lý placeholder.");
+        var type = await db.TblEmployees.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.Status == 1).Select(x => x.EmployeeType).SingleOrDefaultAsync(ct);
+        if (!EmployeePermissionCatalog.HasPermission(type, RbacPermissions.TemplateManage))
+            throw new UnauthorizedAccessException("Bạn không có quyền quản lý trường dữ liệu.");
     }
 
     private void EnsureEnabled()

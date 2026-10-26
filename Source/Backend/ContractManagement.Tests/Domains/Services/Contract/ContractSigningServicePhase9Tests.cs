@@ -44,7 +44,7 @@ public sealed class ContractSigningServicePhase9Tests
         var response = await service.UploadAsync(
             ContractId,
             CreateUploadRequest("signed.pdf", "application/pdf"),
-            TechnicalId);
+            ManagerId);
 
         var contract = await context.TblContracts.AsNoTracking().SingleAsync();
         var evidence = await context.TblContractSignedEvidences
@@ -63,7 +63,7 @@ public sealed class ContractSigningServicePhase9Tests
         Assert.Equal(ContractId, file.ObjectId);
         Assert.Equal("SignedEvidence", audit.SubjectType);
         Assert.Equal(evidence.SignedEvidenceId, audit.SubjectId);
-        Assert.Equal(TechnicalId, audit.ActorEmployeeId);
+        Assert.Equal(ManagerId, audit.ActorEmployeeId);
         Assert.Single(storage.SavedKeys);
         Assert.Empty(storage.DeletedKeys);
         var notification = await context.TblNotifications.AsNoTracking()
@@ -87,7 +87,7 @@ public sealed class ContractSigningServicePhase9Tests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             CreateService(context, storage).UploadAsync(
-                ContractId, request, TechnicalId));
+                ContractId, request, ManagerId));
 
         Assert.Empty(storage.SavedKeys);
         Assert.Empty(context.TblContractSignedEvidences);
@@ -170,7 +170,7 @@ public sealed class ContractSigningServicePhase9Tests
                 ContractId,
                 920,
                 request,
-                TechnicalId));
+                ManagerId));
 
         Assert.Equal(ContractSigningErrorCodes.SigningStateChanged, exception.Code);
         Assert.Empty(storage.SavedKeys);

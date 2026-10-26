@@ -294,10 +294,10 @@ public sealed class ContractDocumentPreviewService :
                 "Chỉ hợp đồng nháp hoặc đang đàm phán mới được tạo bản preview động.");
         }
 
-        if (contract.ContractType != (byte)ContractType.SoftwareSupply)
+        if (!Enum.IsDefined((ContractType)contract.ContractType))
         {
             throw new InvalidOperationException(
-                "Phase 8B chỉ hỗ trợ renderer cho hợp đồng cung cấp phần mềm.");
+                "Loại hợp đồng không hỗ trợ kết xuất tài liệu.");
         }
 
     }
@@ -307,11 +307,16 @@ public sealed class ContractDocumentPreviewService :
         TblContractTemplate template,
         TblContract contract)
     {
-        if (template.DocumentType
-            != (byte)TemplateDocumentType.SoftwareSupplyContract)
+        var expectedType = (ContractType)contract.ContractType switch {
+            ContractType.SoftwareSupply => TemplateDocumentType.SoftwareSupplyContract,
+            ContractType.SoftwareMaintenance => TemplateDocumentType.SoftwareMaintenanceContract,
+            ContractType.SoftwareUpkeep => TemplateDocumentType.SoftwareUpkeepContract,
+            _ => throw new InvalidOperationException("Loại hợp đồng không hợp lệ.")
+        };
+        if (template.DocumentType != (byte)expectedType)
         {
             throw new InvalidOperationException(
-                "Template của hợp đồng không phải mẫu cung cấp phần mềm.");
+                "Loại mẫu không khớp với loại hợp đồng.");
         }
 
         if (version.ValidationStatus != (byte)TemplateValidationStatus.Valid)

@@ -831,14 +831,12 @@ export default function ContractDetailPage() {
     user?.permissions,
     RBAC_PERMISSIONS.contractSigningManage,
   );
-  const canManageAcceptance = hasPermission(
-    user?.permissions,
-    RBAC_PERMISSIONS.contractAcceptanceManage,
-  );
-  const canManagePayment = hasPermission(
-    user?.permissions,
-    RBAC_PERMISSIONS.contractPaymentManage,
-  );
+  const canManageAcceptance = hasPermission(user?.permissions, RBAC_PERMISSIONS.contractAcceptanceManage)
+    || (isResponsibleEmployee && contract.status === ContractStatus.Signed
+      && hasPermission(user?.permissions, RBAC_PERMISSIONS.contractAcceptanceManageOwn));
+  const canManagePayment = hasPermission(user?.permissions, RBAC_PERMISSIONS.contractPaymentManage)
+    || (isResponsibleEmployee && contract.status === ContractStatus.Signed
+      && hasPermission(user?.permissions, RBAC_PERMISSIONS.contractPaymentManageOwn));
   const canCompleteContract = hasPermission(
     user?.permissions,
     RBAC_PERMISSIONS.contractComplete,
@@ -869,7 +867,7 @@ export default function ContractDetailPage() {
     canManageContract &&
     (contract.status === ContractStatus.Draft ||
       contract.status === ContractStatus.Negotiating) &&
-    contract.contractType === ContractType.SoftwareSupply;
+    [ContractType.SoftwareSupply, ContractType.SoftwareMaintenance, ContractType.SoftwareUpkeep].includes(contract.contractType);
 
   const viewContractPdf = async () => {
     if (isOpeningPdf) return;

@@ -11,6 +11,7 @@ public sealed class SessionAuthorizeAttribute : Attribute, IAsyncAuthorizationFi
 {
     private readonly string[] _requiredPermissions;
     public SessionAuthorizeAttribute(params string[] requiredPermissions) => _requiredPermissions = requiredPermissions ?? [];
+    public bool RequireAnyPermission { get; set; }
     public bool AllowWhenPasswordChangeRequired { get; set; }
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
@@ -18,9 +19,12 @@ public sealed class SessionAuthorizeAttribute : Attribute, IAsyncAuthorizationFi
         var services = context.HttpContext.RequestServices;
         try
         {
-            await EmployeeSessionValidator.ValidateAsync(context.HttpContext,
+            var employee = await EmployeeSessionValidator.ValidateAsync(context.HttpContext,
                 services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<DbDtctechContext>(),
-                _requiredPermissions, AllowWhenPasswordChangeRequired);
+                RequireAnyPermission ? [] : _requiredPermissions, AllowWhenPasswordChangeRequired);
+            if (RequireAnyPermission && !_requiredPermissions.Any(employee.Permissions.Contains))
+                throw new RbacOperationException(403, AuthorizationErrorCodes.PermissionDenied,
+                    "Employee does not have the required permission.");
         }
         catch (RbacOperationException exception)
         {

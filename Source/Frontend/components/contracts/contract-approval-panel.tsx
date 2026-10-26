@@ -55,6 +55,8 @@ import {
 } from "@/services/contract-api";
 
 const statusStyles: Record<ApprovalRequestStatus, string> = {
+  [ApprovalRequestStatus.PendingAdministrativeReview]:
+    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   [ApprovalRequestStatus.Pending]:
     "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   [ApprovalRequestStatus.Approved]:
@@ -129,16 +131,24 @@ export function ContractApprovalPanel({
   }, [loadHistory, contract.status]);
 
   const pendingRequest = history.find(
-    (request) => request.status === ApprovalRequestStatus.Pending,
+    (request) => request.status === ApprovalRequestStatus.Pending
+      || request.status === ApprovalRequestStatus.PendingAdministrativeReview,
   );
   const canWithdraw =
     canManage &&
-    contract.status === ContractStatus.PendingApproval &&
+    [ContractStatus.PendingApproval, ContractStatus.PendingAdministrativeReview].includes(contract.status) &&
     pendingRequest?.submittedByEmployeeId === employeeId;
   const canDecide =
     hasPermission(permissions, RBAC_PERMISSIONS.contractApprovalDecide) &&
     contract.status === ContractStatus.PendingApproval &&
     pendingRequest?.versionId === contract.currentVersion.versionId &&
+    pendingRequest.submittedByEmployeeId !== employeeId;
+
+  const canReview =
+    hasPermission(permissions, RBAC_PERMISSIONS.contractApprovalReview) &&
+    contract.status === ContractStatus.PendingAdministrativeReview &&
+    pendingRequest?.status === ApprovalRequestStatus.PendingAdministrativeReview &&
+    pendingRequest.versionId === contract.currentVersion.versionId &&
     pendingRequest.submittedByEmployeeId !== employeeId;
 
   const openDecision = async (request: ContractApprovalRequestResponse) => {
@@ -181,7 +191,10 @@ export function ContractApprovalPanel({
         rowVersion: decisionDetail.rowVersion,
         comment: comment || null,
       };
-      if (decision === "approve") {
+      if (decisionDetail.status === ApprovalRequestStatus.PendingAdministrativeReview) {
+        await (decision === "approve" ? contractApprovalApi.reviewApprove : contractApprovalApi.reviewReturn)(
+          decisionDetail.approvalRequestId, payload);
+      } else if (decision === "approve") {
         await contractApprovalApi.approve(
           decisionDetail.approvalRequestId,
           payload,
@@ -194,7 +207,8 @@ export function ContractApprovalPanel({
       }
       toast.success(
         decision === "approve"
-          ? "Đã duyệt hợp đồng."
+          ? decisionDetail.status === ApprovalRequestStatus.PendingAdministrativeReview
+            ? "Đã kiểm tra và trình quản lý phê duyệt." : "Đã duyệt hợp đồng."
           : "Đã yêu cầu sửa lại hợp đồng.",
       );
       closeDecision();
@@ -318,17 +332,17 @@ export function ContractApprovalPanel({
 
   return (
     <div className="space-y-4">
-      {canDecide && pendingRequest && (
+      {(canDecide || canReview) && pendingRequest && (
         <Alert className="border-emerald-500/30 bg-emerald-500/5">
           <CheckCircle2 className="size-4 text-emerald-600" />
-          <AlertTitle>Hợp đồng đang chờ quyết định phê duyệt</AlertTitle>
+          <AlertTitle>{canReview ? "Hợp đồng chờ kiểm tra hành chính" : "Hợp đồng đang chờ quyết định phê duyệt"}</AlertTitle>
           <AlertDescription className="mt-3 space-y-3">
             <p>
               Kiểm tra bộ tài liệu đã gửi trước khi duyệt hoặc yêu cầu sửa lại.
             </p>
             <Button onClick={() => void openDecision(pendingRequest)}>
               <Eye className="size-4" />
-              Xem hồ sơ và duyệt
+              {canReview ? "Kiểm tra hồ sơ" : "Xem hồ sơ và duyệt"}
             </Button>
           </AlertDescription>
         </Alert>
@@ -425,6 +439,13 @@ export function ContractApprovalPanel({
                             {request.submittedByEmployeeName || "Nhân viên"} gửi
                             lúc {formatDateTime(request.submittedDate)}
                           </p>
+                          {request.administrativeReviewedAt && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {request.administrativeReviewerEmployeeName || "Nhân viên quản trị"} kiểm tra lúc{" "}
+                              {formatDateTime(request.administrativeReviewedAt)}
+                              {request.administrativeReviewComment ? ` · ${request.administrativeReviewComment}` : ""}
+                            </p>
+                          )}
                           {request.resolvedDate && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               {request.resolvedByEmployeeName || "Nhân viên"} xử
@@ -538,6 +559,7 @@ export function ContractApprovalPanel({
         <ContractApprovalDecisionDialog
           open
           mode="single"
+          administrativeReview={decisionRequest.status === ApprovalRequestStatus.PendingAdministrativeReview}
           requests={[decisionRequest]}
           detail={decisionDetail}
           isLoadingDetail={isLoadingDecision}

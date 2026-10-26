@@ -65,7 +65,7 @@ public sealed class ContractApprovalService : IContractApprovalService
             CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filter);
-        await EnsureManagerAsync(managerEmployeeId, cancellationToken);
+        await EnsureInboxAccessAsync(managerEmployeeId, cancellationToken);
 
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 100);
@@ -89,6 +89,9 @@ public sealed class ContractApprovalService : IContractApprovalService
                 on request.ResolvedByEmployeeId equals
                     (int?)resolverCandidate.EmployeeId into resolverRows
             from resolver in resolverRows.DefaultIfEmpty()
+            join reviewerCandidate in _dbContext.TblEmployees.AsNoTracking()
+                on request.AdministrativeReviewerEmployeeId equals (int?)reviewerCandidate.EmployeeId into reviewerRows
+            from reviewer in reviewerRows.DefaultIfEmpty()
             select new
             {
                 Request = request,
@@ -96,7 +99,8 @@ public sealed class ContractApprovalService : IContractApprovalService
                 Version = version,
                 Submitter = submitter,
                 Owner = owner,
-                Resolver = resolver
+                Resolver = resolver,
+                Reviewer = reviewer
             };
 
         if (!string.IsNullOrWhiteSpace(keyword))
@@ -149,7 +153,7 @@ public sealed class ContractApprovalService : IContractApprovalService
             row.Version,
             row.Submitter,
             row.Owner,
-            row.Resolver));
+            row.Resolver, row.Reviewer));
 
         return new PagedResult<ContractApprovalRequestResponse>
         {
@@ -229,6 +233,24 @@ public sealed class ContractApprovalService : IContractApprovalService
             .ThenByDescending(row => row.Request.ApprovalRequestId)
             .Select(MapResponse)
             .ToList();
+    }
+
+    public async Task<ContractApprovalActionResponse> ReviewAsync(int approvalRequestId,
+        ApprovalRequestStatus decision, ContractApprovalDecisionRequest request, int employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (decision is not (ApprovalRequestStatus.Approved or ApprovalRequestStatus.Returned))
+            throw new ArgumentException("Kết quả kiểm tra không hợp lệ.");
+        var comment = NormalizeComment(request.Comment);
+        if (decision == ApprovalRequestStatus.Returned && comment is null)
+            throw Rule(400, ContractApprovalErrorCodes.ApprovalReasonRequired, "Vui lòng nhập lý do yêu cầu chỉnh sửa.");
+        if (!await _dbContext.TblEmployees.AsNoTracking().AnyAsync(x => x.EmployeeId == employeeId
+            && x.Status == 1 && x.EmployeeType == (byte)EmployeeType.AdminOfficer, cancellationToken))
+            throw new RbacOperationException(403, AuthorizationErrorCodes.PermissionDenied,
+                "Chỉ nhân viên quản trị được kiểm tra trung gian.");
+        return await ResolveAsync(approvalRequestId, decision, request.RowVersion, comment,
+            employeeId, false, cancellationToken, administrativeReview: true);
     }
 
     public async Task<ContractApprovalActionResponse> DecideAsync(
@@ -405,7 +427,8 @@ public sealed class ContractApprovalService : IContractApprovalService
         string? comment,
         int actorEmployeeId,
         bool ownerWithdraw,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool administrativeReview = false)
     {
         if (approvalRequestId <= 0)
         {
@@ -442,8 +465,9 @@ public sealed class ContractApprovalService : IContractApprovalService
                     .Property(candidate => candidate.RowVersion)
                     .OriginalValue = expectedRowVersion;
 
-                if ((ApprovalRequestStatus)approval.Status !=
-                    ApprovalRequestStatus.Pending)
+                var previousApprovalStatus = (ApprovalRequestStatus)approval.Status;
+                var inAdministrativeReview = previousApprovalStatus == ApprovalRequestStatus.PendingAdministrativeReview;
+                if (previousApprovalStatus != ApprovalRequestStatus.Pending && !inAdministrativeReview)
                 {
                     throw Rule(
                         StatusCodes.Status409Conflict,
@@ -468,8 +492,10 @@ public sealed class ContractApprovalService : IContractApprovalService
                     ?? throw new KeyNotFoundException(
                         "Không tìm thấy version đang được duyệt.");
 
-                if ((ContractStatus)contract.Status !=
-                        ContractStatus.PendingApproval
+                var expectedContractStatus = inAdministrativeReview
+                    ? ContractStatus.PendingAdministrativeReview : ContractStatus.PendingApproval;
+                if ((ContractStatus)contract.Status != expectedContractStatus
+                    || (!ownerWithdraw && administrativeReview != inAdministrativeReview)
                     || contract.CurrentVersionId != version.VersionId)
                 {
                     throw Rule(
@@ -499,15 +525,15 @@ public sealed class ContractApprovalService : IContractApprovalService
                             "Người gửi duyệt không được tự xử lý yêu cầu của mình.");
                     }
 
-                    await EnsureWorkflowAllowsAsync(
-                        approval,
-                        actorEmployeeId,
-                        cancellationToken);
+                    if (!administrativeReview)
+                        await EnsureWorkflowAllowsAsync(approval, actorEmployeeId, cancellationToken);
                 }
 
+                var appliedStatus = administrativeReview && decision == ApprovalRequestStatus.Approved
+                    ? ApprovalRequestStatus.Pending : decision;
                 ApprovalRequestPolicy.EnsureCanApplyResult(
-                    (ApprovalRequestStatus)approval.Status,
-                    decision,
+                    previousApprovalStatus,
+                    appliedStatus,
                     (ContractStatus)contract.Status);
 
                 if (decision == ApprovalRequestStatus.Approved)
@@ -541,12 +567,21 @@ public sealed class ContractApprovalService : IContractApprovalService
                 var previousContractStatus = contract.Status;
                 var now = DateTime.UtcNow;
                 var targetContractStatus =
-                    ApprovalRequestPolicy.GetTargetContractStatus(decision);
+                    ApprovalRequestPolicy.GetTargetContractStatus(appliedStatus);
 
-                approval.Status = (byte)decision;
-                approval.ResolvedByEmployeeId = actorEmployeeId;
-                approval.ResolvedDate = now;
-                approval.DecisionComment = comment;
+                approval.Status = (byte)appliedStatus;
+                if (administrativeReview)
+                {
+                    approval.AdministrativeReviewerEmployeeId = actorEmployeeId;
+                    approval.AdministrativeReviewedAt = now;
+                    approval.AdministrativeReviewComment = comment;
+                }
+                if (appliedStatus != ApprovalRequestStatus.Pending)
+                {
+                    approval.ResolvedByEmployeeId = actorEmployeeId;
+                    approval.ResolvedDate = now;
+                    approval.DecisionComment = comment;
+                }
 
                 contract.Status = (byte)targetContractStatus;
                 contract.UpdatedEmployeeId = actorEmployeeId;
@@ -557,9 +592,9 @@ public sealed class ContractApprovalService : IContractApprovalService
                     WorkflowId = approval.WorkflowId,
                     ObjectType = ApprovalHistoryObjectType,
                     ObjectId = approval.ApprovalRequestId,
-                    StepNo = 1,
+                    StepNo = !administrativeReview && approval.AdministrativeReviewedAt.HasValue ? 2 : 1,
                     ApproverEmployeeId = actorEmployeeId,
-                    ApprovalAction = decision.ToString(),
+                    ApprovalAction = administrativeReview ? $"Review{decision}" : decision.ToString(),
                     Comment = comment,
                     ActionDate = now
                 });
@@ -570,7 +605,8 @@ public sealed class ContractApprovalService : IContractApprovalService
                         contract.ContractId,
                         version.VersionId,
                         actorEmployeeId,
-                        AuditAction(decision),
+                        administrativeReview && decision == ApprovalRequestStatus.Approved
+                            ? ContractAuditActionTypes.ApprovalReviewed : AuditAction(decision),
                         ContractAuditResults.Succeeded,
                         now,
                         PreviousContractStatus: previousContractStatus,
@@ -585,7 +621,7 @@ public sealed class ContractApprovalService : IContractApprovalService
                             ("ApprovalRequestId",
                                 approval.ApprovalRequestId),
                             ("ApprovalStatus",
-                                (byte)ApprovalRequestStatus.Pending),
+                                (byte)previousApprovalStatus),
                             ("VersionLocked", version.IsLocked)),
                         NewValues: ContractAuditValues.Create(
                             ("Status", contract.Status),
@@ -593,7 +629,7 @@ public sealed class ContractApprovalService : IContractApprovalService
                             ("ApprovalRequestId",
                                 approval.ApprovalRequestId),
                             ("ApprovalStatus", approval.Status),
-                            ("ResolvedByEmployeeId", actorEmployeeId),
+                            ("ResolvedByEmployeeId", approval.ResolvedByEmployeeId),
                             ("VersionLocked", version.IsLocked)))
                 ]);
 
@@ -606,9 +642,12 @@ public sealed class ContractApprovalService : IContractApprovalService
                     else
                         await _notifications.StageOwnerAsync(contract.ContractId,
                             contract.EmployeeId, actorEmployeeId,
-                            $"contract:{contract.ContractId}:approval-request:{approval.ApprovalRequestId}:{decision}",
-                            decision == ApprovalRequestStatus.Approved ? "ApprovalApproved" : "ApprovalReturned",
-                            decision == ApprovalRequestStatus.Approved
+                            $"contract:{contract.ContractId}:approval-request:{approval.ApprovalRequestId}:{(administrativeReview ? "review" : "final")}:{decision}",
+                            administrativeReview && decision == ApprovalRequestStatus.Approved ? "ApprovalReviewed" :
+                                decision == ApprovalRequestStatus.Approved ? "ApprovalApproved" : "ApprovalReturned",
+                            administrativeReview && decision == ApprovalRequestStatus.Approved
+                                ? "Hợp đồng đã qua kiểm tra, chờ quản lý phê duyệt"
+                                : decision == ApprovalRequestStatus.Approved
                                 ? "Hợp đồng đã được phê duyệt" : "Hợp đồng cần chỉnh sửa sau duyệt",
                             "approval", now, cancellationToken);
                 }
@@ -620,11 +659,11 @@ public sealed class ContractApprovalService : IContractApprovalService
                     ApprovalRequestId = approval.ApprovalRequestId,
                     ContractId = contract.ContractId,
                     VersionId = version.VersionId,
-                    ApprovalStatus = decision,
+                    ApprovalStatus = appliedStatus,
                     ContractStatus = targetContractStatus,
-                    ResolvedByEmployeeId = actorEmployeeId,
-                    ResolvedDate = now,
-                    DecisionComment = comment,
+                    ResolvedByEmployeeId = approval.ResolvedByEmployeeId,
+                    ResolvedDate = approval.ResolvedDate,
+                    DecisionComment = approval.DecisionComment,
                     ApprovalRequestRowVersion =
                         EncodeRowVersion(approval.RowVersion),
                     ContractRowVersion = EncodeRowVersion(contract.RowVersion)
@@ -656,13 +695,24 @@ public sealed class ContractApprovalService : IContractApprovalService
                 on request.ResolvedByEmployeeId equals
                     (int?)resolverCandidate.EmployeeId into resolverRows
             from resolver in resolverRows.DefaultIfEmpty()
+            join reviewerCandidate in _dbContext.TblEmployees.AsNoTracking()
+                on request.AdministrativeReviewerEmployeeId equals (int?)reviewerCandidate.EmployeeId into reviewerRows
+            from reviewer in reviewerRows.DefaultIfEmpty()
             select new ApprovalRow(
                 request,
                 contract,
                 version,
                 submitter,
                 owner,
-                resolver);
+                resolver, reviewer);
+    }
+
+    private async Task EnsureInboxAccessAsync(int employeeId, CancellationToken cancellationToken)
+    {
+        if (!await _dbContext.TblEmployees.AsNoTracking().AnyAsync(x => x.EmployeeId == employeeId
+            && x.Status == 1 && (x.EmployeeType == (byte)EmployeeType.Manager
+                || x.EmployeeType == (byte)EmployeeType.AdminOfficer), cancellationToken))
+            throw new RbacOperationException(403, AuthorizationErrorCodes.PermissionDenied, "Bạn không có quyền xử lý yêu cầu duyệt.");
     }
 
     private async Task EnsureManagerAsync(
@@ -820,6 +870,10 @@ public sealed class ContractApprovalService : IContractApprovalService
             SubmittedByEmployeeId = row.Request.SubmittedByEmployeeId,
             SubmittedByEmployeeName = row.Submitter.EmployeeFullName,
             SubmittedDate = row.Request.SubmittedDate,
+            AdministrativeReviewerEmployeeId = row.Request.AdministrativeReviewerEmployeeId,
+            AdministrativeReviewerEmployeeName = row.Reviewer?.EmployeeFullName,
+            AdministrativeReviewedAt = row.Request.AdministrativeReviewedAt,
+            AdministrativeReviewComment = row.Request.AdministrativeReviewComment,
             ResolvedByEmployeeId = row.Request.ResolvedByEmployeeId,
             ResolvedByEmployeeName = row.Resolver?.EmployeeFullName,
             ResolvedDate = row.Request.ResolvedDate,
@@ -846,6 +900,10 @@ public sealed class ContractApprovalService : IContractApprovalService
             SubmittedByEmployeeId = source.SubmittedByEmployeeId,
             SubmittedByEmployeeName = source.SubmittedByEmployeeName,
             SubmittedDate = source.SubmittedDate,
+            AdministrativeReviewerEmployeeId = source.AdministrativeReviewerEmployeeId,
+            AdministrativeReviewerEmployeeName = source.AdministrativeReviewerEmployeeName,
+            AdministrativeReviewedAt = source.AdministrativeReviewedAt,
+            AdministrativeReviewComment = source.AdministrativeReviewComment,
             ResolvedByEmployeeId = source.ResolvedByEmployeeId,
             ResolvedByEmployeeName = source.ResolvedByEmployeeName,
             ResolvedDate = source.ResolvedDate,
@@ -947,5 +1005,5 @@ public sealed class ContractApprovalService : IContractApprovalService
         TblContractVersion Version,
         TblEmployee Submitter,
         TblEmployee Owner,
-        TblEmployee? Resolver);
+        TblEmployee? Resolver, TblEmployee? Reviewer);
 }

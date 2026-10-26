@@ -48,6 +48,7 @@ public sealed class ContractAuditWriter : IContractAuditWriter
             [ContractAuditActionTypes.ResponsibilityTransferred] = ContractFields(),
             [ContractAuditActionTypes.DraftUpdated] = ContractFields(),
             [ContractAuditActionTypes.ApprovalSubmitted] = ApprovalFields(),
+            [ContractAuditActionTypes.ApprovalReviewed] = ApprovalFields(),
             [ContractAuditActionTypes.ApprovalApproved] = ApprovalFields(),
             [ContractAuditActionTypes.ApprovalReturned] = ApprovalFields(),
             [ContractAuditActionTypes.ApprovalRejected] = ApprovalFields(),

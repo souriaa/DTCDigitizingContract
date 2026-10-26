@@ -39,6 +39,8 @@
         /// không có nghĩa là hủy toàn bộ hợp đồng.
         /// Hợp đồng quay về Negotiating.
         /// </summary>
-        Withdrawn = 4
+        Withdrawn = 4,
+
+        PendingAdministrativeReview = 5
     }
 }

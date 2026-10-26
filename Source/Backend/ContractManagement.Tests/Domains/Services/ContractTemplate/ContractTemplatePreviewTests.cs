@@ -1400,7 +1400,6 @@ public sealed partial class ContractTemplatePreviewTests
     }
 
     [Theory]
-    [InlineData(ManagerId)]
     [InlineData(InactiveAdminOfficerId)]
     public async Task NonAdminOrInactiveActor_CannotGeneratePreview(int employeeId)
     {
