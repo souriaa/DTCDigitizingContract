@@ -85,6 +85,16 @@ if (builder.Environment.IsDevelopment() && allowedCorsOrigins.Length == 0)
 builder.Services.AddControllers();
 builder.Services.AddScoped<ContractManagement.Domains.Services.Catalog.CatalogWorkspaceService>();
 builder.Services.AddSignalR();
+builder.Services.AddOptions<ContractManagement.API.Domains.Realtime.NodeRealtimeOptions>()
+    .Bind(builder.Configuration.GetSection(ContractManagement.API.Domains.Realtime.NodeRealtimeOptions.Section))
+    .Validate(options => options.IsValid(), "Node realtime requires loopback URLs and a service secret of at least 32 characters.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient("RealtimeInternal", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false, UseProxy = false });
+builder.Services.AddSingleton<ContractManagement.API.Domains.Realtime.RealtimeServiceAuthentication>();
+builder.Services.AddSingleton<ContractManagement.API.Domains.Realtime.NodeRealtimeBroker>();
+builder.Services.AddSingleton<ContractManagement.API.Domains.Realtime.NodeRealtimePublisher>();
+builder.Services.AddHostedService<ContractManagement.API.Domains.Realtime.NodeNotificationDispatchWorker>();
 builder.Services.AddScoped<ContractDiscussionAccessService>();
 builder.Services.AddScoped<IContractDiscussionRealtimePublisher, ContractDiscussionRealtimePublisher>();
 builder.Services.AddHttpContextAccessor();
@@ -522,6 +532,13 @@ app.UseHttpsRedirection();
  * Bắt lỗi toàn cục và trả về response thống nhất.
  */
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+// Preserve signed body bytes before MVC deserializes internal Node control requests.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/internal/realtime"))
+        context.Request.EnableBuffering(bufferThreshold: 16384, bufferLimit: 16384);
+    await next(context);
+});
 
 /*
  * Xác định endpoint hiện tại.

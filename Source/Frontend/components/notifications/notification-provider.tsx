@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from "@microsoft/signalr";
+import { HubConnectionState, LogLevel } from "@microsoft/signalr";
+import { createRealtimeConnection } from "@/lib/realtime-connection";
 import { notificationApi, type NotificationItem } from "@/services/notification-api";
 
 interface NotificationContextValue {
@@ -171,12 +172,7 @@ export function NotificationProvider({
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
 
-    const url = `${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")}/api/hubs/notifications`;
-    const connection: HubConnection = new HubConnectionBuilder()
-      .withUrl(url, { withCredentials: true })
-      .withAutomaticReconnect([0, 2000, 10000, 30000, 60000])
-      .configureLogging(LogLevel.Warning)
-      .build();
+    const connection = createRealtimeConnection("/api/hubs/notifications", LogLevel.Warning);
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let retryDelay = 2000;

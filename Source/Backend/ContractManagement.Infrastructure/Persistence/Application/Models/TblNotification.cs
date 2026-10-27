@@ -30,6 +30,14 @@ public sealed class TblNotificationRecipient
 
 public sealed class TblNotificationDispatchOutbox
 {
+    // Separate transport delivery state: SignalR success never consumes a Node retry.
+    public string NodeStatus { get; set; } = "Disabled";
+    public int NodeAttemptCount { get; set; }
+    public DateTime? NodeNextAttemptAtUtc { get; set; }
+    public Guid? NodeLeaseId { get; set; }
+    public DateTime? NodeLeaseUntilUtc { get; set; }
+    public DateTime? NodeDispatchedAtUtc { get; set; }
+    public string? NodeLastErrorCode { get; set; }
     public long OutboxId { get; set; }
     public long NotificationId { get; set; }
     public string Status { get; set; } = "Pending";

@@ -2584,6 +2584,15 @@ public partial class DbDtctechContext : DbContext
             entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc });
             entity.Property(e => e.Status).HasMaxLength(16).IsUnicode(false);
             entity.Property(e => e.LastErrorCode).HasMaxLength(80).IsUnicode(false);
+            entity.Property(e => e.NodeStatus).HasMaxLength(16).IsUnicode(false).HasDefaultValue("Disabled");
+            entity.Property(e => e.NodeLastErrorCode).HasMaxLength(80).IsUnicode(false);
+            entity.HasIndex(e => new { e.NodeStatus, e.NodeNextAttemptAtUtc });
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_NodeStatus",
+                    "[NodeStatus] IN ('Disabled', 'Pending', 'Leased', 'Dispatched', 'Failed')");
+                table.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_NodeAttemptCount", "[NodeAttemptCount] >= 0");
+            });
         });
 
         modelBuilder.Entity<TblOrder>(entity =>

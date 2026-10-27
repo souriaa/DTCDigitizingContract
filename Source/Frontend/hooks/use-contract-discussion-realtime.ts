@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { HubConnectionBuilder, HubConnectionState, LogLevel } from "@microsoft/signalr";
+import { HubConnectionState } from "@microsoft/signalr";
+import { createRealtimeConnection } from "@/lib/realtime-connection";
 
 /** One connection per contract page, not one socket per term or thread. */
 export function useContractDiscussionRealtime(
@@ -21,11 +22,7 @@ export function useContractDiscussionRealtime(
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingStart: Promise<void> | null = null;
     let retryDelay = 2000;
-    const connection = new HubConnectionBuilder()
-      .withUrl(`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")}${path}`, { withCredentials: true })
-      .withAutomaticReconnect([0, 2000, 10000, 30000, 60000])
-      .configureLogging(LogLevel.None)
-      .build();
+    const connection = createRealtimeConnection(path);
 
     const refresh = async () => {
       if (refreshing || disposed) return;

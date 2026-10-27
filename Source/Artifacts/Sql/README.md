@@ -1,6 +1,6 @@
 # Seed dữ liệu test cho tenant DB mới
 
-Cập nhật theo schema đến `20261026090000_RestoreAdministrativeReviewRbac` (21/10/2026).
+Cập nhật theo schema đến `20261027025251_NodeRealtimeDelivery` (27/10/2026). Migration này bổ sung trạng thái retry riêng cho Node trong notification outbox; SignalR giữ nguyên trạng thái cũ. Không tự bật Node hoặc replay thông báo lịch sử.
 
 Ngày ký thực tế nghiệm thu lưu riêng ở `tbl_ContractAcceptanceEvidence.SignDate` và được nhập khi tải bản ký mới. Migration không lấy ngày upload để điền cho bản ký cũ, không đổi các mốc thanh toán đã kích hoạt trước đó.
 

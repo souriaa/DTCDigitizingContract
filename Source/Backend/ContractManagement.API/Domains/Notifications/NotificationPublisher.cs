@@ -25,10 +25,13 @@ public sealed class NotificationPublisher : INotificationPublisher
     private readonly DbDtctechContext _db;
     private readonly IReadOnlyList<INotificationResourcePolicy> _policies;
 
-    public NotificationPublisher(DbDtctechContext db, IEnumerable<INotificationResourcePolicy> policies)
+    private readonly bool _nodeEnabled;
+    public NotificationPublisher(DbDtctechContext db, IEnumerable<INotificationResourcePolicy> policies,
+        Microsoft.Extensions.Options.IOptions<ContractManagement.API.Domains.Realtime.NodeRealtimeOptions>? nodeOptions = null)
     {
         _db = db;
         _policies = policies.ToList();
+        _nodeEnabled = nodeOptions?.Value.Enabled == true;
     }
 
     public async Task<bool> StageAsync(NotificationEvent notification,
@@ -73,7 +76,9 @@ public sealed class NotificationPublisher : INotificationPublisher
             Recipients = recipients.Select(id => new TblNotificationRecipient
                 { EmployeeId = id, CreatedAtUtc = now }).ToList(),
             DispatchOutbox = new TblNotificationDispatchOutbox
-                { Status = "Pending", NextAttemptAtUtc = now }
+                { Status = "Pending", NextAttemptAtUtc = now,
+                    NodeStatus = _nodeEnabled ? "Pending" : "Disabled",
+                    NodeNextAttemptAtUtc = _nodeEnabled ? now : null }
         };
         _db.TblNotifications.Add(entity);
         return true;

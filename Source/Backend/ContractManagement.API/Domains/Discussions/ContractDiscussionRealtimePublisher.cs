@@ -12,7 +12,8 @@ public sealed class ContractDiscussionRealtimePublisher(
     ICurrentTenant tenant,
     IHubContext<EmployeeContractDiscussionHub> employees,
     IHubContext<CustomerContractDiscussionHub> customers,
-    ILogger<ContractDiscussionRealtimePublisher> logger) : IContractDiscussionRealtimePublisher
+    ILogger<ContractDiscussionRealtimePublisher> logger,
+    ContractManagement.API.Domains.Realtime.NodeRealtimePublisher? node = null) : IContractDiscussionRealtimePublisher
 {
     public async Task PublishAsync(int contractId, int versionId)
     {
@@ -28,6 +29,20 @@ public sealed class ContractDiscussionRealtimePublisher(
         {
             logger.LogWarning(error, "Could not deliver discussion invalidation for contract {ContractId} version {VersionId}.",
                 contractId, versionId);
+        }
+        // Independent best-effort adapter after commit, matching discussion SignalR semantics.
+        // Notifications use their durable per-transport outbox; discussions still resync through REST.
+        if (node?.Enabled == true)
+        {
+            try
+            {
+                await node.PublishAsync(new(Guid.NewGuid().ToString(), "DiscussionChanged",
+                    ContractDiscussionHubBase.GroupName(tenant.GetRequiredTenant().TenantId, contractId, versionId)));
+            }
+            catch (Exception error)
+            {
+                logger.LogWarning("Node discussion delivery failed for contract {ContractId}: {ErrorCode}", contractId, error.GetType().Name);
+            }
         }
     }
 }

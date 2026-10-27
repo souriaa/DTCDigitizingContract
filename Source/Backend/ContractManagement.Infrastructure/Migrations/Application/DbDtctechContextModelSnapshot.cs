@@ -979,9 +979,15 @@ namespace ContractManagement.Infrastructure.Migrations.Application
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ApprovalRequestId"));
 
-                    b.Property<int?>("AdministrativeReviewerEmployeeId").HasColumnType("int");
-                    b.Property<DateTime?>("AdministrativeReviewedAt").HasColumnType("datetime2");
-                    b.Property<string>("AdministrativeReviewComment").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
+                    b.Property<string>("AdministrativeReviewComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("AdministrativeReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AdministrativeReviewerEmployeeId")
+                        .HasColumnType("int");
 
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
@@ -5417,6 +5423,34 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.Property<DateTime>("NextAttemptAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("NodeAttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("NodeDispatchedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NodeLastErrorCode")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<Guid?>("NodeLeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("NodeLeaseUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NodeNextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NodeStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(16)")
+                        .HasDefaultValue("Disabled");
+
                     b.Property<long>("NotificationId")
                         .HasColumnType("bigint");
 
@@ -5431,11 +5465,17 @@ namespace ContractManagement.Infrastructure.Migrations.Application
                     b.HasIndex("NotificationId")
                         .IsUnique();
 
+                    b.HasIndex("NodeStatus", "NodeNextAttemptAtUtc");
+
                     b.HasIndex("Status", "NextAttemptAtUtc");
 
                     b.ToTable("tbl_NotificationDispatchOutbox", null, t =>
                         {
                             t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_AttemptCount", "[AttemptCount] >= 0");
+
+                            t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_NodeAttemptCount", "[NodeAttemptCount] >= 0");
+
+                            t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_NodeStatus", "[NodeStatus] IN ('Disabled', 'Pending', 'Leased', 'Dispatched', 'Failed')");
 
                             t.HasCheckConstraint("CK_tbl_NotificationDispatchOutbox_Status", "[Status] IN ('Pending', 'Leased', 'Dispatched', 'Failed')");
                         });
