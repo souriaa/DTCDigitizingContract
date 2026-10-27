@@ -1434,9 +1434,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Helpers/FrontendLauncher.cs": {
-    "mtime": 1790000689.3334193,
-    "seen": 1790050649.2769065,
-    "ast_hash": "0946573916363005fc783ff54065f80c",
+    "mtime": 1793076537.2680182,
+    "seen": 1793076647.9100475,
+    "ast_hash": "4ba928501d8d2e83bdcbfbba193ac1d0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Middleware/ExceptionHandlingMiddleware.cs": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": "1433496fa70d3edcb05cbe7f92dbd1a3"
   },
   "Backend/ContractManagement.API/Program.cs": {
-    "mtime": 1793069232.02886,
-    "seen": 1793070263.3050776,
-    "ast_hash": "0dc97b3719d51ea8bef95e4352caa45e",
+    "mtime": 1793076537.2650146,
+    "seen": 1793076647.9100566,
+    "ast_hash": "e5300976eb573f9e03c6d6bbda02d54f",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Properties/launchSettings.json": {
@@ -3216,9 +3216,9 @@
     "semantic_hash": ""
   },
   "Frontend/lib/rbac.ts": {
-    "mtime": 1793014359.9825613,
-    "seen": 1793015576.2907681,
-    "ast_hash": "906e6f6c3ccec1a0071a7cabb847fcdf",
+    "mtime": 1793075744.6609051,
+    "seen": 1793075821.7893367,
+    "ast_hash": "feafb6e6ac7e56428e2e7750769dacbf",
     "semantic_hash": ""
   },
   "Frontend/lib/utils.ts": {
@@ -8045,22 +8045,10 @@
     "ast_hash": "9baafc155c561eb967d1a1f03cb10a22",
     "semantic_hash": ""
   },
-  "Documentation/NODEJS_WEBSOCKET_SIGNALR_CLONE_PLAN.md": {
-    "mtime": 1793071452.9561813,
-    "seen": 1793071515.3188162,
-    "ast_hash": "4af7950ece5075e8822a8ff26b678af8",
-    "semantic_hash": ""
-  },
-  "Documentation/RBAC_FOLLOWUP_RESTORE_CHECKPOINT.md": {
-    "mtime": 1793015755.4415452,
-    "seen": 1793070263.3071134,
-    "ast_hash": "b54a290c99120cd429f01a669d01ade0",
-    "semantic_hash": ""
-  },
   "BackendNode/config/realtime.js": {
-    "mtime": 1793069080.3488812,
-    "seen": 1793070263.3040164,
-    "ast_hash": "c248bf298beceddbb6999381ad3c8856",
+    "mtime": 1793075087.464797,
+    "seen": 1793075821.7867196,
+    "ast_hash": "9ec047d4686e5120caca046749d70174",
     "semantic_hash": ""
   },
   "BackendNode/controllers/realtime.controller.js": {
@@ -8070,20 +8058,20 @@
     "semantic_hash": ""
   },
   "BackendNode/ecosystem.config.cjs": {
-    "mtime": 1793069080.3629336,
-    "seen": 1793070263.304022,
-    "ast_hash": "da0b49407729daba83e3618df921c6fb",
+    "mtime": 1793075016.0648522,
+    "seen": 1793075821.786727,
+    "ast_hash": "85e47165f6886d093cc02c41d6255d22",
     "semantic_hash": ""
   },
   "BackendNode/index.js": {
-    "mtime": 1793071402.6911564,
-    "seen": 1793071515.317003,
+    "mtime": 1793076537.2705505,
+    "seen": 1793076647.9089956,
     "ast_hash": "3cf50f083a980a45f929ee834b4ca403",
     "semantic_hash": ""
   },
   "BackendNode/middlewares/service-auth.js": {
-    "mtime": 1793069080.352415,
-    "seen": 1793070263.304029,
+    "mtime": 1793075075.0963535,
+    "seen": 1793075821.7867339,
     "ast_hash": "0677d72023eddbd82fec6ee3f9b4468c",
     "semantic_hash": ""
   },
@@ -8100,21 +8088,21 @@
     "semantic_hash": ""
   },
   "BackendNode/services/dotnet.service.js": {
-    "mtime": 1793070342.3960505,
-    "seen": 1793070512.192707,
-    "ast_hash": "a629d75773d0a42f7a3c10a5e7c09510",
+    "mtime": 1793075038.1443474,
+    "seen": 1793075821.7867422,
+    "ast_hash": "e0d2f4b13e70a03083dee68f96997c53",
     "semantic_hash": ""
   },
   "BackendNode/sockets/chat.socket.js": {
-    "mtime": 1793069885.166937,
-    "seen": 1793070263.30404,
-    "ast_hash": "6d51c6df7332c5ff4712d60d97b3648d",
+    "mtime": 1793075058.6817417,
+    "seen": 1793075821.786749,
+    "ast_hash": "c5935f626863c0ef6ec173dc9a1b3289",
     "semantic_hash": ""
   },
   "BackendNode/tests/realtime.test.js": {
-    "mtime": 1793070342.4000385,
-    "seen": 1793070512.1927142,
-    "ast_hash": "71fea466d7d0e267257aa89006f55982",
+    "mtime": 1793077188.440323,
+    "seen": 1793077274.5880785,
+    "ast_hash": "4cb293ce76dee5c53d7218157308c192",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Realtime/NodeNotificationDispatchWorker.cs": {
@@ -8130,9 +8118,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Realtime/NodeRealtimeController.cs": {
-    "mtime": 1793069606.8713899,
-    "seen": 1793070263.3048637,
-    "ast_hash": "bd4d260a7a376e1cfa64e9d40ad6a364",
+    "mtime": 1793077126.760482,
+    "seen": 1793077274.5886111,
+    "ast_hash": "bb8e2d450ef77ab8f8086f001ff8a7a0",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.API/Domains/Realtime/NodeRealtimeOptions.cs": {
@@ -8160,9 +8148,9 @@
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Realtime/NodeRealtimeSessionIntegrationTests.cs": {
-    "mtime": 1793070342.3985376,
-    "seen": 1793070512.1942308,
-    "ast_hash": "c01d85926b74f4e30733184757cbc1eb",
+    "mtime": 1793077188.4397867,
+    "seen": 1793077274.5890694,
+    "ast_hash": "3dafec57d71f9e11f5c1ba769a36f2e5",
     "semantic_hash": ""
   },
   "Backend/ContractManagement.Tests/Domains/Realtime/NodeRealtimeTests.cs": {
@@ -8178,9 +8166,9 @@
     "semantic_hash": ""
   },
   "BackendNode/README.md": {
-    "mtime": 1793071452.955181,
-    "seen": 1793071515.3188112,
-    "ast_hash": "e1fb4e56e104ab384560c932b6b4b330",
+    "mtime": 1793077126.764491,
+    "seen": 1793077274.589851,
+    "ast_hash": "1dc0e126ab6a115501f35b881b690062",
     "semantic_hash": ""
   }
 }

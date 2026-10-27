@@ -27,8 +27,10 @@ namespace ContractManagement.Tests.Domains.Realtime;
 
 public sealed class NodeRealtimeSessionIntegrationTests
 {
-    [Fact]
-    public async Task RealCookieSession_LogoutInvalidatesLease_WithoutGivingCookieToNode()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RealCookieSession_LogoutInvalidatesLease_WithoutGivingCookieToNode(bool throughSameOriginProxy)
     {
         // Isolated Kestrel + InMemory DB; no application process, real DB, migration or email.
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development", Args = [] });
@@ -85,9 +87,33 @@ public sealed class NodeRealtimeSessionIntegrationTests
             await db.SaveChangesAsync();
         }
         using var browser = new HttpClient(new HttpClientHandler { UseProxy = false }) { BaseAddress = new Uri(settings.ApiBaseUrl) };
-        browser.DefaultRequestHeaders.Add("Origin", "http://localhost:3000");
+        var browserOrigin = throughSameOriginProxy
+            ? settings.ApiBaseUrl.Replace("http://", "https://", StringComparison.Ordinal) : "http://localhost:3000";
+        browser.DefaultRequestHeaders.Add("Origin", browserOrigin);
         browser.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
         (await browser.PostAsync("/test/login", null)).EnsureSuccessStatusCode();
+        browser.DefaultRequestHeaders.Remove("Origin");
+        foreach (var deniedOrigin in new[] { null, "null", "http://evil.test", "https://127.0.0.1:1" })
+        {
+            using var blocked = new HttpRequestMessage(HttpMethod.Post, "/api/realtime/notifications/ticket");
+            if (deniedOrigin is not null) blocked.Headers.Add("Origin", deniedOrigin);
+            using var rejection = await browser.SendAsync(blocked);
+            Assert.Equal(HttpStatusCode.Forbidden, rejection.StatusCode);
+            Assert.Equal("RealtimeOriginNotAllowed", (await rejection.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
+        browser.DefaultRequestHeaders.Add("Origin", browserOrigin);
+        settings.Enabled = false;
+        using (var disabled = await browser.PostAsync("/api/realtime/notifications/ticket", null))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, disabled.StatusCode);
+            Assert.Equal("NodeRealtimeDisabled", (await disabled.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
+        settings.Enabled = true;
+        using (var unsignedProbe = await browser.GetAsync("/api/realtime/notifications/probe"))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, unsignedProbe.StatusCode);
+            Assert.Equal("RealtimeServiceAuthenticationInvalid", (await unsignedProbe.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
         var ticketResponse = await browser.PostAsync("/api/realtime/notifications/ticket", null);
         ticketResponse.EnsureSuccessStatusCode();
         var ticket = (await ticketResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("ticket").GetString()!;
@@ -101,7 +127,7 @@ public sealed class NodeRealtimeSessionIntegrationTests
             authentication.Sign(request, path, body);
             return await node.SendAsync(request);
         }
-        using var consume = await Internal("consume", new { ticket, origin = "http://localhost:3000" });
+        using var consume = await Internal("consume", new { ticket, origin = browserOrigin });
         consume.EnsureSuccessStatusCode();
         var lease = (await consume.Content.ReadFromJsonAsync<NodeSubscription>())!;
         Assert.Equal("tenant:10:employee:12", lease.Room);
@@ -111,7 +137,7 @@ public sealed class NodeRealtimeSessionIntegrationTests
         (await browser.PostAsync("/api/test/logout", null)).EnsureSuccessStatusCode();
         using var revoked = await Internal("validate", new { leaseId = lease.LeaseId });
         Assert.Equal(HttpStatusCode.Unauthorized, revoked.StatusCode);
-        using var replay = await Internal("consume", new { ticket, origin = "http://localhost:3000" });
+        using var replay = await Internal("consume", new { ticket, origin = browserOrigin });
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
         await app.StopAsync();
     }

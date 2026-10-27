@@ -605,10 +605,15 @@ app.MapHub<CustomerContractDiscussionHub>("/public/contracts/{tenantCode}/discus
  */
 app.MapReverseProxy();
 
-if (app.Environment.IsDevelopment()
-    && builder.Configuration.GetValue("Development:LaunchFrontends", true))
+if (app.Environment.IsDevelopment())
 {
-    FrontendLauncher.Start();
+    var nodeOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ContractManagement.API.Domains.Realtime.NodeRealtimeOptions>>().Value;
+    var launchNode = nodeOptions.Enabled
+        && builder.Configuration.GetValue("Development:LaunchNodeBackend", true);
+    FrontendLauncher.Start(
+        launchFrontends: builder.Configuration.GetValue("Development:LaunchFrontends", true),
+        launchNodeBackend: launchNode,
+        nodePort: launchNode ? new Uri(nodeOptions.BaseUrl).Port : 4000);
 }
 #endregion
 

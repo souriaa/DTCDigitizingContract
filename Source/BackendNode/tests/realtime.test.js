@@ -24,7 +24,7 @@ async function fixture(t, overrides = {}) {
     async consume(ticket, clientOrigin) {
       const scope = tickets.get(ticket);
       tickets.delete(ticket);
-      if (!scope || clientOrigin !== origin) throw new Error('Invalid');
+      if (!scope || !config.origins.includes(clientOrigin)) throw new Error('Invalid');
       leases.set(scope.leaseId, scope);
       return scope;
     },
@@ -95,6 +95,16 @@ test('notification targets only recipient, including equal employee IDs in diffe
   const received = once(a.socket, 'NotificationsChanged');
   assert.equal((await f.publish({ eventId: randomUUID(), eventName: 'NotificationsChanged', room: a.scope.room })).status, 204);
   await received; await delay(60); assert.equal(foreign, 0);
+});
+
+test('browser on the API reverse proxy can connect when its exact origin is configured', async t => {
+  const proxyOrigin = 'http://localhost:5005';
+  const f = await fixture(t, { origins: [origin, proxyOrigin] });
+  const client = f.client('tenant:1:employee:7', undefined, { extraHeaders: { Origin: proxyOrigin } });
+  await f.connect(client);
+  const received = once(client.socket, 'NotificationsChanged');
+  assert.equal((await f.publish({ eventId: randomUUID(), eventName: 'NotificationsChanged', room: client.scope.room })).status, 204);
+  await received;
 });
 
 test('missing/unapproved Origin and reused ticket cannot connect', async t => {

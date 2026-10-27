@@ -20,7 +20,7 @@ public sealed class NodeRealtimeController(NodeRealtimeBroker broker, RealtimeSe
     [HttpGet("api/realtime/notifications/probe")]
     public async Task<IActionResult> Notifications()
     {
-        if (!await AllowedAsync()) return StatusCode(403);
+        if (await CheckAccessAsync() is { } denied) return denied;
         var tenant = HttpContext.RequestServices.GetRequiredService<ICurrentTenant>();
         var employee = await EmployeeSessionValidator.ValidateAsync(HttpContext, tenant,
             HttpContext.RequestServices.GetRequiredService<DbDtctechContext>(), []);
@@ -32,7 +32,7 @@ public sealed class NodeRealtimeController(NodeRealtimeBroker broker, RealtimeSe
     [HttpGet("api/contracts/{contractId:int}/versions/{versionId:int}/discussion-hub/probe")]
     public async Task<IActionResult> EmployeeDiscussion()
     {
-        if (!await AllowedAsync()) return StatusCode(403);
+        if (await CheckAccessAsync() is { } denied) return denied;
         var scope = await HttpContext.RequestServices.GetRequiredService<ContractDiscussionAccessService>().ForEmployeeAsync(HttpContext);
         var id = HttpContext.Session.GetInt32("EmployeeId");
         return Respond(new("", ContractDiscussionHubBase.GroupName(scope.TenantId, scope.ContractId, scope.VersionId),
@@ -43,7 +43,7 @@ public sealed class NodeRealtimeController(NodeRealtimeBroker broker, RealtimeSe
     [HttpGet("public/contracts/{tenantCode}/discussion-hub/probe")]
     public async Task<IActionResult> CustomerDiscussion()
     {
-        if (!await AllowedAsync()) return StatusCode(403);
+        if (await CheckAccessAsync() is { } denied) return denied;
         var scope = await HttpContext.RequestServices.GetRequiredService<ContractDiscussionAccessService>().ForCustomerAsync(HttpContext);
         var cookie = Request.Cookies["ContractManagement.CustomerAccess"] ?? "";
         var actor = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cookie)));
@@ -51,15 +51,25 @@ public sealed class NodeRealtimeController(NodeRealtimeBroker broker, RealtimeSe
             $"customer:{scope.TenantId}:{actor}", scope.ExpiresAt));
     }
 
-    private async Task<bool> AllowedAsync()
+    private async Task<IActionResult?> CheckAccessAsync()
     {
         Response.Headers.CacheControl = "no-store";
-        if (!options.Value.Enabled) return false;
-        if (HttpMethods.IsGet(Request.Method)) return await authentication.ValidateAsync(Request);
+        if (!options.Value.Enabled)
+            return StatusCode(403, new { code = "NodeRealtimeDisabled",
+                message = "Realtime Node.js chưa được bật trên API. Kiểm tra cấu hình Realtime:NodeWebSocket:Enabled và khởi động lại API." });
+        if (HttpMethods.IsGet(Request.Method))
+            return await authentication.ValidateAsync(Request) ? null
+                : StatusCode(403, new { code = "RealtimeServiceAuthenticationInvalid", message = "Xác thực dịch vụ realtime không hợp lệ." });
         var origin = Request.Headers.Origin.ToString();
+        // The API reverse proxy shares its browser origin even when Next runs on port 3000.
+        // A missing/null Origin never authorizes a cookie request.
+        var sameOrigin = $"{Request.Scheme}://{Request.Host}";
         var allowed = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
             ?? ["http://localhost:3000", "http://localhost:3001", "http://localhost:8081"];
-        return allowed.Contains(origin, StringComparer.Ordinal);
+        if (string.Equals(origin, sameOrigin, StringComparison.Ordinal)
+            || allowed.Contains(origin, StringComparer.Ordinal)) return null;
+        return StatusCode(403, new { code = "RealtimeOriginNotAllowed",
+            message = "Địa chỉ trang đang mở chưa được phép kết nối realtime. Kiểm tra origin trong cấu hình API và BackendNode." });
     }
 
     private IActionResult Respond(NodeSubscription scope)

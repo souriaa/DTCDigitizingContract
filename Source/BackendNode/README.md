@@ -46,7 +46,11 @@ Yêu cầu Node.js >=22.15 và .NET theo project hiện tại. Chạy lệnh t�
 - `BackendNode/.env`: đủ host/port/origin/API URL, secret khớp với API. `index.js` đọc file này theo vị trí của chính nó nên chạy từ thư mục khác cũng đọc đúng `.env`.
 - `Frontend/.env.development`: API `http://localhost:5005`, chọn `socketio`, socket URL `http://localhost:4000`.
 
-Không cần gõ lại `$env:...` mỗi lần chạy local. Chạy API bằng `dotnet run` trong project API (profile hiện có đặt môi trường Development), Node bằng `npm run dev` trong `BackendNode`, FE bằng `npm run dev` trong `Frontend` nếu FE chưa được launcher mở sẵn. Các file cấu hình local này được Git ignore; không dùng secret local cho production. DB vẫn cần được cập nhật migration theo phần trên; thay đổi cấu hình không tự áp migration.
+Local cho phép mở FE trực tiếp tại `http://localhost:3000` hoặc qua reverse proxy API tại `http://localhost:5005`. Hai origin đã có trong `BackendNode/.env` và CORS Development của API. Endpoint cấp ticket chấp nhận origin trùng scheme/host/port của request hoặc nằm trong allowlist; không bỏ kiểm tra origin. Khi đổi origin, cập nhật cả API và Node rồi khởi động lại. Launcher bỏ qua cổng đang chạy nên restart API không reload `.env` của Node đã chạy sẵn.
+
+Không cần gõ lại `$env:...` mỗi lần chạy local. Chạy `dotnet run` trong project API: ở môi trường Development, `FrontendLauncher` dùng chung `npm run dev` để mở Node Backend (4000), Tenant Frontend (3000) và SystemAdmin (3001), bỏ qua ứng dụng có cổng đang chạy. Có thể tắt riêng Node bằng `Development.LaunchNodeBackend=false`, hoặc tắt mở FE bằng `Development.LaunchFrontends=false` trong `appsettings.Development.json`. Node cũng chỉ tự mở khi `Realtime.NodeWebSocket.Enabled=true`; production không tự mở các app này. Các file cấu hình local được Git ignore; không dùng secret local cho production. DB vẫn cần được cập nhật migration theo phần trên; thay đổi cấu hình không tự áp migration.
+
+Node chạy giống hai FE: có thể tiếp tục chạy khi API dừng, lần chạy API sau sẽ dùng lại tiến trình đó. Muốn chạy riêng, dùng `npm run dev` trong `BackendNode`. Node lấy biến từ `.env` của nó; secret/URL của file này cần khớp cấu hình API như phần trên.
 
 Các bước dưới dành cho clone/máy mới hoặc khi muốn cấu hình thủ công; không cần làm lại ở workspace đã cấu hình sẵn:
 
@@ -76,7 +80,7 @@ dotnet run --launch-profile http
 
 Các request control/probe nội bộ gửi `X-Forwarded-Proto: https` để hoạt động với `UseHttpsRedirection` sau TLS termination. Giữ cấu hình API hiện có: chỉ tin forwarded headers từ proxy/loopback trên cùng máy; không mở `KnownProxies/KnownNetworks` cho mọi nguồn. Request vẫn bắt buộc HMAC, còn probe vẫn kiểm tra cookie/RBAC/OTP.
 
-3. Terminal khác, trong `BackendNode`: `npm run dev` hoặc `npm start`. `GET http://127.0.0.1:4000/health/live` trả `{"status":"live"}`. Health này chỉ xác nhận tiến trình Node, không xác nhận session/API .NET đã hoạt động.
+3. `dotnet run` ở Development đã tự mở Node theo launcher chung. Nếu tắt tự mở thì chạy riêng trong `BackendNode`: `npm run dev` hoặc `npm start`. `GET http://127.0.0.1:4000/health/live` trả `{"status":"live"}`. Health này chỉ xác nhận tiến trình Node, không xác nhận session/API .NET đã hoạt động.
 4. Trong `Frontend/.env.development` thêm các biến sau, giữ các cấu hình khác đang dùng, chạy `npm ci` nếu vừa pull dependency mới rồi khởi động lại FE:
 
 ```dotenv

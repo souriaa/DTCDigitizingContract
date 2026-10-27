@@ -7,7 +7,7 @@ public static class FrontendLauncher
 {
     private static bool _started;
 
-    public static void Start()
+    public static void Start(bool launchFrontends = true, bool launchNodeBackend = false, int nodePort = 4000)
     {
         if (_started)
             return;
@@ -31,20 +31,30 @@ public static class FrontendLauncher
             sourcePath,
             "SystemAdmin");
 
-        StartFrontend(
+        if (launchNodeBackend)
+        {
+            StartApplication(
+                name: "Node Backend",
+                applicationPath: Path.Combine(sourcePath, "BackendNode"),
+                port: nodePort);
+        }
+
+        if (!launchFrontends) return;
+
+        StartApplication(
             name: "Tenant Frontend",
-            frontendPath: tenantFrontendPath,
+            applicationPath: tenantFrontendPath,
             port: 3000);
 
-        StartFrontend(
+        StartApplication(
             name: "System Admin Frontend",
-            frontendPath: systemAdminFrontendPath,
+            applicationPath: systemAdminFrontendPath,
             port: 3001);
     }
 
-    private static void StartFrontend(
+    private static void StartApplication(
         string name,
-        string frontendPath,
+        string applicationPath,
         int port)
     {
         if (IsPortOpen("localhost", port))
@@ -55,16 +65,16 @@ public static class FrontendLauncher
             return;
         }
 
-        if (!Directory.Exists(frontendPath))
+        if (!Directory.Exists(applicationPath))
         {
             Console.WriteLine(
-                $"[{name}] Không tìm thấy thư mục: {frontendPath}");
+                $"[{name}] Không tìm thấy thư mục: {applicationPath}");
 
             return;
         }
 
         var packageJsonPath = Path.Combine(
-            frontendPath,
+            applicationPath,
             "package.json");
 
         if (!File.Exists(packageJsonPath))
@@ -81,7 +91,7 @@ public static class FrontendLauncher
 
             process.StartInfo.FileName = "cmd.exe";
             process.StartInfo.Arguments = "/c npm run dev";
-            process.StartInfo.WorkingDirectory = frontendPath;
+            process.StartInfo.WorkingDirectory = applicationPath;
             process.StartInfo.UseShellExecute = true;
 
             process.Start();
@@ -90,7 +100,7 @@ public static class FrontendLauncher
                 $"[{name}] Đã khởi động tại port {port}.");
 
             Console.WriteLine(
-                $"[{name}] Thư mục: {frontendPath}");
+                $"[{name}] Thư mục: {applicationPath}");
         }
         catch (Exception exception)
         {

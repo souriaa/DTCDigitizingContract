@@ -1,4 +1,4 @@
-export const RBAC_PERMISSION_VERSION = "rbac-v2" as const;
+export const RBAC_PERMISSION_VERSION = "rbac-v3" as const;
 
 export const RBAC_PERMISSIONS = {
   employeeDirectoryRead: "employee.directory.read",
@@ -43,6 +43,7 @@ export const hasPermission = (
 export const hasAnyPermission = (
   permissions: readonly string[] | null | undefined,
   requiredPermissions: readonly RbacPermission[],
-) => requiredPermissions.some((permission) =>
-  hasPermission(permissions, permission),
-);
+) =>
+  requiredPermissions.some((permission) =>
+    hasPermission(permissions, permission),
+  );
