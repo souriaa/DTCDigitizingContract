@@ -38,6 +38,7 @@ import {
   DateRange,
 } from "@/components/ui/custom/date-range-filter";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/format-date";
 import {
   SummaryCardItem,
   SummaryCards,
@@ -307,7 +308,7 @@ function EmployeeListPageContent() {
         cell: ({ row }) => (
           <div className="text-center text-sm text-muted-foreground">
             {row.original.dateModified
-              ? format(new Date(row.original.dateModified), "dd/MM/yyyy")
+              ? formatDate(row.original.dateModified)
               : "N/A"}
           </div>
         ),

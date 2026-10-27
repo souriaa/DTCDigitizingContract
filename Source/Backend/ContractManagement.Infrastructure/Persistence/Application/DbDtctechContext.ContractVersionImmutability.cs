@@ -16,7 +16,6 @@ public partial class DbDtctechContext
         CancellationToken cancellationToken,
         bool useAsync)
     {
-        await ValidateHandoverChangesAsync(cancellationToken, useAsync);
         if (ChangeTracker.Entries<TblContractVersionLegalSnapshot>().Any(IsModifiedOrDeleted)
             || ChangeTracker.Entries<TblContractVersionPartySnapshot>().Any(IsModifiedOrDeleted)
             || ChangeTracker.Entries<TblContractVersionPaymentMilestoneSnapshot>().Any(IsModifiedOrDeleted))

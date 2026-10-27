@@ -441,12 +441,12 @@ namespace ContractManagement.API.Domains.Services.Employee
                     "Employee session is no longer valid.");
             }
 
-            if (actor.EmployeeType != (byte)EmployeeType.Manager)
+            if (!EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.EmployeeManage))
             {
                 throw new RbacOperationException(
                     StatusCodes.Status403Forbidden,
                     AuthorizationErrorCodes.PermissionDenied,
-                    "Only an active Manager can manage employees.");
+                    "Employee does not have employee management permission.");
             }
 
             return actor;

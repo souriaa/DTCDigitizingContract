@@ -67,7 +67,7 @@ public sealed partial class ContractCompletionServicePhase10Tests
         Assert.False(readiness.AcceptanceCompleted);
         Assert.Equal(ContractTotal, readiness.RemainingAmount);
         Assert.Equal(
-            ["NOT_SIGNED", "HANDOVER_INCOMPLETE", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
+            ["NOT_SIGNED", "ACCEPTANCE_NOT_STARTED", "PAYMENT_NOT_FULLY_PAID"],
             readiness.Blockers.Select(blocker => blocker.Code));
     }
 
@@ -77,7 +77,7 @@ public sealed partial class ContractCompletionServicePhase10Tests
     public async Task SignedPartial_DoesNotAllowCompletionUntilEveryMilestoneIsAccepted(ContractDirection direction)
     {
         await using var context = CreateContext();
-        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true, direction: direction, acceptedScopeQuantity: 1m);
+        await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true, direction: direction);
         var milestones = await SeedPaymentMilestonesAsync(context,
             (PaymentDueAnchor.ContractSigned, 0, 400m),
             (PaymentDueAnchor.ContractSigned, 0, 600m));
@@ -146,7 +146,6 @@ public sealed partial class ContractCompletionServicePhase10Tests
             AcceptanceRecordId = 12013,
             PaymentMilestoneId = milestones[1].PaymentMilestoneId
         });
-        context.TblContractAcceptanceScopeAllocations.Add(new() { AcceptanceRecordId = 12013, HandoverLineId = 13003, Quantity = 1 });
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
@@ -222,10 +221,10 @@ public sealed partial class ContractCompletionServicePhase10Tests
                 candidate.ActionType == ContractAuditActionTypes.PaymentAdded
                 && candidate.ActorEmployeeId == AccountantId));
         var notification = await context.TblNotifications.AsNoTracking()
-            .Include(x => x.Recipients).SingleAsync();
+            .Include(x => x.Recipients).SingleAsync(x => x.EventCode == "PaymentsCompleted");
         Assert.Equal("PaymentsCompleted", notification.EventCode);
         Assert.Equal($"contract:{ContractId}:payments-complete:{final.ContractPaymentId}", notification.EventKey);
-        Assert.Equal(OwnerId, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal(new[] { OwnerId, ManagerId }.Order(), notification.Recipients.Select(x => x.EmployeeId).Order());
 
         await service.VoidPaymentAsync(ContractId, final.ContractPaymentId,
             VoidRequest(Convert.FromBase64String(final.RowVersion),
@@ -326,24 +325,33 @@ public sealed partial class ContractCompletionServicePhase10Tests
     }
 
     [Fact]
-    public async Task CompleteMilestone_MissingEvidence_IsRejectedBeforeStorage()
+    public async Task CompleteMilestone_WithoutEvidence_IsPaidReadyAndCanBeReopened()
     {
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.Signed, includeAcceptance: true);
         var milestone = Assert.Single(await SeedPaymentMilestonesAsync(context,
             (PaymentDueAnchor.ContractSigned, 0, ContractTotal)));
         var request = CompleteMilestoneRequest("NO-EVIDENCE");
-        request.EvidenceFile = null!;
+        request.EvidenceFile = null;
         var storage = new TrackingPrivateStorage();
+        var service = CreateService(context, storage);
 
-        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            CreateService(context, storage).CompletePaymentMilestoneAsync(
-                ContractId, VersionId, milestone.PaymentMilestoneId,
-                request, AccountantId));
-
-        Assert.Equal("PaymentEvidenceRequired", exception.Code);
+        var result = await service.CompletePaymentMilestoneAsync(
+            ContractId, VersionId, milestone.PaymentMilestoneId, request, AccountantId);
+        Assert.Null(result.Payment.EvidenceFileId);
+        Assert.NotNull(result.Milestone.ActivePayment);
         Assert.Empty(storage.SavedKeys);
-        Assert.Empty(context.TblContractPaymentLedgers);
+        var readiness = await service.GetReadinessAsync(ContractId, AccountantId);
+        Assert.Equal(ContractTotal, readiness.PaidAmount);
+        Assert.True(readiness.Ready);
+        var reopened = await service.ReopenPaymentMilestoneAsync(
+            ContractId, VersionId, milestone.PaymentMilestoneId,
+            ReopenMilestoneRequest(result.Payment.RowVersion, "Sửa thông tin thanh toán"),
+            AccountantId);
+        Assert.Equal(ContractPaymentStatus.Voided, reopened.Payment.Status);
+        Assert.Equal(ContractPaymentMilestoneStatus.Unpaid, reopened.Milestone.PaymentStatus);
+        Assert.False((await service.GetReadinessAsync(ContractId, AccountantId)).PaymentCompleted);
+        Assert.Empty(storage.DeletedKeys);
     }
 
     [Fact]
@@ -494,7 +502,7 @@ public sealed partial class ContractCompletionServicePhase10Tests
             CreateService(context, storage)
                 .CompletePaymentMilestoneAsync(
                     ContractId, VersionId, milestone.PaymentMilestoneId,
-                    CompleteMilestoneRequest("UNAUTHORIZED-001"), OwnerId));
+                    CompleteMilestoneRequest("UNAUTHORIZED-001"), OtherEmployeeId));
 
         Assert.Equal(AuthorizationErrorCodes.PermissionDenied, exception.Code);
         var stored = await context.TblContractPaymentMilestones.AsNoTracking()
@@ -801,23 +809,18 @@ public sealed partial class ContractCompletionServicePhase10Tests
     }
 
     [Fact]
-    public async Task OwnerCannotMutateAcceptanceOrPaymentData()
+    public async Task OwnerCanRecordPayments_ButCannotCompleteContract()
     {
         await using var context = CreateContext();
         await SeedAsync(context, ContractStatus.Signed);
         var storage = new TrackingPrivateStorage();
         var service = CreateService(context, storage);
-
-        var payment = await Assert.ThrowsAsync<RbacOperationException>(() =>
-            service.AddPaymentAsync(
-                ContractId,
-                PaymentRequest(100m, "unauthorized"),
-                OwnerId));
-
-        Assert.Equal(AuthorizationErrorCodes.PermissionDenied, payment.Code);
-        Assert.Empty(storage.SavedKeys);
-        Assert.Empty(context.TblContractAcceptanceEvidences);
-        Assert.Empty(context.TblContractPaymentLedgers);
+        var payment = await service.AddPaymentAsync(
+            ContractId, PaymentRequest(100m, "OWNER-PAYMENT"), OwnerId);
+        Assert.Equal(100m, payment.Amount);
+        Assert.Single(context.TblContractPaymentLedgers);
+        await Assert.ThrowsAsync<RbacOperationException>(() =>
+            service.CompleteAsync(ContractId, CompleteRequest(), OwnerId));
     }
 
     private static DbDtctechContext CreateContext()
@@ -873,8 +876,7 @@ public sealed partial class ContractCompletionServicePhase10Tests
         bool includeSignedEvidence = true,
         bool includeAcceptance = false,
         IReadOnlyCollection<decimal>? activePayments = null,
-        ContractDirection direction = ContractDirection.Sale, bool includeHandover = true,
-        decimal acceptedScopeQuantity = 2m)
+        ContractDirection direction = ContractDirection.Sale)
     {
         context.TblEmployees.AddRange(
             Employee(OwnerId, "Owner", EmployeeType.Sale),
@@ -997,9 +999,6 @@ public sealed partial class ContractCompletionServicePhase10Tests
                     RowVersion = InitialRowVersion.ToArray()
                 });
         }
-
-        if (includeHandover && status is ContractStatus.Signed or ContractStatus.Completed)
-            SeedCompletionScope(context, includeAcceptance, acceptedScopeQuantity);
 
         var paymentId = 12020;
         foreach (var amount in activePayments ?? [])

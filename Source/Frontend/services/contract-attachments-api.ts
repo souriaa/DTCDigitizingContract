@@ -3,7 +3,6 @@ import axiosClient from "@/lib/axios-interceptor";
 export const CONTRACT_DOCUMENT_TYPES = [
   { value: 0, label: "Tệp báo giá" },
   { value: 1, label: "Biên bản nghiệm thu" },
-  { value: 2, label: "Biên bản bàn giao" },
   { value: 3, label: "Biên bản thanh lý" },
   { value: 4, label: "Hóa đơn VAT" },
   { value: 5, label: "Bảo lãnh ngân hàng" },

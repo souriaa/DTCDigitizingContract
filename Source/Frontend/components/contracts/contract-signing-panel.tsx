@@ -31,6 +31,7 @@ import {
   isStaleRowVersion,
 } from "@/lib/api-error";
 import { formatDateTime } from "@/lib/format-date-time";
+import { formatDate } from "@/lib/format-date";
 import {
   ContractDetailResponse,
   ContractStatus,
@@ -468,7 +469,9 @@ export function ContractSigningPanel({
               ? "Bản ký hiện tại sẽ được lưu trong lịch sử và thay bằng"
               : "Hợp đồng sẽ chuyển sang trạng thái Đã ký sau khi lưu"}{" "}
             tệp <strong>{selectedFile?.name}</strong>. Ngày ký:{" "}
-            <strong>{signDate ? format(signDate, "dd/MM/yyyy") : "—"}</strong>.
+            <strong>
+              {signDate ? formatDate(format(signDate, "yyyy-MM-dd")) : "—"}
+            </strong>.
           </>
         }
         confirmText={isSupersede ? "Lưu bản thay thế" : "Lưu và đánh dấu Đã ký"}

@@ -11,7 +11,6 @@ export enum TemplateDocumentType {
   Quotation = 1,
   SoftwareSupplyContract = 2,
   PaymentRequest = 3,
-  HandoverRecord = 4,
   AcceptanceRecord = 5,
   LiquidationRecord = 6,
   SoftwareMaintenanceContract = 7,
@@ -67,8 +66,6 @@ export const getTemplateDocumentTypeLabel = (type?: TemplateDocumentType) => {
       return "Báo giá";
     case TemplateDocumentType.PaymentRequest:
       return "Đề nghị thanh toán";
-    case TemplateDocumentType.HandoverRecord:
-      return "Biên bản bàn giao";
     case TemplateDocumentType.AcceptanceRecord:
       return "Biên bản nghiệm thu";
     case TemplateDocumentType.LiquidationRecord:

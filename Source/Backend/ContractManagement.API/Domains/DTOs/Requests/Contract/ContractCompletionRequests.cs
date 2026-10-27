@@ -18,7 +18,7 @@ public sealed class AddContractPaymentRequest
 
 public sealed class CompleteContractPaymentMilestoneRequest
 {
-    public IFormFile EvidenceFile { get; set; } = null!;
+    public IFormFile? EvidenceFile { get; set; }
     public int CurrentVersionId { get; set; }
     public string ContractRowVersion { get; set; } = string.Empty;
     public string VersionRowVersion { get; set; } = string.Empty;

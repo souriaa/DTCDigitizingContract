@@ -428,6 +428,92 @@ public sealed class ContractApprovalServicePhase8DTests
                 .SingleAsync()).Status);
     }
 
+    [Fact]
+    public async Task AdministrativeReview_ThenManagerApproval_PreservesBothActorsAndLockedArtifacts()
+    {
+        await using var context = CreateContext();
+        var storage = await SeedAdministrativeReviewAsync(context);
+        var service = CreateService(context, storage, CreateAuditWriter(context));
+        Assert.Empty((await service.GetInboxAsync(new(), ManagerAId)).Items);
+        Assert.Single((await service.GetInboxAsync(new(), 9190)).Items);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.DecideAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), ManagerAId));
+        foreach (var actor in new[] { ManagerAId, 9191, OwnerId })
+            await Assert.ThrowsAsync<RbacOperationException>(() => service.ReviewAsync(
+                ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), actor));
+        var reviewed = await service.ReviewAsync(ApprovalRequestId,
+            ApprovalRequestStatus.Approved, DecisionRequest("Đã kiểm tra hồ sơ."), 9190);
+        Assert.Equal(ContractStatus.PendingApproval, reviewed.ContractStatus);
+        Assert.Equal(ApprovalRequestStatus.Pending, reviewed.ApprovalStatus);
+        var detail = await service.GetDetailAsync(ApprovalRequestId, OwnerId);
+        Assert.Equal(9190, detail.AdministrativeReviewerEmployeeId);
+        Assert.Equal("Reviewer", detail.AdministrativeReviewerEmployeeName);
+        Assert.NotNull(detail.AdministrativeReviewedAt);
+        Assert.Null(detail.ResolvedDate);
+        Assert.Null(detail.ResolvedByEmployeeId);
+        Assert.Empty((await service.GetInboxAsync(new(), 9190)).Items);
+        Assert.Single((await service.GetInboxAsync(new(), ManagerAId)).Items);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.ReviewAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved,
+            DecisionRequest(null), 9190));
+        var approved = await service.DecideAsync(ApprovalRequestId,
+            ApprovalRequestStatus.Approved,
+            new() { RowVersion = reviewed.ApprovalRequestRowVersion }, ManagerAId);
+        Assert.Equal(ContractStatus.PendingSignature, approved.ContractStatus);
+        Assert.Equal(2, await context.TblApprovalHistories.CountAsync());
+        Assert.Contains(context.TblContractAudits,
+            x => x.ActionType == ContractAuditActionTypes.ApprovalReviewed);
+        Assert.True((await context.TblContractVersions.SingleAsync()).IsLocked);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AdministrativeReview_ReturnOrWithdraw_GoesBackToNegotiating(bool withdraw)
+    {
+        await using var context = CreateContext();
+        var storage = await SeedAdministrativeReviewAsync(context);
+        var service = CreateService(context, storage, CreateAuditWriter(context));
+        var result = withdraw
+            ? await service.WithdrawAsync(ApprovalRequestId,
+                new() { RowVersion = EncodedRowVersion(), Reason = "Cần chỉnh sửa hồ sơ." }, OwnerId)
+            : await service.ReviewAsync(ApprovalRequestId, ApprovalRequestStatus.Returned,
+                DecisionRequest("Cần bổ sung thông tin."), 9190);
+        Assert.Equal(ContractStatus.Negotiating, result.ContractStatus);
+        Assert.True((await context.TblContractVersions.SingleAsync()).IsLocked);
+        Assert.Equal(withdraw ? ApprovalRequestStatus.Withdrawn : ApprovalRequestStatus.Returned,
+            result.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task AdminOfficer_CannotFinallyApprove_AndCannotReviewOwnSubmission()
+    {
+        await using var context = CreateContext();
+        var storage = await SeedAdministrativeReviewAsync(context);
+        var service = CreateService(context, storage, CreateAuditWriter(context));
+        await Assert.ThrowsAsync<RbacOperationException>(() => service.DecideAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), 9190));
+        var request = await context.TblContractApprovalRequests.SingleAsync();
+        request.SubmittedByEmployeeId = 9190;
+        await context.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => service.ReviewAsync(
+            ApprovalRequestId, ApprovalRequestStatus.Approved, DecisionRequest(null), 9190));
+        Assert.Equal(ContractApprovalErrorCodes.SelfApprovalDenied, error.Code);
+    }
+
+    private static async Task<MemoryPrivateFileStorage> SeedAdministrativeReviewAsync(DbDtctechContext context)
+    {
+        var storage = await SeedPendingApprovalAsync(context);
+        context.TblEmployees.AddRange(Employee(9190, "Reviewer", EmployeeType.AdminOfficer),
+            Employee(9191, "Accountant", EmployeeType.Accountant));
+        (await context.TblContracts.SingleAsync()).Status = (byte)ContractStatus.PendingAdministrativeReview;
+        (await context.TblContractApprovalRequests.SingleAsync()).Status =
+            (byte)ApprovalRequestStatus.PendingAdministrativeReview;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return storage;
+    }
+
     private static DbDtctechContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<DbDtctechContext>()

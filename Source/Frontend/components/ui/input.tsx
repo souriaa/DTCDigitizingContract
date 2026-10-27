@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 
 interface InputProps extends React.ComponentProps<"input"> {
   onClear?: () => void;
+  showControls?: boolean;
 }
 
 function Input({
@@ -16,6 +17,7 @@ function Input({
   defaultValue,
   onChange,
   onClear,
+  showControls = true,
   ...props
 }: InputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -65,8 +67,9 @@ function Input({
     if (onClear) onClear();
   };
 
-  const showClearButton = charCount > 0 && !props.disabled && !props.readOnly;
-  const showCharCount = Boolean(maxLength) && !props.disabled;
+  const showClearButton =
+    showControls && charCount > 0 && !props.disabled && !props.readOnly;
+  const showCharCount = showControls && Boolean(maxLength) && !props.disabled;
 
   return (
     <div className="relative w-full">

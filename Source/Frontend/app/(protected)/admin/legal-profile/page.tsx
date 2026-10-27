@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date-time";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -84,20 +86,6 @@ const EMPTY_FORM: UpsertTenantLegalProfileRequest = {
 type FormErrors = Partial<
   Record<keyof UpsertTenantLegalProfileRequest, string>
 >;
-
-function formatDate(isoString?: string | null): string {
-  if (!isoString) return "Chưa ghi nhận";
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    return new Intl.DateTimeFormat("vi-VN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(d);
-  } catch {
-    return isoString;
-  }
-}
 
 function LegalProfilePageContent() {
   const [profile, setProfile] = useState<TenantLegalProfileResponse | null>(
@@ -408,7 +396,11 @@ function LegalProfilePageContent() {
                     <span className="flex items-center gap-1">
                       <Calendar className="size-3.5 text-muted-foreground" />
                       Cập nhật:{" "}
-                      {isLoading ? "..." : formatDate(profile?.updatedAt)}
+                      {isLoading
+                        ? "..."
+                        : profile?.updatedAt
+                          ? formatDateTime(profile.updatedAt)
+                          : "Chưa ghi nhận"}
                     </span>
                   </div>
                 </div>

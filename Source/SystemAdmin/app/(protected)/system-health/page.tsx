@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/ui/custom/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { formatDateTime } from "@/lib/format-date-time";
 import { systemHealthApi, type SystemHealthResponse } from "@/services/system-health-api";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -81,7 +82,7 @@ export default function SystemHealthPage() {
 
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         {isLoading && !data ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-36 rounded-2xl" />)}</div> : data ? <>
-          <Card className="rounded-2xl"><CardContent className="flex flex-col justify-between gap-4 pt-6 sm:flex-row sm:items-center"><div><p className="text-sm text-muted-foreground">Trạng thái tổng thể</p><p className="mt-1 text-2xl font-bold">{data.status}</p><p className="mt-1 text-xs text-muted-foreground">Cập nhật {new Date(data.generatedAt).toLocaleString("vi-VN")} · tự động mỗi 30 giây khi tab đang mở</p></div><div className="flex items-center gap-3"><Badge variant={statusVariant(data.status)} className="px-3 py-1">{data.status}</Badge><div className="rounded-xl bg-muted px-4 py-2 text-center"><p className="text-xs text-muted-foreground">Tenant lỗi</p><p className="text-xl font-bold">{data.failedTenantCount ?? "—"}</p></div></div></CardContent></Card>
+          <Card className="rounded-2xl"><CardContent className="flex flex-col justify-between gap-4 pt-6 sm:flex-row sm:items-center"><div><p className="text-sm text-muted-foreground">Trạng thái tổng thể</p><p className="mt-1 text-2xl font-bold">{data.status}</p><p className="mt-1 text-xs text-muted-foreground">Cập nhật {formatDateTime(data.generatedAt)} · tự động mỗi 30 giây khi tab đang mở</p></div><div className="flex items-center gap-3"><Badge variant={statusVariant(data.status)} className="px-3 py-1">{data.status}</Badge><div className="rounded-xl bg-muted px-4 py-2 text-center"><p className="text-xs text-muted-foreground">Tenant lỗi</p><p className="text-xl font-bold">{data.failedTenantCount ?? "—"}</p></div></div></CardContent></Card>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{checks.map((check) => { const Icon = check.icon; return <Card key={check.title} className="rounded-2xl"><CardHeader className="flex-row items-center justify-between space-y-0 pb-3"><span className="flex items-center gap-2"><Icon className="size-4 text-primary" /><CardTitle className="text-base">{check.title}</CardTitle></span><Badge variant={statusVariant(check.status)}>{check.status}</Badge></CardHeader><CardContent><p className="text-sm text-muted-foreground">{check.details}</p></CardContent></Card>; })}</div>
         </> : null}
       </main>

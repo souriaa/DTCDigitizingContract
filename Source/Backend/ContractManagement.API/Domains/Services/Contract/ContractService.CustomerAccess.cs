@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Requests.Public;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
@@ -692,8 +693,7 @@ public partial class ContractService
 
         var actor = await _dbContext.TblEmployees.AsNoTracking().SingleOrDefaultAsync(
             x => x.EmployeeId == employeeId && x.Status == ActiveEmployeeStatus);
-        if (actor is null || (actor.EmployeeType != (byte)EmployeeType.Manager
-            && actor.EmployeeType != (byte)EmployeeType.AdminOfficer))
+        if (actor is null || !EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.ContractSupport))
         {
             throw new UnauthorizedAccessException("Employee is not authorized for customer access.");
         }

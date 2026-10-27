@@ -24,6 +24,12 @@ import { Button } from "@/components/ui/button";
 import type { RecentContractActivity } from "@/services/dashboard-api";
 import { CONTRACT_AUDIT_ACTION_LABELS } from "@/services/contract-audit-api";
 import { cn } from "@/lib/utils";
+import {
+  formatDateTime,
+  formatTime,
+  getVietnamDayNumber,
+  parseApiDate,
+} from "@/lib/format-date-time";
 
 interface RecentContractActivitiesProps {
   items: RecentContractActivity[];
@@ -118,7 +124,7 @@ function getActionMeta(action: string) {
 }
 
 function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseApiDate(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -129,16 +135,10 @@ function formatRelativeTime(dateString: string): string {
   if (diffSec < 60) return "Vừa xong";
   if (diffMin < 60) return `${diffMin} phút trước`;
   if (diffHours < 24) return `${diffHours} giờ trước`;
-  if (diffDays === 1)
-    return `Hôm qua lúc ${date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+  if (getVietnamDayNumber(now) - getVietnamDayNumber(date) === 1)
+    return `Hôm qua lúc ${formatTime(dateString)}`;
   if (diffDays < 7) return `${diffDays} ngày trước`;
-  return date.toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(dateString);
 }
 
 export function RecentContractActivities({

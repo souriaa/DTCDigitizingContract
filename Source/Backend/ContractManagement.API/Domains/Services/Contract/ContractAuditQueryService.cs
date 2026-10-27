@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
 using ContractManagement.Domains.Interfaces.Contract;
@@ -137,8 +138,7 @@ public sealed class ContractAuditQueryService : IContractAuditQueryService
             ?? throw new UnauthorizedAccessException(
                 "Employee is not authorized to view contract audits.");
 
-        var canViewTenant = actor.EmployeeType == (byte)EmployeeType.Manager
-            || actor.EmployeeType == (byte)EmployeeType.AdminOfficer;
+        var canViewTenant = EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.ContractAuditReadTenant);
         if (!canViewTenant)
         {
             if (filter.ContractId is not > 0)
@@ -754,6 +754,7 @@ public sealed class ContractAuditQueryService : IContractAuditQueryService
         ContractAuditActionTypes.ResponsibilityTransferred,
         ContractAuditActionTypes.DraftUpdated,
         ContractAuditActionTypes.ApprovalSubmitted,
+        ContractAuditActionTypes.ApprovalReviewed,
         ContractAuditActionTypes.ApprovalApproved,
         ContractAuditActionTypes.ApprovalReturned,
         ContractAuditActionTypes.ApprovalRejected,

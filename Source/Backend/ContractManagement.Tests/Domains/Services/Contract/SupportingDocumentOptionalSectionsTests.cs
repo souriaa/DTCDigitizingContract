@@ -17,7 +17,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         Assert.Empty(draft.Sections);
         draft = await service.ReplaceSectionsAsync(ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion, Sections = [] }, EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         await service.PreviewAsync(ContractId, draft.AcceptanceRecordId, "docx", EmployeeId);
         var finalized = await service.FinalizeAsync(ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
@@ -45,50 +44,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
             Assert.Equal("AcceptanceSectionsMissing", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
                 service.ReplaceSectionsAsync(ContractId, draft.AcceptanceRecordId,
                     new() { RowVersion = draft.RowVersion, Sections = [] }, EmployeeId))).Code);
-        }
-    }
-
-    [Fact]
-    public async Task Handover_WithoutSectionsMarker_AllowsEmptySectionsThroughoutLifecycle()
-    {
-        await using var db = CreateContext(); var storage = new TrackingStorage();
-        var (service, scope) = await HandoverFixture(db, storage, omitSections: true,
-            documentBytes: SectionlessDocument("HANDOVER_CODE"));
-        var draft = await service.CreateAsync(ContractId, HandoverRequest(scope.Items[0].HandoverScopeItemId, 1), EmployeeId);
-        Assert.Empty(draft.Sections);
-        draft = await service.UpdateAsync(ContractId, draft.Record.HandoverRecordId, new() {
-            RowVersion = draft.Record.RowVersion, HandoverCode = draft.Record.HandoverCode,
-            HandoverDate = draft.Record.HandoverDate, Location = draft.Location, Parties = draft.Parties,
-            Sections = [], Lines = [new(scope.Items[0].HandoverScopeItemId, 1)] }, EmployeeId);
-        await service.PreviewAsync(ContractId, draft.Record.HandoverRecordId, "docx", EmployeeId);
-        var finalized = await service.FinalizeAsync(ContractId, draft.Record.HandoverRecordId,
-            new() { RowVersion = draft.Record.RowVersion }, EmployeeId);
-        var signed = await service.SignAsync(ContractId, draft.Record.HandoverRecordId, new() {
-            RowVersion = finalized.Record.RowVersion, File = FormFile("signed.pdf", "application/pdf", "%PDF-proof"),
-            SignDate = new DateTime(2026,9,19), ConfirmBothPartiesSigned = true }, EmployeeId);
-        Assert.Equal(HandoverRecordStatus.Signed, signed.Record.Status);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Handover_WithSectionsMarker_RejectsCreatingOrSavingEmptySections(bool omitSourceSections)
-    {
-        await using var db = CreateContext(); var storage = new TrackingStorage();
-        var (service, scope) = await HandoverFixture(db, storage, omitSections: omitSourceSections);
-        if (omitSourceSections)
-        {
-            Assert.Equal("HandoverSectionsMissing", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
-                service.CreateAsync(ContractId, HandoverRequest(scope.Items[0].HandoverScopeItemId, 1), EmployeeId))).Code);
-        }
-        else
-        {
-            var draft = await service.CreateAsync(ContractId, HandoverRequest(scope.Items[0].HandoverScopeItemId, 1), EmployeeId);
-            Assert.Equal("HandoverSectionsMissing", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
-                service.UpdateAsync(ContractId, draft.Record.HandoverRecordId, new() {
-                    RowVersion = draft.Record.RowVersion, HandoverCode = draft.Record.HandoverCode,
-                    HandoverDate = draft.Record.HandoverDate, Location = draft.Location, Parties = draft.Parties,
-                    Sections = [], Lines = [new(scope.Items[0].HandoverScopeItemId, 1)] }, EmployeeId))).Code);
         }
     }
 

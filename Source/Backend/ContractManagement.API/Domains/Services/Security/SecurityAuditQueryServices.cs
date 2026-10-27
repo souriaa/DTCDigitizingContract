@@ -33,17 +33,16 @@ public sealed class TenantSecurityAuditQueryService
         ArgumentNullException.ThrowIfNull(filter);
         Validate(filter);
 
-        var canRead = await _dbContext.TblEmployees.AsNoTracking()
-            .AnyAsync(employee => employee.EmployeeId == employeeId
-                && employee.Status == 1
-                && employee.EmployeeType == (byte)EmployeeType.Manager,
-                cancellationToken);
+        var employeeType = await _dbContext.TblEmployees.AsNoTracking()
+            .Where(employee => employee.EmployeeId == employeeId && employee.Status == 1)
+            .Select(employee => employee.EmployeeType).SingleOrDefaultAsync(cancellationToken);
+        var canRead = EmployeePermissionCatalog.HasPermission(employeeType, RbacPermissions.SecurityAuditReadTenant);
         if (!canRead)
         {
             throw new RbacOperationException(
                 StatusCodes.Status403Forbidden,
                 AuthorizationErrorCodes.PermissionDenied,
-                "Only Manager may view tenant security audits.");
+                "Employee does not have tenant security audit permission.");
         }
 
         var tenantId = _currentTenant.GetRequiredTenant().TenantId;

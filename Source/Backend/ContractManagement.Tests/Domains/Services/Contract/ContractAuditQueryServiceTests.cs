@@ -18,14 +18,21 @@ namespace ContractManagement.Tests.Domains.Services.Contract;
 public sealed class ContractAuditQueryServiceTests
 {
     [Fact]
-    public async Task Query_HandoverActionsAndSubjectCanBeFilteredAfterWritingRealAudit()
+    public async Task Query_RetiredHandoverAuditRemainsReadable_ButCannotBeWrittenAgain()
     {
         await using var db = CreateContext(); await SeedAsync(db); var tenant = CreateTenant();
-        CreateWriter(db, tenant).StageEmployeeAudits([new(ContractId, 1, ManagerId,
-            ContractAuditActionTypes.HandoverCreated, ContractAuditResults.Succeeded, DateTime.UtcNow,
-            SubjectType: ContractAuditSubjectTypes.HandoverRecord, SubjectId: 9,
-            NewValues: ContractAuditValues.Create(("HandoverRecordId",9),("HandoverBaselineId",2),
-                ("HandoverLineCount",1),("HandoverStatus",0),("CurrentVersionId",1),("TemplateVersionId",4),("SnapshotHash",null)))]);
+        db.TblContractAudits.Add(new TblContractAudit
+        {
+            TenantId = TenantId, ContractId = ContractId, VersionId = 1,
+            ActorType = ContractAuditActorTypes.Employee, ActorEmployeeId = ManagerId,
+            SubjectType = ContractAuditSubjectTypes.HandoverRecord, SubjectId = 9,
+            ActionType = ContractAuditActionTypes.HandoverCreated, Result = ContractAuditResults.Succeeded,
+            OccurredAt = DateTime.UtcNow, CorrelationId = "retired-handover-history"
+        });
+        Assert.Throws<InvalidOperationException>(() => CreateWriter(db, tenant).StageEmployeeAudits([new(
+            ContractId, 1, ManagerId, ContractAuditActionTypes.HandoverCreated,
+            ContractAuditResults.Succeeded, DateTime.UtcNow,
+            SubjectType: ContractAuditSubjectTypes.HandoverRecord, SubjectId: 10)]));
         await db.SaveChangesAsync();
         var result = await new ContractAuditQueryService(db,tenant).QueryAsync(new ContractAuditFilterRequest {
             ContractId = ContractId, SubjectType = ContractAuditSubjectTypes.HandoverRecord,

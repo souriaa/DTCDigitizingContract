@@ -19,11 +19,8 @@ export interface QuotationResponseDto {
 }
 
 export interface CreateQuotationRequestDto {
-  quotationNo: string;
   customerId: number;
-  quotationDate: string;
-  quatationStatus: string;
-  items: Omit<QuotationItemResponse, "amount" | "productName">[];
+  quotationItems: Omit<QuotationItemResponse, "amount" | "productName">[];
 }
 
 const BASE_URL = "/api/Quotation";

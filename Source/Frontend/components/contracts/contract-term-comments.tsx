@@ -31,6 +31,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format-date-time";
 import {
   contractApi,
   ContractNegotiationCommentResponse,
@@ -69,15 +70,6 @@ export type ContractTermCommentsDataSource = {
   ) => string | undefined;
   shouldSuppressError?: (error: unknown) => boolean;
 };
-
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 
 const getApiErrorMessage = (error: any, fallback: string) => {
   const data = error?.response?.data;

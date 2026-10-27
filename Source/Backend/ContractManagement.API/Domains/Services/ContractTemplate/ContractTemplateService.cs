@@ -1,4 +1,5 @@
 using ContractManagement.API.Common.Enums;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Common.Exceptions;
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.ContractTemplate;
@@ -2278,10 +2279,10 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && employee.Status == ActiveEmployeeStatus,
                 cancellationToken);
         if (actor is null
-            || actor.EmployeeType != (byte)EmployeeType.AdminOfficer)
+            || !EmployeePermissionCatalog.HasPermission(actor.EmployeeType, RbacPermissions.TemplateManage))
         {
             throw new UnauthorizedAccessException(
-                "Chỉ AdminOfficer active được quản trị template.");
+                "Nhân viên không có quyền quản trị mẫu tài liệu.");
         }
     }
 
@@ -3010,7 +3011,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
             if (!await SupportingDocumentSectionReader.IsRequiredAsync(_dbContext, versionId, documentType, cancellationToken))
                 return;
             throw new ContractTemplatePreviewException(
-                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsMissing" : "AcceptanceSectionsMissing",
+                "AcceptanceSectionsMissing",
                 $"DOCX có {{{{{SupportingDocumentCatalog.SectionsKey(documentType)}}}}} nên phải có ít nhất một mục nội dung trước khi phát hành.");
         }
 
@@ -3018,7 +3019,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                 (byte)ContractTermKind.General))
         {
             throw new ContractTemplatePreviewException(
-                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsInvalid" : "AcceptanceSectionsInvalid",
+                "AcceptanceSectionsInvalid",
                 "Mẫu biên bản chỉ được sử dụng mục nội dung thông thường.");
         }
 
@@ -3030,7 +3031,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
                     && string.IsNullOrWhiteSpace(section.TermContentEn))))
         {
             throw new ContractTemplatePreviewException(
-                documentType == TemplateDocumentType.HandoverRecord ? "HandoverSectionsBilingualInvalid" : "AcceptanceSectionsBilingualInvalid",
+                "AcceptanceSectionsBilingualInvalid",
                 "Mục nội dung biên bản song ngữ phải có đủ tiêu đề và nội dung tiếng Anh.");
         }
     }
@@ -3627,7 +3628,7 @@ public sealed partial class ContractTemplateService : IContractTemplateService
         var type = await _dbContext.TblContractTemplates.AsNoTracking().Where(x => x.TemplateId == templateId)
             .Select(x => (TemplateDocumentType)x.DocumentType).SingleAsync(ct);
         if (SupportingDocumentCatalog.Supports(type))
-            throw new ArgumentException("Mẫu bàn giao/nghiệm thu chỉ có mục nội dung, không cấu hình điều khoản thanh toán.");
+            throw new ArgumentException("Mẫu nghiệm thu chỉ có mục nội dung, không cấu hình điều khoản thanh toán.");
     }
 
     private static void ValidateTermKind(ContractTermKind kind)

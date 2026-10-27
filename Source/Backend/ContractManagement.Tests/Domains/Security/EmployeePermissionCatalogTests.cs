@@ -9,34 +9,11 @@ public sealed class EmployeePermissionCatalogTests
     [
         [EmployeeType.Sale, Expected(RbacPermissions.CustomerManage)],
         [EmployeeType.Marketing, Expected(RbacPermissions.CustomerManage)],
-        [EmployeeType.AdminOfficer, Expected(
-            RbacPermissions.CatalogManage,
-            RbacPermissions.ContractSupport,
-            RbacPermissions.TemplateManage,
-            RbacPermissions.ContractAuditReadTenant)],
-        [EmployeeType.Technical, Expected(
-            RbacPermissions.ContractExecutionRead,
-            RbacPermissions.ContractSigningManage,
-            RbacPermissions.ContractAcceptanceManage)],
-        [EmployeeType.Accountant, Expected(
-            RbacPermissions.ContractExecutionRead,
-            RbacPermissions.ContractPaymentManage)],
-        [EmployeeType.Manager, Expected(
-            RbacPermissions.EmployeeManage,
-            RbacPermissions.DepartmentManage,
-            RbacPermissions.CatalogManage,
-            RbacPermissions.CustomerManage,
-            RbacPermissions.ContractReadTenant,
-            RbacPermissions.ContractExecutionRead,
-            RbacPermissions.ContractSigningManage,
-            RbacPermissions.ContractAcceptanceManage,
-            RbacPermissions.ContractPaymentManage,
-            RbacPermissions.ContractComplete,
-            RbacPermissions.ContractSupport,
-            RbacPermissions.ContractAuditReadTenant,
-            RbacPermissions.ContractApprovalDecide,
-            RbacPermissions.SecurityAuditReadTenant,
-            RbacPermissions.TenantLegalProfileManage)]
+        [EmployeeType.AdminOfficer, ExpectedAdministration(RbacPermissions.ContractApprovalReview)],
+        [EmployeeType.Technical, Expected(RbacPermissions.ContractExecutionRead)],
+        [EmployeeType.Accountant, ExpectedAdministration().Where(x =>
+            x != RbacPermissions.ContractSigningManage).ToArray()],
+        [EmployeeType.Manager, ExpectedAdministration(RbacPermissions.ContractApprovalDecide)]
     ];
 
     [Theory]
@@ -95,8 +72,8 @@ public sealed class EmployeePermissionCatalogTests
         Assert.Contains(RbacPermissions.TemplateManage, permissions);
         Assert.Contains(RbacPermissions.ContractSupport, permissions);
         Assert.Contains(RbacPermissions.ContractAuditReadTenant, permissions);
-        Assert.DoesNotContain(RbacPermissions.EmployeeManage, permissions);
-        Assert.DoesNotContain(RbacPermissions.ContractReadTenant, permissions);
+        Assert.Contains(RbacPermissions.EmployeeManage, permissions);
+        Assert.Contains(RbacPermissions.ContractReadTenant, permissions);
     }
 
     [Fact]
@@ -115,7 +92,7 @@ public sealed class EmployeePermissionCatalogTests
         Assert.Contains(RbacPermissions.ContractComplete, permissions);
         Assert.Contains(RbacPermissions.SecurityAuditReadTenant, permissions);
         Assert.Contains(RbacPermissions.TenantLegalProfileManage, permissions);
-        Assert.DoesNotContain(RbacPermissions.TemplateManage, permissions);
+        Assert.Contains(RbacPermissions.TemplateManage, permissions);
     }
 
     [Fact]
@@ -134,15 +111,17 @@ public sealed class EmployeePermissionCatalogTests
         Assert.DoesNotContain(RbacPermissions.ContractPaymentManage, owner);
         Assert.DoesNotContain(RbacPermissions.ContractComplete, owner);
 
-        Assert.Contains(RbacPermissions.ContractSigningManage, technical);
-        Assert.Contains(RbacPermissions.ContractAcceptanceManage, technical);
+        Assert.DoesNotContain(RbacPermissions.ContractSigningManage, technical);
+        Assert.DoesNotContain(RbacPermissions.ContractAcceptanceManage, technical);
+        Assert.Contains(RbacPermissions.ContractAcceptanceManageOwn, technical);
+        Assert.Contains(RbacPermissions.ContractPaymentManageOwn, technical);
         Assert.DoesNotContain(RbacPermissions.ContractPaymentManage, technical);
         Assert.DoesNotContain(RbacPermissions.ContractComplete, technical);
 
         Assert.Contains(RbacPermissions.ContractPaymentManage, accountant);
         Assert.DoesNotContain(RbacPermissions.ContractSigningManage, accountant);
-        Assert.DoesNotContain(RbacPermissions.ContractAcceptanceManage, accountant);
-        Assert.DoesNotContain(RbacPermissions.ContractComplete, accountant);
+        Assert.Contains(RbacPermissions.ContractAcceptanceManage, accountant);
+        Assert.Contains(RbacPermissions.ContractComplete, accountant);
 
         Assert.Contains(RbacPermissions.ContractSigningManage, manager);
         Assert.Contains(RbacPermissions.ContractAcceptanceManage, manager);
@@ -165,6 +144,33 @@ public sealed class EmployeePermissionCatalogTests
         Assert.Empty(permissions);
     }
 
+    private static IReadOnlyList<string> ExpectedAdministration(params string[] extras) =>
+        Expected(new[] {
+            RbacPermissions.EmployeeManage, RbacPermissions.DepartmentManage,
+            RbacPermissions.CatalogManage, RbacPermissions.CustomerManage,
+            RbacPermissions.ContractReadTenant, RbacPermissions.ContractExecutionRead,
+            RbacPermissions.ContractSigningManage, RbacPermissions.ContractAcceptanceManage,
+            RbacPermissions.ContractPaymentManage, RbacPermissions.ContractComplete,
+            RbacPermissions.ContractSupport, RbacPermissions.TemplateManage,
+            RbacPermissions.ContractAuditReadTenant, RbacPermissions.SecurityAuditReadTenant,
+            RbacPermissions.TenantLegalProfileManage
+        }.Concat(extras).ToArray());
+
+    [Fact]
+    public void OnlyAdminOfficerReviews_OnlyManagerFinallyApproves()
+    {
+        foreach (var role in Enum.GetValues<EmployeeType>())
+        {
+            var permissions = EmployeePermissionCatalog.GetPermissions(role);
+            Assert.Equal(role == EmployeeType.AdminOfficer,
+                permissions.Contains(RbacPermissions.ContractApprovalReview));
+            Assert.Equal(role == EmployeeType.Manager,
+                permissions.Contains(RbacPermissions.ContractApprovalDecide));
+        }
+        Assert.Equal(EmployeePermissionCatalog.GetPermissions(EmployeeType.Sale),
+            EmployeePermissionCatalog.GetPermissions(EmployeeType.Marketing));
+    }
+
     private static IReadOnlyList<string> Expected(params string[] additionalPermissions)
     {
         string[] permissions =
@@ -173,6 +179,8 @@ public sealed class EmployeePermissionCatalogTests
             RbacPermissions.ContractAuditReadOwn,
             RbacPermissions.ContractCreate,
             RbacPermissions.ContractManageOwn,
+            RbacPermissions.ContractAcceptanceManageOwn,
+            RbacPermissions.ContractPaymentManageOwn,
             RbacPermissions.ContractReadOwn,
             RbacPermissions.CustomerLookup,
             RbacPermissions.EmployeeDirectoryRead,

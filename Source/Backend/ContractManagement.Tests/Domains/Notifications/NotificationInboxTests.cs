@@ -77,7 +77,7 @@ public sealed class NotificationInboxTests
     }
 
     [Fact]
-    public async Task ApprovalNotification_GoesOnlyToAssignedActiveManager()
+    public async Task ApprovalNotification_IncludesAllActiveManagersForFollowUp()
     {
         await using var db = CreateDb();
         db.TblEmployees.AddRange(Employee(11), Employee(21, role: EmployeeType.Manager),
@@ -96,7 +96,7 @@ public sealed class NotificationInboxTests
         await db.SaveChangesAsync();
         var notification = Assert.Single(await db.TblNotifications.Include(x => x.Recipients).ToListAsync());
         Assert.Equal("contract:10:approval-request:42:submitted", notification.EventKey);
-        Assert.Equal(21, Assert.Single(notification.Recipients).EmployeeId);
+        Assert.Equal(new[] { 21, 22 }, notification.Recipients.Select(x => x.EmployeeId).Order());
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class NotificationInboxTests
 
         var withdrawn = await db.TblNotifications.Include(x => x.Recipients)
             .SingleAsync(x => x.EventCode == "ApprovalWithdrawn");
-        Assert.Equal(21, Assert.Single(withdrawn.Recipients).EmployeeId);
+        Assert.Equal(new[] { 21, 22 }, withdrawn.Recipients.Select(x => x.EmployeeId).Order());
     }
 
     [Fact]
@@ -141,6 +141,30 @@ public sealed class NotificationInboxTests
         Assert.False(await producer.StageCurrentOwnerAsync(10, 12,
             "contract:10:completed:1", "ContractCompleted", "Completed", "overview", DateTime.UtcNow));
         Assert.Empty(await db.TblNotifications.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData("SignedEvidenceUploaded", "signature")]
+    [InlineData("AcceptanceSigned", "closing")]
+    [InlineData("PaymentMilestoneCompleted", "closing")]
+    [InlineData("ContractCompleted", "overview")]
+    public async Task ContractEvents_NotifyOwnerAndActiveAdminManagers_ExcludeActor(
+        string eventCode, string actionKey)
+    {
+        await using var db = CreateDb();
+        db.TblEmployees.AddRange(Employee(11), Employee(21, role: EmployeeType.Manager),
+            Employee(22, role: EmployeeType.AdminOfficer),
+            Employee(23, role: EmployeeType.Accountant),
+            Employee(24, status: 0, role: EmployeeType.AdminOfficer));
+        db.TblContracts.Add(new TblContract {
+            ContractDirection = 1, ContractId = 10, EmployeeId = 11, ContractName = "Test" });
+        await db.SaveChangesAsync();
+        var producer = new ContractNotificationProducer(db, Publisher(db));
+        Assert.True(await producer.StageCurrentOwnerAsync(10, 22,
+            $"contract:10:{eventCode}:1", eventCode, "Updated", actionKey, DateTime.UtcNow));
+        await db.SaveChangesAsync();
+        var notification = Assert.Single(await db.TblNotifications.Include(x => x.Recipients).ToListAsync());
+        Assert.Equal(new[] { 11, 21 }, notification.Recipients.Select(x => x.EmployeeId).Order());
     }
 
     private static int Count(IActionResult action)

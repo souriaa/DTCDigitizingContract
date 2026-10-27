@@ -123,20 +123,29 @@ public sealed class ContractResourceAuthorizationService
         var permissions = await GetActiveEmployeePermissionsAsync(
             employeeId,
             cancellationToken);
-        if (!permissions.Contains(requiredPermission, StringComparer.Ordinal))
-        {
-            throw PermissionDenied();
-        }
-
-        var contractExists = await _dbContext.TblContracts
+        var contract = await _dbContext.TblContracts
             .AsNoTracking()
-            .AnyAsync(contract => contract.ContractId == contractId,
-                cancellationToken);
+            .Where(x => x.ContractId == contractId)
+            .Select(x => new { x.EmployeeId, x.Status }).SingleOrDefaultAsync(cancellationToken);
 
-        if (!contractExists)
+        if (contract is null)
         {
             throw ResourceNotFound();
         }
+        var ownsContract = contract.EmployeeId == employeeId;
+        var ownerPermission = requiredPermission switch {
+            RbacPermissions.ContractAcceptanceManage => RbacPermissions.ContractAcceptanceManageOwn,
+            RbacPermissions.ContractPaymentManage => RbacPermissions.ContractPaymentManageOwn,
+            _ => null
+        };
+        var canManageOwn = ownsContract && contract.Status == (byte)ContractStatus.Signed
+            && ownerPermission is not null && permissions.Contains(ownerPermission);
+        var canManageGlobally = permissions.Contains(requiredPermission);
+        // Execution roles keep their existing scope, but an ordinary owner cannot sign their own contract.
+        if (requiredPermission == RbacPermissions.ContractSigningManage && ownsContract
+            && !permissions.Contains(RbacPermissions.ContractReadTenant))
+            canManageGlobally = false;
+        if (!canManageGlobally && !canManageOwn) throw PermissionDenied();
     }
 
     private async Task<IReadOnlyList<string>> GetActiveEmployeePermissionsAsync(

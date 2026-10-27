@@ -31,7 +31,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         await SeedAsync(db, storage, direction: direction);
         var service = CreateService(db, storage, RealAcceptanceAudit(db));
         var draft = await service.CreateAsync(ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
         var signDate = new DateTime(2026, 9, 20);

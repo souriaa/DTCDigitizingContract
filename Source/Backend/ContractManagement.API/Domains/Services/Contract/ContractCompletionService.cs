@@ -125,7 +125,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     ContractAuditActionTypes.PaymentAdded, ContractAuditResults.Succeeded, payment.CreatedAt,
                     SubjectType: ContractAuditSubjectTypes.Payment, SubjectId: payment.ContractPaymentId,
                     NewValues: PaymentAudit(payment, paid + payment.Amount, version.TotalAmount - paid - payment.Amount))]);
-                if (_notifications is not null && fileId.HasValue)
+                if (_notifications is not null)
                     await _notifications.StageOwnerAsync(contractId, contract.EmployeeId, employeeId,
                         $"contract:{contractId}:payment:{payment.ContractPaymentId}:recorded",
                         "PaymentRecorded", "Hợp đồng đã ghi nhận khoản thanh toán",
@@ -154,9 +154,6 @@ public sealed class ContractCompletionService : IContractCompletionService
             CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.EvidenceFile is null || request.EvidenceFile.Length <= 0)
-            throw Rule("PaymentEvidenceRequired",
-                "Vui lòng chọn chứng từ thanh toán.");
         if (request.CurrentVersionId != versionId)
             throw Rule("CompletionStateChanged", "Version hiện hành đã thay đổi.",
                 StatusCodes.Status409Conflict);
@@ -170,7 +167,7 @@ public sealed class ContractCompletionService : IContractCompletionService
             "Mã tham chiếu").ToUpperInvariant();
         await _authorization.EnsureCanManagePaymentAsync(
             contractId, employeeId, cancellationToken);
-        var stored = await SaveFileAsync(request.EvidenceFile,
+        var stored = request.EvidenceFile is null ? null : await SaveFileAsync(request.EvidenceFile,
             PaymentObjectType, contractId, cancellationToken);
 
         try
@@ -228,10 +225,13 @@ public sealed class ContractCompletionService : IContractCompletionService
                 var now = DateTime.UtcNow;
                 var previousMilestoneValues = MilestoneAudit(milestone,
                     version.VersionId);
-                var metadata = CreateFile(stored, PaymentObjectType,
-                    contractId, employeeId);
-                _db.TblFileStorages.Add(metadata);
-                await _db.SaveChangesAsync(cancellationToken);
+                TblFileStorage? metadata = null;
+                if (stored is not null)
+                {
+                    metadata = CreateFile(stored, PaymentObjectType, contractId, employeeId);
+                    _db.TblFileStorages.Add(metadata);
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
 
                 var payment = new TblContractPaymentLedger
                 {
@@ -243,7 +243,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     CurrencyCode = version.CurrencyCode,
                     PaymentMethod = method,
                     ReferenceCode = reference,
-                    EvidenceFileId = metadata.FileId,
+                    EvidenceFileId = metadata?.FileId,
                     Status = (byte)ContractPaymentStatus.Active,
                     CreatedByEmployeeId = employeeId,
                     CreatedAt = now
@@ -308,8 +308,8 @@ public sealed class ContractCompletionService : IContractCompletionService
         catch
         {
             _db.ChangeTracker.Clear();
-            await _files.DeleteAsync(stored.TenantCode, stored.StorageKey,
-                cancellationToken);
+            if (stored is not null)
+                await _files.DeleteAsync(stored.TenantCode, stored.StorageKey, cancellationToken);
             throw;
         }
     }
@@ -369,11 +369,7 @@ public sealed class ContractCompletionService : IContractCompletionService
                     && x.Status == (byte)ContractPaymentStatus.Active,
                     cancellationToken)
                 ?? throw Rule("PaymentMilestoneEvidenceMissing",
-                    "Đợt đã nộp không có khoản thanh toán và chứng từ hiệu lực.",
-                    StatusCodes.Status409Conflict);
-            if (payment.EvidenceFileId is not > 0)
-                throw Rule("PaymentMilestoneEvidenceMissing",
-                    "Đợt đã nộp không có chứng từ hiệu lực.",
+                    "Đợt đã nộp không có khoản thanh toán hiệu lực.",
                     StatusCodes.Status409Conflict);
             Match(payment.RowVersion, Decode(request.PaymentRowVersion),
                 "Khoản thanh toán");
@@ -551,8 +547,8 @@ public sealed class ContractCompletionService : IContractCompletionService
         var activePaymentsByMilestone = payments
             .Where(payment => payment.Status == ContractPaymentStatus.Active
                 && payment.PaymentMilestoneId.HasValue
-                && payment.EvidenceFileId is > 0
-                && !string.IsNullOrWhiteSpace(payment.EvidenceFileName))
+                && (!payment.EvidenceFileId.HasValue
+                    || !string.IsNullOrWhiteSpace(payment.EvidenceFileName)))
             .GroupBy(payment => payment.PaymentMilestoneId!.Value)
             .ToDictionary(group => group.Key, group => group.ToList());
         var milestoneResponses = milestoneRows.Select(row =>
@@ -634,13 +630,16 @@ public sealed class ContractCompletionService : IContractCompletionService
             ct);
         var structuredPaymentRows = await (
             from payment in _db.TblContractPaymentLedgers.AsNoTracking()
-            join file in _db.TblFileStorages.AsNoTracking()
-                on payment.EvidenceFileId equals (int?)file.FileId
-            where payment.VersionId == version.VersionId
+            join fileCandidate in _db.TblFileStorages.AsNoTracking()
+                on payment.EvidenceFileId equals (int?)fileCandidate.FileId into files
+            from file in files.DefaultIfEmpty()
+            where payment.ContractId == contract.ContractId
+                && payment.VersionId == version.VersionId
                 && payment.PaymentMilestoneId.HasValue
                 && payment.Status == (byte)ContractPaymentStatus.Active
-                && file.ObjectType == PaymentObjectType
-                && file.ObjectId == contract.ContractId
+                && (!payment.EvidenceFileId.HasValue
+                    || (file != null && file.ObjectType == PaymentObjectType
+                        && file.ObjectId == contract.ContractId))
             select new
             {
                 PaymentMilestoneId = payment.PaymentMilestoneId!.Value,
@@ -675,8 +674,7 @@ public sealed class ContractCompletionService : IContractCompletionService
         var evaluation = ContractCompletionPolicy.Evaluate((ContractStatus)contract.Status,
             signed, acceptanceProgress.Completed,
             acceptanceProgress.HasSignedAcceptance,
-            version.TotalAmount, paidForEvaluation, acceptanceProgress.Scope.DeliveredCompleted,
-            acceptanceProgress.Scope.HandoverInProgress || acceptanceProgress.Scope.AcceptanceInProgress);
+            version.TotalAmount, paidForEvaluation);
         var visibleBlockers = evaluation.Blockers.Where(blocker =>
             contract.Status != (byte)ContractStatus.Completed
             || blocker.Code != ContractCompletionBlockerCode.ContractMustBeSigned);
@@ -699,13 +697,6 @@ public sealed class ContractCompletionService : IContractCompletionService
             PayeeBankAccount = roleParties.Provider.Value?.BankAccountNumber, PayeeBankName = roleParties.Provider.Value?.BankName,
             Signed = signed && contract.Status is (byte)ContractStatus.Signed or (byte)ContractStatus.Completed,
             PaymentCompleted = allStructuredMilestonesPaid && paid == version.TotalAmount,
-            ScopeIntegrityError = acceptanceProgress.Scope.IntegrityError,
-            HandoverCompleted = acceptanceProgress.Scope.DeliveredCompleted,
-            AcceptanceScopeCompleted = acceptanceProgress.Scope.AcceptedCompleted,
-            TotalScopeItemCount = acceptanceProgress.Scope.Items.Count,
-            DeliveredScopeItemCount = acceptanceProgress.Scope.DeliveredItemCount,
-            AcceptedScopeItemCount = acceptanceProgress.Scope.AcceptedItemCount,
-            ScopeItems = acceptanceProgress.Scope.Items,
             AcceptanceCompleted = acceptanceProgress.Completed,
             AcceptedMilestoneCount = acceptanceProgress.AcceptedMilestoneCount,
             TotalMilestoneCount = milestoneAmounts.Count,
@@ -716,17 +707,12 @@ public sealed class ContractCompletionService : IContractCompletionService
                 ContractCompletionBlockerCode.ContractMustBeSigned => "NOT_SIGNED",
                 ContractCompletionBlockerCode.AcceptanceNotStarted => "ACCEPTANCE_NOT_STARTED",
                 ContractCompletionBlockerCode.AcceptanceIncomplete => "ACCEPTANCE_INCOMPLETE",
-                ContractCompletionBlockerCode.HandoverIncomplete => "HANDOVER_INCOMPLETE",
-                ContractCompletionBlockerCode.ExecutionDocumentInProgress => "EXECUTION_DOCUMENT_IN_PROGRESS",
                 _ => "PAYMENT_NOT_FULLY_PAID" },
                 Message = x.Code switch {
                     ContractCompletionBlockerCode.ContractMustBeSigned => "Hợp đồng chưa có bản ký hợp lệ.",
                     ContractCompletionBlockerCode.AcceptanceNotStarted => "Chưa có biên bản nghiệm thu đã ký hợp lệ.",
                     ContractCompletionBlockerCode.AcceptanceIncomplete =>
-                        acceptanceProgress.Scope.IntegrityError ?? $"Chưa nghiệm thu đủ phạm vi ({acceptanceProgress.Scope.AcceptedItemCount}/{acceptanceProgress.Scope.Items.Count} hạng mục) hoặc còn {acceptanceProgress.RemainingMilestoneIds.Count} đợt chưa nghiệm thu.",
-                    ContractCompletionBlockerCode.HandoverIncomplete => acceptanceProgress.Scope.IntegrityError ??
-                        (acceptanceProgress.Scope.BaselineConfirmed ? "Chưa bàn giao đủ phạm vi bằng biên bản có bản ký hợp lệ." : "Chưa xác nhận baseline phạm vi bàn giao từ hợp đồng đã ký."),
-                    ContractCompletionBlockerCode.ExecutionDocumentInProgress => "Còn biên bản bàn giao hoặc nghiệm thu nháp/chờ ký. Hoàn tất hoặc hủy trước khi đóng hợp đồng.",
+                        $"Còn {acceptanceProgress.RemainingMilestoneIds.Count} đợt thanh toán chưa được nghiệm thu bằng biên bản đã ký hợp lệ.",
                     _ => "Hợp đồng chưa được thanh toán đủ." } }).ToList() };
     }
 

@@ -40,7 +40,7 @@ interface ContractTemplateTermsEditorProps {
   version: ContractTemplateVersionDetailResponse;
   isBilingual: boolean;
   onRefresh: () => Promise<void>;
-  mode?: "contract" | "acceptance" | "handover";
+  mode?: "contract" | "acceptance";
   openTermIds: ReadonlySet<number>;
   onTermOpenChange: (termId: number, open: boolean) => void;
 }
@@ -83,7 +83,7 @@ export function ContractTemplateTermsEditor({
 }: ContractTemplateTermsEditorProps) {
   const isDraft = version.status === TemplateVersionStatus.Draft;
   const isAcceptance = mode !== "contract";
-  const sectionName = mode === "handover" ? "bàn giao" : "nghiệm thu";
+  const sectionName = "nghiệm thu";
   const [terms, setTerms] = useState<ContractTemplateTermResponse[]>(() =>
     [...version.terms].sort((a, b) => a.displayOrder - b.displayOrder),
   );

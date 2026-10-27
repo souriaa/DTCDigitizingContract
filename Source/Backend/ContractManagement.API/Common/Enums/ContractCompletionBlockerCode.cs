@@ -26,8 +26,6 @@
         /// <summary>
         /// Đã nghiệm thu một phần nhưng còn đợt chưa được nghiệm thu.
         /// </summary>
-        AcceptanceIncomplete = 4,
-        HandoverIncomplete = 5,
-        ExecutionDocumentInProgress = 6
+        AcceptanceIncomplete = 4
     }
 }

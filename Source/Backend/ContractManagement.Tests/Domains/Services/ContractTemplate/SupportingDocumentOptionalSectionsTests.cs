@@ -14,12 +14,8 @@ public sealed partial class ContractTemplatePreviewTests
     [Theory]
     [InlineData(TemplateDocumentType.AcceptanceRecord, false, ContractLanguageMode.Vietnamese)]
     [InlineData(TemplateDocumentType.AcceptanceRecord, true, ContractLanguageMode.Vietnamese)]
-    [InlineData(TemplateDocumentType.HandoverRecord, false, ContractLanguageMode.Vietnamese)]
-    [InlineData(TemplateDocumentType.HandoverRecord, true, ContractLanguageMode.Vietnamese)]
     [InlineData(TemplateDocumentType.AcceptanceRecord, false, ContractLanguageMode.Bilingual)]
     [InlineData(TemplateDocumentType.AcceptanceRecord, true, ContractLanguageMode.Bilingual)]
-    [InlineData(TemplateDocumentType.HandoverRecord, false, ContractLanguageMode.Bilingual)]
-    [InlineData(TemplateDocumentType.HandoverRecord, true, ContractLanguageMode.Bilingual)]
     public async Task SupportingDocument_RequiresSectionsOnlyWhenDocxContainsMarker(
         TemplateDocumentType type, bool includeSectionsMarker, ContractLanguageMode language)
     {
@@ -31,7 +27,7 @@ public sealed partial class ContractTemplatePreviewTests
         template.LanguageMode = (byte)language;
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
-        var prefix = type == TemplateDocumentType.HandoverRecord ? "HANDOVER" : "ACCEPTANCE";
+        var prefix = "ACCEPTANCE";
         using var stream = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(stream, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
         {
@@ -54,7 +50,7 @@ public sealed partial class ContractTemplatePreviewTests
         {
             var error = await Assert.ThrowsAsync<ContractTemplatePreviewException>(() =>
                 service.PublishAsync(VersionId, PublishRequest(preview.RowVersion), AdminOfficerId));
-            Assert.Equal(type == TemplateDocumentType.HandoverRecord ? "HandoverSectionsMissing" : "AcceptanceSectionsMissing", error.FailureCode);
+            Assert.Equal("AcceptanceSectionsMissing", error.FailureCode);
         }
         else
         {

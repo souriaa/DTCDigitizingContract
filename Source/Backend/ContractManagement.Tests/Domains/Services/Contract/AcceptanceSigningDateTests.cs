@@ -20,7 +20,6 @@ public sealed partial class ContractAcceptanceServicePhase7Tests
         await SeedAsync(db, storage);
         var service = CreateService(db, storage);
         var draft = await service.CreateAsync(ContractId, CreateRequest(), EmployeeId);
-        draft = await SelectFixtureHandoverScopeAsync(db, storage, service, draft);
         var finalized = await service.FinalizeAsync(ContractId, draft.AcceptanceRecordId,
             new() { RowVersion = draft.RowVersion }, EmployeeId);
         DateTime? signDate = scenario switch

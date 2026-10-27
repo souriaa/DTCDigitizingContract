@@ -36,8 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { productApi, ProductStatus } from "@/services/catalog/products-api";
-import { serviceApi, ServiceStatus } from "@/services/catalog/services-api";
+import { catalogPickerApi } from "@/services/catalog/picker-api";
 
 import {
   customerApi,
@@ -160,24 +159,27 @@ export function ContractOverview({
   const [catalogTab, setCatalogTab] = useState<"all" | "service" | "product">(
     "all",
   );
-  const visibleCatalogItems = catalogItems.filter(
-    (item) =>
-      catalogTab === "all" ||
-      item.itemType ===
-        (catalogTab === "product"
-          ? ContractItemType.Product
-          : ContractItemType.Service),
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogPageSize, setCatalogPageSize] = useState(5);
+  const [catalogTotalCount, setCatalogTotalCount] = useState(0);
+  const catalogTotalPages = Math.max(
+    1,
+    Math.ceil(catalogTotalCount / catalogPageSize),
   );
 
   const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
   const [debouncedCatalogQuery, setDebouncedCatalogQuery] = useState("");
+  const isCatalogPending =
+    isLoadingCatalog || catalogSearchQuery.trim() !== debouncedCatalogQuery;
 
   useEffect(() => {
+    if (catalogSearchQuery.trim() === debouncedCatalogQuery) return;
     const handler = setTimeout(() => {
-      setDebouncedCatalogQuery(catalogSearchQuery);
+      setDebouncedCatalogQuery(catalogSearchQuery.trim());
+      setCatalogPage(1);
     }, 500);
     return () => clearTimeout(handler);
-  }, [catalogSearchQuery]);
+  }, [catalogSearchQuery, debouncedCatalogQuery]);
 
   const [itemsSearchQuery, setItemsSearchQuery] = useState("");
   const [itemsTab, setItemsTab] = useState<"all" | "product" | "service">(
@@ -210,75 +212,79 @@ export function ContractOverview({
   );
 
   useEffect(() => {
-    let cancelled = false;
-    if (isCatalogOpen) {
+    if (isCatalogOpen && isEditable) {
+      const controller = new AbortController();
       const fetchCatalog = async () => {
         setIsLoadingCatalog(true);
+        setCatalogItems([]);
         try {
-          const [productRes, serviceRes] = await Promise.all([
-            productApi.getList({
-              page: 1,
-              pageSize: 100,
+          const result = await catalogPickerApi.search(
+            {
+              page: catalogPage,
+              pageSize: catalogPageSize,
               keyword: debouncedCatalogQuery,
-              status: ProductStatus.Active,
-            }),
-            serviceApi.getList({
-              page: 1,
-              pageSize: 100,
-              keyword: debouncedCatalogQuery,
-              status: ServiceStatus.Active,
-            }),
-          ]);
+              itemType:
+                catalogTab === "all"
+                  ? undefined
+                  : catalogTab === "product"
+                    ? ContractItemType.Product
+                    : ContractItemType.Service,
+            },
+            controller.signal,
+          );
 
-          if (cancelled) return;
-          const mappedProducts = productRes.items
-            .filter((p) => p.status === ProductStatus.Active)
-            .map((p) => ({
-              id: `p-${p.productId}`,
-              originalId: p.productId,
-              itemName: p.productName || "Sản phẩm không tên",
-              itemNameEn: p.productNameEn ?? "",
-              unitName: p.unitName,
-              unitNameEn: p.unitNameEn,
-              itemType: ContractItemType.Product,
-              unitPrice: p.productPrice || 0,
-            }));
-
-          const mappedServices = serviceRes.items
-            .filter((s) => s.status === ServiceStatus.Active)
-            .map((s) => ({
-              id: `s-${s.serviceId}`,
-              originalId: s.serviceId,
-              itemName: s.serviceName || "Dịch vụ không tên",
-              itemNameEn: s.serviceNameEn ?? "",
-              unitName: s.unitName,
-              unitNameEn: s.unitNameEn,
-              itemType: ContractItemType.Service,
-              unitPrice: s.servicePrice || 0,
-            }));
-
-          setCatalogItems([...mappedProducts, ...mappedServices]);
+          if (controller.signal.aborted) return;
+          setCatalogTotalCount(result.totalCount);
+          const lastPage = Math.max(1, result.totalPages);
+          if (catalogPage > lastPage) {
+            setCatalogPage(lastPage);
+            return;
+          }
+          setCatalogItems(
+            result.items.map((item) => ({
+              id: `${item.itemType === ContractItemType.Product ? "p" : "s"}-${item.sourceId}`,
+              originalId: item.sourceId,
+              itemName: item.name || "Sản phẩm/dịch vụ không tên",
+              itemNameEn: item.nameEn ?? "",
+              unitName: item.unitName,
+              unitNameEn: item.unitNameEn,
+              itemType: item.itemType,
+              unitPrice: item.price ?? 0,
+            })),
+          );
         } catch (error) {
-          if (!cancelled) {
+          if (!controller.signal.aborted) {
             setCatalogItems([]);
+            setCatalogTotalCount(0);
             toast.error("Không thể tải danh sách sản phẩm và dịch vụ.");
             console.error(error);
           }
         } finally {
-          if (!cancelled) setIsLoadingCatalog(false);
+          if (!controller.signal.aborted) setIsLoadingCatalog(false);
         }
       };
-      fetchCatalog();
+      void fetchCatalog();
+      return () => controller.abort();
     }
-    return () => {
-      cancelled = true;
-    };
-  }, [isCatalogOpen, debouncedCatalogQuery]);
+  }, [
+    isCatalogOpen,
+    isEditable,
+    debouncedCatalogQuery,
+    catalogTab,
+    catalogPage,
+    catalogPageSize,
+  ]);
 
   const handleAddCatalogItem = (catalogItem: CatalogItem) => {
     if (!contract || !contract.currentVersion) return;
-    if (!catalogItem.unitName?.trim() || (contract.languageMode === ContractLanguageMode.Bilingual && !catalogItem.unitNameEn?.trim())) {
-      toast.error(`“${catalogItem.itemName}” thiếu đơn vị trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi thêm vào hợp đồng.`);
+    if (
+      !catalogItem.unitName?.trim() ||
+      (contract.languageMode === ContractLanguageMode.Bilingual &&
+        !catalogItem.unitNameEn?.trim())
+    ) {
+      toast.error(
+        `“${catalogItem.itemName}” thiếu đơn vị trong danh mục. Hãy cập nhật sản phẩm/dịch vụ trước khi thêm vào hợp đồng.`,
+      );
       return;
     }
 
@@ -443,7 +449,7 @@ export function ContractOverview({
 
           <div className="grid gap-4 sm:grid-cols-2">
             {isEditable ? (
-              <div className="rounded-xl border bg-muted/30 p-4">
+              <div className="rounded-xl border bg-muted/20 p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 font-semibold">
                   <Users className="size-4" />{" "}
                   {getContractCounterpartyLabel(contract.contractDirection)}
@@ -501,7 +507,7 @@ export function ContractOverview({
             )}
 
             {/* SỬA NGÀY THÁNG */}
-            <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="rounded-xl border bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <CalendarDays className="size-4" /> Hiệu lực
               </div>
@@ -537,7 +543,8 @@ export function ContractOverview({
           <Tabs
             value={itemsTab}
             onValueChange={(value) => {
-              if (value !== "all" && value !== "product" && value !== "service") return;
+              if (value !== "all" && value !== "product" && value !== "service")
+                return;
               setItemsTab(value);
               setItemsCurrentPage(1);
               setItemsSearchQuery("");
@@ -546,14 +553,20 @@ export function ContractOverview({
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold">Sản phẩm / Dịch vụ</h4>
               {isEditable && (
-                <Dialog open={isCatalogOpen} onOpenChange={setIsCatalogOpen}>
+                <Dialog
+                  open={isCatalogOpen}
+                  onOpenChange={(open) => {
+                    setIsCatalogOpen(open);
+                    if (open) setCatalogPage(1);
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
                       <Plus className="size-4 mr-2" />
                       Thêm SP/DV
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                  <DialogContent className="max-w-8xl max-h-[80vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>Thêm Sản phẩm / Dịch vụ</DialogTitle>
                     </DialogHeader>
@@ -565,8 +578,10 @@ export function ContractOverview({
                           value === "all" ||
                           value === "service" ||
                           value === "product"
-                        )
+                        ) {
                           setCatalogTab(value);
+                          setCatalogPage(1);
+                        }
                       }}
                       className="flex min-h-0 flex-1 flex-col"
                     >
@@ -597,12 +612,12 @@ export function ContractOverview({
                         value={catalogTab}
                         className="min-h-0 flex-1 overflow-y-auto pr-2 space-y-2 mt-4"
                       >
-                        {isLoadingCatalog ? (
+                        {isCatalogPending ? (
                           <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-2">
                             <Loader2 className="size-5 animate-spin text-primary" />
                             Đang tải danh sách...
                           </div>
-                        ) : visibleCatalogItems.length === 0 ? (
+                        ) : catalogItems.length === 0 ? (
                           <p className="py-8 text-center text-sm text-muted-foreground">
                             Không tìm thấy{" "}
                             {catalogTab === "product"
@@ -613,7 +628,7 @@ export function ContractOverview({
                             phù hợp.
                           </p>
                         ) : (
-                          visibleCatalogItems.map((item) => (
+                          catalogItems.map((item) => (
                             <button
                               type="button"
                               key={item.id}
@@ -643,6 +658,68 @@ export function ContractOverview({
                           ))
                         )}
                       </TabsContent>
+                      <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t pt-3">
+                        <p
+                          className="text-xs text-muted-foreground"
+                          aria-live="polite"
+                        >
+                          {catalogTotalCount} mục · Trang {catalogPage}/
+                          {catalogTotalPages}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={String(catalogPageSize)}
+                            disabled={isCatalogPending}
+                            onValueChange={(value) => {
+                              setCatalogPageSize(Number(value));
+                              setCatalogPage(1);
+                            }}
+                          >
+                            <SelectTrigger
+                              aria-label="Số sản phẩm/dịch vụ mỗi trang"
+                              className="h-8 w-[110px] text-xs"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent showSearch={false}>
+                              {[5, 10, 20].map((size) => (
+                                <SelectItem key={size} value={String(size)}>
+                                  {size} / trang
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isCatalogPending || catalogPage <= 1}
+                            onClick={() =>
+                              setCatalogPage((page) => Math.max(1, page - 1))
+                            }
+                          >
+                            <ChevronLeft className="size-4" />
+                            Trước
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              isCatalogPending ||
+                              catalogPage >= catalogTotalPages
+                            }
+                            onClick={() =>
+                              setCatalogPage((page) =>
+                                Math.min(catalogTotalPages, page + 1),
+                              )
+                            }
+                          >
+                            Sau
+                            <ChevronRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </Tabs>
                   </DialogContent>
                 </Dialog>
@@ -712,7 +789,7 @@ export function ContractOverview({
                       key={item.contractItemId}
                       className="overflow-hidden rounded-xl border bg-background"
                     >
-                      <div className="flex items-start justify-between gap-3 border-b bg-muted/30 p-4">
+                      <div className="flex items-start justify-between gap-3 border-b bg-muted/20 p-4">
                         <div className="min-w-0">
                           <p className="font-semibold">{item.itemName}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -741,9 +818,19 @@ export function ContractOverview({
                         <>
                           <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
                             <div className="space-y-1.5">
-                              <span className="text-xs font-medium text-muted-foreground">Đơn vị đã lấy từ danh mục</span>
-                              <p className="text-sm">{item.unitName || "Chưa có đơn vị"}</p>
-                              {contract.languageMode === ContractLanguageMode.Bilingual && <p className="text-xs text-muted-foreground">{item.unitNameEn || "Chưa có đơn vị tiếng Anh"}</p>}
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Đơn vị đã lấy từ danh mục
+                              </span>
+                              <p className="text-sm">
+                                {item.unitName || "Chưa có đơn vị"}
+                              </p>
+                              {contract.languageMode ===
+                                ContractLanguageMode.Bilingual && (
+                                <p className="text-xs text-muted-foreground">
+                                  {item.unitNameEn ||
+                                    "Chưa có đơn vị tiếng Anh"}
+                                </p>
+                              )}
                             </div>
                             {contract.languageMode ===
                               ContractLanguageMode.Bilingual && (
@@ -1094,14 +1181,16 @@ export function ContractOverview({
             </Badge>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              {hasUnsavedFinancialChanges
-                ? `Đang hiển thị số liệu dự kiến theo các thay đổi trên màn hình. Tổng đã lưu: ${formatCurrency(
-                    persistedFinancialTotals.totalPayment,
-                    contract.currencyCode,
-                  )}.`
-                : "Số liệu đã được backend tính và lưu cho phiên bản hợp đồng hiện hành."}
-            </p>
+            {hasUnsavedFinancialChanges && (
+              <p className="rounded-lg bg-muted/20 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                Đang hiển thị số liệu dự kiến theo các thay đổi trên màn hình.
+                Tổng đã lưu:{" "}
+                {formatCurrency(
+                  persistedFinancialTotals.totalPayment,
+                  contract.currencyCode,
+                )}
+              </p>
+            )}
             {isEditable && (
               <div className="space-y-1.5 pb-2">
                 <span className="text-xs font-medium text-muted-foreground">

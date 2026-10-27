@@ -1,5 +1,6 @@
 ﻿using ContractManagement.API.Common.Enums;
 using ContractManagement.API.Common.Exceptions;
+using ContractManagement.API.Common.Security;
 using ContractManagement.API.Common.Responses;
 using ContractManagement.API.Domains.DTOs.Requests.Contract;
 using ContractManagement.API.Domains.DTOs.Responses.Contract;
@@ -1033,7 +1034,7 @@ namespace ContractManagement.Domains.Services.Contract
                         await _notifications.StageOwnerAsync(contract.ContractId,
                             responsibleEmployeeId, createdEmployeeId,
                             $"contract:{contract.ContractId}:created", "DraftAssigned",
-                            "Bạn được giao phụ trách hợp đồng mới", "overview", now);
+                            "Hợp đồng mới đã được tạo và phân công", "overview", now);
                     await _dbContext.SaveChangesAsync();
 
                     // Chỉ commit khi toàn bộ Contract, Version, Item và Term thành công.
@@ -1205,10 +1206,8 @@ namespace ContractManagement.Domains.Services.Contract
 
                         var canTransfer =
                             contract.EmployeeId == actorEmployeeId
-                            || actor.EmployeeType ==
-                                (byte)EmployeeType.Manager
-                            || actor.EmployeeType ==
-                                (byte)EmployeeType.AdminOfficer;
+                            || EmployeePermissionCatalog.HasPermission(
+                                actor.EmployeeType, RbacPermissions.ContractSupport);
 
                         if (!canTransfer)
                         {
@@ -2511,6 +2510,12 @@ namespace ContractManagement.Domains.Services.Contract
                             ("CurrentVersionId", contract.CurrentVersionId)))
                 ]);
 
+                if (_notifications is not null)
+                    await _notifications.StageOwnerAsync(contract.ContractId,
+                        contract.EmployeeId, employeeId,
+                        $"contract:{contract.ContractId}:negotiation-started:{Convert.ToHexString(expectedRowVersion)}",
+                        "NegotiationStarted", "Hợp đồng đã chuyển sang đàm phán",
+                        "negotiation", now);
                 await _dbContext.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException exception)
@@ -3082,6 +3087,12 @@ namespace ContractManagement.Domains.Services.Contract
                                 ("TotalAmount", newVersion.TotalAmount)))
                         ]);
 
+                        if (_notifications is not null)
+                            await _notifications.StageOwnerAsync(contract.ContractId,
+                                contract.EmployeeId, employeeId,
+                                $"contract:{contract.ContractId}:negotiation-round:{newVersion.VersionId}",
+                                "NegotiationRoundCreated", "Hợp đồng đã tạo vòng đàm phán mới",
+                                "negotiation", now);
                         await _dbContext.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -4663,13 +4674,20 @@ namespace ContractManagement.Domains.Services.Contract
                         var currentStatus =
                             (ContractStatus)contract.Status;
 
-                        /*
-                         * Policy chỉ cho:
-                         * Negotiating → PendingApproval.
-                         */
+                        var submitterType = await _dbContext.TblEmployees
+                            .Where(x => x.EmployeeId == employeeId && x.Status == 1)
+                            .Select(x => x.EmployeeType).SingleAsync();
+                        var requiresAdministrativeReview = submitterType is not
+                            ((byte)EmployeeType.AdminOfficer or (byte)EmployeeType.Manager);
+                        var submittedContractStatus = requiresAdministrativeReview
+                            ? ContractStatus.PendingAdministrativeReview
+                            : ContractStatus.PendingApproval;
+                        var submittedApprovalStatus = requiresAdministrativeReview
+                            ? ApprovalRequestStatus.PendingAdministrativeReview
+                            : ApprovalRequestStatus.Pending;
                         ContractLifecyclePolicy.EnsureCanTransition(
                             currentStatus,
-                            ContractStatus.PendingApproval);
+                            submittedContractStatus);
 
                         if (!contract.CurrentVersionId.HasValue
                             || contract.CurrentVersionId.Value !=
@@ -4723,8 +4741,8 @@ namespace ContractManagement.Domains.Services.Contract
                             .TblContractApprovalRequests
                             .AnyAsync(x =>
                                 x.ContractId == contract.ContractId
-                                && x.Status ==
-                                (byte)ApprovalRequestStatus.Pending);
+                                && (x.Status == (byte)ApprovalRequestStatus.Pending
+                                    || x.Status == (byte)ApprovalRequestStatus.PendingAdministrativeReview));
 
                         if (hasPendingRequest)
                         {
@@ -4897,7 +4915,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 now);
 
                         contract.Status =
-                            (byte)ContractStatus.PendingApproval;
+                            (byte)submittedContractStatus;
 
                         contract.UpdatedEmployeeId = employeeId;
                         contract.UpdateDate = now;
@@ -4910,7 +4928,7 @@ namespace ContractManagement.Domains.Services.Contract
                                 WorkflowId = request.WorkflowId,
 
                                 Status =
-                                    (byte)ApprovalRequestStatus.Pending,
+                                    (byte)submittedApprovalStatus,
 
                                 SubmittedByEmployeeId = employeeId,
                                 SubmittedDate = now
@@ -4980,10 +4998,10 @@ namespace ContractManagement.Domains.Services.Contract
                             VersionId = version.VersionId,
 
                             ContractStatus =
-                                ContractStatus.PendingApproval,
+                                submittedContractStatus,
 
                             ApprovalStatus =
-                                ApprovalRequestStatus.Pending,
+                                submittedApprovalStatus,
 
                             SubmittedDate = now,
                             SnapshotHash = snapshotHash,
@@ -6394,7 +6412,7 @@ namespace ContractManagement.Domains.Services.Contract
             {
                 if (string.IsNullOrWhiteSpace(item.UnitName))
                     AddBlocker(blockers, ContractApprovalReadinessCodes.ContractItemUnitRequired,
-                        $"Hạng mục “{item.ItemName}” thiếu đơn vị. Cần nhập trước khi gửi duyệt để có thể bàn giao theo số lượng đã ký.");
+                        $"Hạng mục “{item.ItemName}” thiếu đơn vị. Cần nhập trước khi gửi duyệt.");
                 if (contract.LanguageMode == (byte)ContractLanguageMode.Bilingual && string.IsNullOrWhiteSpace(item.UnitNameEn))
                     AddBlocker(blockers, ContractApprovalReadinessCodes.BilingualItemUnitRequired,
                         $"Hạng mục “{item.ItemName}” thiếu đơn vị tiếng Anh cho hợp đồng song ngữ.");

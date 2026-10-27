@@ -27,6 +27,7 @@ import {
   SummaryCards,
 } from "@/components/ui/custom/summary-cards";
 import { formatCurrency } from "@/lib/format-currency";
+import { formatDate } from "@/lib/format-date";
 import { useAuthStore } from "@/hooks/use-auth-store";
 import { hasPermission, RBAC_PERMISSIONS } from "@/lib/rbac";
 import {
@@ -50,15 +51,6 @@ function ContractStatusBadge({ status }: { status: ContractStatus }) {
   );
 }
 
-function formatShortDate(value?: string | null) {
-  if (!value) return "Chưa cập nhật";
-  return new Date(value).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 const STATUS_FILTER_OPTIONS = [
   { value: "All", label: "Tất cả trạng thái" },
   {
@@ -68,6 +60,10 @@ const STATUS_FILTER_OPTIONS = [
   {
     value: String(ContractStatus.Negotiating),
     label: getContractStatusLabel(ContractStatus.Negotiating),
+  },
+  {
+    value: String(ContractStatus.PendingAdministrativeReview),
+    label: getContractStatusLabel(ContractStatus.PendingAdministrativeReview),
   },
   {
     value: String(ContractStatus.PendingApproval),
@@ -234,7 +230,7 @@ export default function ContractListPage() {
             </span>
             <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               <CalendarDays className="h-3 w-3" />
-              {formatShortDate(row.original.createdDate)}
+              {formatDate(row.original.createdDate)}
             </span>
           </div>
         ),

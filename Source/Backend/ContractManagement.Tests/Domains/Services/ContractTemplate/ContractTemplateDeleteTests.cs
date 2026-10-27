@@ -71,9 +71,8 @@ public sealed partial class ContractTemplatePreviewTests
     }
 
     [Theory]
-    [InlineData(ManagerId)]
     [InlineData(InactiveAdminOfficerId)]
-    public async Task Delete_RequiresActiveAdminOfficer(int actor)
+    public async Task Delete_RequiresActiveTemplatePermission(int actor)
     {
         await using var db = CreateContext(); var storage = new TestFileStorage(db);
         await SeedValidDraftAsync(db, storage, CreateSourceDocument()); var service = CreateService(db, storage);
@@ -117,7 +116,6 @@ public sealed partial class ContractTemplatePreviewTests
     [InlineData("contract")]
     [InlineData("version")]
     [InlineData("acceptance")]
-    [InlineData("handover")]
     public async Task Delete_RejectsReferencedDraftEvenWithoutPhysicalForeignKeys(string source)
     {
         await using var db = CreateContext(); var storage = new TestFileStorage(db);
@@ -127,8 +125,6 @@ public sealed partial class ContractTemplatePreviewTests
         if (source == "version") db.TblContractVersions.Add(new() { TemplateVersionId = VersionId, RowVersion = [1] });
         if (source == "acceptance") db.TblContractAcceptanceRecords.Add(new() { TemplateVersionId = VersionId,
             AcceptanceCode = "NT-1", Location = "Hanoi", RowVersion = [1] });
-        if (source == "handover") db.TblContractHandoverRecords.Add(new() { TemplateVersionId = VersionId,
-            HandoverCode = "BG-1", Location = "Hanoi", RowVersion = [1] });
         await db.SaveChangesAsync(); db.ChangeTracker.Clear(); var service = CreateService(db, storage);
         var request = DeleteRequest(await service.GetAsync(TemplateId, AdminOfficerId));
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => service.DeleteAsync(TemplateId, request, AdminOfficerId));

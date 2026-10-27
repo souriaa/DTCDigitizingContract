@@ -35,6 +35,10 @@ public class ContractApprovalRequestResponse
     public int SubmittedByEmployeeId { get; set; }
     public string? SubmittedByEmployeeName { get; set; }
     public DateTime SubmittedDate { get; set; }
+    public int? AdministrativeReviewerEmployeeId { get; set; }
+    public string? AdministrativeReviewerEmployeeName { get; set; }
+    public DateTime? AdministrativeReviewedAt { get; set; }
+    public string? AdministrativeReviewComment { get; set; }
     public int? ResolvedByEmployeeId { get; set; }
     public string? ResolvedByEmployeeName { get; set; }
     public DateTime? ResolvedDate { get; set; }
@@ -58,8 +62,8 @@ public sealed class ContractApprovalActionResponse
     public int VersionId { get; set; }
     public ApprovalRequestStatus ApprovalStatus { get; set; }
     public ContractStatus ContractStatus { get; set; }
-    public int ResolvedByEmployeeId { get; set; }
-    public DateTime ResolvedDate { get; set; }
+    public int? ResolvedByEmployeeId { get; set; }
+    public DateTime? ResolvedDate { get; set; }
     public string? DecisionComment { get; set; }
     public string ApprovalRequestRowVersion { get; set; } = string.Empty;
     public string ContractRowVersion { get; set; } = string.Empty;

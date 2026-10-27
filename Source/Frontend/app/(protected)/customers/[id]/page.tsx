@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 import {
   customerApi,
@@ -58,13 +58,7 @@ import {
   CustomerInteractionType,
   getCustomerInteractionTypeLabel,
 } from "@/services/customer-interactions-api";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { DateFilter } from "@/components/ui/custom/date-filter";
 
 function InteractionFormModal({
   isOpen,
@@ -189,41 +183,18 @@ function InteractionFormModal({
             />
           </div>
           <div className="grid gap-2">
-            <Label>Lịch hẹn tiếp theo</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !nextFollowUpDate && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {nextFollowUpDate ? (
-                    format(new Date(nextFollowUpDate), "dd/MM/yyyy")
-                  ) : (
-                    <span>Chọn ngày...</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={
-                    nextFollowUpDate ? new Date(nextFollowUpDate) : undefined
-                  }
-                  onSelect={(date) => {
-                    if (date) {
-                      setNextFollowUpDate(format(date, "yyyy-MM-dd"));
-                    } else {
-                      setNextFollowUpDate("");
-                    }
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="interaction-next-follow-up-date">
+              Lịch hẹn tiếp theo
+            </Label>
+            <DateFilter
+              id="interaction-next-follow-up-date"
+              date={nextFollowUpDate ? parseISO(nextFollowUpDate) : undefined}
+              onChange={(date) =>
+                setNextFollowUpDate(date ? format(date, "yyyy-MM-dd") : "")
+              }
+              placeholder="Chọn ngày..."
+              className="w-full"
+            />
           </div>
         </div>
         <DialogFooter>
